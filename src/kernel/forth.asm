@@ -68,34 +68,6 @@ F_HIDDEN            equ 0x40        ; Hidden from FIND
 F_LENMASK           equ 0x3F        ; Length mask
 
 ; ============================================================================
-; Kernel Entry Point
-; ============================================================================
-
-kernel_start:
-    ; Initialize stacks
-    mov esp, DATA_STACK_TOP
-    mov ebp, RETURN_STACK_TOP
-    
-    ; Initialize variables
-    mov dword [VAR_STATE], 0
-    mov dword [VAR_HERE], DICT_START
-    mov dword [VAR_LATEST], name_BYE    ; Last built-in word
-    mov dword [VAR_BASE], 10
-    mov dword [VAR_TIB], TIB_START
-    mov dword [VAR_TOIN], 0
-    
-    ; Clear screen
-    call init_screen
-    
-    ; Print welcome message
-    mov esi, msg_welcome
-    call print_string
-    
-    ; Enter main interpreter loop
-    mov esi, cold_start
-    jmp NEXT
-
-; ============================================================================
 ; Threaded Code Interpreter Macros
 ; ============================================================================
 
@@ -119,6 +91,40 @@ kernel_start:
 %endmacro
 
 ; ============================================================================
+; Kernel Entry Point
+; ============================================================================
+
+; Serial port constants (COM1)
+COM1_PORT       equ 0x3F8
+
+kernel_start:
+    ; Initialize stacks
+    mov esp, DATA_STACK_TOP
+    mov ebp, RETURN_STACK_TOP
+
+    ; Initialize serial port (COM1) for debugging
+    call init_serial
+
+    ; Initialize variables
+    mov dword [VAR_STATE], 0
+    mov dword [VAR_HERE], DICT_START
+    mov dword [VAR_LATEST], name_BYE    ; Last built-in word
+    mov dword [VAR_BASE], 10
+    mov dword [VAR_TIB], TIB_START
+    mov dword [VAR_TOIN], 0
+
+    ; Clear screen
+    call init_screen
+
+    ; Print welcome message
+    mov esi, msg_welcome
+    call print_string
+
+    ; Enter main interpreter loop
+    mov esi, cold_start
+    NEXT
+
+; ============================================================================
 ; Dictionary Header Macro
 ; ============================================================================
 
@@ -131,11 +137,7 @@ kernel_start:
 ; +m+4: Parameter field (varies)
 
 %macro DEFWORD 3
-    ; %1 = name string
-    ; %2 = label
-    ; %3 = flags (0 for normal, F_IMMEDIATE for immediate)
-    
-    section .data
+    ; %1 = name string, %2 = label, %3 = flags
     align 4
 name_%2:
     dd link                 ; Link to previous word
@@ -144,18 +146,14 @@ name_%2:
 %%start_name:
     db %1                   ; Name
 %%end_name:
-    align 4                 ; Align to 4 bytes
+    align 4
 %2:
     dd DOCOL               ; Code field: this is a colon definition
     ; Parameter field follows (list of word addresses)
 %endmacro
 
 %macro DEFCODE 3
-    ; %1 = name string
-    ; %2 = label
-    ; %3 = flags
-    
-    section .data
+    ; %1 = name string, %2 = label, %3 = flags
     align 4
 name_%2:
     dd link
@@ -167,17 +165,13 @@ name_%2:
     align 4
 %2:
     dd code_%2              ; Code field points to native code
-    section .text
 code_%2:
     ; Native code follows
 %endmacro
 
 %macro DEFVAR 3
-    ; %1 = name string
-    ; %2 = label
-    ; %3 = initial value
-    
-    section .data
+    ; %1 = name string, %2 = label, %3 = address of variable
+    ; Variable storage is at the EQU address, initialized by kernel_start
     align 4
 name_%2:
     dd link
@@ -189,20 +183,13 @@ name_%2:
     align 4
 %2:
     dd code_%2
-var_%2:
-    dd %3
-    section .text
 code_%2:
-    push var_%2
+    push %3
     NEXT
 %endmacro
 
 %macro DEFCONST 3
-    ; %1 = name string
-    ; %2 = label
-    ; %3 = value
-    
-    section .data
+    ; %1 = name string, %2 = label, %3 = value
     align 4
 name_%2:
     dd link
@@ -214,7 +201,6 @@ name_%2:
     align 4
 %2:
     dd code_%2
-    section .text
 code_%2:
     push %3
     NEXT
@@ -223,8 +209,6 @@ code_%2:
 ; ============================================================================
 ; Core Interpreter Routines
 ; ============================================================================
-
-section .text
 
 ; DOCOL - Enter a colon definition
 ; Called when a Forth word (non-primitive) is executed
@@ -238,7 +222,6 @@ DOCOL:
 ; Dictionary - Initialize link
 ; ============================================================================
 
-section .data
     link dd 0               ; Start of linked list
 
 ; ============================================================================
@@ -467,8 +450,10 @@ DEFCODE "/MOD", DIVMOD, 0
     cdq
     idiv ebx
     
-    ; Apply floored semantics if needed
-    mov ecx, eax
+    ; Apply floored semantics: if remainder and divisor have opposite
+    ; signs (meaning symmetric division gave wrong result), adjust.
+    ; Check: (remainder XOR divisor) < 0 means opposite signs.
+    mov ecx, edx
     xor ecx, ebx
     jns .no_adjust
     
@@ -516,7 +501,7 @@ DEFCODE "NEGATE", NEGATE, 0
     neg dword [esp]
     NEXT
 
-DEFCODE "ABS", ABS, 0
+DEFCODE "ABS", FABS, 0
     mov eax, [esp]
     test eax, eax
     jns .positive
@@ -728,13 +713,16 @@ DEFCODE "W!", WSTORE, 0     ; Word (16-bit) store
 
 ; Block memory operations
 DEFCODE "CMOVE", CMOVE, 0   ; ( src dst count -- )
+    PUSHRSP esi             ; Save Forth IP
     pop ecx                 ; Count
     pop edi                 ; Destination
     pop esi                 ; Source
     rep movsb
+    POPRSP esi              ; Restore Forth IP
     NEXT
 
 DEFCODE "CMOVE>", CMOVEUP, 0  ; Move from high addresses down
+    PUSHRSP esi             ; Save Forth IP
     pop ecx
     pop edi
     pop esi
@@ -745,12 +733,13 @@ DEFCODE "CMOVE>", CMOVEUP, 0  ; Move from high addresses down
     std
     rep movsb
     cld
+    POPRSP esi              ; Restore Forth IP
     NEXT
 
 DEFCODE "FILL", FILL, 0     ; ( addr count byte -- )
     pop eax                 ; Byte
     pop ecx                 ; Count
-    pop edi                 ; Address
+    pop edi                 ; Address (EDI doesn't affect Forth IP, but save for consistency)
     rep stosb
     NEXT
 
@@ -820,6 +809,7 @@ DEFCODE "SPACE", SPACE, 0
 
 DEFCODE "TYPE", TYPE, 0     ; ( addr len -- )
     pop ecx                 ; Length
+    PUSHRSP esi             ; Save Forth IP
     pop esi                 ; Address
     test ecx, ecx
     jz .done
@@ -828,6 +818,7 @@ DEFCODE "TYPE", TYPE, 0     ; ( addr len -- )
     call print_char
     loop .loop
 .done:
+    POPRSP esi              ; Restore Forth IP
     NEXT
 
 DEFCODE ".", DOT, 0         ; ( n -- ) Print number
@@ -837,15 +828,30 @@ DEFCODE ".", DOT, 0         ; ( n -- ) Print number
     call print_char
     NEXT
 
-DEFCODE ".S", DOTS, 0       ; Show stack
+DEFCODE ".S", DOTS, 0       ; Show stack (non-destructive, bottom to top)
+    PUSHRSP esi              ; Save Forth IP on return stack
     mov esi, msg_stack
     call print_string
-    
+
     mov ecx, DATA_STACK_TOP
     sub ecx, esp
     shr ecx, 2              ; Number of items
-    
-    mov edi, esp
+
+    ; Safety cap: if depth > 64, something is wrong — cap it
+    cmp ecx, 64
+    jle .depth_ok
+    mov ecx, 64
+.depth_ok:
+    ; Also guard against negative depth (ESP above DATA_STACK_TOP)
+    test ecx, ecx
+    jle .done
+
+    ; Print bottom-to-top: start at deepest item (near DATA_STACK_TOP)
+    ; and walk down toward ESP. Deepest item is at ESP + (depth-1)*4.
+    mov edi, ecx
+    shl edi, 2              ; edi = depth * 4
+    add edi, esp
+    sub edi, 4              ; edi = ESP + (depth-1)*4 = bottom of stack
 .loop:
     test ecx, ecx
     jz .done
@@ -853,20 +859,21 @@ DEFCODE ".S", DOTS, 0       ; Show stack
     call print_number
     mov al, ' '
     call print_char
-    add edi, 4
+    sub edi, 4              ; Move toward top of stack (lower addresses)
     dec ecx
     jmp .loop
 .done:
     mov al, '>'
     call print_char
+    POPRSP esi               ; Restore Forth IP
     NEXT
 
 ; --- Variables and Constants ---
 
-DEFVAR "STATE", STATE, 0
-DEFVAR "HERE", HERE, DICT_START
-DEFVAR "LATEST", LATEST, name_BYE
-DEFVAR "BASE", BASE, 10
+DEFVAR "STATE", STATE, VAR_STATE
+DEFVAR "HERE", HERE, VAR_HERE
+DEFVAR "LATEST", LATEST, VAR_LATEST
+DEFVAR "BASE", BASE, VAR_BASE
 
 DEFCONST "VERSION", VERSION, 1
 DEFCONST "CELL", CELL, 4
@@ -909,8 +916,10 @@ DEFCODE "'", TICK, 0        ; ( "name" -- xt )
     push eax
     NEXT
 .not_found:
+    push esi
     mov esi, msg_undefined
     call print_string
+    pop esi
     NEXT
 
 DEFCODE ",", COMMA, 0       ; ( x -- ) Compile x to dictionary
@@ -943,11 +952,136 @@ DEFCODE "FIND", FIND, 0     ; ( c-addr -- c-addr 0 | xt 1 | xt -1 )
 
 ; --- Interpreter ---
 
+; INTERPRET - Process one token from the input stream
+; This is called repeatedly by cold_start: INTERPRET, BRANCH -8
+; Each invocation handles exactly ONE word or number, then returns
+; to the threaded code loop via NEXT. This keeps ESI/ESP/EBP clean.
 DEFCODE "INTERPRET", INTERPRET, 0
-    call interpret_
+    ; Check if we need to read a new line
+    cmp dword [VAR_TOIN], 0
+    jne .have_input
+
+    ; Print prompt
+    mov al, 'o'
+    call print_char
+    mov al, 'k'
+    call print_char
+    mov al, ' '
+    call print_char
+
+    ; Save state snapshot for Ctrl+C recovery
+    mov [save_esp], esp
+    mov [save_ebp], ebp
+    mov eax, [VAR_STATE]
+    mov [save_state], eax
+    mov eax, [VAR_HERE]
+    mov [save_here], eax
+    mov eax, [VAR_LATEST]
+    mov [save_latest], eax
+
+    ; Read a line of input
+    call read_line
+
+    ; Check for break flag (Ctrl+C during input)
+    cmp byte [break_flag], 0
+    je .no_break
+    mov byte [break_flag], 0
+    jmp .do_break
+.no_break:
+    mov dword [VAR_TOIN], 0
+
+.have_input:
+    ; Parse next word
+    call word_
+    test eax, eax
+    jz .end_of_line          ; Empty = end of line, loop back for new prompt
+
+    ; Try to find it in the dictionary
+    ; find_ returns: EAX = XT (or 0), ECX = flags+len byte
+    call find_
+    test eax, eax
+    jz .try_number
+
+    ; Found a word! EAX = XT, ECX = flags+len
+    mov ebx, eax             ; Save XT in EBX
+
+    ; Check compile vs interpret mode
+    mov edx, [VAR_STATE]
+    test edx, edx
+    jz .execute_word          ; STATE=0: interpreting, always execute
+
+    ; Compiling: check if word is IMMEDIATE
+    test cl, F_IMMEDIATE
+    jnz .execute_word         ; Immediate words execute even during compilation
+
+    ; Compile the word's XT into the definition
+    mov eax, ebx
+    call comma_
+    NEXT                      ; Return to cold_start loop for next token
+
+.execute_word:
+    mov eax, ebx
+    jmp [eax]                 ; Execute the word (it will end with NEXT)
+
+.try_number:
+    ; word_buffer still has the token — try parsing as number
+    call number_
+    test edx, edx             ; EDX = 0 if success
+    jnz .undefined
+
+    ; Got a number in EAX
+    mov edx, [VAR_STATE]
+    test edx, edx
+    jz .push_number
+
+    ; Compiling: compile LIT + number
+    push eax
+    mov eax, LIT
+    call comma_
+    pop eax
+    call comma_
     NEXT
 
-DEFCODE "WORD", WORD, 0     ; ( -- c-addr )
+.push_number:
+    push eax                  ; Push number onto data stack
+    NEXT
+
+.end_of_line:
+    ; Line fully consumed — NEXT returns to cold_start which loops
+    ; back to INTERPRET for a new prompt
+    NEXT
+
+.undefined:
+    ; Print the unknown word
+    push esi
+    mov esi, word_buffer
+    call print_string
+    mov esi, msg_undefined
+    call print_string
+    pop esi
+    ; Reset compilation state on error (abort current definition)
+    mov dword [VAR_STATE], 0
+    NEXT
+
+.do_break:
+    ; Ctrl+C: restore saved state
+    mov esp, [save_esp]
+    mov ebp, [save_ebp]
+    mov eax, [save_state]
+    mov [VAR_STATE], eax
+    mov eax, [save_here]
+    mov [VAR_HERE], eax
+    mov eax, [save_latest]
+    mov [VAR_LATEST], eax
+    mov dword [VAR_TOIN], 0
+    ; Print break message
+    push esi
+    mov esi, msg_break
+    call print_string
+    pop esi
+    NEXT
+
+DEFCODE "WORD", FWORD, 0    ; ( -- c-addr )
     call word_
     push eax
     NEXT
@@ -1047,16 +1181,24 @@ DEFCODE "[']", BRACKETTICK, F_IMMEDIATE
     NEXT
 
 ; POSTPONE - Compile the compilation semantics of a word
+; For IMMEDIATE words: compile the XT directly (execute at compile time of target)
+; For non-immediate words: compile LIT <xt> COMPILE, (defer compilation)
 DEFCODE "POSTPONE", POSTPONE, F_IMMEDIATE
     call word_
-    call find_
+    call find_              ; EAX = XT, ECX = flags+len
     test eax, eax
     jz .notfound
-    ; Get flags
-    mov ebx, [VAR_LATEST]
-    ; Check if immediate
-    mov cl, [eax + 4]       ; Get flags byte (in dictionary entry)
-    ; For now, just compile a call to it
+    test cl, F_IMMEDIATE
+    jnz .compile_immediate
+    ; Non-immediate: compile  LIT <xt>  COMPILE,
+    mov ebx, [VAR_HERE]
+    mov dword [ebx], LIT
+    mov [ebx + 4], eax
+    mov dword [ebx + 8], COMPILEC
+    add dword [VAR_HERE], 12
+    NEXT
+.compile_immediate:
+    ; Immediate word: just compile XT directly
     mov ebx, [VAR_HERE]
     mov [ebx], eax
     add dword [VAR_HERE], 4
@@ -1092,21 +1234,21 @@ DEFCODE "THEN", THEN, F_IMMEDIATE
 ; ELSE - Alternative branch
 ; ( orig1 -- orig2 )
 DEFCODE "ELSE", ELSE, F_IMMEDIATE
-    ; Compile unconditional BRANCH
+    ; Compile unconditional BRANCH + reserve offset space
     mov eax, [VAR_HERE]
     mov dword [eax], BRANCH
     add dword [VAR_HERE], 4
-    
-    ; Push location for later patching
-    push dword [VAR_HERE]
+    mov ebx, [VAR_HERE]         ; ebx = ELSE_patch (offset location for THEN)
     add dword [VAR_HERE], 4
-    
-    ; Now resolve the IF
-    pop ebx                    ; Get orig from IF (swapped)
-    xchg eax, [esp]            ; Swap: orig2 goes on stack, get orig1
-    mov ebx, [VAR_HERE]
-    sub ebx, eax
-    mov [eax], ebx
+
+    ; Swap: pop IF_patch, push ELSE_patch for THEN to resolve
+    pop eax                     ; eax = IF_patch (from IF)
+    push ebx                    ; Leave ELSE_patch for THEN
+
+    ; Resolve IF: patch 0BRANCH offset to jump to current HERE
+    mov ecx, [VAR_HERE]
+    sub ecx, eax                ; offset = HERE - IF_patch
+    mov [eax], ecx              ; Patch IF's forward branch
     NEXT
 
 ; BEGIN - Start of a loop
@@ -1190,7 +1332,7 @@ DEFCODE "REPEAT", REPEAT, F_IMMEDIATE
 DEFCODE "DO", DO, F_IMMEDIATE
     ; Compile (DO) which moves limit and index to return stack
     mov eax, [VAR_HERE]
-    mov dword [eax], code_DODO
+    mov dword [eax], DODO       ; Compile XT (not code_DODO!)
     add dword [VAR_HERE], 4
     ; Push address for LOOP to know where to branch back
     push dword [VAR_HERE]
@@ -1211,17 +1353,15 @@ DEFCODE "(DO)", DODO, 0
 DEFCODE "LOOP", LOOP, F_IMMEDIATE
     ; Compile (LOOP)
     mov eax, [VAR_HERE]
-    mov dword [eax], code_DOLOOP
+    mov dword [eax], DOLOOP     ; Compile XT (not code_DOLOOP!)
     add dword [VAR_HERE], 4
     ; Calculate backward offset
-    pop ebx                    ; Get loop start address
+    pop ebx                    ; Get loop start address (from DO)
     mov ecx, [VAR_HERE]
     sub ebx, ecx
     sub ebx, 4
     mov eax, [VAR_HERE]
     mov [eax], ebx
-    add dword [VAR_HERE], 4
-    ; Compile (UNLOOP) offset (where to go when done)
     add dword [VAR_HERE], 4
     NEXT
 
@@ -1249,7 +1389,7 @@ DEFCODE "(LOOP)", DOLOOP, 0
 DEFCODE "+LOOP", PLOOP, F_IMMEDIATE
     ; Compile (+LOOP)
     mov eax, [VAR_HERE]
-    mov dword [eax], code_DOPLOOP
+    mov dword [eax], DOPLOOP    ; Compile XT (not code_DOPLOOP!)
     add dword [VAR_HERE], 4
     ; Same as LOOP for offset
     pop ebx
@@ -1342,9 +1482,9 @@ DEFCODE "CONSTANT", CONSTANT, 0
 
 ; Runtime for CONSTANT
 DEFCODE "DOCON", DOCON, 0
-    ; The value follows the DOCON cell
-    lodsd                      ; Get value
-    push eax
+    ; EAX still holds the XT (code field address) from NEXT/INTERPRET.
+    ; The value is at [XT + 4] (right after the code field).
+    push dword [eax + 4]
     NEXT
 
 ; HIDDEN - Toggle hidden flag on a word
@@ -1379,11 +1519,12 @@ DEFCODE "RECURSE", RECURSE, F_IMMEDIATE
 
 ; WORDS - List all words in dictionary
 DEFCODE "WORDS", WORDS, 0
+    PUSHRSP esi                ; Save Forth IP
     mov eax, [VAR_LATEST]
 .loop:
     test eax, eax
     jz .done
-    push eax                   ; Save link
+    push eax                   ; Save link on data stack (temp)
     ; Print word name
     movzx ecx, byte [eax + 4]  ; flags+len
     test cl, F_HIDDEN
@@ -1409,12 +1550,14 @@ DEFCODE "WORDS", WORDS, 0
     call print_char
     mov al, 10
     call print_char
+    POPRSP esi                 ; Restore Forth IP
     NEXT
 
 ; SEE - Decompile a word
 DEFCODE "SEE", SEE, 0
+    PUSHRSP esi                ; Save Forth IP
     call word_
-    call find_
+    call find_              ; EAX = XT (points to code field), ECX = flags+len
     test eax, eax
     jz .notfound
     push eax
@@ -1430,14 +1573,9 @@ DEFCODE "SEE", SEE, 0
     mov al, ' '
     call print_char
     ; Check if it's a DOCOL word
+    ; EAX = XT = pointer to code field (first cell of the word body)
     pop eax
-    ; Skip to CFA
-    movzx ebx, byte [eax + 4]
-    and ebx, F_LENMASK
-    lea eax, [eax + 5 + ebx]
-    add eax, 3
-    and eax, ~3
-    mov ebx, [eax]             ; First cell
+    mov ebx, [eax]             ; First cell = code pointer (DOCOL or code_xxx)
     cmp ebx, DOCOL
     jne .primitive
     ; It's a colon definition - decompile it
@@ -1480,10 +1618,12 @@ DEFCODE "SEE", SEE, 0
     call print_char
     mov al, 10
     call print_char
+    POPRSP esi                 ; Restore Forth IP
     NEXT
 .notfound:
     mov esi, msg_undefined
     call print_string
+    POPRSP esi                 ; Restore Forth IP
     NEXT
 
 ; HERE - ( -- addr ) Return dictionary pointer
@@ -1511,6 +1651,16 @@ DEFCODE "DEPTH", DEPTH, 0
     push eax
     NEXT
 
+; SP@ - ( -- addr ) Get current data stack pointer (diagnostic)
+DEFCODE "SP@", SPFETCH, 0
+    push esp
+    NEXT
+
+; SP! - ( addr -- ) Set data stack pointer (dangerous! diagnostic only)
+DEFCODE "SP!", SPSTORE, 0
+    pop esp
+    NEXT
+
 ; CHAR - Get character code
 ; Usage: CHAR x ( -- c )
 DEFCODE "CHAR", CHAR, 0
@@ -1534,40 +1684,36 @@ DEFCODE "[CHAR]", BRACKETCHAR, F_IMMEDIATE
 ; ============================================================================
 
 ; S" - Compile or interpret a string
-DEFCODE "S\"", SQUOTE, F_IMMEDIATE
+DEFCODE 'S"', SQUOTE, F_IMMEDIATE
     ; Check state
     mov eax, [VAR_STATE]
     test eax, eax
     jz .interpret
-    ; Compile mode: compile (S")
+    ; Compile mode: layout is [DOSQUOTE XT][length][string bytes...][align]
     mov eax, [VAR_HERE]
-    mov dword [eax], code_DOSQUOTE
+    mov dword [eax], DOSQUOTE       ; Compile (S") XT
     add dword [VAR_HERE], 4
-    ; Copy string until "
+    ; Reserve space for length (patch after we know it)
+    mov ebx, [VAR_HERE]             ; Save length cell address
+    add dword [VAR_HERE], 4
+    ; Copy string characters starting at HERE
     mov edi, [VAR_HERE]
+    xor ecx, ecx
 .copy:
     call read_key
     cmp al, '"'
     je .endcopy
     stosb
+    inc ecx
     jmp .copy
 .endcopy:
-    mov byte [edi], 0          ; Null terminate
-    ; Calculate length
+    ; Patch the length
+    mov [ebx], ecx
+    ; Align HERE past string data
     mov eax, edi
-    sub eax, [VAR_HERE]
-    ; Store length at start
-    mov edi, [VAR_HERE]
-    sub edi, 4
-    mov [edi], eax
-    ; Update HERE (align)
-    mov eax, [VAR_HERE]
-    add eax, edi
-    sub eax, [VAR_HERE]
-    add eax, 4
     add eax, 3
     and eax, ~3
-    add [VAR_HERE], eax
+    mov [VAR_HERE], eax
     NEXT
 .interpret:
     ; Interpret mode: read string to temp buffer
@@ -1586,7 +1732,7 @@ DEFCODE "S\"", SQUOTE, F_IMMEDIATE
     NEXT
 
 ; Runtime (S")
-DEFCODE "(S\")", DOSQUOTE, 0
+DEFCODE '(S")', DOSQUOTE, 0
     lodsd                      ; Get length
     push esi                   ; String address
     push eax                   ; Length
@@ -1596,11 +1742,15 @@ DEFCODE "(S\")", DOSQUOTE, 0
     NEXT
 
 ; ." - Print string
-DEFCODE ".\"", DOTQUOTE, F_IMMEDIATE
-    ; Compile S" then TYPE
+DEFCODE '."', DOTQUOTE, F_IMMEDIATE
+    ; Layout: [DOSQUOTE XT][length][string bytes...][align][TYPE XT]
     mov eax, [VAR_HERE]
-    mov dword [eax], code_DOSQUOTE
+    mov dword [eax], DOSQUOTE       ; Compile (S") XT
     add dword [VAR_HERE], 4
+    ; Reserve space for length
+    mov ebx, [VAR_HERE]             ; Save length cell address
+    add dword [VAR_HERE], 4
+    ; Copy string characters
     mov edi, [VAR_HERE]
     xor ecx, ecx
 .copy:
@@ -1611,11 +1761,9 @@ DEFCODE ".\"", DOTQUOTE, F_IMMEDIATE
     inc ecx
     jmp .copy
 .done:
-    ; Store length and align
-    mov eax, ecx
-    mov ebx, [VAR_HERE]
-    sub ebx, 4
-    mov [ebx], eax
+    ; Patch length
+    mov [ebx], ecx
+    ; Align HERE past string data
     mov eax, edi
     add eax, 3
     and eax, ~3
@@ -1639,7 +1787,7 @@ DEFCODE "(", PAREN, F_IMMEDIATE
     NEXT
 
 ; \ - Line comment
-DEFCODE "\\", BACKSLASH, F_IMMEDIATE
+DEFCODE '\', BACKSLASH, F_IMMEDIATE
 .skip:
     call read_key
     cmp al, 10                 ; newline
@@ -1688,7 +1836,7 @@ DEFCODE "ALIGNED", ALIGNED, 0
     NEXT
 
 ; ALIGN - Align HERE
-DEFCODE "ALIGN", ALIGN, 0
+DEFCODE "ALIGN", FALIGN, 0
     mov eax, [VAR_HERE]
     add eax, 3
     and eax, ~3
@@ -1697,10 +1845,12 @@ DEFCODE "ALIGN", ALIGN, 0
 
 ; MOVE - ( src dst u -- ) Copy u bytes
 DEFCODE "MOVE", MOVE, 0
+    PUSHRSP esi                ; Save Forth IP
     pop ecx                    ; count
     pop edi                    ; dst
     pop esi                    ; src
     rep movsb
+    POPRSP esi                 ; Restore Forth IP
     NEXT
 
 ; ERASE - ( addr u -- ) Fill with zeros
@@ -1761,7 +1911,74 @@ DEFCODE "BYE", BYE, 0
 ; Low-Level Support Routines
 ; ============================================================================
 
-section .text
+; ----------------------------------------------------------------------------
+; init_serial - Initialize COM1 serial port (115200 baud, 8N1)
+; ----------------------------------------------------------------------------
+init_serial:
+    push eax
+    push edx
+    mov dx, COM1_PORT + 1
+    xor al, al
+    out dx, al              ; Disable interrupts
+    mov dx, COM1_PORT + 3
+    mov al, 0x80
+    out dx, al              ; Enable DLAB (set baud rate divisor)
+    mov dx, COM1_PORT + 0
+    mov al, 1               ; Divisor 1 = 115200 baud
+    out dx, al
+    mov dx, COM1_PORT + 1
+    xor al, al
+    out dx, al              ; High byte of divisor
+    mov dx, COM1_PORT + 3
+    mov al, 0x03
+    out dx, al              ; 8 bits, no parity, 1 stop bit
+    mov dx, COM1_PORT + 2
+    mov al, 0xC7
+    out dx, al              ; Enable FIFO, clear, 14-byte threshold
+    mov dx, COM1_PORT + 4
+    mov al, 0x0B
+    out dx, al              ; IRQs enabled, RTS/DSR set
+    pop edx
+    pop eax
+    ret
+
+; ----------------------------------------------------------------------------
+; serial_putchar - Write character in AL to serial port
+; ----------------------------------------------------------------------------
+serial_putchar:
+    push edx
+    push eax
+    mov dx, COM1_PORT + 5
+.wait:
+    in al, dx
+    test al, 0x20           ; Transmit buffer empty?
+    jz .wait
+    pop eax
+    mov dx, COM1_PORT
+    out dx, al
+    pop edx
+    ret
+
+; ----------------------------------------------------------------------------
+; serial_getchar - Read character from serial port into AL (non-blocking)
+; Returns: AL = char, CF clear = data available, CF set = no data
+; (Previously used ZF which broke on NULL characters)
+; ----------------------------------------------------------------------------
+serial_getchar:
+    push edx
+    mov dx, COM1_PORT + 5
+    in al, dx
+    test al, 1              ; Data ready?
+    jz .no_data
+    mov dx, COM1_PORT
+    in al, dx
+    pop edx
+    clc                     ; CF=0: data available
+    ret
+.no_data:
+    pop edx
+    stc                     ; CF=1: no data
+    ret
 
 ; ----------------------------------------------------------------------------
 ; init_screen - Initialize VGA text mode
@@ -1787,14 +2004,15 @@ init_screen:
     ret
 
 ; ----------------------------------------------------------------------------
-; print_char - Print character in AL to screen
+; print_char - Print character in AL to both VGA and serial port
 ; ----------------------------------------------------------------------------
 print_char:
+    call serial_putchar     ; Mirror to serial port
     push ebx
     push ecx
     push edx
     push edi
-    
+
     cmp al, 13              ; Carriage return
     je .cr
     cmp al, 10              ; Line feed
@@ -1894,29 +2112,30 @@ print_number:
     push ebx
     push ecx
     push edx
+    push esi
     push edi
-    
+
     mov edi, num_buffer + 32
     mov byte [edi], 0
-    
+
     mov ebx, [VAR_BASE]
     test eax, eax
     jns .positive
-    
+
     ; Negative
     push eax
     mov al, '-'
     call print_char
     pop eax
     neg eax
-    
+
 .positive:
     mov ecx, eax
-    
+
 .digit_loop:
     xor edx, edx
     div ebx
-    
+
     cmp dl, 10
     jl .decimal
     add dl, 'A' - 10
@@ -1926,15 +2145,16 @@ print_number:
 .store:
     dec edi
     mov [edi], dl
-    
+
     test eax, eax
     jnz .digit_loop
-    
+
     ; Print the number
     mov esi, edi
     call print_string
-    
+
     pop edi
+    pop esi
     pop edx
     pop ecx
     pop ebx
@@ -1947,21 +2167,22 @@ print_unsigned:
     push ebx
     push ecx
     push edx
+    push esi
     push edi
-    
+
     mov edi, num_buffer + 32
     mov byte [edi], 0
-    
+
     mov ebx, [VAR_BASE]
     test ebx, ebx
     jnz .valid_base
     mov ebx, 10                 ; Default to decimal
 .valid_base:
-    
+
 .digit_loop:
     xor edx, edx
     div ebx
-    
+
     cmp dl, 10
     jl .decimal
     add dl, 'A' - 10
@@ -1971,15 +2192,16 @@ print_unsigned:
 .store:
     dec edi
     mov [edi], dl
-    
+
     test eax, eax
     jnz .digit_loop
-    
+
     ; Print the number
     mov esi, edi
     call print_string
-    
+
     pop edi
+    pop esi
     pop edx
     pop ecx
     pop ebx
@@ -2050,131 +2272,74 @@ print_hex_short:
 
 ; ----------------------------------------------------------------------------
 ; read_key - Wait for and return a keypress in AL
+; Tracks Ctrl key state. Ctrl+C sets break_flag and returns 3 (ETX).
 ; ----------------------------------------------------------------------------
 read_key:
     push ebx
-    
-    ; Read from keyboard controller
+
 .wait:
+    ; Check serial port first (for QEMU -nographic mode)
+    call serial_getchar
+    jc .try_kbd             ; CF set = no serial data
+    ; Got serial character in AL
+    cmp al, 3               ; Ctrl+C via serial?
+    je .ctrl_c
+    pop ebx
+    ret
+
+.try_kbd:
+    ; Check PS/2 keyboard controller
     in al, 0x64             ; Read status
     test al, 1              ; Data available?
-    jz .wait
-    
+    jz .wait                ; Neither serial nor kbd ready, loop
+
     in al, 0x60             ; Read scancode
-    
-    ; Convert scancode to ASCII (simplified)
-    cmp al, 0x80            ; Key release?
+
+    ; Track Ctrl key state (scancode 0x1D = press, 0x9D = release)
+    cmp al, 0x1D
+    je .ctrl_press
+    cmp al, 0x9D
+    je .ctrl_release
+
+    ; Key release? (bit 7 set = release)
+    cmp al, 0x80
     jge .wait
-    
-    mov ebx, eax
+
+    ; Check for Ctrl+C: Ctrl held + 'c' scancode (0x2E)
+    cmp byte [ctrl_held], 0
+    je .normal_key
+    cmp al, 0x2E            ; 'c' scancode
+    je .ctrl_c
+
+.normal_key:
+    ; Check for shift state for uppercase letters
+    movzx ebx, al
     mov al, [scancode_to_ascii + ebx]
     test al, al
     jz .wait
-    
+
+    pop ebx
+    ret
+
+.ctrl_press:
+    mov byte [ctrl_held], 1
+    jmp .wait
+
+.ctrl_release:
+    mov byte [ctrl_held], 0
+    jmp .wait
+
+.ctrl_c:
+    ; Set break flag — interpreter checks this after read_line returns
+    mov byte [break_flag], 1
+    mov al, 3               ; ETX (Ctrl+C character)
     pop ebx
     ret
 
 ; ============================================================================
-; Interpreter Routines
+; Interpreter support routines
 ; ============================================================================
-
-; ----------------------------------------------------------------------------
-; interpret_ - Main interpret loop
-; ----------------------------------------------------------------------------
-interpret_:
-    push ebx
-    push ecx
-    push edx
-    push edi
-    push esi
-
-.loop:
-    ; Read line if needed
-    cmp dword [VAR_TOIN], 0
-    jne .have_input
-    
-    ; Prompt
-    mov al, 'o'
-    call print_char
-    mov al, 'k'
-    call print_char
-    mov al, ' '
-    call print_char
-    
-    ; Read line
-    call read_line
-    mov dword [VAR_TOIN], 0
-    
-.have_input:
-    ; Get next word
-    call word_
-    test eax, eax
-    jz .loop                ; Empty word, try again
-    
-    mov esi, eax            ; Save word address
-    
-    ; Try to find it
-    call find_
-    test eax, eax
-    jz .try_number
-    
-    ; Found word
-    mov ebx, eax            ; Save XT
-    
-    ; Check if immediate or compiling
-    mov cl, [eax - 4]       ; Get flags+length
-    mov edx, [VAR_STATE]
-    test edx, edx
-    jz .execute_word        ; Interpreting - always execute
-    
-    test cl, F_IMMEDIATE    ; Compiling - check immediate
-    jnz .execute_word
-    
-    ; Compile the word
-    mov eax, ebx
-    call comma_
-    jmp .loop
-    
-.execute_word:
-    mov eax, ebx
-    jmp [eax]               ; Execute it
-    
-.try_number:
-    ; Try parsing as number
-    call number_
-    test edx, edx           ; EDX = 0 if success
-    jnz .undefined
-    
-    ; Got a number
-    mov edx, [VAR_STATE]
-    test edx, edx
-    jz .push_number
-    
-    ; Compile LIT + number
-    push eax
-    mov eax, LIT
-    call comma_
-    pop eax
-    call comma_
-    jmp .loop
-    
-.push_number:
-    push eax
-    jmp .loop
-    
-.undefined:
-    mov esi, msg_undefined
-    call print_string
-    mov dword [VAR_STATE], 0  ; Reset state
-    jmp .loop
-
-.done:
-    pop esi
-    pop edi
-    pop edx
-    pop ecx
-    pop ebx
-    ret
+; (interpret_ has been replaced by inline code in code_INTERPRET above)
 
 ; ----------------------------------------------------------------------------
 ; word_ - Parse next word from input, return address in EAX
@@ -2220,7 +2385,14 @@ word_:
     je .end_word
     cmp al, 10
     je .end_word
-    
+
+    ; Convert to uppercase for dictionary matching
+    cmp al, 'a'
+    jb .no_upper
+    cmp al, 'z'
+    ja .no_upper
+    sub al, 0x20
+.no_upper:
     stosb
     inc ecx
     cmp ecx, 31             ; Max word length
@@ -2228,19 +2400,26 @@ word_:
     
 .end_word:
     mov byte [edi], 0       ; Null terminate
-    
+
+    ; CRITICAL: lodsb advanced ESI past the delimiter. If the delimiter
+    ; was NUL/CR/LF (end-of-line), we must NOT advance past it — otherwise
+    ; the next word_ call reads leftover garbage from previous, longer lines.
+    ; Fix: always back up to point AT the delimiter. For space/tab delimiters,
+    ; the next word_ call will simply skip it in .skip_space.
+    dec esi
+
     ; Update >IN
     mov eax, esi
     sub eax, [VAR_TIB]
     mov [VAR_TOIN], eax
-    
+
     mov eax, word_buffer
     pop esi
     pop edi
     pop ecx
     pop ebx
     ret
-    
+
 .empty:
     xor eax, eax
     mov dword [VAR_TOIN], 0
@@ -2251,16 +2430,16 @@ word_:
     ret
 
 ; ----------------------------------------------------------------------------
-; find_ - Find word in dictionary, return XT in EAX (0 if not found)
+; find_ - Find word in dictionary
 ; Input: word in word_buffer
+; Output: EAX = XT (or 0 if not found), ECX = flags+len byte (if found)
 ; ----------------------------------------------------------------------------
 find_:
     push ebx
-    push ecx
     push edx
     push edi
     push esi
-    
+
     ; Get word length
     mov esi, word_buffer
     xor ecx, ecx
@@ -2271,22 +2450,28 @@ find_:
     inc ecx
     jmp .len_loop
 .got_len:
-    
+    mov edx, ecx            ; EDX = word length
+
     ; Search dictionary
     mov ebx, [VAR_LATEST]
-    
+
 .search_loop:
     test ebx, ebx
     jz .not_found
-    
-    ; Get flags+length
-    mov al, [ebx + 4]
-    and eax, F_LENMASK
-    
-    ; Compare length
-    cmp eax, ecx
+
+    ; Get flags+length byte
+    movzx eax, byte [ebx + 4]
+
+    ; Skip hidden words
+    test al, F_HIDDEN
+    jnz .next_word
+
+    ; Compare length (mask out flags)
+    mov ecx, eax
+    and ecx, F_LENMASK
+    cmp ecx, edx
     jne .next_word
-    
+
     ; Compare names
     lea esi, [ebx + 5]      ; Name in dictionary
     mov edi, word_buffer
@@ -2294,30 +2479,32 @@ find_:
     repe cmpsb
     pop ecx
     jne .next_word
-    
-    ; Found! Calculate XT (skip to code field)
-    lea eax, [ebx + 5]      ; Start of name
-    add eax, ecx            ; Add name length
-    add eax, 3              ; Round up
-    and eax, ~3             ; Align to 4 bytes
-    
+
+    ; Found! EAX still has flags+len byte, save it in ECX
+    movzx ecx, byte [ebx + 4]   ; ECX = flags+length byte
+
+    ; Calculate XT (skip to code field)
+    mov eax, edx             ; Name length
+    lea eax, [ebx + 5 + eax] ; Skip link(4) + flags(1) + name(len)
+    add eax, 3               ; Round up
+    and eax, ~3              ; Align to 4 bytes
+
     pop esi
     pop edi
     pop edx
-    pop ecx
     pop ebx
     ret
-    
+
 .next_word:
     mov ebx, [ebx]          ; Follow link
     jmp .search_loop
-    
+
 .not_found:
     xor eax, eax
+    xor ecx, ecx
     pop esi
     pop edi
     pop edx
-    pop ecx
     pop ebx
     ret
 
@@ -2457,31 +2644,40 @@ create_:
 
 ; ----------------------------------------------------------------------------
 ; read_line - Read a line of input into TIB
+; If Ctrl+C is pressed during input, break_flag is set and line is discarded.
 ; ----------------------------------------------------------------------------
 read_line:
     push ebx
     push ecx
     push edi
-    
+
     mov edi, TIB_START
     xor ecx, ecx
-    
+
 .loop:
     call read_key
-    
-    cmp al, 13              ; Enter
+
+    ; Check for Ctrl+C break (read_key returns 3 = ETX)
+    cmp al, 3
+    je .break
+
+    cmp al, 13              ; Carriage return (Enter via keyboard)
+    je .done
+    cmp al, 10              ; Line feed (Enter via serial)
     je .done
     cmp al, 8               ; Backspace
     je .backspace
-    
+    cmp al, 127             ; DEL (Backspace via serial terminal)
+    je .backspace
+
     cmp ecx, TIB_SIZE - 1
     jge .loop               ; Buffer full
-    
+
     stosb
     inc ecx
     call print_char         ; Echo
     jmp .loop
-    
+
 .backspace:
     test ecx, ecx
     jz .loop
@@ -2494,14 +2690,27 @@ read_line:
     mov al, 8
     call print_char
     jmp .loop
-    
+
+.break:
+    ; Discard line, null-terminate at start
+    mov edi, TIB_START
+    mov byte [edi], 0
+    mov al, 13
+    call print_char
+    mov al, 10
+    call print_char
+    pop edi
+    pop ecx
+    pop ebx
+    ret
+
 .done:
     mov byte [edi], 0       ; Null terminate
     mov al, 13
     call print_char
     mov al, 10
     call print_char
-    
+
     pop edi
     pop ecx
     pop ebx
@@ -2510,8 +2719,6 @@ read_line:
 ; ============================================================================
 ; Cold Start Word List
 ; ============================================================================
-
-section .data
 
 cold_start:
     dd INTERPRET
@@ -2525,10 +2732,21 @@ cold_start:
 cursor_x:       dd 0
 cursor_y:       dd 0
 
+; Ctrl+C break handler state
+ctrl_held:      db 0                ; 1 = Ctrl key currently pressed
+break_flag:     db 0                ; 1 = Ctrl+C detected, pending break
+                align 4
+save_esp:       dd 0                ; Snapshot: data stack pointer
+save_ebp:       dd 0                ; Snapshot: return stack pointer
+save_state:     dd 0                ; Snapshot: compiler STATE
+save_here:      dd 0                ; Snapshot: dictionary HERE pointer
+save_latest:    dd 0                ; Snapshot: LATEST word pointer
+
 msg_welcome:    db 'Bare-Metal Forth v0.1 - Ship Builders System', 13, 10
                 db 'Type WORDS to see available commands', 13, 10, 0
 msg_stack:      db '<', 0
-msg_undefined:  db '? ', 0
+msg_undefined:  db ' ? ', 13, 10, 0
+msg_break:      db 'BREAK', 13, 10, 0
 see_msg:        db 'SEE: ', 0
 primitive_msg:  db '<primitive>', 0
 
@@ -2548,5 +2766,5 @@ scancode_to_ascii:
 ; End of Kernel
 ; ============================================================================
 
-; Pad to align
-times 0x4000 - ($ - $$) db 0
+; Pad kernel to exactly 32KB (64 sectors) to match bootloader's KERNEL_SECTORS
+times 0x8000 - ($ - $$) db 0

@@ -1,4 +1,4 @@
-# The Ship Builder's Manifesto
+# The Ship Builder's Manifest
 
 ## Philosophy
 
