@@ -1,0 +1,25 @@
+# Build artifacts
+build/
+bin/
+*.o
+*.bin
+*.img
+*.iso
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Archives
+*.tar.gz
+*.zip
+
+# Original conversation directories
+archive/
