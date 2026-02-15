@@ -146,7 +146,6 @@ bare-metal-forth/
 ├── README.md
 ├── LICENSE
 ├── CONTRIBUTING.md
-├── CLAUDE.md                   # Project memory
 ├── src/
 │   ├── boot/boot.asm           # Stage 1 bootloader (433 lines)
 │   └── kernel/forth.asm        # Forth kernel (2552 lines)
@@ -219,7 +218,7 @@ MIT License. See [LICENSE](LICENSE).
 - Charles Moore, inventor of Forth
 - Henry Laxen and Mike Perry, creators of F83
 - The Forth Interest Group (FIG)
-
+- Forth2020 Forth programming language group - https://www.facebook.com/groups/forth2020
 ---
 
 *Jolly Genius Inc. - Ship's Systems Software*
