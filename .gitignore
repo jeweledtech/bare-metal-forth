@@ -22,7 +22,6 @@ Thumbs.db
 *.zip
 
 # Local development files
-CLAUDE.md
 
 # Original conversation directories
 archive/
