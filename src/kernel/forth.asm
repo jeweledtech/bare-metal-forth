@@ -23,8 +23,13 @@
 ;   0x00007E00 - Kernel start (loaded by bootloader)
 ;   0x00010000 - Data stack (grows down)
 ;   0x00020000 - Return stack (grows down)
+;   0x00028000 - System variables (STATE, HERE, LATEST, BASE, TIB, TOIN)
+;   0x00028018 - Block/vocabulary variables (BLK, SCR, search order, etc.)
+;   0x00028060 - Block buffer headers (4 x 12 bytes)
+;   0x00028100 - Terminal Input Buffer (256 bytes)
+;   0x00028200 - Block buffers (4 x 1024 bytes)
+;   0x00029200 - Guard byte + free space
 ;   0x00030000 - Dictionary start
-;   0x000A0000 - VGA memory
 ;   0x000B8000 - VGA text buffer
 ;
 ; ============================================================================
@@ -52,9 +57,46 @@ VAR_BASE            equ 0x2800C     ; Number base (default 10)
 VAR_TIB             equ 0x28010     ; Terminal Input Buffer pointer
 VAR_TOIN            equ 0x28014     ; >IN - offset into TIB
 
+; Block storage variables
+VAR_BLK             equ 0x28018     ; Current block being LOADed (0 = keyboard)
+VAR_SCR             equ 0x2801C     ; Last block LISTed
+
+; Vocabulary / search order variables
+VAR_SEARCH_ORDER    equ 0x28020     ; 8 cells: vocabulary LATEST pointers (32 bytes)
+VAR_SEARCH_DEPTH    equ 0x28040     ; Number of entries in search order (1-8)
+VAR_CURRENT         equ 0x28044     ; Vocab that receives new definitions (addr of LATEST cell)
+VAR_FORTH_LATEST    equ 0x28048     ; FORTH vocabulary's own LATEST pointer
+
+; Block buffer management
+BLK_BUF_HEADERS     equ 0x28060     ; 4 headers x 12 bytes = 48 bytes
+                                    ; Each: [block#(4)] [flags(4)] [age(4)]
+                                    ; flags: bit 0=valid, bit 1=dirty
+BLK_BUF_CUR         equ 0x28090     ; Index of current buffer (for UPDATE)
+BLK_BUF_CLOCK        equ 0x28094    ; LRU age counter
+BLK_NUM_BUFFERS     equ 4
+BLK_HEADER_SIZE     equ 12
+BLK_BUF_FLAG_VALID  equ 1
+BLK_BUF_FLAG_DIRTY  equ 2
+BLOCK_SIZE          equ 1024        ; 1KB per Forth block
+
+; Block buffer data: 4 x 1024 bytes
+BLK_BUF_DATA        equ 0x28200     ; 0x28200 - 0x291FF
+BLK_BUF_GUARD       equ 0x29200     ; NUL guard byte for LOAD termination
+
 ; Input buffer
 TIB_START           equ 0x28100     ; Terminal Input Buffer
 TIB_SIZE            equ 256
+
+; ATA PIO port constants (primary IDE controller)
+ATA_DATA            equ 0x1F0
+ATA_ERROR           equ 0x1F1
+ATA_SECCOUNT        equ 0x1F2
+ATA_LBA_LO          equ 0x1F3
+ATA_LBA_MID         equ 0x1F4
+ATA_LBA_HI          equ 0x1F5
+ATA_DRIVE           equ 0x1F6
+ATA_CMD_STATUS      equ 0x1F7
+ATA_CTRL            equ 0x3F6
 
 ; VGA
 VGA_TEXT            equ 0xB8000
@@ -108,10 +150,33 @@ kernel_start:
     ; Initialize variables
     mov dword [VAR_STATE], 0
     mov dword [VAR_HERE], DICT_START
-    mov dword [VAR_LATEST], name_BYE    ; Last built-in word
+    mov dword [VAR_LATEST], name_USING   ; Last built-in word
     mov dword [VAR_BASE], 10
     mov dword [VAR_TIB], TIB_START
     mov dword [VAR_TOIN], 0
+
+    ; Initialize block storage variables
+    mov dword [VAR_BLK], 0
+    mov dword [VAR_SCR], 0
+    mov dword [BLK_BUF_CUR], 0
+    mov dword [BLK_BUF_CLOCK], 0
+    ; Clear all 4 buffer headers (block#=-1, flags=0, age=0)
+    mov edi, BLK_BUF_HEADERS
+    mov ecx, BLK_NUM_BUFFERS
+.init_buf_headers:
+    mov dword [edi], 0xFFFFFFFF     ; block# = -1 (invalid)
+    mov dword [edi + 4], 0          ; flags = 0
+    mov dword [edi + 8], 0          ; age = 0
+    add edi, BLK_HEADER_SIZE
+    loop .init_buf_headers
+    ; NUL guard byte after block buffers (for LOAD termination)
+    mov byte [BLK_BUF_GUARD], 0
+
+    ; Initialize vocabulary / search order
+    mov dword [VAR_FORTH_LATEST], name_USING  ; FORTH vocab starts same as LATEST
+    mov dword [VAR_SEARCH_DEPTH], 1
+    mov dword [VAR_SEARCH_ORDER], VAR_FORTH_LATEST  ; Addr of FORTH's LATEST cell
+    mov dword [VAR_CURRENT], VAR_FORTH_LATEST       ; New defs go into FORTH
 
     ; Clear screen
     call init_screen
@@ -961,7 +1026,11 @@ DEFCODE "INTERPRET", INTERPRET, 0
     cmp dword [VAR_TOIN], 0
     jne .have_input
 
-    ; Print prompt
+    ; TOIN=0: either need new line (interactive) or block exhausted (LOAD)
+    cmp dword [VAR_BLK], 0
+    jne .block_exhausted         ; BLK!=0 means LOAD is done with this block
+
+    ; Interactive mode: print prompt and read a line
     mov al, 'o'
     call print_char
     mov al, 'k'
@@ -1063,6 +1132,17 @@ DEFCODE "INTERPRET", INTERPRET, 0
     mov dword [VAR_STATE], 0
     NEXT
 
+.block_exhausted:
+    ; Block fully parsed — restore input state saved by LOAD
+    POPRSP ecx
+    mov [VAR_TIB], ecx          ; Restore TIB
+    POPRSP ecx
+    mov [VAR_TOIN], ecx         ; Restore >IN
+    POPRSP ecx
+    mov [VAR_BLK], ecx          ; Restore BLK (may be 0 for interactive, or outer block#)
+    POPRSP esi                  ; Restore Forth IP (returns to caller of LOAD)
+    NEXT
+
 .do_break:
     ; Ctrl+C: restore saved state
     mov esp, [save_esp]
@@ -1074,6 +1154,7 @@ DEFCODE "INTERPRET", INTERPRET, 0
     mov eax, [save_latest]
     mov [VAR_LATEST], eax
     mov dword [VAR_TOIN], 0
+    mov dword [VAR_BLK], 0      ; Also reset BLK on break
     ; Print break message
     push esi
     mov esi, msg_break
@@ -1908,6 +1989,435 @@ DEFCODE "BYE", BYE, 0
     jmp code_BYE
 
 ; ============================================================================
+; Block Storage Words
+; ============================================================================
+
+; BLK - ( -- addr ) Address of variable holding current block# (0=keyboard)
+DEFVAR "BLK", BLK, VAR_BLK
+
+; SCR - ( -- addr ) Address of variable holding last LISTed block#
+DEFVAR "SCR", SCR, VAR_SCR
+
+; BLOCK - ( n -- addr ) Get buffer address for block n, reading from disk if needed
+DEFCODE "BLOCK", BLOCK, 0
+    pop eax                     ; block#
+    call blk_find_buffer        ; EDI=buffer addr, EBX=header addr, CF=needs load
+    jnc .cached
+
+    ; Need to read from disk: 2 sectors per block
+    push edi                    ; Save buffer addr
+    push ebx                    ; Save header addr
+    mov eax, [ebx]              ; block#
+    shl eax, 1                  ; LBA = block# * 2
+    mov ebx, eax                ; EBX = LBA for ata_read_sector
+    ; Read first sector
+    call ata_read_sector
+    jc .read_error
+    ; Read second sector (EDI already advanced by rep insw)
+    inc ebx
+    call ata_read_sector
+    jc .read_error
+
+    pop ebx                     ; Restore header addr
+    ; Mark valid
+    or dword [ebx + 4], BLK_BUF_FLAG_VALID
+    pop edi                     ; Restore buffer addr (original start)
+    push edi                    ; Push result
+    NEXT
+
+.read_error:
+    pop ebx
+    pop edi
+    ; Return buffer addr anyway (may contain garbage)
+    push edi
+    NEXT
+
+.cached:
+    push edi
+    NEXT
+
+; BUFFER - ( n -- addr ) Get buffer for block n without reading from disk
+DEFCODE "BUFFER", BUFFER, 0
+    pop eax                     ; block#
+    call blk_find_buffer        ; EDI=buffer addr, EBX=header addr
+    ; Mark valid without reading (caller will write the data)
+    or dword [ebx + 4], BLK_BUF_FLAG_VALID
+    push edi
+    NEXT
+
+; UPDATE - ( -- ) Mark current buffer as dirty (modified)
+DEFCODE "UPDATE", UPDATE, 0
+    mov eax, [BLK_BUF_CUR]     ; Current buffer index
+    imul eax, BLK_HEADER_SIZE
+    or dword [BLK_BUF_HEADERS + eax + 4], BLK_BUF_FLAG_DIRTY
+    NEXT
+
+; SAVE-BUFFERS - ( -- ) Write all dirty buffers to disk
+DEFCODE "SAVE-BUFFERS", SAVEBUFFERS, 0
+    PUSHRSP esi                 ; Save Forth IP (blk_flush_one uses ESI)
+    mov ebx, BLK_BUF_HEADERS
+    mov ecx, BLK_NUM_BUFFERS
+.flush_loop:
+    push ecx
+    push ebx
+    call blk_flush_one
+    pop ebx
+    pop ecx
+    add ebx, BLK_HEADER_SIZE
+    dec ecx
+    jnz .flush_loop
+    POPRSP esi
+    NEXT
+
+; EMPTY-BUFFERS - ( -- ) Discard all buffers (clear headers, no write)
+DEFCODE "EMPTY-BUFFERS", EMPTYBUFFERS, 0
+    mov edi, BLK_BUF_HEADERS
+    mov ecx, BLK_NUM_BUFFERS
+.clear_loop:
+    mov dword [edi], 0xFFFFFFFF     ; block# = invalid
+    mov dword [edi + 4], 0          ; flags = 0
+    mov dword [edi + 8], 0          ; age = 0
+    add edi, BLK_HEADER_SIZE
+    dec ecx
+    jnz .clear_loop
+    NEXT
+
+; FLUSH - ( -- ) Save all dirty buffers then discard them
+DEFWORD "FLUSH", FLUSH, 0
+    dd SAVEBUFFERS
+    dd EMPTYBUFFERS
+    dd EXIT
+
+; ============================================================================
+; Block Source Loading Words
+; ============================================================================
+
+; LIST - ( n -- ) Display block n as 16 lines x 64 characters
+DEFCODE "LIST", LIST, 0
+    pop eax
+    mov [VAR_SCR], eax          ; Remember for SCR
+
+    ; Get block buffer (reads from disk if needed)
+    call blk_find_buffer
+    jnc .have_data
+    ; Need to read
+    push edi
+    push ebx
+    mov eax, [ebx]
+    shl eax, 1
+    mov ebx, eax
+    call ata_read_sector
+    inc ebx
+    call ata_read_sector
+    pop ebx
+    or dword [ebx + 4], BLK_BUF_FLAG_VALID
+    pop edi
+
+.have_data:
+    PUSHRSP esi                 ; Save Forth IP
+    mov esi, edi                ; ESI = buffer data for printing
+
+    ; Print 16 lines
+    xor ecx, ecx               ; Line counter
+.line_loop:
+    cmp ecx, 16
+    jge .done
+
+    ; Print line number (right-justified in 2 digits)
+    push ecx
+    push esi
+    mov eax, ecx
+    call print_number
+    mov al, ':'
+    call print_char
+    mov al, ' '
+    call print_char
+    pop esi
+    pop ecx
+
+    ; Print 64 characters of this line
+    push ecx
+    mov edx, 64
+.char_loop:
+    lodsb
+    ; Replace control chars with space for display
+    cmp al, 32
+    jge .printable
+    mov al, ' '
+.printable:
+    call print_char
+    dec edx
+    jnz .char_loop
+    pop ecx
+
+    ; Newline
+    mov al, 13
+    call print_char
+    mov al, 10
+    call print_char
+
+    inc ecx
+    jmp .line_loop
+
+.done:
+    POPRSP esi
+    NEXT
+
+; LOAD - ( n -- ) Interpret Forth source from block n
+; Saves current input state on return stack, redirects interpreter to block buffer
+DEFCODE "LOAD", LOAD, 0
+    pop eax                     ; block#
+
+    ; Get block buffer
+    call blk_find_buffer
+    jnc .have_data
+    ; Need to read from disk
+    push eax
+    push edi
+    push ebx
+    mov eax, [ebx]
+    shl eax, 1
+    mov ebx, eax
+    call ata_read_sector
+    inc ebx
+    call ata_read_sector
+    pop ebx
+    or dword [ebx + 4], BLK_BUF_FLAG_VALID
+    pop edi
+    pop eax
+
+.have_data:
+    ; Normalize block content: place NUL at end for word_ termination
+    ; (The NUL guard at BLK_BUF_GUARD handles this for the last buffer,
+    ;  but we also need it within the 1024-byte region)
+    push eax
+    mov byte [edi + BLOCK_SIZE], 0  ; NUL terminator after block data
+
+    ; Save current input state on return stack
+    PUSHRSP esi                 ; Save Forth IP
+    mov ecx, [VAR_BLK]
+    PUSHRSP ecx                 ; Save old BLK
+    mov ecx, [VAR_TOIN]
+    PUSHRSP ecx                 ; Save old >IN
+    mov ecx, [VAR_TIB]
+    PUSHRSP ecx                 ; Save old TIB
+
+    ; Redirect input to block buffer
+    pop eax                     ; Restore block#
+    mov [VAR_BLK], eax
+    mov [VAR_TIB], edi          ; TIB now points to block buffer
+    mov dword [VAR_TOIN], 0     ; Start parsing from beginning
+
+    ; Jump into interpreter loop — it will parse from block buffer
+    mov esi, cold_start
+    NEXT
+
+; --> - ( -- ) Chain-load next block (immediate)
+DEFCODE "-->", CHAIN, F_IMMEDIATE
+    mov eax, [VAR_BLK]
+    test eax, eax
+    jz .not_loading             ; Not in a LOAD, ignore
+    inc eax
+    mov [VAR_BLK], eax
+
+    ; Get next block buffer
+    call blk_find_buffer
+    jnc .have_next
+    push edi
+    push ebx
+    mov eax, [ebx]
+    shl eax, 1
+    mov ebx, eax
+    call ata_read_sector
+    inc ebx
+    call ata_read_sector
+    pop ebx
+    or dword [ebx + 4], BLK_BUF_FLAG_VALID
+    pop edi
+
+.have_next:
+    mov byte [edi + BLOCK_SIZE], 0
+    mov [VAR_TIB], edi
+    mov dword [VAR_TOIN], 0
+.not_loading:
+    NEXT
+
+; THRU - ( n1 n2 -- ) Load blocks n1 through n2
+DEFWORD "THRU", THRU, 0
+    dd SWAP                     ; ( n2 n1 )
+    dd DODO                     ; DO
+    dd I                        ;   I
+    dd LOAD                     ;   LOAD
+    dd DOLOOP                   ;   LOOP
+    dd -12                      ;   (backward offset: 3 cells = 12 bytes)
+    dd EXIT
+
+; ============================================================================
+; Vocabulary / Search Order Words
+; ============================================================================
+
+; DOVOC runtime — executed when a vocabulary word runs
+; Replaces top of search order with this vocabulary's LATEST cell address
+DOVOC:
+    mov eax, [eax + 4]         ; Parameter field = addr of vocab's LATEST cell
+    mov [VAR_SEARCH_ORDER], eax ; Replace top of search order
+    NEXT
+
+; VOCABULARY - ( "name" -- ) Create a new vocabulary
+; Creates a word with DOVOC runtime. Parameter field = address of a new LATEST cell.
+DEFCODE "VOCABULARY", VOCABULARY, 0
+    call word_                  ; Parse vocabulary name
+    call create_                ; Create dictionary header
+
+    ; Write DOVOC as code field
+    mov eax, [VAR_HERE]
+    mov dword [eax], DOVOC
+    add dword [VAR_HERE], 4
+
+    ; Allocate and initialize a LATEST cell for this vocabulary (starts empty = 0)
+    mov eax, [VAR_HERE]
+    mov dword [eax], 0          ; This vocab's LATEST = 0 (empty)
+    add dword [VAR_HERE], 4
+    NEXT
+
+; DEFINITIONS - ( -- ) Set compilation vocabulary to top of search order
+DEFCODE "DEFINITIONS", DEFINITIONS, 0
+    mov eax, [VAR_SEARCH_ORDER] ; Top of search order = addr of a LATEST cell
+    mov [VAR_CURRENT], eax
+    NEXT
+
+; ALSO - ( -- ) Duplicate top of search order (push a copy)
+DEFCODE "ALSO", ALSO, 0
+    mov eax, [VAR_SEARCH_DEPTH]
+    cmp eax, 8
+    jge .full                   ; Max 8 entries
+    ; Shift all entries down by one cell
+    lea ebx, [VAR_SEARCH_ORDER + eax * 4]  ; End of current entries
+    mov ecx, eax               ; Number of entries to shift
+.shift:
+    test ecx, ecx
+    jz .done_shift
+    mov edx, [ebx - 4]         ; Source
+    mov [ebx], edx              ; Dest (one cell higher)
+    sub ebx, 4
+    dec ecx
+    jmp .shift
+.done_shift:
+    ; Top entry is now duplicated (ORDER[0] still has original)
+    inc dword [VAR_SEARCH_DEPTH]
+.full:
+    NEXT
+
+; PREVIOUS - ( -- ) Remove top entry from search order
+DEFCODE "PREVIOUS", PREVIOUS, 0
+    mov eax, [VAR_SEARCH_DEPTH]
+    cmp eax, 1
+    jle .minimum                ; Must keep at least 1
+    ; Shift all entries up by one cell
+    dec eax
+    mov [VAR_SEARCH_DEPTH], eax
+    xor ecx, ecx
+.shift:
+    cmp ecx, eax
+    jge .done
+    mov edx, [VAR_SEARCH_ORDER + ecx * 4 + 4]  ; Next entry
+    mov [VAR_SEARCH_ORDER + ecx * 4], edx        ; Move up
+    inc ecx
+    jmp .shift
+.done:
+.minimum:
+    NEXT
+
+; ONLY - ( -- ) Reset search order to just FORTH
+DEFCODE "ONLY", ONLY, 0
+    mov dword [VAR_SEARCH_DEPTH], 1
+    mov dword [VAR_SEARCH_ORDER], VAR_FORTH_LATEST
+    mov dword [VAR_CURRENT], VAR_FORTH_LATEST
+    NEXT
+
+; FORTH - ( -- ) Replace top of search order with FORTH vocabulary
+DEFCODE "FORTH", FORTH, 0
+    mov dword [VAR_SEARCH_ORDER], VAR_FORTH_LATEST
+    NEXT
+
+; ORDER - ( -- ) Display the current search order
+DEFCODE "ORDER", ORDER, 0
+    PUSHRSP esi
+    ; Print "Search: "
+    mov esi, msg_search
+    call print_string
+
+    mov ecx, [VAR_SEARCH_DEPTH]
+    xor edx, edx
+.print_loop:
+    cmp edx, ecx
+    jge .print_current
+    push ecx
+    push edx
+    ; Print the address of each vocab LATEST cell
+    mov eax, [VAR_SEARCH_ORDER + edx * 4]
+    call print_hex
+    mov al, ' '
+    call print_char
+    pop edx
+    pop ecx
+    inc edx
+    jmp .print_loop
+
+.print_current:
+    ; Print "Compile: "
+    mov esi, msg_compile
+    call print_string
+    mov eax, [VAR_CURRENT]
+    call print_hex
+    mov al, 13
+    call print_char
+    mov al, 10
+    call print_char
+
+    POPRSP esi
+    NEXT
+
+; USING - ( "name" -- ) Parse vocabulary name, add to search order
+; Equivalent to: ALSO <vocab-name>
+DEFCODE "USING", USING, 0
+    call word_                  ; Parse vocabulary name
+    call find_                  ; Find the vocabulary word
+    test eax, eax
+    jz .not_found
+
+    ; Execute ALSO first (duplicate top of search order)
+    push eax                    ; Save vocab XT
+    mov eax, [VAR_SEARCH_DEPTH]
+    cmp eax, 8
+    jge .full
+    lea ebx, [VAR_SEARCH_ORDER + eax * 4]
+    mov ecx, eax
+.shift:
+    test ecx, ecx
+    jz .done_shift
+    mov edx, [ebx - 4]
+    mov [ebx], edx
+    sub ebx, 4
+    dec ecx
+    jmp .shift
+.done_shift:
+    inc dword [VAR_SEARCH_DEPTH]
+.full:
+    ; Now execute the vocabulary word (replaces top of search order)
+    pop eax                     ; XT of vocabulary word
+    jmp [eax]                   ; Execute it (DOVOC sets ORDER[0], then NEXT)
+
+.not_found:
+    push esi
+    mov esi, word_buffer
+    call print_string
+    mov esi, msg_undefined
+    call print_string
+    pop esi
+    NEXT
+
+; ============================================================================
 ; Low-Level Support Routines
 ; ============================================================================
 
@@ -2440,7 +2950,7 @@ find_:
     push edi
     push esi
 
-    ; Get word length
+    ; Get word length from word_buffer
     mov esi, word_buffer
     xor ecx, ecx
 .len_loop:
@@ -2452,12 +2962,22 @@ find_:
 .got_len:
     mov edx, ecx            ; EDX = word length
 
-    ; Search dictionary
-    mov ebx, [VAR_LATEST]
+    ; Walk the search order: VAR_SEARCH_ORDER[0..depth-1]
+    ; Each entry is the address of a vocabulary's LATEST cell
+    xor ecx, ecx            ; ECX = search order index
+
+.next_vocab:
+    cmp ecx, [VAR_SEARCH_DEPTH]
+    jge .not_found
+
+    ; Get chain head for this vocabulary
+    push ecx                 ; Save search order index
+    mov eax, [VAR_SEARCH_ORDER + ecx * 4]  ; Address of LATEST cell
+    mov ebx, [eax]           ; Dereference: actual latest word in this vocab
 
 .search_loop:
     test ebx, ebx
-    jz .not_found
+    jz .vocab_exhausted
 
     ; Get flags+length byte
     movzx eax, byte [ebx + 4]
@@ -2472,7 +2992,7 @@ find_:
     cmp ecx, edx
     jne .next_word
 
-    ; Compare names
+    ; Compare names (repe cmpsb clobbers ESI/EDI/ECX)
     lea esi, [ebx + 5]      ; Name in dictionary
     mov edi, word_buffer
     push ecx
@@ -2480,7 +3000,8 @@ find_:
     pop ecx
     jne .next_word
 
-    ; Found! EAX still has flags+len byte, save it in ECX
+    ; Found! Get flags+len byte
+    pop ecx                  ; Discard saved search order index
     movzx ecx, byte [ebx + 4]   ; ECX = flags+length byte
 
     ; Calculate XT (skip to code field)
@@ -2498,6 +3019,11 @@ find_:
 .next_word:
     mov ebx, [ebx]          ; Follow link
     jmp .search_loop
+
+.vocab_exhausted:
+    pop ecx                  ; Restore search order index
+    inc ecx
+    jmp .next_vocab
 
 .not_found:
     xor eax, eax
@@ -2596,16 +3122,18 @@ comma_:
 ; ----------------------------------------------------------------------------
 create_:
     push eax
+    push ebx
     push ecx
     push edi
     push esi
-    
+
     mov edi, [VAR_HERE]
-    
-    ; Write link
-    mov eax, [VAR_LATEST]
+
+    ; Write link: chain into the current vocabulary
+    mov ebx, [VAR_CURRENT]      ; Address of current vocab's LATEST cell
+    mov eax, [ebx]              ; Dereference: actual latest word in this vocab
     stosd
-    
+
     ; Calculate name length
     mov esi, word_buffer
     xor ecx, ecx
@@ -2616,29 +3144,32 @@ create_:
     inc ecx
     jmp .len
 .got_len:
-    
+
     ; Write flags + length
     mov al, cl
     stosb
-    
+
     ; Write name
     mov esi, word_buffer
     rep movsb
-    
+
     ; Align to 4 bytes
     mov eax, edi
     add eax, 3
     and eax, ~3
     mov edi, eax
-    
-    ; Update LATEST and HERE
-    mov eax, [VAR_HERE]
-    mov [VAR_LATEST], eax
+
+    ; Update current vocab's LATEST and global LATEST and HERE
+    mov eax, [VAR_HERE]         ; Address of new word header
+    mov ebx, [VAR_CURRENT]
+    mov [ebx], eax              ; Update current vocab's LATEST
+    mov [VAR_LATEST], eax       ; Also update global LATEST (for ; IMMEDIATE etc.)
     mov [VAR_HERE], edi
-    
+
     pop esi
     pop edi
     pop ecx
+    pop ebx
     pop eax
     ret
 
@@ -2717,6 +3248,327 @@ read_line:
     ret
 
 ; ============================================================================
+; ATA PIO Driver
+; ============================================================================
+
+; ----------------------------------------------------------------------------
+; ata_wait_ready - Wait for ATA drive to be ready (BSY clear)
+; Clobbers: AL, DX
+; ----------------------------------------------------------------------------
+ata_wait_ready:
+    mov dx, ATA_CMD_STATUS
+.wait:
+    in al, dx
+    test al, 0x80               ; BSY bit
+    jnz .wait
+    ret
+
+; ----------------------------------------------------------------------------
+; ata_wait_drq - Wait for DRQ (data request) after command
+; Returns: CF clear = OK, CF set = error
+; Clobbers: AL, DX
+; ----------------------------------------------------------------------------
+ata_wait_drq:
+    mov dx, ATA_CMD_STATUS
+.wait:
+    in al, dx
+    test al, 0x80               ; Still busy?
+    jnz .wait
+    test al, 0x01               ; ERR bit?
+    jnz .error
+    test al, 0x08               ; DRQ bit?
+    jz .wait
+    clc
+    ret
+.error:
+    stc
+    ret
+
+; ----------------------------------------------------------------------------
+; ata_read_sector - Read one 512-byte sector via ATA PIO
+; Input:  EBX = LBA sector number, EDI = destination buffer
+; Output: CF clear = success, CF set = error
+; Clobbers: EAX, ECX, EDX
+; Note: Does NOT clobber ESI (uses rep insw with EDI only)
+; ----------------------------------------------------------------------------
+ata_read_sector:
+    call ata_wait_ready
+
+    ; Set sector count = 1
+    mov dx, ATA_SECCOUNT
+    mov al, 1
+    out dx, al
+
+    ; Set LBA bytes
+    mov dx, ATA_LBA_LO
+    mov al, bl
+    out dx, al
+
+    mov dx, ATA_LBA_MID
+    mov al, bh
+    out dx, al
+
+    mov dx, ATA_LBA_HI
+    mov eax, ebx
+    shr eax, 16
+    out dx, al
+
+    ; Drive select: IDE slave (index=1), LBA mode, top 4 LBA bits
+    mov dx, ATA_DRIVE
+    mov eax, ebx
+    shr eax, 24
+    and al, 0x0F
+    or al, 0xF0                 ; LBA mode + slave (bit 4 = 1)
+    out dx, al
+
+    ; Send READ SECTORS command
+    mov dx, ATA_CMD_STATUS
+    mov al, 0x20
+    out dx, al
+
+    ; Wait for data
+    call ata_wait_drq
+    jc .done
+
+    ; Read 256 words (512 bytes) from data port
+    mov dx, ATA_DATA
+    mov ecx, 256
+    rep insw
+
+    clc
+.done:
+    ret
+
+; ----------------------------------------------------------------------------
+; ata_write_sector - Write one 512-byte sector via ATA PIO
+; Input:  EBX = LBA sector number, ESI = source buffer
+; Output: CF clear = success, CF set = error
+; Clobbers: EAX, ECX, EDX, ESI (caller must save/restore Forth IP!)
+; ----------------------------------------------------------------------------
+ata_write_sector:
+    call ata_wait_ready
+
+    ; Set sector count = 1
+    mov dx, ATA_SECCOUNT
+    mov al, 1
+    out dx, al
+
+    ; Set LBA bytes
+    mov dx, ATA_LBA_LO
+    mov al, bl
+    out dx, al
+
+    mov dx, ATA_LBA_MID
+    mov al, bh
+    out dx, al
+
+    mov dx, ATA_LBA_HI
+    mov eax, ebx
+    shr eax, 16
+    out dx, al
+
+    ; Drive select: IDE slave, LBA mode, top 4 LBA bits
+    mov dx, ATA_DRIVE
+    mov eax, ebx
+    shr eax, 24
+    and al, 0x0F
+    or al, 0xF0                 ; LBA mode + slave
+    out dx, al
+
+    ; Send WRITE SECTORS command
+    mov dx, ATA_CMD_STATUS
+    mov al, 0x30
+    out dx, al
+
+    ; Wait for DRQ
+    call ata_wait_drq
+    jc .done
+
+    ; Write 256 words (512 bytes) to data port
+    mov dx, ATA_DATA
+    mov ecx, 256
+    rep outsw
+
+    ; Flush write cache
+    call ata_wait_ready
+    mov dx, ATA_CMD_STATUS
+    mov al, 0xE7                ; FLUSH CACHE command
+    out dx, al
+    call ata_wait_ready
+
+    clc
+.done:
+    ret
+
+; ============================================================================
+; Block Buffer Manager
+; ============================================================================
+
+; ----------------------------------------------------------------------------
+; blk_find_buffer - Find or allocate a buffer for a given block number
+; Input:  EAX = block number
+; Output: EDI = buffer data address
+;         EBX = header address
+;         CF set = buffer needs loading from disk, CF clear = already cached
+; Clobbers: ECX, EDX
+; ----------------------------------------------------------------------------
+blk_find_buffer:
+    push eax
+    mov edx, eax                ; EDX = requested block#
+
+    ; Search existing buffers for a match
+    mov ebx, BLK_BUF_HEADERS
+    mov ecx, BLK_NUM_BUFFERS
+.search:
+    cmp [ebx], edx              ; block# match?
+    jne .next_search
+    test dword [ebx + 4], BLK_BUF_FLAG_VALID
+    jz .next_search
+    ; Found! Update age for LRU
+    inc dword [BLK_BUF_CLOCK]
+    mov eax, [BLK_BUF_CLOCK]
+    mov [ebx + 8], eax          ; Update age
+    ; Calculate buffer index and data address
+    mov eax, ebx
+    sub eax, BLK_BUF_HEADERS
+    push edx
+    xor edx, edx
+    push ebx
+    mov ebx, BLK_HEADER_SIZE
+    div ebx                     ; EAX = buffer index
+    pop ebx
+    pop edx
+    mov [BLK_BUF_CUR], eax
+    imul eax, BLOCK_SIZE
+    lea edi, [BLK_BUF_DATA + eax]
+    pop eax
+    clc                         ; Already cached
+    ret
+
+.next_search:
+    add ebx, BLK_HEADER_SIZE
+    dec ecx
+    jnz .search
+
+    ; Not found — find a free buffer or LRU victim
+    mov ebx, BLK_BUF_HEADERS
+    mov ecx, BLK_NUM_BUFFERS
+    xor eax, eax                ; Best candidate index
+    mov edi, 0xFFFFFFFF         ; Lowest age so far (for LRU)
+    push esi                    ; Save temporarily
+
+    ; First pass: look for a free (invalid) buffer
+    mov esi, BLK_BUF_HEADERS
+    xor ecx, ecx
+.find_free:
+    cmp ecx, BLK_NUM_BUFFERS
+    jge .find_lru
+    test dword [esi + 4], BLK_BUF_FLAG_VALID
+    jz .found_slot
+    ; Track LRU while searching
+    mov ebx, [esi + 8]         ; age
+    cmp ebx, edi
+    jge .not_older
+    mov edi, ebx               ; New lowest age
+    mov eax, ecx               ; Remember this index
+.not_older:
+    add esi, BLK_HEADER_SIZE
+    inc ecx
+    jmp .find_free
+
+.find_lru:
+    ; No free buffer — use LRU victim (index in EAX)
+    ; If victim is dirty, flush it first
+    imul ebx, eax, BLK_HEADER_SIZE
+    add ebx, BLK_BUF_HEADERS
+    test dword [ebx + 4], BLK_BUF_FLAG_DIRTY
+    jz .setup_slot
+    pop esi
+    push edx                   ; Save requested block#
+    call blk_flush_one
+    pop edx
+    push esi                   ; Re-save
+    jmp .setup_slot
+
+.found_slot:
+    ; Free buffer at index ECX
+    mov eax, ecx
+    imul ebx, eax, BLK_HEADER_SIZE
+    add ebx, BLK_BUF_HEADERS
+
+.setup_slot:
+    pop esi                    ; Restore
+    ; Set up the header
+    mov [ebx], edx             ; block#
+    mov dword [ebx + 4], 0    ; flags = 0 (not valid yet, caller will set)
+    inc dword [BLK_BUF_CLOCK]
+    mov ecx, [BLK_BUF_CLOCK]
+    mov [ebx + 8], ecx        ; age
+    mov [BLK_BUF_CUR], eax    ; Current buffer index
+
+    ; Calculate data address
+    imul eax, BLOCK_SIZE
+    lea edi, [BLK_BUF_DATA + eax]
+
+    pop eax                    ; Restore original block#
+    stc                        ; Needs loading from disk
+    ret
+
+; ----------------------------------------------------------------------------
+; blk_flush_one - Write a dirty buffer back to disk
+; Input:  EBX = header address (must point to a valid dirty buffer)
+; Clobbers: EAX, ECX, EDX (and ESI temporarily via ata_write_sector)
+; ----------------------------------------------------------------------------
+blk_flush_one:
+    test dword [ebx + 4], BLK_BUF_FLAG_DIRTY
+    jz .not_dirty
+
+    push ebx
+    push edi
+
+    ; Calculate buffer data address from header address
+    mov eax, ebx
+    sub eax, BLK_BUF_HEADERS
+    push edx
+    xor edx, edx
+    push ebx
+    mov ecx, BLK_HEADER_SIZE
+    push eax
+    pop eax
+    xor edx, edx
+    div ecx                     ; EAX = buffer index
+    pop ebx
+    pop edx
+    imul eax, BLOCK_SIZE
+    lea esi, [BLK_BUF_DATA + eax]  ; ESI = buffer data (source for write)
+
+    ; Block# -> LBA: each block is 2 sectors (1024 bytes / 512)
+    mov eax, [ebx]              ; block#
+    shl eax, 1                  ; LBA = block# * 2
+    mov ecx, eax                ; Save first LBA
+
+    ; Write first sector (512 bytes)
+    PUSHRSP esi                 ; Save Forth IP on return stack
+    ; ESI already points to buffer data
+    mov ebx, ecx                ; LBA
+    call ata_write_sector
+
+    ; Write second sector
+    add esi, 512                ; Next 512 bytes
+    inc ebx                     ; Next LBA
+    call ata_write_sector
+    POPRSP esi                  ; Restore Forth IP
+
+    pop edi
+    pop ebx
+
+    ; Clear dirty flag (keep valid)
+    and dword [ebx + 4], ~BLK_BUF_FLAG_DIRTY
+
+.not_dirty:
+    ret
+
+; ============================================================================
 ; Cold Start Word List
 ; ============================================================================
 
@@ -2749,6 +3601,8 @@ msg_undefined:  db ' ? ', 13, 10, 0
 msg_break:      db 'BREAK', 13, 10, 0
 see_msg:        db 'SEE: ', 0
 primitive_msg:  db '<primitive>', 0
+msg_search:     db 'Search: ', 0
+msg_compile:    db ' Compile: ', 0
 
 word_buffer:    times 32 db 0
 num_buffer:     times 36 db 0
