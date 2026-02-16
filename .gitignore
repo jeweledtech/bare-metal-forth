@@ -22,6 +22,7 @@ Thumbs.db
 *.zip
 
 # Local development files
+.worktrees/
 
 # Original conversation directories
 archive/
