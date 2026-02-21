@@ -1,71 +1,24 @@
 /*
- * x86 Instruction Decoder - Stub Header
+ * x86 Instruction Decoder - Redirect Header
  *
- * This provides the type definitions needed by driver_extract.h.
- * Full implementation is planned for tools/translator/src/decoders/x86_decoder.c
+ * This header redirects to the full x86 decoder implementation
+ * in tools/translator/include/x86_decoder.h.
+ *
+ * The stub had a 2-parameter x86_decoder_init(); the full version
+ * takes 5 parameters. A compatibility wrapper is provided below.
  *
  * Copyright (c) 2026 Jolly Genius Inc.
  */
 
-#ifndef X86_DECODER_H
-#define X86_DECODER_H
+#ifndef DRV_X86_DECODER_COMPAT_H
+#define DRV_X86_DECODER_COMPAT_H
 
-#include <stdint.h>
-#include <stddef.h>
+#include "../translator/include/x86_decoder.h"
 
-/* Decoder mode */
-typedef enum {
-    X86_MODE_16 = 16,
-    X86_MODE_32 = 32,
-    X86_MODE_64 = 64,
-} x86_mode_t;
-
-/* x86 instruction IDs (subset relevant to driver extraction) */
-typedef enum {
-    X86_INS_UNKNOWN = 0,
-    X86_INS_IN,
-    X86_INS_OUT,
-    X86_INS_INS,
-    X86_INS_OUTS,
-    X86_INS_CLI,
-    X86_INS_STI,
-    X86_INS_HLT,
-    X86_INS_MOV,
-    X86_INS_CALL,
-    X86_INS_RET,
-    X86_INS_JMP,
-    X86_INS_JCC,
-    X86_INS_PUSH,
-    X86_INS_POP,
-    /* ... more to be added */
-} x86_instruction_t;
-
-/* Decoded instruction */
-typedef struct {
-    uint64_t            address;
-    uint8_t             length;
-    x86_instruction_t   instruction;
-    uint8_t             operand_count;
-    uint64_t            operands[4];
-    uint8_t             operand_sizes[4];
-} x86_decoded_t;
-
-/* Decoder context */
-typedef struct {
-    x86_mode_t          mode;
-    const uint8_t*      code;
-    size_t              code_size;
-    uint64_t            base_address;
-    size_t              offset;
-} x86_decoder_t;
-
-/* Initialize decoder */
-static inline void x86_decoder_init(x86_decoder_t* dec, x86_mode_t mode) {
-    dec->mode = mode;
-    dec->code = NULL;
-    dec->code_size = 0;
-    dec->base_address = 0;
-    dec->offset = 0;
+/* Backwards compatibility: the stub's 2-parameter init.
+ * Sets code/size/base to defaults — caller must set them before decoding. */
+static inline void x86_decoder_init_simple(x86_decoder_t* dec, x86_mode_t mode) {
+    x86_decoder_init(dec, mode, NULL, 0, 0);
 }
 
-#endif /* X86_DECODER_H */
+#endif /* DRV_X86_DECODER_COMPAT_H */

@@ -205,7 +205,7 @@ drv_category_t drv_categorize_instruction(const x86_decoded_t* ins) {
 
 int drv_extract_init(drv_extract_ctx_t* ctx) {
     memset(ctx, 0, sizeof(*ctx));
-    x86_decoder_init(&ctx->decoder, X86_MODE_64);  /* Assume 64-bit drivers */
+    x86_decoder_init(&ctx->decoder, X86_MODE_64, NULL, 0, 0);  /* Assume 64-bit drivers */
     return 0;
 }
 

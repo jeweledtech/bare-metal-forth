@@ -706,6 +706,12 @@ git commit -m "Implement semantic analyzer: classify imports, categorize functio
 **Step 1: Write forth_codegen.h**
 
 ```c
+/* Dependency entry: vocabulary name + list of words used from it */
+typedef struct {
+    const char* vocab_name;         /* e.g. "HARDWARE" */
+    const char** words_used;        /* e.g. {"C@-PORT", "C!-PORT", NULL} */
+} forth_dependency_t;
+
 typedef struct {
     const char* vocab_name;         /* e.g. "SERIAL-16550" */
     const char* category;           /* e.g. "serial" */
@@ -716,7 +722,7 @@ typedef struct {
     const char* ports_desc;         /* e.g. "0x3F8-0x3FF" */
     const char* mmio_desc;          /* e.g. "none" */
     const char* confidence;         /* "high", "medium", "low" */
-    const char** dependencies;      /* e.g. {"HARDWARE", NULL} */
+    const forth_dependency_t* requires;  /* NULL-terminated array */
 } forth_codegen_opts_t;
 
 /* Generate complete Forth vocabulary from semantic analysis results */
@@ -725,10 +731,20 @@ char* forth_generate_vocabulary(const sem_result_t* sem,
                                  const forth_codegen_opts_t* opts);
 ```
 
+The codegen emits one `\ REQUIRES:` line per dependency entry:
+```forth
+\ REQUIRES: HARDWARE ( C@-PORT C!-PORT )
+\ REQUIRES: TIMING ( MS-DELAY )
+```
+
+The `words_used` list is populated by the semantic analyzer: when it sees a
+CALL to a classified import that maps to a Forth primitive, it records which
+vocabulary provides that primitive and which word name it maps to.
+
 **Step 2: Write failing tests**
 
 Build a mock `sem_result_t` with one function that does port reads at offsets 0x00 and 0x05 from a base, verify the generated Forth contains:
-- Catalog header comments
+- Catalog header comments with `\ REQUIRES:` lines
 - `VOCABULARY` declaration
 - `CONSTANT` definitions for register offsets
 - `: WORD-NAME ... C@-PORT ;` definitions
@@ -778,7 +794,7 @@ This is written by hand, NOT by the extraction pipeline. It serves as the "known
 \ PORTS: 0x3F8-0x3FF
 \ MMIO: none
 \ CONFIDENCE: high
-\ DEPENDS: HARDWARE
+\ REQUIRES: HARDWARE ( C@-PORT C!-PORT )
 \ ====================================================================
 
 VOCABULARY SERIAL-16550

@@ -367,7 +367,7 @@ Generated vocabularies follow the catalog schema (see Section 8) to be catalog-c
 \ PORTS: 0x3F8-0x3FF
 \ MMIO: none
 \ CONFIDENCE: high
-\ DEPENDS: HARDWARE
+\ REQUIRES: HARDWARE ( C@-PORT C!-PORT )
 \ ====================================================================
 
 VOCABULARY SERIAL-16550
@@ -436,8 +436,25 @@ Every generated vocabulary starts with a structured comment block that tools can
 \ PORTS: <range> | none
 \ MMIO: <range> | none
 \ CONFIDENCE: high | medium | low
-\ DEPENDS: <space-separated-vocabulary-names>
+\ REQUIRES: <vocabulary-name> ( word1 word2 ... )
 ```
+
+Multiple `REQUIRES:` lines are allowed (one per dependency). Each line names the
+required vocabulary and lists, in parentheses, the specific words used from it.
+This serves double duty: the resolver knows *which* vocabularies to load, and
+the human reader knows *why* — which primitives the vocabulary actually depends on.
+
+```
+\ REQUIRES: HARDWARE ( C@-PORT C!-PORT )
+\ REQUIRES: TIMING ( MS-DELAY US-DELAY )
+```
+
+If a vocabulary has no dependencies, omit the `REQUIRES:` line entirely.
+
+This is the **`apt` model**, not the `snap` model — vocabularies share base
+primitives through dependencies rather than bundling their own copies. A serial
+driver and a disk driver both `REQUIRES: HARDWARE ( C@-PORT C!-PORT )` and
+share the same `C@-PORT` implementation. Keep vocabularies small and composed.
 
 This is parseable by simple text tools (grep/sed/Python) without requiring an XML or JSON parser on the host side.
 
@@ -596,7 +613,26 @@ Each vocabulary carries this metadata in its header comment block:
 | `PORTS` | string | I/O port range(s) used, e.g. `0x3F8-0x3FF` |
 | `MMIO` | string | MMIO address range(s) used, `none` if port I/O only |
 | `CONFIDENCE` | enum | `high` (verified), `medium` (plausible), `low` (needs review) |
-| `DEPENDS` | string | Space-separated list of required vocabularies |
+| `REQUIRES` | multi-line | `<vocab-name> ( word1 word2 ... )` — one line per dependency |
+
+**`REQUIRES:` Format:**
+
+Each `REQUIRES:` line declares a dependency on another vocabulary and lists the
+specific words used from it. Multiple lines are allowed. The word list in
+parentheses is informational metadata — it documents which primitives are
+consumed, enabling both human understanding and future static analysis.
+
+```
+\ REQUIRES: HARDWARE ( C@-PORT C!-PORT W@-PORT )
+\ REQUIRES: TIMING ( MS-DELAY )
+```
+
+The dependency resolver (Phase C) will:
+1. Parse the target vocabulary's `REQUIRES:` lines
+2. Check the current search order for each required vocabulary
+3. If a required vocabulary isn't loaded, load it first (recursively resolving its own `REQUIRES:`)
+4. Then load the requested vocabulary
+5. Error on circular dependency or missing vocabulary
 
 ### Discovery Pattern
 
@@ -616,6 +652,41 @@ USING NET-RTL8139
 ```
 
 The discovery words are Phase C scope. Phase A only ensures the generated vocabularies carry the metadata that makes discovery possible.
+
+### Dependency-Aware USING (Phase C Design)
+
+The current `USING` word simply adds a vocabulary to the search order. Phase C
+extends it to be dependency-aware by parsing `REQUIRES:` headers before loading.
+
+**Resolution algorithm:**
+
+```
+USING SERIAL-16550
+  → parse serial-16550.fth header
+  → find: REQUIRES: HARDWARE ( C@-PORT C!-PORT )
+  → is HARDWARE in search order? No.
+    → parse hardware.fth header
+    → find: no REQUIRES: lines (leaf dependency)
+    → load HARDWARE
+  → all dependencies satisfied
+  → load SERIAL-16550
+```
+
+**Circular dependency detection:**
+
+Maintain a "loading" set during resolution. If a vocabulary appears in the
+loading set while resolving its own dependencies, that's a cycle — abort with
+an error message naming the cycle.
+
+**Design principle:** This follows the `apt` model (shared dependencies) rather
+than the `snap` model (bundled/duplicated). A serial driver and a disk driver
+both `REQUIRES: HARDWARE ( C@-PORT C!-PORT )` and share the same implementation.
+This keeps vocabularies small, avoids code duplication, and makes the dependency
+structure explicit and auditable.
+
+**Phase A deliverable:** The `REQUIRES:` metadata format is defined now and
+emitted by the codegen now. The resolver is Phase C infrastructure. This is
+cheap to get right up front, expensive to retrofit.
 
 ---
 
