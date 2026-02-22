@@ -1,0 +1,6 @@
+# Binary test files — not redistributable
+*.sys
+*.dll
+*.exe
+!.gitignore
+!README.md

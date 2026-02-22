@@ -122,7 +122,8 @@ test-semantic: | $(BUILDDIR)
 	@echo "$(CYAN)Testing semantic analyzer...$(NC)"
 	$(CC) $(CFLAGS) -o $(BUILDDIR)/tests/test_semantic \
 		tests/test_semantic.c \
-		$(SRCDIR)/ir/semantic.c
+		$(SRCDIR)/ir/semantic.c \
+		$(SRCDIR)/decoders/x86_decoder.c
 	./$(BUILDDIR)/tests/test_semantic
 
 .PHONY: test-forth-codegen
@@ -145,6 +146,19 @@ test-pipeline: | $(BUILDDIR)
 		$(SRCDIR)/codegen/forth_codegen.c
 	./$(BUILDDIR)/tests/test_pipeline
 
+.PHONY: test-16550
+test-16550: | $(BUILDDIR)
+	@echo "$(CYAN)Testing synthetic 16550 driver...$(NC)"
+	$(CC) $(CFLAGS) -DTRANSLATOR_NO_MAIN -o $(BUILDDIR)/tests/test_16550_driver \
+		tests/test_16550_driver.c \
+		$(SRCDIR)/main/translator.c \
+		$(SRCDIR)/loaders/pe_loader.c \
+		$(SRCDIR)/decoders/x86_decoder.c \
+		$(SRCDIR)/ir/uir.c \
+		$(SRCDIR)/ir/semantic.c \
+		$(SRCDIR)/codegen/forth_codegen.c
+	./$(BUILDDIR)/tests/test_16550_driver
+
 .PHONY: test-floored-div
 test-floored-div: | $(BUILDDIR)
 	@echo "$(CYAN)Testing floored division...$(NC)"
@@ -158,7 +172,7 @@ test-floored-div: | $(BUILDDIR)
 
 .PHONY: test test-all
 test: test-all
-test-all: test-pe test-x86 test-uir test-semantic test-forth-codegen test-pipeline
+test-all: test-pe test-x86 test-uir test-semantic test-forth-codegen test-pipeline test-16550
 	@echo ""
 	@echo "$(GREEN)All tests passed$(NC)"
 

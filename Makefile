@@ -79,10 +79,15 @@ run-blocks-gui: $(IMAGE) $(BLOCKS)
 	$(QEMU) -drive format=raw,file=$(IMAGE) \
 	        -drive format=raw,file=$(BLOCKS),if=ide,index=1
 
-# Write Forth source into a block
+# Write Forth source into a block (auto-spans multiple blocks for long files)
 # Usage: make write-block BLK=0 SRC=forth/dict/myfile.fth
 write-block: $(BLOCKS)
 	python3 tools/write-block.py $(BLOCKS) $(BLK) $(SRC)
+
+# Build vocabulary catalog and write all .fth files to blocks disk
+# Block 0: reserved, Block 1: catalog, Block 2+: vocabularies
+write-catalog: $(BLOCKS)
+	python3 tools/write-catalog.py $(BLOCKS) forth/dict/
 
 # Create ISO (requires xorriso)
 iso: $(IMAGE)
@@ -130,4 +135,4 @@ help:
 	@echo "  - qemu-system-i386 (for testing)"
 	@echo "  - python3 (for write-block utility)"
 
-.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block
+.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog

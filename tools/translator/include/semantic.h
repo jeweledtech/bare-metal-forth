@@ -106,6 +106,41 @@ typedef struct {
     size_t          filtered_count;
 } sem_result_t;
 
+/* ---- Function boundary discovery ---- */
+
+typedef struct {
+    uint64_t    start_address;  /* First instruction address */
+    size_t      inst_start;     /* Index into decoded instruction array */
+    size_t      inst_count;     /* Number of instructions in this function */
+    const char* name;           /* From PE exports, or NULL */
+} sem_func_boundary_t;
+
+typedef struct {
+    sem_func_boundary_t* entries;
+    size_t count;
+} sem_function_map_t;
+
+/* PE export info for function discovery (bridge struct) */
+typedef struct {
+    uint64_t    address;        /* Absolute address of export */
+    const char* name;
+} sem_pe_export_t;
+
+/* Discover function boundaries from decoded x86 instructions.
+ * Uses three heuristics:
+ *   1. PE export addresses as known entry points
+ *   2. CALL instruction targets within .text as entry points
+ *   3. Function prologue patterns (push ebp; mov ebp, esp)
+ * Instructions are split at boundaries; each function runs until the next.
+ * Caller must free result->entries. */
+int sem_discover_functions(const void* decoded_insts, size_t inst_count,
+                           uint64_t text_base, uint64_t text_end,
+                           const sem_pe_export_t* exports, size_t export_count,
+                           sem_function_map_t* result);
+
+/* Free function map entries. */
+void sem_function_map_free(sem_function_map_t* map);
+
 /* ---- API ---- */
 
 /* Classify a single import name against the API table.

@@ -53,6 +53,30 @@ def source_to_block(source_text):
     return bytes(block)
 
 
+def source_to_blocks(source_text):
+    """Convert source text to one or more 1024-byte blocks.
+
+    Long files are split across multiple blocks at 16-line boundaries.
+    Returns a list of block byte strings.
+    """
+    lines = source_text.splitlines()
+    blocks = []
+
+    for chunk_start in range(0, max(len(lines), 1), SCREEN_LINES):
+        chunk_lines = lines[chunk_start:chunk_start + SCREEN_LINES]
+        # Pad to exactly SCREEN_LINES
+        chunk_text = '\n'.join(chunk_lines)
+        blocks.append(source_to_block(chunk_text))
+
+    return blocks
+
+
+def blocks_needed(source_text):
+    """Return how many blocks a source file needs."""
+    lines = source_text.splitlines()
+    return max(1, (len(lines) + SCREEN_LINES - 1) // SCREEN_LINES)
+
+
 def main():
     if len(sys.argv) < 3:
         print(__doc__)
@@ -81,16 +105,29 @@ def main():
               file=sys.stderr)
         sys.exit(1)
 
-    # Convert and write
-    block_data = source_to_block(source_text)
+    # Convert to blocks (may span multiple blocks for long files)
+    block_list = source_to_blocks(source_text)
+    num_blocks = len(block_list)
+
+    # Check all blocks fit
+    last_offset = (block_num + num_blocks - 1) * BLOCK_SIZE + BLOCK_SIZE
+    if last_offset > image_size:
+        print(f"Error: blocks {block_num}-{block_num + num_blocks - 1} "
+              f"exceed image size {image_size}", file=sys.stderr)
+        sys.exit(1)
 
     with open(disk_image, 'r+b') as f:
-        f.seek(offset)
-        f.write(block_data)
+        for i, block_data in enumerate(block_list):
+            f.seek((block_num + i) * BLOCK_SIZE)
+            f.write(block_data)
 
     # Summary
     lines = source_text.splitlines()
-    print(f"Wrote block {block_num} to {disk_image}")
+    if num_blocks == 1:
+        print(f"Wrote block {block_num} to {disk_image}")
+    else:
+        print(f"Wrote blocks {block_num}-{block_num + num_blocks - 1} "
+              f"({num_blocks} blocks) to {disk_image}")
     print(f"  Source: {len(lines)} lines, {len(source_text)} bytes")
     print(f"  Block offset: {offset} (0x{offset:X})")
 

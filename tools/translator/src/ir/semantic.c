@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "semantic.h"
+#include "x86_decoder.h"
 
 /* ============================================================================
  * Windows Driver API Recognition Table
@@ -264,6 +265,154 @@ int sem_analyze_functions(const sem_uir_input_t* uir_funcs, size_t uir_func_coun
     }
 
     return 0;
+}
+
+/* ============================================================================
+ * Function Boundary Discovery
+ * ============================================================================ */
+
+/* Compare for qsort */
+static int cmp_u64(const void* a, const void* b) {
+    uint64_t va = *(const uint64_t*)a;
+    uint64_t vb = *(const uint64_t*)b;
+    if (va < vb) return -1;
+    if (va > vb) return 1;
+    return 0;
+}
+
+int sem_discover_functions(const void* decoded_insts, size_t inst_count,
+                           uint64_t text_base, uint64_t text_end,
+                           const sem_pe_export_t* exports, size_t export_count,
+                           sem_function_map_t* result) {
+    const x86_decoded_t* insts = (const x86_decoded_t*)decoded_insts;
+    if (!insts || inst_count == 0 || !result) return -1;
+
+    memset(result, 0, sizeof(*result));
+
+    /* Collect candidate entry points (max: exports + calls + prologues) */
+    size_t max_entries = export_count + inst_count + 1;
+    uint64_t* entry_points = malloc(max_entries * sizeof(uint64_t));
+    size_t ep_count = 0;
+
+    /* 1. PE export addresses */
+    for (size_t i = 0; i < export_count; i++) {
+        if (exports[i].address >= text_base && exports[i].address < text_end)
+            entry_points[ep_count++] = exports[i].address;
+    }
+
+    /* 2. CALL targets within .text */
+    for (size_t i = 0; i < inst_count; i++) {
+        if (insts[i].instruction == X86_INS_CALL &&
+            insts[i].operand_count > 0 &&
+            (insts[i].operands[0].type == X86_OP_REL ||
+             insts[i].operands[0].type == X86_OP_IMM)) {
+            uint64_t target;
+            if (insts[i].operands[0].type == X86_OP_REL)
+                target = insts[i].address + insts[i].length + insts[i].operands[0].imm;
+            else
+                target = (uint64_t)insts[i].operands[0].imm;
+            if (target >= text_base && target < text_end)
+                entry_points[ep_count++] = target;
+        }
+    }
+
+    /* 3. Function prologue patterns: push ebp; mov ebp, esp */
+    for (size_t i = 0; i + 1 < inst_count; i++) {
+        if (insts[i].instruction == X86_INS_PUSH &&
+            insts[i].operand_count > 0 &&
+            insts[i].operands[0].type == X86_OP_REG &&
+            insts[i].operands[0].reg == X86_REG_EBP &&
+            insts[i+1].instruction == X86_INS_MOV &&
+            insts[i+1].operand_count >= 2 &&
+            insts[i+1].operands[0].type == X86_OP_REG &&
+            insts[i+1].operands[0].reg == X86_REG_EBP &&
+            insts[i+1].operands[1].type == X86_OP_REG &&
+            insts[i+1].operands[1].reg == X86_REG_ESP) {
+            entry_points[ep_count++] = insts[i].address;
+        }
+    }
+
+    /* Always include the text base address as a function start */
+    entry_points[ep_count++] = text_base;
+
+    /* Sort and deduplicate */
+    qsort(entry_points, ep_count, sizeof(uint64_t), cmp_u64);
+    size_t unique = 0;
+    for (size_t i = 0; i < ep_count; i++) {
+        if (unique == 0 || entry_points[i] != entry_points[unique - 1])
+            entry_points[unique++] = entry_points[i];
+    }
+    ep_count = unique;
+
+    /* Build function boundaries from sorted entry points */
+    result->entries = calloc(ep_count, sizeof(sem_func_boundary_t));
+    result->count = ep_count;
+
+    for (size_t f = 0; f < ep_count; f++) {
+        result->entries[f].start_address = entry_points[f];
+
+        /* Find the instruction index for this entry point */
+        result->entries[f].inst_start = inst_count; /* sentinel */
+        for (size_t i = 0; i < inst_count; i++) {
+            if (insts[i].address == entry_points[f]) {
+                result->entries[f].inst_start = i;
+                break;
+            }
+            /* If address is past this entry point, use nearest instruction */
+            if (insts[i].address > entry_points[f]) {
+                result->entries[f].inst_start = i;
+                result->entries[f].start_address = insts[i].address;
+                break;
+            }
+        }
+
+        /* Compute inst_count: runs until next entry point's inst_start */
+        size_t next_start;
+        if (f + 1 < ep_count) {
+            next_start = inst_count; /* sentinel */
+            for (size_t i = result->entries[f].inst_start; i < inst_count; i++) {
+                if (insts[i].address >= entry_points[f + 1]) {
+                    next_start = i;
+                    break;
+                }
+            }
+        } else {
+            next_start = inst_count;
+        }
+        result->entries[f].inst_count = next_start - result->entries[f].inst_start;
+
+        /* Look up export name */
+        result->entries[f].name = NULL;
+        for (size_t e = 0; e < export_count; e++) {
+            if (exports[e].address == entry_points[f]) {
+                result->entries[f].name = exports[e].name;
+                break;
+            }
+        }
+    }
+
+    free(entry_points);
+
+    /* Remove entries with zero instructions */
+    size_t valid = 0;
+    for (size_t i = 0; i < result->count; i++) {
+        if (result->entries[i].inst_count > 0) {
+            if (valid != i)
+                result->entries[valid] = result->entries[i];
+            valid++;
+        }
+    }
+    result->count = valid;
+
+    return 0;
+}
+
+void sem_function_map_free(sem_function_map_t* map) {
+    if (map->entries) {
+        free(map->entries);
+        map->entries = NULL;
+    }
+    map->count = 0;
 }
 
 /* ============================================================================

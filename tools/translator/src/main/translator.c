@@ -8,6 +8,7 @@
  *   -t TARGET   Output target (disasm, uir, forth, c, x64, arm64, riscv64)
  *   -o FILE     Output file (default: stdout)
  *   -f FUNC     Extract specific function
+ *   -n NAME     Vocabulary name for Forth output (default: derive from filename)
  *   -b ADDR     Base address for raw binaries
  *   -a          Print binary analysis
  *   -S          Enable semantic analysis
@@ -61,6 +62,7 @@ static void print_usage(const char* program) {
     fprintf(stderr, "  -t TARGET   Output target: disasm, uir, forth, c, x64, arm64, riscv64\n");
     fprintf(stderr, "  -o FILE     Output file (default: stdout)\n");
     fprintf(stderr, "  -f FUNC     Extract specific function\n");
+    fprintf(stderr, "  -n NAME     Vocabulary name for Forth output (default: derived from filename)\n");
     fprintf(stderr, "  -b ADDR     Base address for raw binaries (hex)\n");
     fprintf(stderr, "  -a          Print binary analysis\n");
     fprintf(stderr, "  -S          Enable semantic analysis\n");
@@ -82,6 +84,41 @@ static target_t parse_target(const char* str) {
     if (strcmp(str, "arm64") == 0) return TARGET_ARM64;
     if (strcmp(str, "riscv64") == 0) return TARGET_RISCV64;
     return TARGET_DISASM;  /* Default */
+}
+
+/* ============================================================================
+ * Vocabulary name derivation
+ * ============================================================================ */
+
+/* Derive a vocabulary name from a filename.
+ * "serial.sys" -> "SERIAL", "my-driver.sys" -> "MY-DRIVER"
+ * Caller must free the returned string. */
+static char* derive_vocab_name(const char* filename) {
+    if (!filename) return strdup("EXTRACTED");
+
+    /* Find basename: skip directory separators */
+    const char* base = filename;
+    for (const char* p = filename; *p; p++) {
+        if (*p == '/' || *p == '\\') base = p + 1;
+    }
+
+    /* Strip extension */
+    size_t len = strlen(base);
+    const char* dot = strrchr(base, '.');
+    if (dot && dot > base) len = (size_t)(dot - base);
+
+    char* name = malloc(len + 1);
+    for (size_t i = 0; i < len; i++) {
+        char c = base[i];
+        if (c >= 'a' && c <= 'z')
+            name[i] = c - 'a' + 'A';  /* uppercase */
+        else if (c == '_')
+            name[i] = '-';  /* Forth convention: hyphens */
+        else
+            name[i] = c;
+    }
+    name[len] = '\0';
+    return name;
 }
 
 /* ============================================================================
@@ -119,13 +156,26 @@ static uir_x86_input_t* convert_x86_to_uir_input(const x86_decoded_t* insts,
  * ============================================================================ */
 
 static char* generate_forth_output(const sem_result_t* sem,
-                                    const uir_function_t* uir_func,
-                                    const pe_context_t* pe) {
+                                    const uir_function_t** uir_funcs,
+                                    size_t uir_func_count,
+                                    const pe_context_t* pe,
+                                    const translate_options_t* opts) {
+    /* Determine vocabulary name */
+    char* derived_name = NULL;
+    const char* vname;
+    if (opts->vocab_name) {
+        vname = opts->vocab_name;
+    } else {
+        derived_name = derive_vocab_name(opts->input_filename);
+        vname = derived_name;
+    }
+
     forth_codegen_opts_t cg_opts;
     forth_codegen_opts_init(&cg_opts);
-    cg_opts.vocab_name = "EXTRACTED";
+    cg_opts.vocab_name = vname;
     cg_opts.category = "driver";
     cg_opts.source_type = "extracted";
+    cg_opts.source_binary = opts->input_filename;
     cg_opts.confidence = sem->hw_function_count > 0 ? "medium" : "low";
 
     /* Build REQUIRES dependency from classified imports */
@@ -137,32 +187,54 @@ static char* generate_forth_output(const sem_result_t* sem,
     }
     hw_words_buf[hw_word_count] = NULL;
 
+    /* Check if any UIR function has port I/O */
+    bool any_port_io = false;
+    for (size_t f = 0; f < uir_func_count; f++) {
+        if (uir_funcs[f]->has_port_io) { any_port_io = true; break; }
+    }
+
     /* If the code has direct port I/O, add C@-PORT/C!-PORT as requirements */
     static const char* port_words[] = {"C@-PORT", "C!-PORT", NULL};
     forth_dependency_t deps[2] = {{NULL, NULL}, {NULL, NULL}};
-    if (uir_func->has_port_io || hw_word_count > 0) {
+    if (any_port_io || hw_word_count > 0) {
         deps[0].vocab_name = "HARDWARE";
-        deps[0].words_used = uir_func->has_port_io ? port_words : hw_words_buf;
+        deps[0].words_used = any_port_io ? port_words : hw_words_buf;
         cg_opts.requires = deps;
+    }
+
+    /* Collect unique port offsets across ALL UIR functions */
+    uint16_t port_offsets[256];
+    size_t port_offset_count = 0;
+
+    for (size_t f = 0; f < uir_func_count; f++) {
+        const uir_function_t* uf = uir_funcs[f];
+        for (size_t i = 0; i < uf->ports_read_count && port_offset_count < 256; i++) {
+            bool found = false;
+            for (size_t j = 0; j < port_offset_count; j++)
+                if (port_offsets[j] == uf->ports_read[i]) { found = true; break; }
+            if (!found) port_offsets[port_offset_count++] = uf->ports_read[i];
+        }
+        for (size_t i = 0; i < uf->ports_written_count && port_offset_count < 256; i++) {
+            bool found = false;
+            for (size_t j = 0; j < port_offset_count; j++)
+                if (port_offsets[j] == uf->ports_written[i]) { found = true; break; }
+            if (!found) port_offsets[port_offset_count++] = uf->ports_written[i];
+        }
     }
 
     /* Port range description */
     char* ports_desc = NULL;
-    if (uir_func->ports_read_count > 0 || uir_func->ports_written_count > 0) {
+    if (port_offset_count > 0) {
         uint16_t min_port = 0xFFFF, max_port = 0;
-        for (size_t i = 0; i < uir_func->ports_read_count; i++) {
-            if (uir_func->ports_read[i] < min_port) min_port = uir_func->ports_read[i];
-            if (uir_func->ports_read[i] > max_port) max_port = uir_func->ports_read[i];
-        }
-        for (size_t i = 0; i < uir_func->ports_written_count; i++) {
-            if (uir_func->ports_written[i] < min_port) min_port = uir_func->ports_written[i];
-            if (uir_func->ports_written[i] > max_port) max_port = uir_func->ports_written[i];
+        for (size_t i = 0; i < port_offset_count; i++) {
+            if (port_offsets[i] < min_port) min_port = port_offsets[i];
+            if (port_offsets[i] > max_port) max_port = port_offsets[i];
         }
         ports_desc = forth_port_range_desc(min_port, max_port - min_port + 1);
         cg_opts.ports_desc = ports_desc;
     }
 
-    /* Build function entries from semantic results */
+    /* Build function entries from semantic results, with port ops from matched UIR */
     forth_gen_function_t* gen_funcs = NULL;
     size_t gen_func_count = 0;
 
@@ -180,44 +252,39 @@ static char* generate_forth_output(const sem_result_t* sem,
                                      ? sem->functions[fi].name : "HW-FUNC";
             gen_funcs[gi].address = sem->functions[fi].address;
 
-            /* Build port ops from UIR data */
-            size_t total_ports = uir_func->ports_read_count
-                                     + uir_func->ports_written_count;
-            if (total_ports > 0) {
-                gen_funcs[gi].port_ops = calloc(total_ports, sizeof(forth_port_op_t));
-                size_t idx = 0;
-                for (size_t p = 0; p < uir_func->ports_read_count; p++) {
-                    gen_funcs[gi].port_ops[idx].port_offset = uir_func->ports_read[p];
-                    gen_funcs[gi].port_ops[idx].size = 1;
-                    gen_funcs[gi].port_ops[idx].is_write = false;
-                    idx++;
+            /* Find the matching UIR function by address */
+            const uir_function_t* matched_uir = NULL;
+            for (size_t u = 0; u < uir_func_count; u++) {
+                if (uir_funcs[u]->entry_address == sem->functions[fi].address) {
+                    matched_uir = uir_funcs[u];
+                    break;
                 }
-                for (size_t p = 0; p < uir_func->ports_written_count; p++) {
-                    gen_funcs[gi].port_ops[idx].port_offset = uir_func->ports_written[p];
-                    gen_funcs[gi].port_ops[idx].size = 1;
-                    gen_funcs[gi].port_ops[idx].is_write = true;
-                    idx++;
+            }
+
+            /* Build port ops from matched UIR data */
+            if (matched_uir) {
+                size_t total_ports = matched_uir->ports_read_count
+                                         + matched_uir->ports_written_count;
+                if (total_ports > 0) {
+                    gen_funcs[gi].port_ops = calloc(total_ports, sizeof(forth_port_op_t));
+                    size_t idx = 0;
+                    for (size_t p = 0; p < matched_uir->ports_read_count; p++) {
+                        gen_funcs[gi].port_ops[idx].port_offset = matched_uir->ports_read[p];
+                        gen_funcs[gi].port_ops[idx].size = 1;
+                        gen_funcs[gi].port_ops[idx].is_write = false;
+                        idx++;
+                    }
+                    for (size_t p = 0; p < matched_uir->ports_written_count; p++) {
+                        gen_funcs[gi].port_ops[idx].port_offset = matched_uir->ports_written[p];
+                        gen_funcs[gi].port_ops[idx].size = 1;
+                        gen_funcs[gi].port_ops[idx].is_write = true;
+                        idx++;
+                    }
+                    gen_funcs[gi].port_op_count = total_ports;
                 }
-                gen_funcs[gi].port_op_count = total_ports;
             }
             gi++;
         }
-    }
-
-    /* Collect unique port offsets */
-    uint16_t port_offsets[256];
-    size_t port_offset_count = 0;
-    for (size_t i = 0; i < uir_func->ports_read_count && port_offset_count < 256; i++) {
-        bool found = false;
-        for (size_t j = 0; j < port_offset_count; j++)
-            if (port_offsets[j] == uir_func->ports_read[i]) { found = true; break; }
-        if (!found) port_offsets[port_offset_count++] = uir_func->ports_read[i];
-    }
-    for (size_t i = 0; i < uir_func->ports_written_count && port_offset_count < 256; i++) {
-        bool found = false;
-        for (size_t j = 0; j < port_offset_count; j++)
-            if (port_offsets[j] == uir_func->ports_written[i]) { found = true; break; }
-        if (!found) port_offsets[port_offset_count++] = uir_func->ports_written[i];
     }
 
     forth_codegen_input_t cg_input;
@@ -235,6 +302,7 @@ static char* generate_forth_output(const sem_result_t* sem,
         free(gen_funcs[i].port_ops);
     free(gen_funcs);
     free(ports_desc);
+    free(derived_name);
     (void)pe;
 
     return output;
@@ -253,6 +321,8 @@ void translate_options_init(translate_options_t* opts) {
     opts->verbose = false;
     opts->forth83_division = true;  /* Default to Forth-83 semantics */
     opts->function_name = NULL;
+    opts->vocab_name = NULL;
+    opts->input_filename = NULL;
 }
 
 translate_result_t translate_file(const char* filename,
@@ -287,7 +357,12 @@ translate_result_t translate_file(const char* filename,
     }
     fclose(f);
 
-    result = translate_buffer(data, size, opts);
+    /* Set input filename if not already set */
+    translate_options_t local_opts = *opts;
+    if (!local_opts.input_filename)
+        local_opts.input_filename = filename;
+
+    result = translate_buffer(data, size, &local_opts);
 
     free(data);
     return result;
@@ -342,36 +417,87 @@ translate_result_t translate_buffer(const uint8_t* data, size_t size,
         return result;
     }
 
-    /* ---- Stage 3: Lift to UIR ---- */
+    /* ---- Stage 3: Discover function boundaries ---- */
+    uint64_t text_base = pe.image_base + pe.text_rva;
+    uint64_t text_end = text_base + pe.text_size;
+
+    /* Build PE export info for function discovery */
+    sem_pe_export_t* pe_exports = NULL;
+    if (pe.export_count > 0) {
+        pe_exports = malloc(pe.export_count * sizeof(sem_pe_export_t));
+        for (size_t i = 0; i < pe.export_count; i++) {
+            pe_exports[i].address = pe.image_base + pe.exports[i].rva;
+            pe_exports[i].name = pe.exports[i].name;
+        }
+    }
+
+    sem_function_map_t func_map;
+    sem_discover_functions(insts, inst_count, text_base, text_end,
+                          pe_exports, pe.export_count, &func_map);
+    free(pe_exports);
+
+    /* If no functions discovered, treat entire .text as one function */
+    if (func_map.count == 0) {
+        func_map.entries = calloc(1, sizeof(sem_func_boundary_t));
+        func_map.entries[0].start_address = text_base;
+        func_map.entries[0].inst_start = 0;
+        func_map.entries[0].inst_count = inst_count;
+        func_map.count = 1;
+    }
+
+    /* ---- Stage 4: Lift each function to UIR ---- */
     uir_x86_input_t* uir_input = convert_x86_to_uir_input(insts, inst_count);
     free(insts);
 
     if (!uir_input) {
+        sem_function_map_free(&func_map);
         pe_cleanup(&pe);
         result.success = false;
         result.error_message = strdup("Out of memory during UIR conversion");
         return result;
     }
 
-    uint64_t entry_addr = pe.image_base + pe.entry_point_rva;
-    uir_function_t* uir_func = uir_lift_function(uir_input, inst_count, entry_addr);
+    uir_function_t** uir_funcs = calloc(func_map.count, sizeof(uir_function_t*));
+    size_t uir_func_count = 0;
+
+    for (size_t f = 0; f < func_map.count; f++) {
+        sem_func_boundary_t* fb = &func_map.entries[f];
+        if (fb->inst_count == 0) continue;
+
+        uir_function_t* uf = uir_lift_function(
+            uir_input + fb->inst_start,
+            fb->inst_count,
+            fb->start_address);
+
+        if (uf) {
+            uir_funcs[uir_func_count++] = uf;
+        }
+    }
     free(uir_input);
 
-    if (!uir_func) {
+    if (uir_func_count == 0) {
+        free(uir_funcs);
+        sem_function_map_free(&func_map);
         pe_cleanup(&pe);
         result.success = false;
-        result.error_message = strdup("UIR lift failed");
+        result.error_message = strdup("UIR lift failed for all functions");
         return result;
     }
 
-    /* TARGET_UIR: print UIR and return */
+    /* TARGET_UIR: print all UIR functions and return */
     if (opts->target == TARGET_UIR) {
         char* buf = NULL;
         size_t buf_size = 0;
         FILE* mem = open_memstream(&buf, &buf_size);
-        uir_print_function(uir_func, mem);
+        for (size_t f = 0; f < uir_func_count; f++) {
+            if (f > 0) fprintf(mem, "\n");
+            uir_print_function(uir_funcs[f], mem);
+        }
         fclose(mem);
-        uir_free_function(uir_func);
+        for (size_t f = 0; f < uir_func_count; f++)
+            uir_free_function(uir_funcs[f]);
+        free(uir_funcs);
+        sem_function_map_free(&func_map);
         pe_cleanup(&pe);
         result.success = true;
         result.output = buf;
@@ -379,7 +505,7 @@ translate_result_t translate_buffer(const uint8_t* data, size_t size,
         return result;
     }
 
-    /* ---- Stage 4: Semantic analysis ---- */
+    /* ---- Stage 5: Semantic analysis ---- */
     sem_pe_import_t* sem_imports = NULL;
     if (pe.import_count > 0) {
         sem_imports = malloc(pe.import_count * sizeof(sem_pe_import_t));
@@ -396,24 +522,38 @@ translate_result_t translate_buffer(const uint8_t* data, size_t size,
         sem_classify_imports(sem_imports, pe.import_count, &sem);
     free(sem_imports);
 
-    sem_uir_input_t sem_func_input;
-    memset(&sem_func_input, 0, sizeof(sem_func_input));
-    sem_func_input.func = uir_func;
-    sem_func_input.entry_address = uir_func->entry_address;
-    sem_func_input.has_port_io = uir_func->has_port_io;
-    sem_func_input.ports_read = uir_func->ports_read;
-    sem_func_input.ports_read_count = uir_func->ports_read_count;
-    sem_func_input.ports_written = uir_func->ports_written;
-    sem_func_input.ports_written_count = uir_func->ports_written_count;
+    /* Analyze each UIR function */
+    sem_uir_input_t* sem_func_inputs = calloc(uir_func_count, sizeof(sem_uir_input_t));
+    for (size_t f = 0; f < uir_func_count; f++) {
+        sem_func_inputs[f].func = uir_funcs[f];
+        sem_func_inputs[f].entry_address = uir_funcs[f]->entry_address;
+        sem_func_inputs[f].has_port_io = uir_funcs[f]->has_port_io;
+        sem_func_inputs[f].ports_read = uir_funcs[f]->ports_read;
+        sem_func_inputs[f].ports_read_count = uir_funcs[f]->ports_read_count;
+        sem_func_inputs[f].ports_written = uir_funcs[f]->ports_written;
+        sem_func_inputs[f].ports_written_count = uir_funcs[f]->ports_written_count;
 
-    sem_analyze_functions(&sem_func_input, 1, &sem);
+        /* Try to find export name for this function */
+        for (size_t b = 0; b < func_map.count; b++) {
+            if (func_map.entries[b].start_address == uir_funcs[f]->entry_address) {
+                sem_func_inputs[f].name = func_map.entries[b].name;
+                break;
+            }
+        }
+    }
+    sem_analyze_functions(sem_func_inputs, uir_func_count, &sem);
+    free(sem_func_inputs);
 
-    /* ---- Stage 5: Generate output ---- */
+    /* ---- Stage 6: Generate output ---- */
     if (opts->target == TARGET_FORTH) {
-        char* forth_output = generate_forth_output(&sem, uir_func, &pe);
+        char* forth_output = generate_forth_output(&sem,
+            (const uir_function_t**)uir_funcs, uir_func_count, &pe, opts);
 
         sem_cleanup(&sem);
-        uir_free_function(uir_func);
+        for (size_t f = 0; f < uir_func_count; f++)
+            uir_free_function(uir_funcs[f]);
+        free(uir_funcs);
+        sem_function_map_free(&func_map);
         pe_cleanup(&pe);
 
         if (!forth_output) {
@@ -430,7 +570,10 @@ translate_result_t translate_buffer(const uint8_t* data, size_t size,
 
     /* Unsupported target */
     sem_cleanup(&sem);
-    uir_free_function(uir_func);
+    for (size_t f = 0; f < uir_func_count; f++)
+        uir_free_function(uir_funcs[f]);
+    free(uir_funcs);
+    sem_function_map_free(&func_map);
     pe_cleanup(&pe);
     result.success = false;
     result.error_message = strdup("Unsupported output target");
@@ -452,6 +595,7 @@ void translate_result_free(translate_result_t* result) {
  * Main
  * ============================================================================ */
 
+#ifndef TRANSLATOR_NO_MAIN
 int main(int argc, char** argv) {
     if (argc < 2) {
         print_usage(argv[0]);
@@ -484,6 +628,10 @@ int main(int argc, char** argv) {
                 case 'f':
                     if (i + 1 < argc)
                         opts.function_name = argv[++i];
+                    break;
+                case 'n':
+                    if (i + 1 < argc)
+                        opts.vocab_name = argv[++i];
                     break;
                 case 'b':
                     if (i + 1 < argc)
@@ -577,3 +725,4 @@ int main(int argc, char** argv) {
     translate_result_free(&result);
     return 0;
 }
+#endif /* TRANSLATOR_NO_MAIN */

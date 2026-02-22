@@ -62,6 +62,8 @@ typedef struct {
     bool verbose;               /* Verbose output */
     bool forth83_division;      /* Use Forth-83 floored division */
     const char* function_name;  /* Specific function to extract (NULL = all) */
+    const char* vocab_name;     /* Vocabulary name for Forth output (NULL = derive from filename) */
+    const char* input_filename; /* Input filename (set by translate_file, used for derived names) */
 } translate_options_t;
 
 /* Result structure */
