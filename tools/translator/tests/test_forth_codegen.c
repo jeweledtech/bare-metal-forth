@@ -346,6 +346,135 @@ static void test_dword_port_ops(void) {
     PASS();
 }
 
+/* ---- Test: HAL call read port parametric word ---- */
+static void test_hal_call_read_port(void) {
+    TEST(hal_call_read_port_parametric);
+
+    forth_codegen_opts_t opts;
+    forth_codegen_opts_init(&opts);
+    opts.vocab_name = "I8042-TEST";
+    opts.category = "input";
+    opts.confidence = "medium";
+
+    forth_hal_call_t hal_calls[] = {
+        {"C@-PORT", 1, 1},
+    };
+
+    forth_gen_function_t funcs[] = {
+        {
+            .name = "KBD-READ",
+            .address = 0x1000,
+            .port_ops = NULL,
+            .port_op_count = 0,
+            .hal_calls = hal_calls,
+            .hal_call_count = 1,
+        },
+    };
+
+    forth_codegen_input_t input;
+    memset(&input, 0, sizeof(input));
+    input.opts = opts;
+    input.functions = funcs;
+    input.function_count = 1;
+
+    char* output = forth_generate(&input);
+    if (!output) FAIL("forth_generate returned NULL");
+    if (!strstr(output, ": KBD-READ")) FAIL("missing KBD-READ word");
+    if (!strstr(output, "( port -- byte )")) FAIL("missing stack effect");
+    if (!strstr(output, "C@-PORT")) FAIL("missing C@-PORT in body");
+    /* Should NOT have empty stub stack effect */
+    if (strstr(output, "( -- )")) FAIL("should not have empty stack effect");
+
+    free(output);
+    PASS();
+}
+
+/* ---- Test: HAL call write port parametric word ---- */
+static void test_hal_call_write_port(void) {
+    TEST(hal_call_write_port_parametric);
+
+    forth_codegen_opts_t opts;
+    forth_codegen_opts_init(&opts);
+    opts.vocab_name = "I8042-TEST";
+    opts.category = "input";
+    opts.confidence = "medium";
+
+    forth_hal_call_t hal_calls[] = {
+        {"C!-PORT", 2, 0},
+    };
+
+    forth_gen_function_t funcs[] = {
+        {
+            .name = "KBD-WRITE",
+            .address = 0x2000,
+            .port_ops = NULL,
+            .port_op_count = 0,
+            .hal_calls = hal_calls,
+            .hal_call_count = 1,
+        },
+    };
+
+    forth_codegen_input_t input;
+    memset(&input, 0, sizeof(input));
+    input.opts = opts;
+    input.functions = funcs;
+    input.function_count = 1;
+
+    char* output = forth_generate(&input);
+    if (!output) FAIL("forth_generate returned NULL");
+    if (!strstr(output, ": KBD-WRITE")) FAIL("missing KBD-WRITE word");
+    if (!strstr(output, "( byte port -- )")) FAIL("missing stack effect");
+    if (!strstr(output, "C!-PORT")) FAIL("missing C!-PORT in body");
+
+    free(output);
+    PASS();
+}
+
+/* ---- Test: multiple HAL calls in one function ---- */
+static void test_hal_call_multiple(void) {
+    TEST(hal_call_multiple_in_function);
+
+    forth_codegen_opts_t opts;
+    forth_codegen_opts_init(&opts);
+    opts.vocab_name = "MULTI-HAL";
+    opts.category = "test";
+    opts.confidence = "medium";
+
+    forth_hal_call_t hal_calls[] = {
+        {"C@-PORT", 1, 1},
+        {"C!-PORT", 2, 0},
+    };
+
+    forth_gen_function_t funcs[] = {
+        {
+            .name = "READ-WRITE",
+            .address = 0x3000,
+            .port_ops = NULL,
+            .port_op_count = 0,
+            .hal_calls = hal_calls,
+            .hal_call_count = 2,
+        },
+    };
+
+    forth_codegen_input_t input;
+    memset(&input, 0, sizeof(input));
+    input.opts = opts;
+    input.functions = funcs;
+    input.function_count = 1;
+
+    char* output = forth_generate(&input);
+    if (!output) FAIL("forth_generate returned NULL");
+    if (!strstr(output, ": READ-WRITE")) FAIL("missing READ-WRITE word");
+    if (!strstr(output, "C@-PORT")) FAIL("missing C@-PORT");
+    if (!strstr(output, "C!-PORT")) FAIL("missing C!-PORT");
+    /* Multi-HAL should have per-call stack effect comments */
+    if (!strstr(output, "( port -- byte )")) FAIL("missing read stack effect comment");
+    if (!strstr(output, "( byte port -- )")) FAIL("missing write stack effect comment");
+
+    free(output);
+    PASS();
+}
+
 int main(void) {
     printf("Forth Code Generator Tests\n");
     printf("==========================\n");
@@ -358,6 +487,9 @@ int main(void) {
     test_no_requires();
     test_port_range_desc();
     test_dword_port_ops();
+    test_hal_call_read_port();
+    test_hal_call_write_port();
+    test_hal_call_multiple();
 
     printf("\nResults: %d/%d passed\n", tests_passed, tests_run);
     return tests_passed == tests_run ? 0 : 1;
