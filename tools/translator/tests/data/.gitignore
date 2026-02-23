@@ -1,5 +1,6 @@
 # Binary test files — not redistributable
 *.sys
+!serial16550_synth.sys
 *.dll
 *.exe
 !.gitignore
