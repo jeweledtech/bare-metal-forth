@@ -152,15 +152,71 @@ static void emit_base_accessors(strbuf_t* sb, const char* name) {
     sb_printf(sb, ": %s!     ( byte offset -- )  %s-REG C!-PORT ;\n\n", name, name);
 }
 
+/* ---- Stack effect for a HAL call ---- */
+
+static const char* stack_effect_for_hal(const forth_hal_call_t* hc) {
+    if (!hc->forth_word) return "( -- )";
+    /* Port read: ( port -- value ) */
+    if (strcmp(hc->forth_word, "C@-PORT") == 0) return "( port -- byte )";
+    if (strcmp(hc->forth_word, "W@-PORT") == 0) return "( port -- word )";
+    if (strcmp(hc->forth_word, "@-PORT") == 0)  return "( port -- dword )";
+    /* Port write: ( value port -- ) */
+    if (strcmp(hc->forth_word, "C!-PORT") == 0) return "( byte port -- )";
+    if (strcmp(hc->forth_word, "W!-PORT") == 0) return "( word port -- )";
+    if (strcmp(hc->forth_word, "!-PORT") == 0)  return "( dword port -- )";
+    /* MMIO read/write */
+    if (strcmp(hc->forth_word, "C@-MMIO") == 0) return "( addr -- byte )";
+    if (strcmp(hc->forth_word, "W@-MMIO") == 0) return "( addr -- word )";
+    if (strcmp(hc->forth_word, "@-MMIO") == 0)  return "( addr -- dword )";
+    if (strcmp(hc->forth_word, "D@-MMIO") == 0) return "( addr -- qword )";
+    if (strcmp(hc->forth_word, "C!-MMIO") == 0) return "( byte addr -- )";
+    if (strcmp(hc->forth_word, "W!-MMIO") == 0) return "( word addr -- )";
+    if (strcmp(hc->forth_word, "!-MMIO") == 0)  return "( dword addr -- )";
+    if (strcmp(hc->forth_word, "D!-MMIO") == 0) return "( qword addr -- )";
+    /* Timing */
+    if (strcmp(hc->forth_word, "US-DELAY") == 0) return "( us -- )";
+    if (strcmp(hc->forth_word, "MS-DELAY") == 0) return "( ms -- )";
+    /* Generic based on counts */
+    if (hc->arg_count == 0 && hc->ret_count == 0) return "( -- )";
+    if (hc->arg_count == 1 && hc->ret_count == 1) return "( x -- x )";
+    if (hc->arg_count == 1 && hc->ret_count == 0) return "( x -- )";
+    if (hc->arg_count == 2 && hc->ret_count == 0) return "( x1 x2 -- )";
+    if (hc->arg_count == 2 && hc->ret_count == 1) return "( x1 x2 -- x )";
+    return "( -- )";
+}
+
 /* ---- Generate function word ---- */
 
 static void emit_function(strbuf_t* sb, const forth_gen_function_t* func,
                            const char* vocab_name) {
-    if (func->port_op_count == 0) {
-        /* No port ops — just emit a stub */
+    if (func->port_op_count == 0 && func->hal_call_count == 0) {
+        /* No port ops and no HAL calls — just emit a stub */
         sb_printf(sb, ": %s  ( -- )  \\ extracted from 0x%llX\n",
                   func->name, (unsigned long long)func->address);
         sb_append(sb, ";\n\n");
+        return;
+    }
+
+    /* HAL calls but no direct port ops — emit parametric word */
+    if (func->port_op_count == 0 && func->hal_call_count > 0) {
+        if (func->hal_call_count == 1) {
+            /* Single HAL call: clean parametric word */
+            const forth_hal_call_t* hc = &func->hal_calls[0];
+            sb_printf(sb, ": %s  %s\n", func->name,
+                      stack_effect_for_hal(hc));
+            sb_printf(sb, "    %s\n", hc->forth_word);
+            sb_append(sb, ";\n\n");
+        } else {
+            /* Multiple HAL calls: sequence with per-call stack effects */
+            sb_printf(sb, ": %s  ( -- )  \\ %zu HAL calls\n",
+                      func->name, func->hal_call_count);
+            for (size_t i = 0; i < func->hal_call_count; i++) {
+                sb_printf(sb, "    %s  \\ %s\n",
+                          func->hal_calls[i].forth_word,
+                          stack_effect_for_hal(&func->hal_calls[i]));
+            }
+            sb_append(sb, ";\n\n");
+        }
         return;
     }
 
