@@ -167,12 +167,58 @@ test-floored-div: | $(BUILDDIR)
 	./$(BUILDDIR)/tests/test_floored
 
 # ============================================================================
+# Ghidra validation — synthetic driver and comparison tests
+# ============================================================================
+
+# Ghidra headless analyzer configuration
+GHIDRA_JAVA_HOME = /snap/ghidra/35/usr/lib/jvm/java-21-openjdk-amd64
+GHIDRA_HEADLESS = JAVA_HOME=$(GHIDRA_JAVA_HOME) \
+	/snap/ghidra/35/ghidra_12.0_PUBLIC/support/analyzeHeadless
+
+# Build synthetic .sys test binaries
+.PHONY: build-synth
+build-synth: | $(BUILDDIR)
+	@echo "$(CYAN)Building synthetic drivers...$(NC)"
+	@mkdir -p $(BUILDDIR)/tests
+	$(CC) $(CFLAGS) -o $(BUILDDIR)/tests/build_synth \
+		tests/data/build_synthetic_drivers.c
+	./$(BUILDDIR)/tests/build_synth tests/data/
+
+# Regenerate Ghidra fixtures (requires Ghidra installed)
+.PHONY: ghidra-fixtures
+ghidra-fixtures: build-synth
+	@echo "$(CYAN)Generating Ghidra fixtures...$(NC)"
+	@mkdir -p tests/data/fixtures
+	$(GHIDRA_HEADLESS) /tmp/ghidra_fixture GhidraFixture \
+		-import tests/data/serial16550_synth.sys \
+		-postScript ExportSemanticReport.java \
+			tests/data/fixtures/serial16550_synth.ghidra.json \
+		-scriptPath ../../tools/ghidra \
+		-overwrite -deleteProject
+	@echo "$(GREEN)Ghidra fixtures generated$(NC)"
+
+# Ghidra comparison test (uses cached fixtures, no Ghidra needed)
+.PHONY: test-ghidra-compare
+test-ghidra-compare: | $(BUILDDIR)
+	@echo "$(CYAN)Testing Ghidra comparison...$(NC)"
+	@mkdir -p $(BUILDDIR)/tests
+	$(CC) $(CFLAGS) -DTRANSLATOR_NO_MAIN -o $(BUILDDIR)/tests/test_ghidra_compare \
+		tests/test_ghidra_compare.c \
+		$(SRCDIR)/main/translator.c \
+		$(SRCDIR)/loaders/pe_loader.c \
+		$(SRCDIR)/decoders/x86_decoder.c \
+		$(SRCDIR)/ir/uir.c \
+		$(SRCDIR)/ir/semantic.c \
+		$(SRCDIR)/codegen/forth_codegen.c
+	./$(BUILDDIR)/tests/test_ghidra_compare
+
+# ============================================================================
 # Run all tests
 # ============================================================================
 
 .PHONY: test test-all
 test: test-all
-test-all: test-pe test-x86 test-uir test-semantic test-forth-codegen test-pipeline test-16550
+test-all: test-pe test-x86 test-uir test-semantic test-forth-codegen test-pipeline test-16550 test-ghidra-compare
 	@echo ""
 	@echo "$(GREEN)All tests passed$(NC)"
 
@@ -219,6 +265,9 @@ help:
 	@echo "  make test-semantic Test semantic analyzer"
 	@echo "  make test-forth-codegen Test Forth codegen"
 	@echo "  make test-pipeline Test end-to-end pipeline"
+	@echo "  make test-ghidra-compare  Test Ghidra semantic comparison"
+	@echo "  make build-synth  Build synthetic .sys test binaries"
+	@echo "  make ghidra-fixtures  Regenerate Ghidra fixtures (needs Ghidra)"
 	@echo "  make clean        Remove build artifacts"
 	@echo "  make dist         Create distribution archive"
 	@echo "  make help         Show this message"
