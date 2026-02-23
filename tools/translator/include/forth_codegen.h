@@ -51,6 +51,14 @@ typedef struct {
     const char* name;           /* register name if known, else NULL */
 } forth_port_op_t;
 
+/* ---- HAL call in an extracted function (from semantic analysis) ---- */
+
+typedef struct {
+    const char*     forth_word;     /* e.g., "C@-PORT" */
+    uint8_t         arg_count;      /* HAL function argument count */
+    uint8_t         ret_count;      /* HAL function return count */
+} forth_hal_call_t;
+
 /* ---- Function to generate ---- */
 
 typedef struct {
@@ -58,6 +66,8 @@ typedef struct {
     uint64_t            address;        /* original address */
     forth_port_op_t*    port_ops;       /* port operations in this function */
     size_t              port_op_count;
+    forth_hal_call_t*   hal_calls;      /* HAL calls in this function */
+    size_t              hal_call_count;
     bool                is_init;        /* true if this is an init function */
     bool                is_poll;        /* true if contains a polling loop */
 } forth_gen_function_t;

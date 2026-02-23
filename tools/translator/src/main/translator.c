@@ -283,6 +283,18 @@ static char* generate_forth_output(const sem_result_t* sem,
                     gen_funcs[gi].port_op_count = total_ports;
                 }
             }
+            /* Copy HAL call data from semantic analysis */
+            const sem_function_t* sf = &sem->functions[fi];
+            if (sf->hal_call_count > 0) {
+                gen_funcs[gi].hal_calls = calloc(sf->hal_call_count,
+                                                  sizeof(forth_hal_call_t));
+                gen_funcs[gi].hal_call_count = sf->hal_call_count;
+                for (size_t h = 0; h < sf->hal_call_count; h++) {
+                    gen_funcs[gi].hal_calls[h].forth_word = sf->hal_calls[h].forth_equiv;
+                    gen_funcs[gi].hal_calls[h].arg_count = sf->hal_calls[h].arg_count;
+                    gen_funcs[gi].hal_calls[h].ret_count = sf->hal_calls[h].ret_count;
+                }
+            }
             gi++;
         }
     }
@@ -298,8 +310,10 @@ static char* generate_forth_output(const sem_result_t* sem,
     char* output = forth_generate(&cg_input);
 
     /* Cleanup local allocations */
-    for (size_t i = 0; i < gen_func_count; i++)
+    for (size_t i = 0; i < gen_func_count; i++) {
         free(gen_funcs[i].port_ops);
+        free(gen_funcs[i].hal_calls);
+    }
     free(gen_funcs);
     free(ports_desc);
     free(derived_name);
