@@ -123,6 +123,7 @@ test-semantic: | $(BUILDDIR)
 	$(CC) $(CFLAGS) -o $(BUILDDIR)/tests/test_semantic \
 		tests/test_semantic.c \
 		$(SRCDIR)/ir/semantic.c \
+		$(SRCDIR)/ir/uir.c \
 		$(SRCDIR)/decoders/x86_decoder.c
 	./$(BUILDDIR)/tests/test_semantic
 

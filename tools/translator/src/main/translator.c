@@ -541,7 +541,7 @@ translate_result_t translate_buffer(const uint8_t* data, size_t size,
             }
         }
     }
-    sem_analyze_functions(sem_func_inputs, uir_func_count, &sem);
+    sem_analyze_functions(sem_func_inputs, uir_func_count, pe.image_base, &sem);
     free(sem_func_inputs);
 
     /* ---- Stage 6: Generate output ---- */

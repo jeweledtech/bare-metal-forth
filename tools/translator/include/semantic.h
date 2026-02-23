@@ -187,7 +187,7 @@ typedef struct {
 } sem_uir_input_t;
 
 int sem_analyze_functions(const sem_uir_input_t* uir_funcs, size_t uir_func_count,
-                           sem_result_t* result);
+                           uint64_t image_base, sem_result_t* result);
 
 /* Print analysis report. */
 void sem_print_report(const sem_result_t* result, FILE* out);

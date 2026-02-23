@@ -319,7 +319,7 @@ static void test_full_pipeline(void) {
     sem_func.ports_read_count = uir_func->ports_read_count;
     sem_func.ports_written = uir_func->ports_written;
     sem_func.ports_written_count = uir_func->ports_written_count;
-    sem_analyze_functions(&sem_func, 1, &sem);
+    sem_analyze_functions(&sem_func, 1, pe.image_base, &sem);
 
     /* Stage 5: Forth codegen */
     forth_codegen_opts_t cg_opts;

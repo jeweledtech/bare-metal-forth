@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "semantic.h"
+#include "uir.h"
 #include "x86_decoder.h"
 
 /* ============================================================================
@@ -198,7 +199,7 @@ int sem_classify_imports(const sem_pe_import_t* pe_imports, size_t pe_import_cou
  * ============================================================================ */
 
 int sem_analyze_functions(const sem_uir_input_t* uir_funcs, size_t uir_func_count,
-                           sem_result_t* result) {
+                           uint64_t image_base, sem_result_t* result) {
     if (!uir_funcs || uir_func_count == 0) return 0;
 
     result->functions = calloc(uir_func_count, sizeof(sem_function_t));
@@ -222,10 +223,10 @@ int sem_analyze_functions(const sem_uir_input_t* uir_funcs, size_t uir_func_coun
             sf->name = strdup(buf);
         }
 
-        /* Check for port I/O from UIR analysis */
+        /* Check for port I/O from UIR analysis (direct IN/OUT instructions) */
         sf->has_port_io = uf->has_port_io;
 
-        /* Collect ports */
+        /* Collect ports from direct IN/OUT */
         size_t total_ports = uf->ports_read_count + uf->ports_written_count;
         if (total_ports > 0) {
             sf->ports = malloc(total_ports * sizeof(uint16_t));
@@ -247,13 +248,51 @@ int sem_analyze_functions(const sem_uir_input_t* uir_funcs, size_t uir_func_coun
             }
         }
 
-        /* Determine primary category */
-        if (sf->has_port_io) {
+        /* Check for calls to hardware HAL imports via IAT.
+         * Walk UIR blocks looking for CALL instructions with memory-indirect
+         * operands (call dword [addr]) where addr matches image_base + iat_rva
+         * of a classified hardware import. */
+        const uir_function_t* uir_func = (const uir_function_t*)uf->func;
+        if (uir_func && result->imports && result->import_count > 0) {
+            for (size_t b = 0; b < uir_func->block_count; b++) {
+                const uir_block_t* blk = &uir_func->blocks[b];
+                for (size_t j = 0; j < blk->count; j++) {
+                    const uir_instruction_t* ins = &blk->instructions[j];
+                    if (ins->opcode != UIR_CALL) continue;
+                    if (ins->dest.type != UIR_OPERAND_MEM) continue;
+
+                    /* Memory-indirect call with no base/index = call [absolute_addr] */
+                    if (ins->dest.reg >= 0 || ins->dest.index >= 0) continue;
+                    uint64_t call_target = (uint64_t)(uint32_t)ins->dest.disp;
+
+                    /* Cross-reference against classified imports */
+                    for (size_t k = 0; k < result->import_count; k++) {
+                        uint64_t iat_abs = image_base + result->imports[k].iat_rva;
+                        if (call_target != iat_abs) continue;
+                        sem_category_t cat = result->imports[k].category;
+                        if (sem_is_hardware(cat)) {
+                            sf->is_hardware = true;
+                            sf->hw_call_count++;
+                            if (cat == SEM_CAT_PORT_IO) sf->has_port_io = true;
+                            else if (cat == SEM_CAT_MMIO) sf->has_mmio = true;
+                            else if (cat == SEM_CAT_TIMING) sf->has_timing = true;
+                            else if (cat == SEM_CAT_PCI_CONFIG) sf->has_pci = true;
+                            if (sf->primary_category == SEM_CAT_UNKNOWN)
+                                sf->primary_category = cat;
+                        } else if (sem_is_scaffolding(cat)) {
+                            sf->has_scaffolding = true;
+                            sf->scaf_call_count++;
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
+        /* Determine primary category from direct port I/O if not already set */
+        if (sf->has_port_io && sf->primary_category == SEM_CAT_UNKNOWN) {
             sf->primary_category = SEM_CAT_PORT_IO;
             sf->is_hardware = true;
-        } else {
-            sf->primary_category = SEM_CAT_UNKNOWN;
-            sf->is_hardware = false;
         }
 
         /* Count hw/scaffolding */

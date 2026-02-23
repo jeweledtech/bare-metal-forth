@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "../include/semantic.h"
+#include "../include/uir.h"
 
 static int tests_run = 0;
 static int tests_passed = 0;
@@ -170,7 +171,7 @@ static void test_analyze_hw_function(void) {
         },
     };
 
-    int rc = sem_analyze_functions(funcs, 2, &result);
+    int rc = sem_analyze_functions(funcs, 2, 0, &result);
     if (rc != 0) FAIL("sem_analyze_functions returned error");
     if (result.function_count != 2) FAIL("should have 2 functions");
 
@@ -219,6 +220,141 @@ static void test_classify_sync(void) {
     PASS();
 }
 
+/* ---- Test: detect hardware via IAT call cross-reference ---- */
+static void test_iat_call_detection(void) {
+    TEST(iat_call_detects_hw_function);
+
+    /* Set up classified imports: READ_PORT_UCHAR at IAT RVA 0x200C */
+    sem_result_t result;
+    memset(&result, 0, sizeof(result));
+
+    sem_pe_import_t pe_imports[] = {
+        {"hal.dll", "READ_PORT_UCHAR", 0x200C},
+        {"ntoskrnl.exe", "IoCompleteRequest", 0x2010},
+    };
+    sem_classify_imports(pe_imports, 2, &result);
+
+    /* Build a UIR function that contains: call dword [0x1200C]
+     * image_base = 0x10000, IAT RVA = 0x200C → absolute = 0x1200C */
+    uir_function_t uir_func;
+    memset(&uir_func, 0, sizeof(uir_func));
+    uir_func.entry_address = 0x11000;
+    uir_func.has_port_io = false;  /* no direct IN/OUT */
+
+    uir_block_t block;
+    memset(&block, 0, sizeof(block));
+    block.address = 0x11000;
+    block.fall_through = -1;
+    block.branch_target = -1;
+
+    /* Three instructions: push eax, call [0x1200C], ret */
+    uir_instruction_t instrs[3];
+    memset(instrs, 0, sizeof(instrs));
+
+    instrs[0].opcode = UIR_PUSH;
+    instrs[0].original_address = 0x11000;
+
+    instrs[1].opcode = UIR_CALL;
+    instrs[1].original_address = 0x11001;
+    instrs[1].dest.type = UIR_OPERAND_MEM;
+    instrs[1].dest.reg = -1;     /* no base register */
+    instrs[1].dest.index = -1;   /* no index register */
+    instrs[1].dest.disp = 0x1200C; /* absolute IAT address */
+
+    instrs[2].opcode = UIR_RET;
+    instrs[2].original_address = 0x11007;
+
+    block.instructions = instrs;
+    block.count = 3;
+    uir_func.blocks = &block;
+    uir_func.block_count = 1;
+
+    sem_uir_input_t func_input = {
+        .func = &uir_func,
+        .entry_address = 0x11000,
+        .name = "port_reader",
+        .has_port_io = false,
+        .ports_read = NULL, .ports_read_count = 0,
+        .ports_written = NULL, .ports_written_count = 0,
+    };
+
+    int rc = sem_analyze_functions(&func_input, 1, 0x10000, &result);
+    if (rc != 0) FAIL("sem_analyze_functions returned error");
+
+    if (!result.functions[0].is_hardware)
+        FAIL("func calling READ_PORT_UCHAR via IAT should be hardware");
+    if (!result.functions[0].has_port_io)
+        FAIL("func calling READ_PORT_UCHAR should have has_port_io set");
+    if (result.functions[0].hw_call_count != 1)
+        FAIL("should have 1 hw call");
+    if (result.hw_function_count != 1)
+        FAIL("should count 1 hw function");
+
+    sem_cleanup(&result);
+    PASS();
+}
+
+/* ---- Test: scaffolding-only call does NOT mark as hardware ---- */
+static void test_iat_scaffolding_not_hardware(void) {
+    TEST(iat_scaffolding_call_not_hardware);
+
+    sem_result_t result;
+    memset(&result, 0, sizeof(result));
+
+    sem_pe_import_t pe_imports[] = {
+        {"ntoskrnl.exe", "IoCompleteRequest", 0x2010},
+    };
+    sem_classify_imports(pe_imports, 1, &result);
+
+    uir_function_t uir_func;
+    memset(&uir_func, 0, sizeof(uir_func));
+    uir_func.entry_address = 0x11000;
+
+    uir_block_t block;
+    memset(&block, 0, sizeof(block));
+    block.address = 0x11000;
+    block.fall_through = -1;
+    block.branch_target = -1;
+
+    uir_instruction_t instrs[2];
+    memset(instrs, 0, sizeof(instrs));
+
+    instrs[0].opcode = UIR_CALL;
+    instrs[0].original_address = 0x11000;
+    instrs[0].dest.type = UIR_OPERAND_MEM;
+    instrs[0].dest.reg = -1;
+    instrs[0].dest.index = -1;
+    instrs[0].dest.disp = 0x12010;  /* IoCompleteRequest IAT addr */
+
+    instrs[1].opcode = UIR_RET;
+    instrs[1].original_address = 0x11006;
+
+    block.instructions = instrs;
+    block.count = 2;
+    uir_func.blocks = &block;
+    uir_func.block_count = 1;
+
+    sem_uir_input_t func_input = {
+        .func = &uir_func,
+        .entry_address = 0x11000,
+        .name = "irp_handler",
+        .has_port_io = false,
+        .ports_read = NULL, .ports_read_count = 0,
+        .ports_written = NULL, .ports_written_count = 0,
+    };
+
+    int rc = sem_analyze_functions(&func_input, 1, 0x10000, &result);
+    if (rc != 0) FAIL("sem_analyze_functions returned error");
+
+    if (result.functions[0].is_hardware)
+        FAIL("func calling only IoCompleteRequest should NOT be hardware");
+    if (result.functions[0].scaf_call_count != 1)
+        FAIL("should have 1 scaffolding call");
+
+    sem_cleanup(&result);
+    PASS();
+}
+
 int main(void) {
     printf("Semantic Analyzer Tests\n");
     printf("=======================\n");
@@ -236,6 +372,8 @@ int main(void) {
     test_classify_pci();
     test_classify_dma();
     test_classify_sync();
+    test_iat_call_detection();
+    test_iat_scaffolding_not_hardware();
 
     printf("\nResults: %d/%d passed\n", tests_passed, tests_run);
     return tests_passed == tests_run ? 0 : 1;
