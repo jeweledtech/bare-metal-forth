@@ -54,6 +54,8 @@ typedef struct {
     sem_category_t  category;
     const char*     forth_equiv;    /* Forth equivalent (NULL if filtered) */
     const char*     description;
+    uint8_t         arg_count;      /* Number of arguments (e.g., READ_PORT_UCHAR=1) */
+    uint8_t         ret_count;      /* Number of return values (0 or 1) */
 } sem_api_entry_t;
 
 /* The built-in API table (defined in semantic.c) */
