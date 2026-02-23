@@ -190,6 +190,14 @@ int sem_classify_imports(const sem_pe_import_t* pe_imports, size_t pe_import_cou
         imp->iat_rva = pe_imports[i].iat_rva;
         imp->category = sem_classify_import(pe_imports[i].func_name,
                                              &imp->forth_equiv);
+        /* Copy signature from API table */
+        for (size_t t = 0; t < SEM_API_TABLE_SIZE; t++) {
+            if (strcmp(SEM_API_TABLE[t].name, pe_imports[i].func_name) == 0) {
+                imp->arg_count = SEM_API_TABLE[t].arg_count;
+                imp->ret_count = SEM_API_TABLE[t].ret_count;
+                break;
+            }
+        }
     }
 
     return 0;
@@ -274,6 +282,15 @@ int sem_analyze_functions(const sem_uir_input_t* uir_funcs, size_t uir_func_coun
                         if (sem_is_hardware(cat)) {
                             sf->is_hardware = true;
                             sf->hw_call_count++;
+                            /* Record the matched HAL call */
+                            sf->hal_calls = realloc(sf->hal_calls,
+                                sf->hw_call_count * sizeof(sem_hal_call_t));
+                            sem_hal_call_t* hc = &sf->hal_calls[sf->hw_call_count - 1];
+                            hc->api_name = result->imports[k].func_name;
+                            hc->forth_equiv = result->imports[k].forth_equiv;
+                            hc->category = cat;
+                            hc->arg_count = result->imports[k].arg_count;
+                            hc->ret_count = result->imports[k].ret_count;
                             if (cat == SEM_CAT_PORT_IO) sf->has_port_io = true;
                             else if (cat == SEM_CAT_MMIO) sf->has_mmio = true;
                             else if (cat == SEM_CAT_TIMING) sf->has_timing = true;
@@ -527,6 +544,7 @@ void sem_cleanup(sem_result_t* result) {
         for (size_t i = 0; i < result->function_count; i++) {
             free(result->functions[i].name);
             free(result->functions[i].ports);
+            free(result->functions[i].hal_calls);
         }
         free(result->functions);
     }

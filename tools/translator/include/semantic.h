@@ -70,7 +70,19 @@ typedef struct {
     sem_category_t  category;
     const char*     forth_equiv;    /* points into SEM_API_TABLE, not allocated */
     uint32_t        iat_rva;
+    uint8_t         arg_count;      /* from SEM_API_TABLE */
+    uint8_t         ret_count;      /* from SEM_API_TABLE */
 } sem_import_t;
+
+/* ---- Matched HAL call (recorded during IAT cross-reference) ---- */
+
+typedef struct {
+    const char*     api_name;       /* e.g., "READ_PORT_UCHAR" — points into SEM_API_TABLE */
+    const char*     forth_equiv;    /* e.g., "C@-PORT" — points into SEM_API_TABLE */
+    sem_category_t  category;
+    uint8_t         arg_count;
+    uint8_t         ret_count;
+} sem_hal_call_t;
 
 /* ---- Analyzed function ---- */
 
@@ -90,6 +102,10 @@ typedef struct {
     /* Ports used by this function */
     uint16_t*       ports;
     size_t          port_count;
+
+    /* Matched HAL calls (from IAT cross-reference) */
+    sem_hal_call_t* hal_calls;
+    size_t          hal_call_count;
 } sem_function_t;
 
 /* ---- Analysis result ---- */
