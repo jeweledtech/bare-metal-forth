@@ -170,10 +170,12 @@ test-floored-div: | $(BUILDDIR)
 # Ghidra validation — synthetic driver and comparison tests
 # ============================================================================
 
-# Ghidra headless analyzer configuration
-GHIDRA_JAVA_HOME = /snap/ghidra/35/usr/lib/jvm/java-21-openjdk-amd64
+# Ghidra headless analyzer configuration (override with environment or make args)
+# Example: make ghidra-fixtures GHIDRA_HOME=/opt/ghidra_12.0_PUBLIC
+GHIDRA_HOME ?= /snap/ghidra/35/ghidra_12.0_PUBLIC
+GHIDRA_JAVA_HOME ?= /snap/ghidra/35/usr/lib/jvm/java-21-openjdk-amd64
 GHIDRA_HEADLESS = JAVA_HOME=$(GHIDRA_JAVA_HOME) \
-	/snap/ghidra/35/ghidra_12.0_PUBLIC/support/analyzeHeadless
+	$(GHIDRA_HOME)/support/analyzeHeadless
 
 # Build synthetic .sys test binaries
 .PHONY: build-synth
