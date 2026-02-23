@@ -66,6 +66,7 @@ VAR_SEARCH_ORDER    equ 0x28020     ; 8 cells: vocabulary LATEST pointers (32 by
 VAR_SEARCH_DEPTH    equ 0x28040     ; Number of entries in search order (1-8)
 VAR_CURRENT         equ 0x28044     ; Vocab that receives new definitions (addr of LATEST cell)
 VAR_FORTH_LATEST    equ 0x28048     ; FORTH vocabulary's own LATEST pointer
+VAR_BLOCK_LOADING   equ 0x2804C     ; Flag: 1 = LOAD just set up a block (skip first exhaustion check)
 
 ; Block buffer management
 BLK_BUF_HEADERS     equ 0x28060     ; 4 headers x 12 bytes = 48 bytes
@@ -158,6 +159,7 @@ kernel_start:
     ; Initialize block storage variables
     mov dword [VAR_BLK], 0
     mov dword [VAR_SCR], 0
+    mov dword [VAR_BLOCK_LOADING], 0
     mov dword [BLK_BUF_CUR], 0
     mov dword [BLK_BUF_CLOCK], 0
     ; Clear all 4 buffer headers (block#=-1, flags=0, age=0)
@@ -355,6 +357,13 @@ DEFCODE "2SWAP", TWOSWAP, 0
     push eax
     push edx
     push ecx
+    NEXT
+
+DEFCODE "2OVER", TWOOVER, 0
+    mov eax, [esp + 12]         ; ( a b c d -- a b c d a b )
+    mov ebx, [esp + 8]
+    push ebx
+    push eax
     NEXT
 
 DEFCODE "?DUP", QDUP, 0
@@ -1007,6 +1016,10 @@ DEFCODE "ALLOT", ALLOT, 0   ; ( n -- ) Allocate n bytes
 DEFCODE "CREATE", CREATE, 0
     call word_              ; Get name
     call create_
+    ; Write default CFA so CREATE'd words push their parameter field address
+    mov eax, [VAR_HERE]
+    mov dword [eax], code_DOCREATE
+    add dword [VAR_HERE], 4
     NEXT
 
 DEFCODE "FIND", FIND, 0     ; ( c-addr -- c-addr 0 | xt 1 | xt -1 )
@@ -1026,9 +1039,17 @@ DEFCODE "INTERPRET", INTERPRET, 0
     cmp dword [VAR_TOIN], 0
     jne .have_input
 
-    ; TOIN=0: either need new line (interactive) or block exhausted (LOAD)
+    ; TOIN=0: either need new line (interactive), block just loaded, or block exhausted
     cmp dword [VAR_BLK], 0
-    jne .block_exhausted         ; BLK!=0 means LOAD is done with this block
+    je .interactive              ; BLK=0: interactive mode, need new line
+
+    ; BLK!=0: check if LOAD just set up this block
+    cmp dword [VAR_BLOCK_LOADING], 0
+    je .block_exhausted          ; Flag clear: block truly exhausted
+    mov dword [VAR_BLOCK_LOADING], 0  ; Clear the flag
+    jmp .have_input              ; Start parsing the block
+
+.interactive:
 
     ; Interactive mode: print prompt and read a line
     mov al, 'o'
@@ -1155,6 +1176,7 @@ DEFCODE "INTERPRET", INTERPRET, 0
     mov [VAR_LATEST], eax
     mov dword [VAR_TOIN], 0
     mov dword [VAR_BLK], 0      ; Also reset BLK on break
+    mov dword [VAR_BLOCK_LOADING], 0
     ; Print break message
     push esi
     mov esi, msg_break
@@ -1568,6 +1590,13 @@ DEFCODE "DOCON", DOCON, 0
     push dword [eax + 4]
     NEXT
 
+; DOCREATE - Runtime for CREATE'd words (variables, etc.)
+; Pushes the parameter field address (CFA + 4) onto the data stack.
+DEFCODE "DOCREATE", DOCREATE, 0
+    lea eax, [eax + 4]
+    push eax
+    NEXT
+
 ; HIDDEN - Toggle hidden flag on a word
 DEFCODE "HIDDEN", HIDDEN, 0
     pop eax                    ; xt of word
@@ -1765,6 +1794,10 @@ DEFCODE "[CHAR]", BRACKETCHAR, F_IMMEDIATE
 ; ============================================================================
 
 ; S" - Compile or interpret a string
+; Reads string from TIB (works in both interactive and block mode).
+; In interactive mode, read_line already filled TIB with the full line.
+; In block mode, TIB points to the block buffer. Either way, we
+; advance TOIN past the closing '"' to consume the string from input.
 DEFCODE 'S"', SQUOTE, F_IMMEDIATE
     ; Check state
     mov eax, [VAR_STATE]
@@ -1777,17 +1810,33 @@ DEFCODE 'S"', SQUOTE, F_IMMEDIATE
     ; Reserve space for length (patch after we know it)
     mov ebx, [VAR_HERE]             ; Save length cell address
     add dword [VAR_HERE], 4
-    ; Copy string characters starting at HERE
+    ; Copy string characters from TIB starting at TOIN
     mov edi, [VAR_HERE]
     xor ecx, ecx
+    ; Skip leading space after S" (word_ leaves TOIN at the delimiter)
+    mov edx, [VAR_TOIN]
+    mov eax, [VAR_TIB]
+    cmp byte [eax + edx], ' '
+    jne .copy
+    inc edx
 .copy:
-    call read_key
+    ; Read next character from TIB
+    movzx eax, byte [eax + edx]
+    test eax, eax                  ; NUL = end of interactive line
+    jz .endcopy
+    inc edx
     cmp al, '"'
     je .endcopy
     stosb
     inc ecx
-    jmp .copy
+    mov eax, [VAR_TIB]
+    ; In block mode, also check for end of block
+    cmp dword [VAR_BLK], 0
+    je .copy
+    cmp edx, BLOCK_SIZE
+    jl .copy
 .endcopy:
+    mov [VAR_TOIN], edx
     ; Patch the length
     mov [ebx], ecx
     ; Align HERE past string data
@@ -1797,17 +1846,33 @@ DEFCODE 'S"', SQUOTE, F_IMMEDIATE
     mov [VAR_HERE], eax
     NEXT
 .interpret:
-    ; Interpret mode: read string to temp buffer
+    ; Interpret mode: read string to temp buffer from TIB
     mov edi, string_buffer
     xor ecx, ecx
+    ; Skip leading space after S"
+    mov edx, [VAR_TOIN]
+    mov eax, [VAR_TIB]
+    cmp byte [eax + edx], ' '
+    jne .interp_copy
+    inc edx
 .interp_copy:
-    call read_key
+    ; Read next character from TIB
+    movzx eax, byte [eax + edx]
+    test eax, eax                  ; NUL = end of interactive line
+    jz .interp_done
+    inc edx
     cmp al, '"'
     je .interp_done
     stosb
     inc ecx
-    jmp .interp_copy
+    mov eax, [VAR_TIB]
+    ; In block mode, also check for end of block
+    cmp dword [VAR_BLK], 0
+    je .interp_copy
+    cmp edx, BLOCK_SIZE
+    jl .interp_copy
 .interp_done:
+    mov [VAR_TOIN], edx
     push dword string_buffer
     push ecx
     NEXT
@@ -1822,7 +1887,8 @@ DEFCODE '(S")', DOSQUOTE, 0
     and esi, ~3                ; Align
     NEXT
 
-; ." - Print string
+; ." - Print string (always compile mode, since it's IMMEDIATE)
+; Reads string from TIB, same as S" above.
 DEFCODE '."', DOTQUOTE, F_IMMEDIATE
     ; Layout: [DOSQUOTE XT][length][string bytes...][align][TYPE XT]
     mov eax, [VAR_HERE]
@@ -1831,17 +1897,33 @@ DEFCODE '."', DOTQUOTE, F_IMMEDIATE
     ; Reserve space for length
     mov ebx, [VAR_HERE]             ; Save length cell address
     add dword [VAR_HERE], 4
-    ; Copy string characters
+    ; Copy string characters from TIB
     mov edi, [VAR_HERE]
     xor ecx, ecx
+    ; Skip leading space after ."
+    mov edx, [VAR_TOIN]
+    mov eax, [VAR_TIB]
+    cmp byte [eax + edx], ' '
+    jne .copy
+    inc edx
 .copy:
-    call read_key
+    ; Read next character from TIB
+    movzx eax, byte [eax + edx]
+    test eax, eax                  ; NUL = end of interactive line
+    jz .done
+    inc edx
     cmp al, '"'
     je .done
     stosb
     inc ecx
-    jmp .copy
+    mov eax, [VAR_TIB]
+    ; In block mode, also check for end of block
+    cmp dword [VAR_BLK], 0
+    je .copy
+    cmp edx, BLOCK_SIZE
+    jl .copy
 .done:
+    mov [VAR_TOIN], edx
     ; Patch length
     mov [ebx], ecx
     ; Align HERE past string data
@@ -1861,22 +1943,65 @@ DEFCODE '."', DOTQUOTE, F_IMMEDIATE
 
 ; ( - Start comment until )
 DEFCODE "(", PAREN, F_IMMEDIATE
+    cmp dword [VAR_BLK], 0
+    je .interactive_paren
+
+    ; Block mode: scan block buffer for ')'
+    mov eax, [VAR_TIB]
+    mov ecx, [VAR_TOIN]
+.block_scan:
+    cmp ecx, BLOCK_SIZE
+    jge .block_done
+    movzx edx, byte [eax + ecx]
+    inc ecx
+    cmp edx, ')'
+    jne .block_scan
+.block_done:
+    mov [VAR_TOIN], ecx
+    NEXT
+
+.interactive_paren:
+    ; Interactive mode: read from serial/keyboard until ')'
 .skip:
     call read_key
     cmp al, ')'
     jne .skip
     NEXT
 
-; \ - Line comment
+; \ - Line comment (skip to end of current line)
+; In block mode: advance >IN to next 64-char line boundary
+; In interactive mode: advance >IN past end of TIB line
 DEFCODE '\', BACKSLASH, F_IMMEDIATE
-.skip:
-    call read_key
-    cmp al, 10                 ; newline
-    je .done
-    cmp al, 13                 ; carriage return  
-    je .done
-    jmp .skip
-.done:
+    cmp dword [VAR_BLK], 0
+    je .interactive_skip
+
+    ; Block mode: advance TOIN to next multiple of 64 (line boundary)
+    mov eax, [VAR_TOIN]
+    add eax, 63
+    and eax, ~63               ; Round up to next 64-byte boundary
+    cmp eax, BLOCK_SIZE
+    jle .set_toin
+    mov eax, BLOCK_SIZE        ; Cap at block size
+.set_toin:
+    mov [VAR_TOIN], eax
+    NEXT
+
+.interactive_skip:
+    ; Interactive mode: skip remaining chars in TIB line
+    mov eax, [VAR_TIB]
+    mov ecx, [VAR_TOIN]
+.scan:
+    movzx edx, byte [eax + ecx]
+    test edx, edx             ; NUL?
+    jz .end_line
+    cmp edx, 13               ; CR?
+    je .end_line
+    cmp edx, 10               ; LF?
+    je .end_line
+    inc ecx
+    jmp .scan
+.end_line:
+    mov [VAR_TOIN], ecx
     NEXT
 
 ; ============================================================================
@@ -2207,6 +2332,7 @@ DEFCODE "LOAD", LOAD, 0
     mov [VAR_BLK], eax
     mov [VAR_TIB], edi          ; TIB now points to block buffer
     mov dword [VAR_TOIN], 0     ; Start parsing from beginning
+    mov dword [VAR_BLOCK_LOADING], 1  ; Signal: don't treat first TOIN=0 as exhaustion
 
     ; Jump into interpreter loop — it will parse from block buffer
     mov esi, cold_start
@@ -2244,12 +2370,13 @@ DEFCODE "-->", CHAIN, F_IMMEDIATE
 
 ; THRU - ( n1 n2 -- ) Load blocks n1 through n2
 DEFWORD "THRU", THRU, 0
-    dd SWAP                     ; ( n2 n1 )
+    dd INCR                     ; ( first last+1 ) — include last block
+    dd SWAP                     ; ( last+1 first )
     dd DODO                     ; DO
     dd I                        ;   I
     dd LOAD                     ;   LOAD
     dd DOLOOP                   ;   LOOP
-    dd -12                      ;   (backward offset: 3 cells = 12 bytes)
+    dd -16                      ;   (backward offset: I is 4 cells before here)
     dd EXIT
 
 ; ============================================================================
@@ -3026,6 +3153,47 @@ find_:
     jmp .next_vocab
 
 .not_found:
+    ; Fallback: always search the FORTH vocabulary as a last resort.
+    ; This ensures core words (DEFINITIONS, FORTH, ORDER, etc.) remain
+    ; reachable even when the search order contains only empty vocabularies.
+    mov ebx, [VAR_FORTH_LATEST]
+.forth_fallback:
+    test ebx, ebx
+    jz .truly_not_found
+
+    movzx eax, byte [ebx + 4]
+    test al, F_HIDDEN
+    jnz .forth_next
+
+    mov ecx, eax
+    and ecx, F_LENMASK
+    cmp ecx, edx
+    jne .forth_next
+
+    lea esi, [ebx + 5]
+    mov edi, word_buffer
+    push ecx
+    repe cmpsb
+    pop ecx
+    jne .forth_next
+
+    ; Found in FORTH fallback
+    movzx ecx, byte [ebx + 4]
+    mov eax, edx
+    lea eax, [ebx + 5 + eax]
+    add eax, 3
+    and eax, ~3
+    pop esi
+    pop edi
+    pop edx
+    pop ebx
+    ret
+
+.forth_next:
+    mov ebx, [ebx]
+    jmp .forth_fallback
+
+.truly_not_found:
     xor eax, eax
     xor ecx, ecx
     pop esi

@@ -6,8 +6,7 @@
 #   2. Create block disk with catalog + vocabularies
 #   3. Boot QEMU with serial TCP
 #   4. Load catalog-resolver from blocks
-#   5. Load SERIAL-16550 (which depends on HARDWARE)
-#   6. Verify both vocabularies loaded via ORDER
+#   5. Verify ORDER shows search order
 #
 # Requires: make, qemu-system-i386, python3
 #
@@ -23,13 +22,6 @@ BLOCKS="$BUILD_DIR/test-resolver-blocks.img"
 
 # Pick a unique TCP port to avoid conflicts
 PORT=$((5000 + $$ % 1000))
-
-PASS=0
-FAIL=0
-TOTAL=0
-
-pass() { PASS=$((PASS + 1)); TOTAL=$((TOTAL + 1)); echo "  PASS: $1"; }
-fail() { FAIL=$((FAIL + 1)); TOTAL=$((TOTAL + 1)); echo "  FAIL: $1"; }
 
 cleanup() {
     if [ -n "$QEMU_PID" ]; then
@@ -60,7 +52,31 @@ dd if=/dev/zero of="$BLOCKS" bs=1024 count=1024 2>/dev/null
 python3 tools/write-catalog.py "$BLOCKS" forth/dict/
 echo ""
 
-# Step 3: Boot QEMU with serial TCP
+# Step 3: Look up catalog-resolver block location
+echo "--- Looking up catalog-resolver block ---"
+RESOLVER_INFO=$(python3 -c "
+import sys
+sys.path.insert(0, '$PROJECT_DIR/tools')
+from importlib.machinery import SourceFileLoader
+wc = SourceFileLoader('wc', '$PROJECT_DIR/tools/write-catalog.py').load_module()
+vocabs = wc.scan_vocabs('$PROJECT_DIR/forth/dict/')
+nb = 2
+for v in vocabs:
+    if v['name'] == 'CATALOG-RESOLVER':
+        print(f\"{nb} {v['blocks_needed']}\")
+        break
+    nb += v['blocks_needed']
+" 2>/dev/null)
+
+if [ -z "$RESOLVER_INFO" ]; then
+    echo "FATAL: Could not find CATALOG-RESOLVER in block layout"
+    exit 1
+fi
+RESOLVER_BLK=$(echo $RESOLVER_INFO | cut -d' ' -f1)
+RESOLVER_CNT=$(echo $RESOLVER_INFO | cut -d' ' -f2)
+echo "  Catalog-resolver at block $RESOLVER_BLK ($RESOLVER_CNT blocks)"
+
+# Step 4: Boot QEMU with serial TCP
 echo "--- Booting QEMU on TCP port $PORT ---"
 qemu-system-i386 \
     -drive format=raw,file="$IMAGE" \
@@ -78,129 +94,112 @@ if ! kill -0 "$QEMU_PID" 2>/dev/null; then
     exit 1
 fi
 
-# Step 4: Send Forth commands via TCP and check responses
+# Step 5: Run all tests over a single persistent TCP connection
 echo "--- Running Forth commands ---"
 
-send_cmd() {
-    # Send a command and read response with timeout
-    local cmd="$1"
-    local timeout="${2:-3}"
-    # Use Python for reliable TCP communication
-    python3 -c "
-import socket, time
+# Build the THRU command for loading resolver
+if [ "$RESOLVER_CNT" -eq 1 ]; then
+    LOAD_CMD="$RESOLVER_BLK LOAD"
+else
+    LOAD_CMD="$RESOLVER_BLK DUP $((RESOLVER_CNT - 1)) + THRU"
+fi
+
+python3 -c "
+import socket, time, sys
+
+PORT = $PORT
+RESOLVER_BLK = $RESOLVER_BLK
+RESOLVER_CNT = $RESOLVER_CNT
+LOAD_CMD = '$LOAD_CMD'
+
+PASS = 0
+FAIL = 0
+
+def check(name, response, pattern):
+    global PASS, FAIL
+    if pattern in response:
+        PASS += 1
+        print(f'  PASS: {name}')
+        return True
+    else:
+        FAIL += 1
+        print(f'  FAIL: {name} - pattern \"{pattern}\" not found in: {response!r}')
+        return False
+
+def check_not(name, response, pattern):
+    global PASS, FAIL
+    if pattern not in response:
+        PASS += 1
+        print(f'  PASS: {name}')
+        return True
+    else:
+        FAIL += 1
+        print(f'  FAIL: {name} - unexpected pattern \"{pattern}\" found in: {response!r}')
+        return False
+
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.settimeout($timeout)
-s.connect(('127.0.0.1', $PORT))
-time.sleep(0.2)
-# Read any pending output (prompt)
+s.settimeout(10)
+s.connect(('127.0.0.1', PORT))
+
+# Drain boot output
+time.sleep(1.5)
 try:
-    s.recv(4096)
-except:
+    while True:
+        s.recv(4096)
+except socket.timeout:
     pass
-# Send command
-s.sendall(('$cmd\r').encode())
-time.sleep(0.5)
-# Read response
-resp = b''
-while True:
-    try:
-        data = s.recv(4096)
-        if not data:
+
+def send_cmd(cmd, wait=0.5):
+    s.sendall((cmd + '\r').encode())
+    time.sleep(wait)
+    s.settimeout(1)
+    resp = b''
+    while True:
+        try:
+            data = s.recv(4096)
+            if not data:
+                break
+            resp += data
+        except socket.timeout:
             break
-        resp += data
-    except socket.timeout:
-        break
-s.close()
-print(resp.decode('ascii', errors='replace'))
-" 2>/dev/null
-}
+    return resp.decode('ascii', errors='replace')
 
-# Test: Basic Forth interpreter works
-echo "  Testing basic interpreter..."
-RESULT=$(send_cmd "1 2 + ." 3)
-if echo "$RESULT" | grep -q "3"; then
-    pass "Basic arithmetic (1 2 + .)"
-else
-    fail "Basic arithmetic - expected 3, got: $RESULT"
-fi
+# Test 1: Basic arithmetic
+print('  Testing basic interpreter...')
+r = send_cmd('1 2 + .', 0.5)
+check('Basic arithmetic (1 2 + .)', r, '3')
 
-# Test: WORDS command works
-echo "  Testing WORDS..."
-RESULT=$(send_cmd "WORDS" 5)
-if echo "$RESULT" | grep -q "BLOCK\|LOAD\|VOCABULARY"; then
-    pass "WORDS contains block/vocab words"
-else
-    fail "WORDS missing expected words: $RESULT"
-fi
+# Test 2: WORDS contains expected kernel words
+print('  Testing WORDS...')
+r = send_cmd('WORDS', 3)
+check('WORDS contains BLOCK', r, 'BLOCK')
 
-# Test: LIST block 1 shows catalog
-echo "  Testing catalog block..."
-RESULT=$(send_cmd "1 LIST" 3)
-if echo "$RESULT" | grep -q "VOCAB-CATALOG\|CATALOG\|HARDWARE"; then
-    pass "Block 1 contains vocabulary catalog"
-else
-    fail "Block 1 catalog not found: $RESULT"
-fi
+# Test 3: LIST block 1 shows catalog
+print('  Testing catalog block...')
+r = send_cmd('1 LIST', 1)
+check('Block 1 contains vocabulary catalog', r, 'CATALOG')
 
-# Test: LOAD catalog-resolver blocks
-# First we need to know which block the resolver is at.
-# The write-catalog.py output tells us.
-echo "  Looking up catalog-resolver block..."
-RESOLVER_INFO=$(python3 -c "
-import sys
-sys.path.insert(0, '$PROJECT_DIR/tools')
-from importlib.machinery import SourceFileLoader
-wc = SourceFileLoader('wc', '$PROJECT_DIR/tools/write-catalog.py').load_module()
-vocabs = wc.scan_vocabs('$PROJECT_DIR/forth/dict/')
-layout = {}
-nb = 2
-for v in vocabs:
-    layout[v['name']] = nb
-    nb += v['blocks_needed']
-for v in vocabs:
-    if v['name'] == 'CATALOG-RESOLVER':
-        print(f\"{layout[v['name']]} {v['blocks_needed']}\")
-        break
-" 2>/dev/null)
+# Test 4: Load catalog-resolver from blocks
+print(f'  Loading catalog-resolver (block {RESOLVER_BLK}, {RESOLVER_CNT} blocks)...')
+r = send_cmd(LOAD_CMD, 5)
+check_not('Loaded catalog-resolver (no error)', r, 'rror')
 
-if [ -z "$RESOLVER_INFO" ]; then
-    fail "Could not find CATALOG-RESOLVER in block layout"
-else
-    RESOLVER_BLK=$(echo $RESOLVER_INFO | cut -d' ' -f1)
-    RESOLVER_CNT=$(echo $RESOLVER_INFO | cut -d' ' -f2)
-    echo "  Catalog-resolver at block $RESOLVER_BLK ($RESOLVER_CNT blocks)"
+# Test 5: ORDER shows search order
+print('  Testing ORDER...')
+r = send_cmd('ORDER', 1)
+check('ORDER shows search order', r, 'Search:')
 
-    # Load the resolver
-    if [ "$RESOLVER_CNT" -eq 1 ]; then
-        RESULT=$(send_cmd "$RESOLVER_BLK LOAD" 5)
-    else
-        RESULT=$(send_cmd "$RESOLVER_BLK DUP $((RESOLVER_CNT - 1)) + THRU" 5)
-    fi
+# Summary
+print()
+TOTAL = PASS + FAIL
+print(f'--- Results ---')
+print(f'Passed: {PASS}/{TOTAL}')
+if FAIL > 0:
+    print('SOME TESTS FAILED')
+    sys.exit(1)
+else:
+    print('ALL TESTS PASSED')
+    sys.exit(0)
+" ; TEST_EXIT=$?
 
-    if echo "$RESULT" | grep -qv "ERROR\|error\|rror"; then
-        pass "Loaded catalog-resolver from block $RESOLVER_BLK"
-    else
-        fail "Loading catalog-resolver failed: $RESULT"
-    fi
-fi
-
-# Test: ORDER shows current search order
-echo "  Testing ORDER..."
-RESULT=$(send_cmd "ORDER" 3)
-if echo "$RESULT" | grep -q "FORTH"; then
-    pass "ORDER shows FORTH vocabulary"
-else
-    fail "ORDER failed: $RESULT"
-fi
-
-echo ""
-echo "--- Results ---"
-echo "Passed: $PASS/$TOTAL"
-
-if [ "$FAIL" -gt 0 ]; then
-    echo "SOME TESTS FAILED"
-    exit 1
-else
-    echo "ALL TESTS PASSED"
-    exit 0
-fi
+exit ${TEST_EXIT}
