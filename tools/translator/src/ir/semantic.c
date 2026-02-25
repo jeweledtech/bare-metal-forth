@@ -282,10 +282,11 @@ int sem_analyze_functions(const sem_uir_input_t* uir_funcs, size_t uir_func_coun
                         if (sem_is_hardware(cat)) {
                             sf->is_hardware = true;
                             sf->hw_call_count++;
+                            sf->hal_call_count++;
                             /* Record the matched HAL call */
                             sf->hal_calls = realloc(sf->hal_calls,
-                                sf->hw_call_count * sizeof(sem_hal_call_t));
-                            sem_hal_call_t* hc = &sf->hal_calls[sf->hw_call_count - 1];
+                                sf->hal_call_count * sizeof(sem_hal_call_t));
+                            sem_hal_call_t* hc = &sf->hal_calls[sf->hal_call_count - 1];
                             hc->api_name = result->imports[k].func_name;
                             hc->forth_equiv = result->imports[k].forth_equiv;
                             hc->category = cat;
