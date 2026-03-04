@@ -105,6 +105,30 @@ VGA_WIDTH           equ 80
 VGA_HEIGHT          equ 25
 VGA_ATTR            equ 0x07        ; Light gray on black
 
+; PIC (Programmable Interrupt Controller) ports
+PIC1_CMD            equ 0x20        ; Master PIC command port
+PIC1_DATA           equ 0x21        ; Master PIC data port
+PIC2_CMD            equ 0xA0        ; Slave PIC command port
+PIC2_DATA           equ 0xA1        ; Slave PIC data port
+PIC_EOI             equ 0x20        ; End-of-interrupt command
+
+; IDT (Interrupt Descriptor Table)
+IDT_BASE            equ 0x29400     ; 256 entries x 8 bytes = 2048 bytes (0x29400-0x29BFF)
+IDT_ENTRIES         equ 256
+IDT_ENTRY_SIZE      equ 8
+
+; ISR hook table (16 cells for future Forth-level IRQ hooks)
+ISR_HOOK_TABLE      equ 0x29C00     ; 16 x 4 bytes = 64 bytes
+
+; IRQ vector offsets (remapped)
+IRQ_BASE_MASTER     equ 0x20        ; IRQ 0-7 -> INT 0x20-0x27
+IRQ_BASE_SLAVE      equ 0x28        ; IRQ 8-15 -> INT 0x28-0x2F
+
+; ISR data variables (in kernel data section, addresses resolved at assembly)
+; These are labels in the data section, not EQU addresses in the sysvar area.
+; Keyboard ring buffer
+KB_RING_SIZE        equ 16          ; 16-byte ring buffer
+
 ; Word flags
 F_IMMEDIATE         equ 0x80        ; Immediate word
 F_HIDDEN            equ 0x40        ; Hidden from FIND
@@ -151,7 +175,7 @@ kernel_start:
     ; Initialize variables
     mov dword [VAR_STATE], 0
     mov dword [VAR_HERE], DICT_START
-    mov dword [VAR_LATEST], name_USING   ; Last built-in word
+    mov dword [VAR_LATEST], name_MOUSE_BTN_VAR  ; Last built-in word
     mov dword [VAR_BASE], 10
     mov dword [VAR_TIB], TIB_START
     mov dword [VAR_TOIN], 0
@@ -175,10 +199,15 @@ kernel_start:
     mov byte [BLK_BUF_GUARD], 0
 
     ; Initialize vocabulary / search order
-    mov dword [VAR_FORTH_LATEST], name_USING  ; FORTH vocab starts same as LATEST
+    mov dword [VAR_FORTH_LATEST], name_MOUSE_BTN_VAR  ; FORTH vocab starts same as LATEST
     mov dword [VAR_SEARCH_DEPTH], 1
     mov dword [VAR_SEARCH_ORDER], VAR_FORTH_LATEST  ; Addr of FORTH's LATEST cell
     mov dword [VAR_CURRENT], VAR_FORTH_LATEST       ; New defs go into FORTH
+
+    ; Initialize interrupt infrastructure (BEFORE sti)
+    call init_pic                   ; Remap PIC, mask all IRQs
+    call init_idt                   ; Build IDT, load IDTR
+    sti                             ; Enable interrupts (all IRQs still masked)
 
     ; Clear screen
     call init_screen
@@ -2545,6 +2574,73 @@ DEFCODE "USING", USING, 0
     NEXT
 
 ; ============================================================================
+; Interrupt Infrastructure - Dictionary Words
+; ============================================================================
+
+; TICK-COUNT - ( -- addr ) Address of ISR tick counter variable
+DEFVAR "TICK-COUNT", TICK_COUNT, isr_tick_count
+
+; IDT-BASE - ( -- addr ) Base address of the IDT
+DEFCONST "IDT-BASE", IDT_BASE_CONST, IDT_BASE
+
+; IRQ-UNMASK - ( irq# -- ) Unmask a specific IRQ in the PIC
+DEFCODE "IRQ-UNMASK", IRQ_UNMASK, 0
+    pop eax                     ; irq#
+    cmp eax, 8
+    jae .slave
+    ; Master PIC (IRQ 0-7): read mask, clear bit, write back
+    mov ecx, eax
+    mov dx, PIC1_DATA
+    in al, dx
+    mov ebx, 1
+    shl ebx, cl
+    not ebx
+    and eax, ebx
+    out dx, al
+    NEXT
+.slave:
+    ; Slave PIC (IRQ 8-15): unmask on slave AND unmask IRQ2 on master (cascade)
+    sub eax, 8
+    mov ecx, eax
+    mov dx, PIC2_DATA
+    in al, dx
+    mov ebx, 1
+    shl ebx, cl
+    not ebx
+    and eax, ebx
+    out dx, al
+    ; Also unmask IRQ2 (cascade) on master
+    mov dx, PIC1_DATA
+    in al, dx
+    and al, ~(1 << 2)          ; Clear bit 2 (IRQ2 = cascade)
+    out dx, al
+    NEXT
+
+; KB-RING-BUF - ( -- addr ) Address of keyboard scancode ring buffer
+DEFCONST "KB-RING-BUF", KB_RING_BUF_CONST, kb_ring_buf
+
+; KB-RING-TAIL - ( -- addr ) Address of ring buffer tail (read position)
+DEFVAR "KB-RING-TAIL", KB_RING_TAIL, kb_ring_tail
+
+; KB-RING-COUNT - ( -- addr ) Address of ring buffer count
+DEFVAR "KB-RING-COUNT", KB_RING_COUNT, kb_ring_count
+
+; MOUSE-PKT-BUF - ( -- addr ) Address of 3-byte mouse packet buffer
+DEFCONST "MOUSE-PKT-BUF", MOUSE_PKT_BUF_CONST, mouse_pkt_buf
+
+; MOUSE-PKT-READY - ( -- addr ) Address of mouse packet ready flag
+DEFVAR "MOUSE-PKT-READY", MOUSE_PKT_READY, mouse_pkt_ready
+
+; MOUSE-X-VAR - ( -- addr ) Address of mouse X position variable
+DEFVAR "MOUSE-X-VAR", MOUSE_X_VAR, mouse_x
+
+; MOUSE-Y-VAR - ( -- addr ) Address of mouse Y position variable
+DEFVAR "MOUSE-Y-VAR", MOUSE_Y_VAR, mouse_y
+
+; MOUSE-BTN-VAR - ( -- addr ) Address of mouse button state variable
+DEFVAR "MOUSE-BTN-VAR", MOUSE_BTN_VAR, mouse_btn
+
+; ============================================================================
 ; Low-Level Support Routines
 ; ============================================================================
 
@@ -2578,6 +2674,237 @@ init_serial:
     pop edx
     pop eax
     ret
+
+; ----------------------------------------------------------------------------
+; init_pic - Remap PIC and mask all IRQs
+; IRQ 0-7 -> INT 0x20-0x27, IRQ 8-15 -> INT 0x28-0x2F
+; ----------------------------------------------------------------------------
+init_pic:
+    push eax
+    push edx
+
+    ; ICW1: begin initialization sequence (cascade mode, ICW4 needed)
+    mov al, 0x11
+    out PIC1_CMD, al
+    out PIC2_CMD, al
+
+    ; ICW2: vector offsets
+    mov al, IRQ_BASE_MASTER     ; Master PIC: IRQ 0 -> INT 0x20
+    out PIC1_DATA, al
+    mov al, IRQ_BASE_SLAVE      ; Slave PIC: IRQ 8 -> INT 0x28
+    out PIC2_DATA, al
+
+    ; ICW3: cascade wiring
+    mov al, 0x04                ; Master: slave on IRQ2 (bit 2)
+    out PIC1_DATA, al
+    mov al, 0x02                ; Slave: cascade identity 2
+    out PIC2_DATA, al
+
+    ; ICW4: 8086 mode
+    mov al, 0x01
+    out PIC1_DATA, al
+    out PIC2_DATA, al
+
+    ; Mask all IRQs initially (0xFF = all masked)
+    mov al, 0xFF
+    out PIC1_DATA, al
+    out PIC2_DATA, al
+
+    pop edx
+    pop eax
+    ret
+
+; ----------------------------------------------------------------------------
+; init_idt - Build 256-entry IDT at IDT_BASE, load IDTR
+; Default: all entries point to isr_default (just iret)
+; Specific: IRQ0 (timer), IRQ1 (keyboard), IRQ12 (mouse)
+; ----------------------------------------------------------------------------
+init_idt:
+    push eax
+    push ebx
+    push ecx
+    push edx
+    push edi
+
+    ; First, fill all 256 entries with the default handler
+    mov edi, IDT_BASE
+    mov ecx, IDT_ENTRIES
+    mov ebx, isr_default        ; Default handler address
+.fill_idt:
+    mov eax, ebx
+    mov word [edi], ax          ; Offset low 16 bits
+    mov word [edi+2], 0x08      ; Code segment selector (GDT code seg)
+    mov byte [edi+4], 0         ; Reserved
+    mov byte [edi+5], 0x8E      ; Present, DPL=0, 32-bit interrupt gate
+    shr eax, 16
+    mov word [edi+6], ax        ; Offset high 16 bits
+    add edi, IDT_ENTRY_SIZE
+    dec ecx
+    jnz .fill_idt
+
+    ; Install specific ISR handlers
+    ; IRQ0 (INT 0x20) - Timer
+    mov eax, isr_timer
+    mov edi, IDT_BASE + (IRQ_BASE_MASTER + 0) * IDT_ENTRY_SIZE
+    mov word [edi], ax
+    shr eax, 16
+    mov word [edi+6], ax
+
+    ; IRQ1 (INT 0x21) - Keyboard
+    mov eax, isr_keyboard
+    mov edi, IDT_BASE + (IRQ_BASE_MASTER + 1) * IDT_ENTRY_SIZE
+    mov word [edi], ax
+    shr eax, 16
+    mov word [edi+6], ax
+
+    ; IRQ12 (INT 0x2C) - Mouse
+    mov eax, isr_mouse
+    mov edi, IDT_BASE + (IRQ_BASE_SLAVE + 4) * IDT_ENTRY_SIZE
+    mov word [edi], ax
+    shr eax, 16
+    mov word [edi+6], ax
+
+    ; Load IDTR
+    lidt [idt_descriptor]
+
+    ; Initialize ISR data
+    mov dword [isr_tick_count], 0
+    mov dword [kb_ring_head], 0
+    mov dword [kb_ring_tail], 0
+    mov dword [kb_ring_count], 0
+    mov dword [mouse_pkt_idx], 0
+    mov dword [mouse_pkt_ready], 0
+    mov dword [mouse_x], 0
+    mov dword [mouse_y], 0
+    mov dword [mouse_btn], 0
+
+    ; Clear ISR hook table (16 cells)
+    mov edi, ISR_HOOK_TABLE
+    xor eax, eax
+    mov ecx, 16
+.clear_hooks:
+    mov [edi], eax
+    add edi, 4
+    dec ecx
+    jnz .clear_hooks
+
+    pop edi
+    pop edx
+    pop ecx
+    pop ebx
+    pop eax
+    ret
+
+; IDT descriptor for LIDT
+idt_descriptor:
+    dw IDT_ENTRIES * IDT_ENTRY_SIZE - 1   ; Limit (2048 - 1 = 0x7FF)
+    dd IDT_BASE                            ; Base address
+
+; ----------------------------------------------------------------------------
+; ISR: Default handler (unhandled interrupts)
+; ----------------------------------------------------------------------------
+isr_default:
+    iret
+
+; ----------------------------------------------------------------------------
+; ISR: Timer (IRQ0 / INT 0x20)
+; Increments tick counter, sends EOI to master PIC
+; ----------------------------------------------------------------------------
+isr_timer:
+    pushad
+    inc dword [isr_tick_count]
+    mov al, PIC_EOI
+    out PIC1_CMD, al            ; EOI to master PIC
+    popad
+    iret
+
+; ----------------------------------------------------------------------------
+; ISR: Keyboard (IRQ1 / INT 0x21)
+; Reads scancode from port 0x60 into 16-byte ring buffer
+; ----------------------------------------------------------------------------
+isr_keyboard:
+    pushad
+    in al, 0x60                 ; Read scancode from keyboard controller
+
+    ; Check if ring buffer is full
+    mov ecx, [kb_ring_count]
+    cmp ecx, KB_RING_SIZE
+    jge .kb_full                ; Drop scancode if buffer full
+
+    ; Write to ring buffer at head position
+    mov edi, [kb_ring_head]
+    mov byte [kb_ring_buf + edi], al
+
+    ; Advance head with wrap-around
+    inc edi
+    cmp edi, KB_RING_SIZE
+    jb .kb_no_wrap
+    xor edi, edi
+.kb_no_wrap:
+    mov [kb_ring_head], edi
+    inc dword [kb_ring_count]
+
+.kb_full:
+    mov al, PIC_EOI
+    out PIC1_CMD, al            ; EOI to master PIC
+    popad
+    iret
+
+; ----------------------------------------------------------------------------
+; ISR: Mouse (IRQ12 / INT 0x2C)
+; Reads data byte into 3-byte packet buffer. When 3 bytes collected,
+; sets mouse_pkt_ready flag.
+; IRQ12 is on slave PIC (IRQ 8+4), so EOI goes to BOTH PIC2 and PIC1.
+; ----------------------------------------------------------------------------
+isr_mouse:
+    pushad
+    in al, 0x60                 ; Read data byte from PS/2 controller
+
+    ; Store byte in packet buffer at current index
+    mov edi, [mouse_pkt_idx]
+    mov byte [mouse_pkt_buf + edi], al
+
+    ; Advance packet index
+    inc edi
+    cmp edi, 3
+    jb .mouse_partial
+
+    ; Full 3-byte packet received — decode it
+    ; Byte 0: buttons/signs, Byte 1: X movement, Byte 2: Y movement
+    movzx eax, byte [mouse_pkt_buf]    ; buttons/flags byte
+    mov ebx, eax
+    and ebx, 0x07                       ; Low 3 bits = button state
+    mov [mouse_btn], ebx
+
+    ; X movement (sign-extend using bit 4 of byte 0)
+    movzx ecx, byte [mouse_pkt_buf + 1]
+    test eax, 0x10                      ; X sign bit
+    jz .mouse_x_pos
+    or ecx, 0xFFFFFF00                  ; Sign-extend negative
+.mouse_x_pos:
+    add [mouse_x], ecx
+
+    ; Y movement (sign-extend using bit 5 of byte 0)
+    movzx ecx, byte [mouse_pkt_buf + 2]
+    test eax, 0x20                      ; Y sign bit
+    jz .mouse_y_pos
+    or ecx, 0xFFFFFF00                  ; Sign-extend negative
+.mouse_y_pos:
+    add [mouse_y], ecx
+
+    ; Reset packet index, set ready flag
+    xor edi, edi
+    mov dword [mouse_pkt_ready], 1
+
+.mouse_partial:
+    mov [mouse_pkt_idx], edi
+
+    ; EOI to both slave and master PIC (IRQ12 is on slave)
+    mov al, PIC_EOI
+    out PIC2_CMD, al            ; EOI to slave PIC
+    out PIC1_CMD, al            ; EOI to master PIC
+    popad
+    iret
 
 ; ----------------------------------------------------------------------------
 ; serial_putchar - Write character in AL to serial port
@@ -3783,6 +4110,31 @@ scancode_to_ascii:
     db 'dfghjkl;', 39, '`', 0, '\zxcv'   ; 0x20-0x2F
     db 'bnm,./', 0, '*', 0, ' '          ; 0x30-0x3F
     times 64 db 0                         ; 0x40-0x7F
+
+; ============================================================================
+; ISR Data
+; ============================================================================
+
+; Timer tick counter (incremented by IRQ0 ISR)
+isr_tick_count:     dd 0
+
+; Keyboard ring buffer (16 bytes, filled by IRQ1 ISR)
+kb_ring_buf:        times KB_RING_SIZE db 0
+                    align 4
+kb_ring_head:       dd 0            ; Write position (used by ISR only)
+kb_ring_tail:       dd 0            ; Read position (used by Forth)
+kb_ring_count:      dd 0            ; Number of bytes in buffer
+
+; Mouse packet buffer (3 bytes, filled by IRQ12 ISR)
+mouse_pkt_buf:      times 3 db 0
+                    align 4
+mouse_pkt_idx:      dd 0            ; Current byte index in packet (0-2)
+mouse_pkt_ready:    dd 0            ; 1 = full 3-byte packet available
+
+; Mouse state (decoded from packets)
+mouse_x:            dd 0            ; Accumulated X position
+mouse_y:            dd 0            ; Accumulated Y position
+mouse_btn:          dd 0            ; Button state (low 3 bits)
 
 ; ============================================================================
 ; End of Kernel
