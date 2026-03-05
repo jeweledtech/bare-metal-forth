@@ -1,4 +1,4 @@
-\ ====================================================================
+\ ==============================================================
 \ CATALOG: SERIAL-16550
 \ CATEGORY: serial
 \ SOURCE: hand-written
@@ -9,11 +9,12 @@
 \ MMIO: none
 \ CONFIDENCE: high
 \ REQUIRES: HARDWARE ( C@-PORT C!-PORT )
-\ ====================================================================
+\ ==============================================================
 \
-\ 16550 UART driver vocabulary — hand-written from the National
-\ Semiconductor 16550 datasheet.  Serves as the "known good"
-\ reference that the extraction pipeline's output is compared against.
+\ 16550 UART driver vocabulary - hand-written from
+\ the National Semiconductor 16550 datasheet.
+\ Serves as the "known good" reference that the
+\ extraction pipeline's output is compared against.
 \
 \ The 16550 is the de facto standard PC serial port controller.
 \ Register offsets below apply to any 16550-compatible UART
@@ -23,9 +24,9 @@
 \   USING SERIAL-16550
 \   HEX 3F8 UART-INIT          \ Init COM1 at 115200 baud
 \   42 UART-EMIT                \ Send 'B'
-\   UART-KEY                    \ Wait for and receive a character
+\   UART-KEY                    \ Wait and receive char
 \
-\ ====================================================================
+\ ==============================================================
 
 VOCABULARY SERIAL-16550
 SERIAL-16550 DEFINITIONS
@@ -43,7 +44,7 @@ HEX
 04 CONSTANT MCR     \ Modem Control Register
 05 CONSTANT LSR     \ Line Status Register
 06 CONSTANT MSR     \ Modem Status Register
-07 CONSTANT SCR-REG \ Scratch Register (SCR conflicts with system var)
+07 CONSTANT SCR-REG \ Scratch Reg (SCR conflicts)
 
 \ ---- LSR Bit Masks ----
 01 CONSTANT LSR-DR      \ Data Ready
@@ -132,7 +133,7 @@ VARIABLE UART-BASE
     FF AND DLL UART!             \ Divisor low (115200 baud)
     8 RSHIFT DLM UART!           \ Divisor high
     LCR-8N1 LCR UART!           \ 8N1, DLAB off
-    FCR-INIT FCR UART!           \ Enable FIFO, clear, 14-byte trigger
+    FCR-INIT FCR UART!           \ Enable+clear FIFO, 14B
     MCR-NORMAL MCR UART!         \ DTR + RTS + OUT2
 ;
 

@@ -1,9 +1,10 @@
-\ ============================================================================
+\ ==============================================================
 \ HARDWARE Dictionary - Low-Level Hardware Access Primitives
-\ ============================================================================
+\ ==============================================================
 \
-\ This dictionary provides the fundamental words that all driver modules
-\ build upon. These words directly manipulate:
+\ This dictionary provides the fundamental words
+\ that all driver modules build upon.
+\ These words directly manipulate:
 \   - I/O ports (IN/OUT instructions)
 \   - Physical memory (MMIO)
 \   - CPU registers
@@ -19,13 +20,13 @@
 \   $55 $1F0 C!-PORT        \ Write to IDE data port
 \   100 US-DELAY            \ Wait 100 microseconds
 \
-\ ============================================================================
+\ ==============================================================
 
 MARKER --HARDWARE--
 
-\ ============================================================================
+\ ==============================================================
 \ I/O Port Access
-\ ============================================================================
+\ ==============================================================
 \
 \ These words compile to single x86 IN/OUT instructions.
 \ In forth.asm, they're implemented as CODE words.
@@ -92,9 +93,9 @@ CODE !-PORT
     NEXT
 END-CODE
 
-\ ============================================================================
+\ ==============================================================
 \ Block I/O (REP INS/OUTS)
-\ ============================================================================
+\ ==============================================================
 
 \ Read N bytes from port to buffer
 \ Stack: ( buffer port count -- )
@@ -158,9 +159,9 @@ CODE !N-PORT
     NEXT
 END-CODE
 
-\ ============================================================================
+\ ==============================================================
 \ Timing
-\ ============================================================================
+\ ==============================================================
 
 \ Calibrated delay loop constant (set during boot)
 VARIABLE US-LOOPS   1000 US-LOOPS !     \ Loops per microsecond
@@ -168,7 +169,7 @@ VARIABLE US-LOOPS   1000 US-LOOPS !     \ Loops per microsecond
 \ Calibrate delay loop using PIT
 : CALIBRATE-DELAY  ( -- )
     \ Use PIT channel 2 for calibration
-    \ This is a simplified version; production code would be more precise
+    \ Simplified version; production would be better
     
     \ Program PIT channel 2 for one-shot mode
     $B0 $43 C!-PORT         \ Channel 2, lobyte/hibyte, mode 0
@@ -186,7 +187,7 @@ VARIABLE US-LOOPS   1000 US-LOOPS !     \ Loops per microsecond
     UNTIL
     
     \ Calculate loops per microsecond
-    \ (loops * 2) / 55000 = loops per microsecond (approximately)
+    \ (loops * 2) / 55000 = loops per microsecond (approx)
     2* 55 / US-LOOPS !
     
     ." Calibrated: " US-LOOPS @ . ." loops/us" CR
@@ -217,7 +218,7 @@ END-CODE
 \ TSC-based microsecond delay (more accurate)
 : TSC-US-DELAY  ( us -- )
     TSC-MHZ @ *             \ Convert to cycles
-    RDTSC@ DROP             \ Get current TSC (low part only for short delays)
+    RDTSC@ DROP             \ Current TSC low part
     +                       \ Target TSC
     BEGIN
         RDTSC@ DROP         \ Current TSC
@@ -226,12 +227,13 @@ END-CODE
     DROP
 ;
 
-\ ============================================================================
+\ ==============================================================
 \ Memory-Mapped I/O
-\ ============================================================================
+\ ==============================================================
 
-\ On bare metal with identity mapping, these are just memory access.
-\ With paging enabled, we'd need to set up page tables.
+\ On bare metal with identity mapping, these are
+\ just memory access. With paging, we'd need to
+\ set up page tables.
 
 \ Read byte from physical address
 : C@-MMIO  ( phys-addr -- byte )
@@ -270,9 +272,9 @@ CODE MFENCE
     NEXT
 END-CODE
 
-\ ============================================================================
+\ ==============================================================
 \ PCI Configuration Space
-\ ============================================================================
+\ ==============================================================
 
 \ PCI CONFIG_ADDRESS port
 $0CF8 CONSTANT PCI-ADDR-PORT
@@ -318,9 +320,9 @@ $0CFC CONSTANT PCI-DATA-PORT
     $FFFF AND
 ;
 
-\ ============================================================================
+\ ==============================================================
 \ Interrupt Control
-\ ============================================================================
+\ ==============================================================
 
 \ Disable interrupts
 CODE CLI  ( -- )
@@ -351,9 +353,9 @@ CODE INT-RESTORE  ( flags -- )
     NEXT
 END-CODE
 
-\ ============================================================================
+\ ==============================================================
 \ CPU Identification
-\ ============================================================================
+\ ==============================================================
 
 \ CPUID instruction wrapper
 CODE CPUID  ( eax -- eax ebx ecx edx )
@@ -380,7 +382,7 @@ END-CODE
 CREATE CPU-VENDOR 13 ALLOT
 
 : GET-CPU-VENDOR  ( -- )
-    0 CPUID                 \ EAX=0 returns vendor in EBX,EDX,ECX
+    0 CPUID                 \ EAX=0: vendor in EBX,EDX,ECX
     DROP                    \ Discard EAX
     CPU-VENDOR !            \ EBX -> bytes 0-3
     CPU-VENDOR 8 + !        \ ECX -> bytes 8-11
@@ -388,9 +390,9 @@ CREATE CPU-VENDOR 13 ALLOT
     0 CPU-VENDOR 12 + C!    \ Null terminate
 ;
 
-\ ============================================================================
+\ ==============================================================
 \ Physical Memory Allocation (Simple)
-\ ============================================================================
+\ ==============================================================
 
 \ For DMA, we need physically contiguous memory.
 \ This is a very simple allocator for bare metal use.
@@ -410,21 +412,23 @@ VARIABLE PHYS-HEAP-END  $400000 PHYS-HEAP-END ! \ End at 4MB
     THEN
 ;
 
-\ ============================================================================
+\ ==============================================================
 \ DMA Buffer Allocation
-\ ============================================================================
+\ ==============================================================
 
-\ Allocate DMA buffer (physically contiguous, below 16MB for ISA DMA)
+\ Allocate DMA buffer (physically contiguous,
+\ below 16MB for ISA DMA)
 : DMA-ALLOC  ( size -- phys-addr | 0 )
     PHYS-ALLOC
 ;
 
-\ For 32-bit PCI DMA, we can use any address below 4GB (already covered)
+\ For 32-bit PCI DMA, any address below 4GB
+\ works (already covered).
 \ For 64-bit DMA-capable devices, any address works
 
-\ ============================================================================
+\ ==============================================================
 \ Diagnostic/Debug
-\ ============================================================================
+\ ==============================================================
 
 \ Dump I/O port range
 : PORT-DUMP  ( start count -- )
@@ -458,9 +462,9 @@ VARIABLE PHYS-HEAP-END  $400000 PHYS-HEAP-END ! \ End at 4MB
     LOOP
 ;
 
-\ ============================================================================
+\ ==============================================================
 \ Initialization
-\ ============================================================================
+\ ==============================================================
 
 : HARDWARE-INIT  ( -- )
     CPUID? IF
@@ -474,9 +478,9 @@ VARIABLE PHYS-HEAP-END  $400000 PHYS-HEAP-END ! \ End at 4MB
 \ Run on load
 HARDWARE-INIT
 
-\ ============================================================================
+\ ==============================================================
 \ Summary of words provided by HARDWARE dictionary
-\ ============================================================================
+\ ==============================================================
 \
 \ Port I/O:
 \   C@-PORT  ( port -- byte )       Read byte from port
@@ -511,7 +515,7 @@ HARDWARE-INIT
 \   PCI-WRITE ( val bus dev fun reg -- )   Write PCI config
 \   PCI-C@    ( bus dev fun reg -- byte )  Read config byte
 \   PCI-W@    ( bus dev fun reg -- word )  Read config word
-\   PCI-SCAN  ( -- )                       Scan and list PCI devices
+\   PCI-SCAN  ( -- )                  Scan PCI devices
 \
 \ Interrupts:
 \   CLI      ( -- )                 Disable interrupts
@@ -527,4 +531,4 @@ HARDWARE-INIT
 \   PHYS-ALLOC ( size -- addr )     Allocate physical memory
 \   DMA-ALLOC  ( size -- addr )     Allocate DMA buffer
 \
-\ ============================================================================
+\ ==============================================================

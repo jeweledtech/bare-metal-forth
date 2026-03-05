@@ -1,12 +1,13 @@
-\ ============================================================================
+\ ==============================================================
 \ RTL8139 Network Interface Controller - Driver Module
-\ ============================================================================
+\ ==============================================================
 \
 \ Description: RealTek RTL8139 10/100 Ethernet Controller
 \ Vendor: RealTek
 \ PCI ID: 10EC:8139
 \
-\ Auto-extracted from Windows driver by Bare-Metal Forth Driver Extraction Tool
+\ Auto-extracted from Windows driver by
+\ Bare-Metal Forth Driver Extraction Tool
 \ with manual refinements for completeness.
 \
 \ Usage:
@@ -20,21 +21,22 @@
 \   3. Timing loops for reset (kept)
 \   4. Interrupt setup (translated to our primitives)
 \
-\ ============================================================================
+\ ==============================================================
 
-\ Module marker - executing this word removes all definitions after it
+\ Module marker - executing this word
+\ removes all definitions after it
 MARKER --RTL8139--
 
-\ ============================================================================
+\ ==============================================================
 \ PCI Identification
-\ ============================================================================
+\ ==============================================================
 
 $10EC CONSTANT RTL-VENDOR-ID
 $8139 CONSTANT RTL-DEVICE-ID
 
-\ ============================================================================
+\ ==============================================================
 \ Register Definitions (offsets from I/O base)
-\ ============================================================================
+\ ==============================================================
 
 \ MAC Address registers (6 bytes)
 $00 CONSTANT RTL-IDR0       \ ID Register 0-5 (MAC address)
@@ -55,7 +57,7 @@ $28 CONSTANT RTL-TSAD2      \ Transmit Start Address 2
 $2C CONSTANT RTL-TSAD3      \ Transmit Start Address 3
 
 \ Receive Buffer Start Address
-$30 CONSTANT RTL-RBSTART    \ Receive Buffer Start (physical addr)
+$30 CONSTANT RTL-RBSTART    \ Receive Buffer Start (phys)
 
 \ Early Receive Byte Count
 $34 CONSTANT RTL-ERBCR      \ Early Rx Byte Count
@@ -112,18 +114,18 @@ $62 CONSTANT RTL-BMCR       \ Basic Mode Control Register
 \ Basic Mode Status Register (PHY)
 $64 CONSTANT RTL-BMSR       \ Basic Mode Status Register
 
-\ ============================================================================
+\ ==============================================================
 \ Command Register Bits
-\ ============================================================================
+\ ==============================================================
 
 $01 CONSTANT CMD-BUFE       \ Buffer Empty
 $04 CONSTANT CMD-TE         \ Transmitter Enable
 $08 CONSTANT CMD-RE         \ Receiver Enable
 $10 CONSTANT CMD-RST        \ Reset
 
-\ ============================================================================
+\ ==============================================================
 \ Interrupt Bits (for IMR and ISR)
-\ ============================================================================
+\ ==============================================================
 
 $0001 CONSTANT INT-ROK      \ Receive OK
 $0002 CONSTANT INT-RER      \ Receive Error
@@ -140,9 +142,9 @@ $8000 CONSTANT INT-SERR     \ System Error
 INT-ROK INT-RER OR INT-TOK OR INT-TER OR INT-RXOVW OR INT-PUN OR
 CONSTANT INT-ALL
 
-\ ============================================================================
+\ ==============================================================
 \ Receive Configuration Bits
-\ ============================================================================
+\ ==============================================================
 
 $0001 CONSTANT RCR-AAP      \ Accept All Packets
 $0002 CONSTANT RCR-APM      \ Accept Physical Match
@@ -159,21 +161,21 @@ $0800 CONSTANT RCR-RBLEN-16K
 $1000 CONSTANT RCR-RBLEN-32K
 $1800 CONSTANT RCR-RBLEN-64K
 
-\ ============================================================================
+\ ==============================================================
 \ Module State
-\ ============================================================================
+\ ==============================================================
 
 VARIABLE RTL-BASE           \ I/O Base Port
 VARIABLE RTL-RX-BUFFER      \ Receive buffer address (physical)
 VARIABLE RTL-TX-SLOT        \ Current TX descriptor slot (0-3)
 CREATE RTL-MAC 6 ALLOT      \ MAC address storage
 
-\ Receive buffer size (we'll use 8K + 16 byte header + 1500 margin)
+\ Receive buffer size: 8K + 16 header + 1500
 8192 16 + 1500 + CONSTANT RTL-RX-SIZE
 
-\ ============================================================================
+\ ==============================================================
 \ Low-Level Register Access
-\ ============================================================================
+\ ==============================================================
 
 : RTL-C@  ( offset -- byte )
     RTL-BASE @ + C@-PORT
@@ -199,11 +201,11 @@ CREATE RTL-MAC 6 ALLOT      \ MAC address storage
     RTL-BASE @ + !-PORT
 ;
 
-\ ============================================================================
+\ ==============================================================
 \ Chip Reset (extracted from Windows driver)
-\ ============================================================================
+\ ==============================================================
 
-\ This sequence was extracted from the Windows driver reset routine.
+\ Extracted from the Windows driver reset routine.
 \ The Windows version had KeStallExecutionProcessor(10) which we
 \ translate to our US-DELAY.
 
@@ -212,7 +214,7 @@ CREATE RTL-MAC 6 ALLOT      \ MAC address storage
     CMD-RST RTL-CMD RTL-C!
     
     \ Poll until reset completes (bit clears)
-    \ Windows driver timeout was ~1ms (1000 iterations at 1us each)
+    \ Timeout ~1ms (1000 iterations at 1us each)
     1000 0 DO
         RTL-CMD RTL-C@
         CMD-RST AND 0= IF
@@ -224,9 +226,9 @@ CREATE RTL-MAC 6 ALLOT      \ MAC address storage
     ." RTL8139: Reset timeout!" CR
 ;
 
-\ ============================================================================
+\ ==============================================================
 \ MAC Address (extracted from Windows driver)
-\ ============================================================================
+\ ==============================================================
 
 : RTL-READ-MAC  ( -- )
     \ Read 6-byte MAC from IDR0-IDR5
@@ -246,9 +248,9 @@ CREATE RTL-MAC 6 ALLOT      \ MAC address storage
     CR
 ;
 
-\ ============================================================================
+\ ==============================================================
 \ Receiver Setup (extracted from Windows driver)
-\ ============================================================================
+\ ==============================================================
 
 : RTL-RX-INIT  ( rx-buffer-phys -- )
     \ Store buffer address
@@ -269,9 +271,9 @@ CREATE RTL-MAC 6 ALLOT      \ MAC address storage
     $FFF0 RTL-CAPR RTL-W!       \ Spec says start at 0xFFF0
 ;
 
-\ ============================================================================
+\ ==============================================================
 \ Transmitter Setup (extracted from Windows driver)
-\ ============================================================================
+\ ==============================================================
 
 : RTL-TX-INIT  ( -- )
     \ Clear all 4 TX descriptor status registers
@@ -284,9 +286,9 @@ CREATE RTL-MAC 6 ALLOT      \ MAC address storage
     0 RTL-TX-SLOT !
 ;
 
-\ ============================================================================
+\ ==============================================================
 \ Enable Chip (extracted from Windows driver)
-\ ============================================================================
+\ ==============================================================
 
 : RTL-ENABLE  ( -- )
     \ Enable receiver and transmitter
@@ -298,9 +300,9 @@ CREATE RTL-MAC 6 ALLOT      \ MAC address storage
     0 RTL-CMD RTL-C!
 ;
 
-\ ============================================================================
+\ ==============================================================
 \ Interrupt Setup (translated from Windows driver)
-\ ============================================================================
+\ ==============================================================
 
 : RTL-INT-ENABLE  ( mask -- )
     RTL-IMR RTL-W!
@@ -316,9 +318,9 @@ CREATE RTL-MAC 6 ALLOT      \ MAC address storage
     DUP RTL-ISR RTL-W!      \ Writing 1s clears the bits
 ;
 
-\ ============================================================================
+\ ==============================================================
 \ Link Status (extracted from Windows driver)
-\ ============================================================================
+\ ==============================================================
 
 : RTL-LINK?  ( -- flag )
     \ Check Media Status Register for link
@@ -332,9 +334,9 @@ CREATE RTL-MAC 6 ALLOT      \ MAC address storage
     $08 AND IF 10 ELSE 100 THEN
 ;
 
-\ ============================================================================
+\ ==============================================================
 \ Transmit Packet (extracted and simplified from Windows driver)
-\ ============================================================================
+\ ==============================================================
 
 : RTL-TX  ( buffer-phys length -- )
     \ Get current TX slot
@@ -345,7 +347,7 @@ CREATE RTL-MAC 6 ALLOT      \ MAC address storage
     SWAP 4 * RTL-TSD0 +     \ Status register
     
     \ Program start address
-    ROT                     ( length status-reg addr-reg buffer )
+    ROT                     ( len stat-r addr-r buf )
     ROT SWAP RTL-!          ( length status-reg )
     
     \ Program length and start transmission
@@ -373,9 +375,9 @@ CREATE RTL-MAC 6 ALLOT      \ MAC address storage
     DROP FALSE              \ Timeout
 ;
 
-\ ============================================================================
+\ ==============================================================
 \ Receive Packet (extracted from Windows driver)
-\ ============================================================================
+\ ==============================================================
 
 \ Check if packet available
 : RTL-RX?  ( -- flag )
@@ -396,14 +398,15 @@ CREATE RTL-MAC 6 ALLOT      \ MAC address storage
     RTL-CAPR RTL-W!
 ;
 
-\ ============================================================================
+\ ==============================================================
 \ Full Initialization Sequence
-\ ============================================================================
+\ ==============================================================
 
 : RTL-INIT  ( base-port rx-buffer-phys -- )
     SWAP RTL-BASE !
     
-    ." RTL8139 initializing at port $" RTL-BASE @ HEX U. DECIMAL CR
+    ." RTL8139 init at port $"
+    RTL-BASE @ HEX U. DECIMAL CR
     
     \ Reset the chip
     RTL-RESET
@@ -434,9 +437,9 @@ CREATE RTL-MAC 6 ALLOT      \ MAC address storage
     ." RTL8139 ready" CR
 ;
 
-\ ============================================================================
+\ ==============================================================
 \ PCI Auto-Detection
-\ ============================================================================
+\ ==============================================================
 
 \ Find RTL8139 on PCI bus
 : RTL-FIND-PCI  ( -- base-port | 0 )
@@ -467,15 +470,15 @@ CREATE RTL-MAC 6 ALLOT      \ MAC address storage
     THEN
 ;
 
-\ ============================================================================
+\ ==============================================================
 \ Module Complete
-\ ============================================================================
+\ ==============================================================
 
 .( RTL8139 driver module loaded) CR
 .( Usage:) CR
-.(   <base-port> <rx-buffer> RTL8139-INIT   - Initialize at known port) CR
-.(   <rx-buffer> RTL-AUTO                    - Auto-detect on PCI) CR
-.(   RTL-LINK?                               - Check link status) CR
+.(   <port> <rxbuf> RTL-INIT  - Init) CR
+.(   <rxbuf> RTL-AUTO  - Auto-detect PCI) CR
+.(   RTL-LINK?  - Check link status) CR
 CR
 
 \ End of module

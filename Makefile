@@ -117,8 +117,9 @@ test-loops: $(IMAGE)
 # Run all vocabulary tests (need block storage)
 test-vocabs: $(IMAGE) $(BLOCKS) write-catalog
 	@echo "Running vocabulary tests..."
-	@for test in test_editor test_x86_asm test_metacompiler; do \
-		PORT=$$(($(TEST_PORT_BASE) + RANDOM % 1000 + 100)); \
+	@PORT_BASE=$$(($(TEST_PORT_BASE)+10)); \
+	for test in test_editor test_x86_asm test_metacompiler; do \
+		PORT=$$PORT_BASE; PORT_BASE=$$((PORT_BASE+1)); \
 		echo "  $$test (port $$PORT)..."; \
 		$(QEMU) -drive file=$(IMAGE),format=raw,if=floppy \
 			-drive file=$(BLOCKS),format=raw,if=ide,index=1 \
@@ -133,7 +134,7 @@ test-vocabs: $(IMAGE) $(BLOCKS) write-catalog
 # Run full integration test
 test-integration: $(IMAGE) $(BLOCKS) write-catalog
 	@echo "Running full integration test..."
-	@PORT=$$(($(TEST_PORT_BASE) + RANDOM % 1000 + 200)); \
+	@PORT=$$(($(TEST_PORT_BASE)+20)); \
 	$(QEMU) -drive file=$(IMAGE),format=raw,if=floppy \
 		-drive file=$(BLOCKS),format=raw,if=ide,index=1 \
 		-serial tcp::$$PORT,server=on,wait=off \

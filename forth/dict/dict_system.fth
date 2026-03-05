@@ -1,12 +1,13 @@
-\ ============================================================================
+\ ==============================================================
 \ Bare-Metal Forth Dictionary System
-\ ============================================================================
+\ ==============================================================
 \
 \ This implements the "USING <dictionary>" mechanism for loading
 \ platform-specific or device-specific word sets.
 \
 \ Usage:
-\   USING FORTH        \ Base Forth-83 dictionary (always loaded first)
+\   USING FORTH        \ Base Forth-83 dictionary
+\                      \ (always loaded first)
 \   USING HARDWARE     \ Direct hardware access words
 \   USING RTL8139      \ RealTek NIC driver
 \   USING AHCI         \ SATA disk controller
@@ -17,11 +18,11 @@
 \   - Dependency resolution
 \   - Conflict detection
 \
-\ ============================================================================
+\ ==============================================================
 
-\ ============================================================================
+\ ==============================================================
 \ Dictionary Registry
-\ ============================================================================
+\ ==============================================================
 
 \ Maximum dictionaries that can be loaded
 32 CONSTANT MAX-DICTS
@@ -42,17 +43,17 @@
 \ Dictionary status flags
 1 CONSTANT DICT-LOADED      \ Dictionary is loaded
 2 CONSTANT DICT-ACTIVE      \ Dictionary is active (searchable)
-4 CONSTANT DICT-SYSTEM      \ System dictionary (cannot be unloaded)
+4 CONSTANT DICT-SYSTEM      \ System dict (no unload)
 8 CONSTANT DICT-HARDWARE    \ Contains hardware access words
 
 \ Registry storage
 CREATE DICT-REGISTRY  MAX-DICTS DICT-ENTRY-SIZE * ALLOT
 VARIABLE DICT-COUNT   0 DICT-COUNT !
-VARIABLE DICT-LATEST  0 DICT-LATEST !   \ Latest loaded dictionary
+VARIABLE DICT-LATEST  0 DICT-LATEST !  \ Latest dict
 
-\ ============================================================================
+\ ==============================================================
 \ Dictionary Path
-\ ============================================================================
+\ ==============================================================
 
 \ Where to look for dictionary files
 CREATE DICT-PATH  256 ALLOT
@@ -63,9 +64,9 @@ S" /forth/dict/" DICT-PATH PLACE
     255 MIN  DICT-PATH PLACE
 ;
 
-\ ============================================================================
+\ ==============================================================
 \ Dictionary Registration
-\ ============================================================================
+\ ==============================================================
 
 \ Register a new dictionary
 : REGISTER-DICT  ( name-addr name-len version -- dict-id )
@@ -107,14 +108,15 @@ S" /forth/dict/" DICT-PATH PLACE
     DICT-LATEST @
 ;
 
-\ ============================================================================
+\ ==============================================================
 \ Dictionary Lookup
-\ ============================================================================
+\ ==============================================================
 
 \ Find dictionary by name
 : FIND-DICT  ( name-addr name-len -- dict-id | -1 )
     DICT-COUNT @ 0 ?DO
-        I DICT-ENTRY-SIZE * DICT-REGISTRY + 4 +  \ Get name pointer
+        I DICT-ENTRY-SIZE * DICT-REGISTRY +
+        4 +  \ Get name pointer
         @ DUP COUNT  ( stored-name-addr stored-len )
         2OVER COMPARE 0= IF
             2DROP DROP I UNLOOP EXIT
@@ -149,12 +151,13 @@ S" /forth/dict/" DICT-PATH PLACE
     DICT-STATUS DICT-LOADED AND 0<>
 ;
 
-\ ============================================================================
+\ ==============================================================
 \ USING Implementation
-\ ============================================================================
+\ ==============================================================
 
 \ Build filename from dictionary name
-: DICT-FILENAME  ( name-addr name-len -- filename-addr filename-len )
+: DICT-FILENAME
+    ( name-addr name-len -- fname-addr fname-len )
     \ Build: /forth/dict/<name>.fth
     PAD DICT-PATH COUNT ROT SWAP MOVE  ( copy path )
     DICT-PATH C@ PAD +                  ( point after path )
@@ -192,9 +195,9 @@ S" /forth/dict/" DICT-PATH PLACE
     THEN
 ;
 
-\ ============================================================================
+\ ==============================================================
 \ Dictionary Listing
-\ ============================================================================
+\ ==============================================================
 
 \ List all registered dictionaries
 : .DICTS  ( -- )
@@ -213,9 +216,9 @@ S" /forth/dict/" DICT-PATH PLACE
     LOOP
 ;
 
-\ ============================================================================
+\ ==============================================================
 \ Built-in Dictionary: FORTH (Base System)
-\ ============================================================================
+\ ==============================================================
 
 \ This is always loaded automatically
 : INIT-FORTH-DICT  ( -- )
@@ -224,9 +227,9 @@ S" /forth/dict/" DICT-PATH PLACE
     SWAP SET-DICT-STATUS
 ;
 
-\ ============================================================================
+\ ==============================================================
 \ Built-in Dictionary: HARDWARE
-\ ============================================================================
+\ ==============================================================
 
 \ Direct hardware access primitives
 \ These are the foundation that driver modules build on
@@ -294,9 +297,9 @@ S" /forth/dict/" DICT-PATH PLACE
     PCI-CONFIG-WRITE
 ;
 
-\ ============================================================================
+\ ==============================================================
 \ Module System (for installable drivers)
-\ ============================================================================
+\ ==============================================================
 
 \ Module header structure
 \   0: Magic number ($4D4F4455 = "MODU")
@@ -319,7 +322,7 @@ VARIABLE CURRENT-MODULE
 : MODULE:  ( "name" -- )
     CREATE
         MODULE-MAGIC ,          \ Magic
-        HERE 4 + ,              \ Name pointer (points to counted string)
+        HERE 4 + ,              \ Name ptr (counted str)
         BL WORD COUNT           \ Get name
         DUP C, 0 ?DO            \ Store counted string
             DUP I + C@ C,
@@ -367,11 +370,12 @@ VARIABLE CURRENT-MODULE
     THEN
 ;
 
-\ ============================================================================
+\ ==============================================================
 \ Example: How a driver module would look
-\ ============================================================================
+\ ==============================================================
 
-\ This shows the structure - actual drivers are generated by the extraction tool
+\ This shows the structure - actual drivers
+\ are generated by the extraction tool
 
 COMMENT:
     \ File: rtl8139.fth - RealTek RTL8139 Network Driver
@@ -420,18 +424,19 @@ COMMENT:
     : RTL-INIT  ( base-port -- )
         MODULE-BASE!
         RTL-RESET
-        ." RTL8139 initialized at port $" MODULE-BASE@ HEX U. DECIMAL CR
+        ." RTL8139 init at port $"
+        MODULE-BASE@ HEX U. DECIMAL CR
     ;
     
     ' RTL-INIT MODULE-INIT:
     
-    .( RTL8139 driver loaded. Use: <port> RTL8139 MODULE-INIT ) CR
+    .( RTL8139 loaded. Use: <port> RTL8139 MODULE-INIT ) CR
     
 COMMENT;
 
-\ ============================================================================
+\ ==============================================================
 \ Initialization
-\ ============================================================================
+\ ==============================================================
 
 : INIT-DICT-SYSTEM  ( -- )
     INIT-FORTH-DICT
