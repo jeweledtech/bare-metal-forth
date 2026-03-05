@@ -89,6 +89,63 @@ write-block: $(BLOCKS)
 write-catalog: $(BLOCKS)
 	python3 tools/write-catalog.py $(BLOCKS) forth/dict/
 
+# --- Test Targets ---
+
+# Port base for tests (each test uses a different port)
+TEST_PORT_BASE ?= 4500
+
+# Run smoke test (no block storage needed)
+test-smoke: $(IMAGE)
+	@echo "Running smoke test..."
+	@$(QEMU) -drive file=$(IMAGE),format=raw,if=floppy \
+		-serial tcp::$(TEST_PORT_BASE),server=on,wait=off \
+		-display none -daemonize
+	@sleep 2
+	@python3 tests/smoke_test.py $(TEST_PORT_BASE); \
+		STATUS=$$?; pkill -9 -f "qemu.*$(TEST_PORT_BASE)" 2>/dev/null; exit $$STATUS
+
+# Run BEGIN/WHILE/REPEAT test (no block storage needed)
+test-loops: $(IMAGE)
+	@echo "Running loop control flow test..."
+	@$(QEMU) -drive file=$(IMAGE),format=raw,if=floppy \
+		-serial tcp::$$(($(TEST_PORT_BASE)+1)),server=on,wait=off \
+		-display none -daemonize
+	@sleep 2
+	@python3 tests/test_begin_while.py $$(($(TEST_PORT_BASE)+1)); \
+		STATUS=$$?; pkill -9 -f "qemu.*$$(($(TEST_PORT_BASE)+1))" 2>/dev/null; exit $$STATUS
+
+# Run all vocabulary tests (need block storage)
+test-vocabs: $(IMAGE) $(BLOCKS) write-catalog
+	@echo "Running vocabulary tests..."
+	@for test in test_editor test_x86_asm test_metacompiler; do \
+		PORT=$$(($(TEST_PORT_BASE) + RANDOM % 1000 + 100)); \
+		echo "  $$test (port $$PORT)..."; \
+		$(QEMU) -drive file=$(IMAGE),format=raw,if=floppy \
+			-drive file=$(BLOCKS),format=raw,if=ide,index=1 \
+			-serial tcp::$$PORT,server=on,wait=off \
+			-display none -daemonize; \
+		sleep 2; \
+		python3 tests/$$test.py $$PORT; \
+		STATUS=$$?; pkill -9 -f "qemu.*$$PORT" 2>/dev/null; sleep 1; \
+		if [ $$STATUS -ne 0 ]; then exit $$STATUS; fi; \
+	done
+
+# Run full integration test
+test-integration: $(IMAGE) $(BLOCKS) write-catalog
+	@echo "Running full integration test..."
+	@PORT=$$(($(TEST_PORT_BASE) + RANDOM % 1000 + 200)); \
+	$(QEMU) -drive file=$(IMAGE),format=raw,if=floppy \
+		-drive file=$(BLOCKS),format=raw,if=ide,index=1 \
+		-serial tcp::$$PORT,server=on,wait=off \
+		-display none -daemonize; \
+	sleep 2; \
+	python3 tests/test_full_integration.py $$PORT; \
+	STATUS=$$?; pkill -9 -f "qemu.*$$PORT" 2>/dev/null; exit $$STATUS
+
+# Run all tests
+test: test-smoke test-loops test-vocabs test-integration
+	@echo "All tests passed!"
+
 # Create ISO (requires xorriso)
 iso: $(IMAGE)
 	mkdir -p $(BUILD)/iso
@@ -135,4 +192,4 @@ help:
 	@echo "  - qemu-system-i386 (for testing)"
 	@echo "  - python3 (for write-block utility)"
 
-.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog
+.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog test test-smoke test-loops test-vocabs test-integration

@@ -1397,10 +1397,11 @@ DEFCODE "UNTIL", UNTIL, F_IMMEDIATE
     mov dword [eax], ZBRANCH
     add dword [VAR_HERE], 4
     ; Calculate backward offset
+    ; BRANCH/0BRANCH use: add esi,[esi] (no lodsd advance)
+    ; So offset = target - offset_cell_address
     pop ebx                    ; Get dest
     mov ecx, [VAR_HERE]
     sub ebx, ecx               ; Offset (negative for backward)
-    sub ebx, 4                 ; Account for offset cell
     mov [ecx], ebx
     add dword [VAR_HERE], 4
     NEXT
@@ -1413,10 +1414,11 @@ DEFCODE "AGAIN", AGAIN, F_IMMEDIATE
     mov dword [eax], BRANCH
     add dword [VAR_HERE], 4
     ; Calculate backward offset
+    ; BRANCH uses: add esi,[esi] (no lodsd advance)
+    ; So offset = target - offset_cell_address
     pop ebx
     mov ecx, [VAR_HERE]
     sub ebx, ecx
-    sub ebx, 4
     mov [ecx], ebx
     add dword [VAR_HERE], 4
     NEXT
@@ -1446,13 +1448,14 @@ DEFCODE "REPEAT", REPEAT, F_IMMEDIATE
     mov dword [eax], BRANCH
     add dword [VAR_HERE], 4
     ; Get dest and calculate backward offset
+    ; BRANCH uses: add esi,[esi] (no lodsd advance)
+    ; So offset = target - offset_cell_address
     pop ebx
     mov ecx, [VAR_HERE]
     sub ebx, ecx
-    sub ebx, 4
     mov [ecx], ebx
     add dword [VAR_HERE], 4
-    ; Patch WHILE's 0BRANCH
+    ; Patch WHILE's 0BRANCH (forward ref, already correct)
     pop eax
     mov ebx, [VAR_HERE]
     sub ebx, eax
