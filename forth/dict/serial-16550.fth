@@ -8,7 +8,7 @@
 \ PORTS: 0x3F8-0x3FF
 \ MMIO: none
 \ CONFIDENCE: high
-\ REQUIRES: HARDWARE ( C@-PORT C!-PORT )
+\ Uses kernel INB/OUTB directly.
 \ ==============================================================
 \
 \ 16550 UART driver vocabulary - hand-written from
@@ -80,12 +80,12 @@ C7 CONSTANT FCR-INIT    \ Enable + Clear + 14-byte trigger
 VARIABLE UART-BASE
 
 \ ---- Register Access ----
-\ These words compute the port address from base + offset,
-\ then use the HARDWARE dictionary's C@-PORT / C!-PORT.
+\ Compute port address from base + offset,
+\ then use kernel INB / OUTB directly.
 
 : UART-REG  ( offset -- port )  UART-BASE @ + ;
-: UART@     ( offset -- byte )  UART-REG C@-PORT ;
-: UART!     ( byte offset -- )  UART-REG C!-PORT ;
+: UART@     ( offset -- byte )  UART-REG INB ;
+: UART!     ( byte offset -- )  UART-REG OUTB ;
 
 \ ---- Status Words ----
 : TX-READY?  ( -- flag )  LSR UART@ LSR-THRE AND 0<> ;
@@ -109,10 +109,14 @@ VARIABLE UART-BASE
 ;
 
 : UART-TYPE  ( addr len -- )
-    0 ?DO
-        DUP C@ UART-EMIT
-        1+
-    LOOP
+    DUP 0> IF
+        0 DO
+            DUP C@ UART-EMIT
+            1+
+        LOOP
+    ELSE
+        DROP
+    THEN
     DROP
 ;
 

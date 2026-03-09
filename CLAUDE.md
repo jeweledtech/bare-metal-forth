@@ -16,6 +16,7 @@ Working features (verified by tests):
 - Forth-83 floored division semantics (all sign combinations verified)
 - Word definitions with : and ; (simple and nested: SQUARE, CUBE, QUADRUPLE)
 - IF/ELSE/THEN control flow
+- BEGIN/WHILE/REPEAT, BEGIN/UNTIL, BEGIN/AGAIN loops
 - DO...LOOP with I index access (counted loops, nested loops)
 - CONSTANT and VARIABLE defining words
 - BASE/STATE accessible from Forth code (BASE @ ., STATE @ .)
@@ -59,7 +60,7 @@ Vocabulary/search-order design:
 - DOVOC runtime: vocabulary words replace top of search order when executed.
 - USING = ALSO + execute-vocab-word (friendly syntax for "USING GRAPHICS").
 
-Universal Binary Translator status (as of 2026-02-23): Phase A COMPLETE, Phase B validation framework COMPLETE. The driver extraction pipeline is fully implemented end-to-end. A PE binary containing IN/OUT instructions can be fed through `translator -t forth driver.sys` and a complete Forth vocabulary source file comes out the other end. 80 tests across 8 suites, all passing.
+Universal Binary Translator status (as of 2026-02-25): Phase A COMPLETE, Phase B validation framework COMPLETE, parametric codegen COMPLETE. The driver extraction pipeline produces parametric Forth words with correct stack effects from HAL IAT calls. A PE binary can be fed through `translator -t forth driver.sys` and a complete Forth vocabulary source file comes out with real word bodies (e.g., `( port -- byte ) C@-PORT`) instead of empty stubs. 91 tests across 8 suites, all passing. Validated end-to-end against real i8042prt.sys: 9 hardware functions → 9 parametric Forth words with C@-PORT, C!-PORT, US-DELAY, DPC-QUEUE, IRQ-CONNECT bodies.
 
 Phase B validation framework: Ghidra serves as the oracle ("measuring stick, not mechanism"). A synthetic 16550 UART driver PE (serial16550_synth.sys, ~3KB) is processed by both Ghidra and the translator. Ghidra's headless analyzer (ExportSemanticReport.java) exports a JSON semantic report (port operations, hardware functions, imports, scaffolding). The comparison test (test_ghidra_compare.c) validates that the translator finds everything Ghidra found (asymmetric: no false negatives, but translator may find more). JSON fixtures are cached in the repo so `make test` works without Ghidra installed. `make ghidra-fixtures` regenerates them when needed.
 
@@ -67,8 +68,8 @@ Pipeline components (all in tools/translator/):
 - PE Loader (src/loaders/pe_loader.c): Parses PE32/PE32+ headers, sections, imports, exports. Resolves RVAs to raw pointers.
 - x86 Decoder (src/decoders/x86_decoder.c): Table-driven, 55+ instruction types, ModR/M+SIB, two-byte 0x0F prefix, all condition codes. ~1100 lines.
 - UIR Lifter (src/ir/uir.c): Three-pass algorithm — collect branch targets, create blocks, link edges. IN/OUT → UIR_PORT_IN/UIR_PORT_OUT with port preserved. ~400 lines.
-- Semantic Analyzer (src/ir/semantic.c): 100+ Windows driver API entries classified as hardware (PORT_IO, MMIO, DMA, TIMING, INTERRUPT, PCI_CONFIG) or scaffolding (IRP, PNP, POWER, etc.). Functions with port I/O or hardware API calls kept; scaffolding filtered. ~280 lines.
-- Forth Code Generator (src/codegen/forth_codegen.c): Generates vocabulary source matching serial-16550.fth pattern — catalog header with REQUIRES:, register constants, base variable/accessors, function words. ~250 lines.
+- Semantic Analyzer (src/ir/semantic.c): 100+ Windows driver API entries classified as hardware (PORT_IO, MMIO, DMA, TIMING, INTERRUPT, PCI_CONFIG) or scaffolding (IRP, PNP, POWER, etc.). Each API entry carries arg_count/ret_count for HAL function signatures. Functions with port I/O or hardware API calls kept; scaffolding filtered. IAT cross-reference records matched HAL calls (sem_hal_call_t) with full signature info for codegen. ~320 lines.
+- Forth Code Generator (src/codegen/forth_codegen.c): Generates vocabulary source matching serial-16550.fth pattern — catalog header with REQUIRES:, register constants, base variable/accessors, function words. Parametric codegen: HAL calls produce words with correct stack effects (e.g., C@-PORT → `( port -- byte )`, C!-PORT → `( byte port -- )`). Multi-HAL functions get per-call stack effect comments. ~310 lines.
 - Pipeline Integration (src/main/translator.c): translate_buffer() wires all five stages. Supports -t disasm, -t uir, -t forth. CLI -s/-i/-e flags print PE info.
 
 Key architecture decisions:
@@ -76,7 +77,7 @@ Key architecture decisions:
 - API recognition table duplicated in semantic.c (from driver_extract.c) for self-containment — conscious trade-off.
 - driver-extract stub headers replaced with redirects to translator's canonical implementations (pe_loader.h, x86_decoder.h, uir.h).
 
-Build/test: `cd tools/translator && make clean && make` builds the translator. `make test` runs all 76 tests. Individual: `make test-pe`, `make test-x86`, `make test-uir`, `make test-semantic`, `make test-forth-codegen`, `make test-pipeline`.
+Build/test: `cd tools/translator && make clean && make` builds the translator. `make test` runs all 91 tests across 8 suites. Individual: `make test-pe`, `make test-x86`, `make test-uir`, `make test-semantic`, `make test-forth-codegen`, `make test-pipeline`, `make test-16550`, `make test-ghidra-compare`.
 
 tools/floored-division has complete 3-arch codegen with tests.
 
@@ -112,6 +113,9 @@ Critical DOLOOP offset lesson: When computing backward branch offsets in hand-wr
 
 Critical BRANCH vs DOLOOP difference: BRANCH uses `add esi, [esi]` (reads offset without advancing ESI). DOLOOP uses `lodsd; add esi, eax` (advances ESI past offset, then adds). This means BRANCH offset = target - offset_cell, while DOLOOP offset = target - (offset_cell + 4). cold_start's `dd -8` is correct for BRANCH.
 
+Key bugs fixed in four-features session (2026-03-04, 1 bug):
+19. BEGIN/WHILE/REPEAT backward branch offset: UNTIL, AGAIN, and REPEAT all had `sub ebx, 4` when calculating backward branch offsets, but BRANCH uses `add esi, [esi]` (no lodsd), so the offset should be `target - offset_cell` without the extra -4. The -4 was incorrectly copied from DO/LOOP's offset calculation (DOLOOP uses `lodsd; add esi, eax` which DOES advance ESI). This caused every compiled word using BEGIN/WHILE/REPEAT, BEGIN/UNTIL, or BEGIN/AGAIN to branch 4 bytes before the intended target — typically into DOCOL or a prior instruction, crashing the system. Fix: removed `sub ebx, 4` from all three words.
+
 Phase C COMPLETE (catalog-resolver, 2026-02-23):
 - catalog-resolver.fth written, restructured for block loading: all lines ≤64 chars, `?DO` replaced with guarded `DO` (kernel lacks `?DO`), `3+`/`4+`/.../`8+` replaced with `3 +`/`4 +`/.../`8 +` (kernel lacks N+ for N>2), mutual recursion (RESOLVE-DEPS ↔ LOAD-VOCAB-INNER) resolved via `VARIABLE 'RESOLVE-DEPS` deferred execution pattern.
 - 2OVER added to kernel (was missing, needed by catalog-resolver).
@@ -128,6 +132,8 @@ Completed milestones
 - Hand-written 16550 UART reference vocabulary (forth/dict/serial-16550.fth) — serves as the "gold standard" for pipeline output validation
 - Phase C COMPLETE: catalog-resolver committed, integration test 5/5 passing, DOCREATE fix applied. Full THRU loads from clean boot (2026-02-23).
 - Phase B validation framework COMPLETE: Ghidra-as-oracle with hybrid fixture approach. Synthetic .sys builder, headless export script, JSON fixtures, asymmetric comparison test. 80 tests total (2026-02-23).
+- Parametric HAL codegen COMPLETE: sem_api_entry_t carries arg_count/ret_count, IAT cross-reference records sem_hal_call_t, codegen emits parametric Forth words. Validated against i8042prt.sys: 9 functions with C@-PORT/C!-PORT/US-DELAY/DPC-QUEUE/IRQ-CONNECT bodies. 91 tests total (2026-02-25).
+- Four-features implementation (2026-03-04): Interrupt infrastructure (IDT+PIC+ISR), 6 driver vocabularies, block editor, x86 assembler, metacompiler. BEGIN/WHILE/REPEAT kernel bug fixed (bug #19). Integration test 16/16 passing. Makefile test targets added (`make test`).
 
 On the horizon
 Phase B stretch goal — Real-world validation: Find ReactOS's serial.sys driver (GPL, real 16550 UART hardware), run `make ghidra-fixtures` on it, run the comparison test, iterate until the Forth output captures the same hardware semantics. This is the "proof of concept" moment.
@@ -205,6 +211,13 @@ Phase B validation lessons (2026-02-23):
 - Asymmetric oracle testing: validate completeness (no false negatives) without requiring exactness (allowing false positives from the translator finding more). This avoids noise from the decoder handling opcodes Ghidra represents differently.
 - JSON fixture schema versioning: `schema_version` field enables forward-compatible evolution. New comparison dimensions (register patterns, data flow) added as new top-level arrays without breaking old fixtures.
 - Synthetic PE as committed test artifact: deterministic ~3KB binary serves both Ghidra and translator, anyone can `make test` without the builder or Ghidra.
+
+Parametric codegen lessons (2026-02-25):
+- HAL function signatures are well-known from the Windows DDK: READ_PORT_UCHAR(1 arg, 1 ret), WRITE_PORT_UCHAR(2 args, 0 ret), etc. Encoding these in the API table makes the semantic analyzer the single source of truth for both classification and calling convention.
+- Bridge struct pattern extends to codegen: sem_hal_call_t (semantic) → forth_hal_call_t (codegen) keeps components decoupled. Each pipeline stage has its own struct type.
+- Dual-counter bug: when adding a new array field (hal_calls) alongside an existing counter (hw_call_count), the recording code incremented the old counter but never set the new hal_call_count field. Unit tests passed because they constructed inputs directly with correct counts, but the real driver path went through sem_function_t where hal_call_count stayed 0. Lesson: when a struct has an array + count pair, always keep them in sync at the point of insertion.
+- Stack effect mapping from cdecl to Forth: READ_PORT_UCHAR(PUCHAR Port) → `( port -- byte )`, WRITE_PORT_UCHAR(PUCHAR Port, UCHAR Value) → `( byte port -- )`. The Forth convention puts the address on top (matching `value addr C!`), which reverses the cdecl argument order.
+- Synthetic test drivers use direct IN/OUT instructions (port ops path), not IAT-based HAL calls. Real Windows drivers call HAL functions through the IAT. Both paths must be tested independently — unit tests for HAL path, synthetic PE for port ops path, real drivers for end-to-end validation.
 
 Dictionary sharing pattern: historically, Forth developers zipped dictionaries, shared them, recipients unzipped/ran/evaluated/edited to create customized versions. One developer might have an optimized single-printer driver, another a thousand-printer universal driver — both interchangeable. This is the model for GitHub-based dictionary distribution.
 Dictionary versioning: when redefining words, save the current dictionary as a revision (block range) before modifying. Enables rollback. Add to Phase 1 after MARKER/FORGET.
