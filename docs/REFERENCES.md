@@ -112,6 +112,48 @@ this enables the system to rebuild itself without external tools.
 
 1. **Block storage first** (done) — without disk I/O nothing else can persist
 2. **Vocabulary system** (done) — needed for metacompiler and modular dictionaries
-3. **Block editor** (next) — Vi-like editor for direct block editing
-4. **Metacompiler** — two-pass approach, vocabulary-isolated
+3. **Block editor** (done) — Vi-like editor for direct block editing
+4. **Metacompiler** (done) — two-pass approach, vocabulary-isolated
 5. **Self-hosting** — the system can rebuild itself from source blocks
+
+---
+
+# Reference Systems: LMI (Laboratory Microsystems Inc.)
+
+Laboratory Microsystems Inc. produced some of the most sophisticated commercial
+Forth implementations from the late 1970s through the 1990s. Their flagship
+product was **UR/Forth** for x86.
+
+## Source
+
+- Company founded by Ray Duncan in the late 1970s
+- Primary product: UR/Forth (x86)
+- Customer base: NASA JPL, Caltech, industrial control labs, defense contractors
+- Forth Interest Group (FIG) archives may contain documentation
+- Physical LMI manual believed to be in storage — priority archival target
+
+## Relevance to Our Project
+
+LMI's `ASM` vocabulary was a complete x86 assembler embedded in the Forth
+interpreter, architecturally different from our `X86-ASM` vocabulary which targets
+a cross-compilation buffer. The LMI pattern assembles directly into the live
+dictionary via `CODE...END-CODE`, making new machine-code words immediately
+executable.
+
+Key innovations:
+- **Structured assembly control flow**: `IF,` `ELSE,` `THEN,` `BEGIN,` `UNTIL,`
+  at the assembly level, with automatic branch offset calculation
+- **Postfix opcode syntax**: `EAX PUSH,` instead of `PUSH EAX` — natural in Forth
+- **DISASM vocabulary**: machine-level disassembly (vs. our `SEE` which decompiles
+  at the Forth threaded-code level)
+
+## What We'll Adopt
+
+Both assembler patterns have their place:
+- **X86-ASM** (current): for building kernel images via META-COMPILER
+- **ASM-VOCAB** (planned): for defining hardware primitives at runtime via
+  CODE...END-CODE — the traditional Forth approach
+
+Implementation is blocked pending recovery of the physical LMI manual.
+See `docs/LMI_REFERENCE.md` for detailed analysis and `forth/dict/asm-vocab.fth`
+for the design stub.

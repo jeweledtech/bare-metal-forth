@@ -286,7 +286,7 @@ HEX
     THEN
 ;
 
-.( RTL8139 driver loaded) CR
+." RTL8139 driver loaded" CR
 
 FORTH DEFINITIONS
 DECIMAL

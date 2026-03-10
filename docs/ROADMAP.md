@@ -100,16 +100,19 @@ Build a bare-metal Forth-83 operating system that:
 - [ ] ABORT" error handling
 
 ### File System
-- [ ] ATA/AHCI disk driver
-- [ ] Simple block-based storage
-- [ ] BLOCK BUFFER UPDATE SAVE-BUFFERS
-- [ ] Source file loading (INCLUDE)
+- [x] ATA PIO disk driver (IDE slave)
+- [x] Block-based storage (1KB blocks, 4-buffer LRU cache)
+- [x] BLOCK BUFFER UPDATE SAVE-BUFFERS FLUSH EMPTY-BUFFERS
+- [x] Source file loading: LOAD, THRU, --> (chain-load)
+- [x] LIST (display block contents)
+- [ ] INCLUDE (host file loading)
 
 ### Dictionary Management
 - [ ] FORGET (remove words)
 - [ ] MARKER (save/restore dictionary state)
-- [ ] VOCABULARY (multiple wordlists)
-- [ ] ORDER DEFINITIONS
+- [x] VOCABULARY (multiple wordlists)
+- [x] ORDER DEFINITIONS ALSO PREVIOUS ONLY FORTH
+- [x] USING syntax for vocabulary activation
 
 ### Error Handling
 - [ ] ABORT ABORT"
@@ -133,9 +136,18 @@ Build a bare-metal Forth-83 operating system that:
 
 ### Hardware Abstraction
 - [ ] Register access words (EAX@ EAX! etc.)
-- [ ] Port I/O (INB OUTB INW OUTW)
+- [x] Port I/O (INB OUTB INW OUTW INL OUTL)
 - [ ] Memory-mapped I/O
-- [ ] Interrupt handlers
+- [x] Interrupt handlers (IDT, PIC, ISR infrastructure)
+
+### Inline Assembler (LMI Pattern)
+- [ ] CODE...END-CODE defining words
+- [ ] Postfix opcode emitters (MOV, ADD, PUSH, POP, etc.)
+- [ ] Addressing modes (#, [EBP], [], SIB)
+- [ ] Structured control flow (IF, ELSE, THEN, at assembly level)
+- [ ] Forward reference labels
+- [ ] DISASM machine-level disassembler
+- See `docs/LMI_REFERENCE.md` and `forth/dict/asm-vocab.fth` (stub)
 
 ---
 
@@ -178,7 +190,10 @@ Build a bare-metal Forth-83 operating system that:
 ### Reliability Features
 - [ ] Watchdog timer
 - [ ] Error logging
-- [ ] State checkpointing
+- [x] State checkpointing — MIRROR/LOOKINGGLASS vocabulary
+  - MIRROR saves dictionary, variables, stacks to ATA blocks
+  - LOOKINGGLASS restores complete execution context
+  - See `forth/dict/mirror.fth`
 - [ ] Graceful degradation
 
 ---
