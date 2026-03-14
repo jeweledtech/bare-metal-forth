@@ -65,6 +65,35 @@ typedef struct {
 #define DATA_DIR_SECURITY   4
 #define DATA_DIR_BASERELOC  5
 #define DATA_DIR_DEBUG      6
+#define DATA_DIR_COM_DESCRIPTOR 14  /* CLR 2.0 header */
+
+/* CLR 2.0 Runtime Header (72 bytes) */
+typedef struct {
+    uint32_t cb;                            /* sizeof this struct = 72 */
+    uint16_t major_runtime_version;
+    uint16_t minor_runtime_version;
+    uint32_t meta_data_rva;
+    uint32_t meta_data_size;
+    uint32_t flags;
+    uint32_t entry_point_token;             /* MethodDef token or native RVA */
+    uint32_t resources_rva;
+    uint32_t resources_size;
+    uint32_t strong_name_signature_rva;
+    uint32_t strong_name_signature_size;
+    uint32_t code_manager_table_rva;
+    uint32_t code_manager_table_size;
+    uint32_t vtable_fixups_rva;
+    uint32_t vtable_fixups_size;
+    uint32_t export_address_table_jumps_rva;
+    uint32_t export_address_table_jumps_size;
+    uint32_t managed_native_header_rva;
+    uint32_t managed_native_header_size;
+} image_cor20_header_t;
+
+#define COMIMAGE_FLAGS_ILONLY            0x00000001
+#define COMIMAGE_FLAGS_32BITREQUIRED    0x00000002
+#define COMIMAGE_FLAGS_STRONGNAMESIGNED 0x00000008
+#define COMIMAGE_FLAGS_NATIVE_ENTRYPOINT 0x00000010
 
 /* PE32 Optional Header */
 typedef struct {

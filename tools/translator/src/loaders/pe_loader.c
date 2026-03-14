@@ -261,6 +261,27 @@ static int parse_exports(pe_context_t* ctx, uint32_t export_dir_rva,
     return 0;
 }
 
+/* ---- Parse CLR header (managed .NET assemblies) ---- */
+
+static void parse_clr(pe_context_t* ctx, const data_directory_t* dirs,
+                      uint32_t num_dirs) {
+    if (num_dirs <= DATA_DIR_COM_DESCRIPTOR) return;
+    uint32_t clr_rva = dirs[DATA_DIR_COM_DESCRIPTOR].virtual_address;
+    uint32_t clr_size = dirs[DATA_DIR_COM_DESCRIPTOR].size;
+    if (clr_rva == 0 || clr_size < 72) return;
+
+    const uint8_t* clr_ptr = pe_rva_to_ptr(ctx, clr_rva);
+    if (!clr_ptr) return;
+
+    const image_cor20_header_t* cor = (const image_cor20_header_t*)clr_ptr;
+    if (cor->cb < 72) return;
+
+    ctx->is_managed = true;
+    ctx->clr_metadata_rva = cor->meta_data_rva;
+    ctx->clr_metadata_size = cor->meta_data_size;
+    ctx->clr_entry_point_token = cor->entry_point_token;
+}
+
 /* ---- Main loader ---- */
 
 int pe_load(pe_context_t* ctx, const uint8_t* data, size_t size) {
@@ -321,6 +342,7 @@ int pe_load(pe_context_t* ctx, const uint8_t* data, size_t size) {
             parse_exports(ctx, dirs[DATA_DIR_EXPORT].virtual_address,
                          dirs[DATA_DIR_EXPORT].size);
         }
+        parse_clr(ctx, dirs, num_dirs);
 
     } else if (opt_magic == PE_OPT_MAGIC_PE32PLUS) {
         if (!bounds_check(size, opt_offset,
@@ -348,6 +370,7 @@ int pe_load(pe_context_t* ctx, const uint8_t* data, size_t size) {
             parse_exports(ctx, dirs[DATA_DIR_EXPORT].virtual_address,
                          dirs[DATA_DIR_EXPORT].size);
         }
+        parse_clr(ctx, dirs, num_dirs);
 
     } else {
         return -1; /* Unknown optional header magic */

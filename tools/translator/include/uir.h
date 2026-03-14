@@ -75,6 +75,13 @@ typedef enum {
     UIR_STI,
     UIR_HLT,
 
+    /* System register access — ARM64 equivalent of port I/O */
+    UIR_SYSREG_READ,       /* dest = sysreg (MRS) */
+    UIR_SYSREG_WRITE,      /* sysreg = src (MSR) */
+
+    /* Memory barriers */
+    UIR_BARRIER,            /* DMB/DSB/ISB */
+
     /* Sentinel */
     UIR_OPCODE_COUNT
 } uir_opcode_t;
@@ -140,6 +147,13 @@ typedef struct {
     size_t          ports_written_count;
     bool            has_port_io;    /* quick check: any IN/OUT? */
     bool            uses_dx_port;   /* true if port comes from DX register */
+
+    /* System register I/O summary (ARM64 MRS/MSR) */
+    uint16_t*       sysregs_read;       /* sysreg encodings read (MRS) */
+    size_t          sysregs_read_count;
+    uint16_t*       sysregs_written;    /* sysreg encodings written (MSR) */
+    size_t          sysregs_written_count;
+    bool            has_sysreg_io;      /* quick check: any MRS/MSR? */
 } uir_function_t;
 
 /* ---- API ---- */
@@ -170,6 +184,33 @@ typedef struct {
 /* Lift x86 instructions to a UIR function. Caller must free with uir_free_function(). */
 uir_function_t* uir_lift_function(const uir_x86_input_t* insts, size_t count,
                                    uint64_t entry_address);
+
+/* ---- ARM64 bridge struct ---- */
+
+typedef struct {
+    uint64_t    address;
+    uint32_t    raw;
+    int         instruction;    /* a64_instruction_t */
+    uint8_t     operand_count;
+    struct {
+        int         type;       /* a64_operand_type_t */
+        uint8_t     size;
+        int8_t      reg;
+        int8_t      reg2;
+        int64_t     imm;
+        uint16_t    sysreg_encoding;
+        uint8_t     shift;
+    } operands[4];
+    int         cc;
+    bool        sets_flags;
+    bool        is_64bit;
+    bool        is_sysreg_access;
+} uir_arm64_input_t;
+
+/* Lift ARM64 instructions to a UIR function. */
+uir_function_t* uir_lift_arm64_function(const uir_arm64_input_t* insts,
+                                         size_t count,
+                                         uint64_t entry_address);
 
 /* Free a UIR function and all its blocks. */
 void uir_free_function(uir_function_t* func);

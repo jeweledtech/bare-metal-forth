@@ -53,6 +53,12 @@ typedef struct {
     uint64_t    image_base;
     uint32_t    entry_point_rva;
 
+    /* CLR/.NET managed assembly */
+    bool        is_managed;
+    uint32_t    clr_metadata_rva;
+    uint32_t    clr_metadata_size;
+    uint32_t    clr_entry_point_token;
+
     /* Sections */
     pe_section_t*   sections;
     size_t          section_count;

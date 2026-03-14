@@ -108,6 +108,30 @@ test-x86: | $(BUILDDIR)
 		$(SRCDIR)/decoders/x86_decoder.c
 	./$(BUILDDIR)/tests/test_x86_decoder
 
+.PHONY: test-cil
+test-cil: | $(BUILDDIR)
+	@echo "$(CYAN)Testing CIL decoder...$(NC)"
+	$(CC) $(CFLAGS) -o $(BUILDDIR)/tests/test_cil_decoder \
+		tests/test_cil_decoder.c \
+		$(SRCDIR)/decoders/cil_decoder.c \
+		$(SRCDIR)/loaders/pe_loader.c
+	./$(BUILDDIR)/tests/test_cil_decoder
+	@echo "$(CYAN)Testing CIL semantic classifier...$(NC)"
+	$(CC) $(CFLAGS) -o $(BUILDDIR)/tests/test_cil_semantic \
+		tests/test_cil_semantic.c \
+		$(SRCDIR)/ir/cil_semantic.c \
+		$(SRCDIR)/decoders/cil_decoder.c \
+		$(SRCDIR)/loaders/pe_loader.c -lm
+	./$(BUILDDIR)/tests/test_cil_semantic
+
+.PHONY: test-arm64
+test-arm64: | $(BUILDDIR)
+	@echo "$(CYAN)Testing ARM64 decoder...$(NC)"
+	$(CC) $(CFLAGS) -o $(BUILDDIR)/tests/test_arm64_decoder \
+		tests/test_arm64_decoder.c \
+		$(SRCDIR)/decoders/arm64_decoder.c
+	./$(BUILDDIR)/tests/test_arm64_decoder
+
 .PHONY: test-uir
 test-uir: | $(BUILDDIR)
 	@echo "$(CYAN)Testing UIR lifter...$(NC)"
@@ -221,7 +245,7 @@ test-ghidra-compare: | $(BUILDDIR)
 
 .PHONY: test test-all
 test: test-all
-test-all: test-pe test-x86 test-uir test-semantic test-forth-codegen test-pipeline test-16550 test-ghidra-compare
+test-all: test-pe test-x86 test-cil test-arm64 test-uir test-semantic test-forth-codegen test-pipeline test-16550 test-ghidra-compare
 	@echo ""
 	@echo "$(GREEN)All tests passed$(NC)"
 
