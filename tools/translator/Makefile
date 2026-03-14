@@ -215,11 +215,17 @@ build-synth: | $(BUILDDIR)
 .PHONY: ghidra-fixtures
 ghidra-fixtures: build-synth
 	@echo "$(CYAN)Generating Ghidra fixtures...$(NC)"
-	@mkdir -p tests/data/fixtures
+	@mkdir -p tests/data/fixtures /tmp/ghidra_fixture /tmp/ghidra_i8042
 	$(GHIDRA_HEADLESS) /tmp/ghidra_fixture GhidraFixture \
 		-import tests/data/serial16550_synth.sys \
 		-postScript ExportSemanticReport.java \
 			tests/data/fixtures/serial16550_synth.ghidra.json \
+		-scriptPath ../../tools/ghidra \
+		-overwrite -deleteProject
+	$(GHIDRA_HEADLESS) /tmp/ghidra_i8042 GhidraI8042 \
+		-import tests/data/i8042prt.sys \
+		-postScript ExportSemanticReport.java \
+			tests/data/fixtures/i8042prt.ghidra.json \
 		-scriptPath ../../tools/ghidra \
 		-overwrite -deleteProject
 	@echo "$(GREEN)Ghidra fixtures generated$(NC)"
@@ -239,13 +245,28 @@ test-ghidra-compare: | $(BUILDDIR)
 		$(SRCDIR)/codegen/forth_codegen.c
 	./$(BUILDDIR)/tests/test_ghidra_compare
 
+# i8042prt.sys Ghidra validation (HAL cross-reference comparison)
+.PHONY: test-i8042-validation
+test-i8042-validation: | $(BUILDDIR)
+	@echo "$(CYAN)Testing i8042prt.sys Ghidra validation...$(NC)"
+	@mkdir -p $(BUILDDIR)/tests
+	$(CC) $(CFLAGS) -DTRANSLATOR_NO_MAIN -o $(BUILDDIR)/tests/test_i8042_validation \
+		tests/test_i8042_validation.c \
+		$(SRCDIR)/main/translator.c \
+		$(SRCDIR)/loaders/pe_loader.c \
+		$(SRCDIR)/decoders/x86_decoder.c \
+		$(SRCDIR)/ir/uir.c \
+		$(SRCDIR)/ir/semantic.c \
+		$(SRCDIR)/codegen/forth_codegen.c
+	./$(BUILDDIR)/tests/test_i8042_validation
+
 # ============================================================================
 # Run all tests
 # ============================================================================
 
 .PHONY: test test-all
 test: test-all
-test-all: test-pe test-x86 test-cil test-arm64 test-uir test-semantic test-forth-codegen test-pipeline test-16550 test-ghidra-compare
+test-all: test-pe test-x86 test-cil test-arm64 test-uir test-semantic test-forth-codegen test-pipeline test-16550 test-ghidra-compare test-i8042-validation
 	@echo ""
 	@echo "$(GREEN)All tests passed$(NC)"
 
