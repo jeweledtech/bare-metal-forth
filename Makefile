@@ -143,8 +143,45 @@ test-integration: $(IMAGE) $(BLOCKS) write-catalog
 	python3 tests/test_full_integration.py $$PORT; \
 	STATUS=$$?; pkill -9 -f "qemu.*$$PORT" 2>/dev/null; exit $$STATUS
 
+# --- End-to-End Pipeline: .sys binary → block vocab → USING ---
+
+TRANSLATOR = tools/translator/bin/translator
+WRITE_BLOCK = tools/write-block.py
+VOCAB_BUILD = $(BUILD)/vocabs
+I8042_SYS = tools/translator/tests/data/i8042prt.sys
+
+# Translate i8042prt.sys → block disk image
+.PHONY: vocab-i8042
+vocab-i8042: $(VOCAB_BUILD)/i8042prt.img
+
+$(VOCAB_BUILD)/i8042prt.img: $(I8042_SYS) | $(VOCAB_BUILD)
+	$(TRANSLATOR) -t forth $(I8042_SYS) > $(VOCAB_BUILD)/i8042prt.fth
+	dd if=/dev/zero of=$@ bs=1024 count=1024 2>/dev/null
+	python3 $(WRITE_BLOCK) $@ 2 $(VOCAB_BUILD)/i8042prt.fth
+
+$(VOCAB_BUILD):
+	mkdir -p $(VOCAB_BUILD)
+
+# Boot with translated vocabulary attached
+run-vocab: $(IMAGE) $(VOCAB_BUILD)/i8042prt.img
+	$(QEMU) -drive format=raw,file=$(IMAGE) \
+	        -drive format=raw,file=$(VOCAB_BUILD)/i8042prt.img,if=ide,index=1 \
+	        -nographic
+
+# End-to-end pipeline test
+test-pipeline-e2e: $(IMAGE) $(VOCAB_BUILD)/i8042prt.img
+	@echo "Running end-to-end pipeline test..."
+	@PORT=$$(($(TEST_PORT_BASE)+30)); \
+	$(QEMU) -drive file=$(IMAGE),format=raw,if=floppy \
+		-drive file=$(VOCAB_BUILD)/i8042prt.img,format=raw,if=ide,index=1 \
+		-serial tcp::$$PORT,server=on,wait=off \
+		-display none -daemonize; \
+	sleep 2; \
+	python3 tests/test_pipeline_e2e.py $$PORT; \
+	STATUS=$$?; pkill -9 -f "qemu.*$$PORT" 2>/dev/null; exit $$STATUS
+
 # Run all tests
-test: test-smoke test-loops test-vocabs test-integration
+test: test-smoke test-loops test-vocabs test-integration test-pipeline-e2e
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)
