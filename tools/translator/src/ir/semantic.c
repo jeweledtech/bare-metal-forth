@@ -30,12 +30,12 @@
 const sem_api_entry_t SEM_API_TABLE[] = {
     /* ---- PORT I/O (HAL.DLL) — KEEP ---- */
     /*                                                                              args ret */
-    {"READ_PORT_UCHAR",         SEM_CAT_PORT_IO, "C@-PORT",    "Read byte from port",  1, 1},
-    {"READ_PORT_USHORT",        SEM_CAT_PORT_IO, "W@-PORT",    "Read word from port",  1, 1},
-    {"READ_PORT_ULONG",         SEM_CAT_PORT_IO, "@-PORT",     "Read dword from port", 1, 1},
-    {"WRITE_PORT_UCHAR",        SEM_CAT_PORT_IO, "C!-PORT",    "Write byte to port",   2, 0},
-    {"WRITE_PORT_USHORT",       SEM_CAT_PORT_IO, "W!-PORT",    "Write word to port",   2, 0},
-    {"WRITE_PORT_ULONG",        SEM_CAT_PORT_IO, "!-PORT",     "Write dword to port",  2, 0},
+    {"READ_PORT_UCHAR",         SEM_CAT_PORT_IO, "INB",        "Read byte from port",  1, 1},
+    {"READ_PORT_USHORT",        SEM_CAT_PORT_IO, "INW",        "Read word from port",  1, 1},
+    {"READ_PORT_ULONG",         SEM_CAT_PORT_IO, "INL",        "Read dword from port", 1, 1},
+    {"WRITE_PORT_UCHAR",        SEM_CAT_PORT_IO, "OUTB",       "Write byte to port",   2, 0},
+    {"WRITE_PORT_USHORT",       SEM_CAT_PORT_IO, "OUTW",       "Write word to port",   2, 0},
+    {"WRITE_PORT_ULONG",        SEM_CAT_PORT_IO, "OUTL",       "Write dword to port",  2, 0},
     {"READ_PORT_BUFFER_UCHAR",  SEM_CAT_PORT_IO, "C@N-PORT",   "Read N bytes from port",  3, 0},
     {"READ_PORT_BUFFER_USHORT", SEM_CAT_PORT_IO, "W@N-PORT",   "Read N words from port",  3, 0},
     {"READ_PORT_BUFFER_ULONG",  SEM_CAT_PORT_IO, "@N-PORT",    "Read N dwords from port", 3, 0},

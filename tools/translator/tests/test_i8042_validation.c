@@ -334,21 +334,21 @@ static void test_ubt_finds_hal_hardware_functions(void) {
 /* ============================================================================
  * Test 4: HAL word mappings present in output
  *
- * READ_PORT_UCHAR → C@-PORT, WRITE_PORT_UCHAR → C!-PORT should appear
+ * READ_PORT_UCHAR → INB, WRITE_PORT_UCHAR → OUTB should appear
  * as word bodies in the generated vocabulary.
  * ============================================================================ */
 static void test_hal_word_mappings(void) {
     TEST(hal_word_mappings);
     if (!load_test_data()) FAIL("could not load test data");
 
-    /* Check for C@-PORT (from READ_PORT_UCHAR) */
-    bool has_read = (strstr(forth_output, "C@-PORT") != NULL);
+    /* Check for INB (from READ_PORT_UCHAR) */
+    bool has_read = (strstr(forth_output, "INB") != NULL);
 
-    /* Check for C!-PORT (from WRITE_PORT_UCHAR) */
-    bool has_write = (strstr(forth_output, "C!-PORT") != NULL);
+    /* Check for OUTB (from WRITE_PORT_UCHAR) */
+    bool has_write = (strstr(forth_output, "OUTB") != NULL);
 
     if (!has_read && !has_write)
-        FAIL("neither C@-PORT nor C!-PORT found — HAL mapping broken");
+        FAIL("neither INB nor OUTB found — HAL mapping broken");
 
     /* Ghidra confirmed both READ_PORT_UCHAR and WRITE_PORT_UCHAR imports */
     bool ghidra_has_read = false, ghidra_has_write = false;
@@ -360,9 +360,9 @@ static void test_hal_word_mappings(void) {
     }
 
     if (ghidra_has_read && !has_read)
-        FAIL("Ghidra found READ_PORT_UCHAR but UBT missing C@-PORT");
+        FAIL("Ghidra found READ_PORT_UCHAR but UBT missing INB");
     if (ghidra_has_write && !has_write)
-        FAIL("Ghidra found WRITE_PORT_UCHAR but UBT missing C!-PORT");
+        FAIL("Ghidra found WRITE_PORT_UCHAR but UBT missing OUTB");
 
     PASS();
 }

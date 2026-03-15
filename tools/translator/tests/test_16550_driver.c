@@ -474,11 +474,11 @@ static void test_per_function_port_ops(void) {
     if (!first_func)
         { translate_result_free(&result); FAIL("no function words found"); }
 
-    /* Should have C@-PORT (reads) and C!-PORT (writes) references */
-    if (!strstr(out, "C@-PORT"))
-        { translate_result_free(&result); FAIL("missing C@-PORT references"); }
-    if (!strstr(out, "C!-PORT"))
-        { translate_result_free(&result); FAIL("missing C!-PORT references"); }
+    /* Should have INB (reads) and OUTB (writes) references */
+    if (!strstr(out, "INB"))
+        { translate_result_free(&result); FAIL("missing INB references"); }
+    if (!strstr(out, "OUTB"))
+        { translate_result_free(&result); FAIL("missing OUTB references"); }
 
     translate_result_free(&result);
     PASS();

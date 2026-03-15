@@ -32,7 +32,7 @@ static void test_classify_port_io(void) {
     const char* forth;
     sem_category_t cat = sem_classify_import("READ_PORT_UCHAR", &forth);
     if (cat != SEM_CAT_PORT_IO) FAIL("expected SEM_CAT_PORT_IO");
-    if (!forth || strcmp(forth, "C@-PORT") != 0) FAIL("forth equiv should be C@-PORT");
+    if (!forth || strcmp(forth, "INB") != 0) FAIL("forth equiv should be INB");
     PASS();
 }
 
@@ -41,7 +41,7 @@ static void test_classify_write_port(void) {
     const char* forth;
     sem_category_t cat = sem_classify_import("WRITE_PORT_UCHAR", &forth);
     if (cat != SEM_CAT_PORT_IO) FAIL("expected SEM_CAT_PORT_IO");
-    if (!forth || strcmp(forth, "C!-PORT") != 0) FAIL("forth equiv should be C!-PORT");
+    if (!forth || strcmp(forth, "OUTB") != 0) FAIL("forth equiv should be OUTB");
     PASS();
 }
 

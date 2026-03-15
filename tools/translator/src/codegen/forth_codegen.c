@@ -73,52 +73,74 @@ static void sb_printf(strbuf_t* sb, const char* fmt, ...) {
 
 static const char* read_word_for_size(uint8_t size) {
     switch (size) {
-    case 1:  return "C@-PORT";
-    case 2:  return "W@-PORT";
-    case 4:  return "@-PORT";
-    default: return "C@-PORT";
+    case 1:  return "INB";
+    case 2:  return "INW";
+    case 4:  return "INL";
+    default: return "INB";
     }
 }
 
 static const char* write_word_for_size(uint8_t size) {
     switch (size) {
-    case 1:  return "C!-PORT";
-    case 2:  return "W!-PORT";
-    case 4:  return "!-PORT";
-    default: return "C!-PORT";
+    case 1:  return "OUTB";
+    case 2:  return "OUTW";
+    case 4:  return "OUTL";
+    default: return "OUTB";
     }
 }
 
 /* ---- Generate catalog header ---- */
 
 static void emit_catalog_header(strbuf_t* sb, const forth_codegen_opts_t* opts) {
-    sb_append(sb, "\\ ====================================================================\n");
+    /* Block-safe: all lines <= 64 chars */
+    sb_append(sb, "\\ ==========================================================\n");
     sb_printf(sb, "\\ CATALOG: %s\n", opts->vocab_name);
     sb_printf(sb, "\\ CATEGORY: %s\n", opts->category ? opts->category : "unknown");
     sb_printf(sb, "\\ SOURCE: %s\n", opts->source_type ? opts->source_type : "unknown");
-    sb_printf(sb, "\\ SOURCE-BINARY: %s\n", opts->source_binary ? opts->source_binary : "none");
+    if (opts->source_binary) {
+        /* Truncate long binary paths to fit 64-char limit */
+        const char* bin = opts->source_binary;
+        size_t prefix_len = strlen("\\ SOURCE-BINARY: ");
+        if (prefix_len + strlen(bin) > 62) {
+            /* Use basename only */
+            const char* slash = strrchr(bin, '/');
+            if (slash) bin = slash + 1;
+        }
+        sb_printf(sb, "\\ SOURCE-BINARY: %s\n", bin);
+    }
     sb_printf(sb, "\\ VENDOR-ID: %s\n", opts->vendor_id ? opts->vendor_id : "none");
     sb_printf(sb, "\\ DEVICE-ID: %s\n", opts->device_id ? opts->device_id : "none");
     sb_printf(sb, "\\ PORTS: %s\n", opts->ports_desc ? opts->ports_desc : "none");
     sb_printf(sb, "\\ MMIO: %s\n", opts->mmio_desc ? opts->mmio_desc : "none");
     sb_printf(sb, "\\ CONFIDENCE: %s\n", opts->confidence ? opts->confidence : "low");
 
-    /* REQUIRES: lines */
+    /* REQUIRES: lines — wrap word lists to stay <= 64 chars */
     if (opts->requires) {
         for (const forth_dependency_t* dep = opts->requires;
              dep->vocab_name != NULL; dep++) {
-            sb_printf(sb, "\\ REQUIRES: %s ( ", dep->vocab_name);
-            if (dep->words_used) {
+            sb_printf(sb, "\\ REQUIRES: %s\n", dep->vocab_name);
+            if (dep->words_used && dep->words_used[0] != NULL) {
+                /* Emit word list as continuation comment */
+                size_t col = 0;
+                sb_append(sb, "\\   (");
+                col = 5;
                 for (const char** w = dep->words_used; *w != NULL; w++) {
-                    if (w != dep->words_used) sb_append(sb, " ");
+                    size_t wlen = strlen(*w);
+                    /* +2 for space + closing paren margin */
+                    if (col + 1 + wlen + 2 > 62 && col > 5) {
+                        sb_append(sb, "\n\\   ");
+                        col = 4;
+                    }
+                    sb_append(sb, " ");
                     sb_append(sb, *w);
+                    col += 1 + wlen;
                 }
+                sb_append(sb, " )\n");
             }
-            sb_append(sb, " )\n");
         }
     }
 
-    sb_append(sb, "\\ ====================================================================\n\n");
+    sb_append(sb, "\\ ==========================================================\n\n");
 }
 
 /* ---- Generate vocabulary preamble ---- */
@@ -148,8 +170,8 @@ static void emit_base_accessors(strbuf_t* sb, const char* name) {
     sb_append(sb, "\\ ---- Hardware Base ----\n");
     sb_printf(sb, "VARIABLE %s-BASE\n\n", name);
     sb_printf(sb, ": %s-REG  ( offset -- port )  %s-BASE @ + ;\n", name, name);
-    sb_printf(sb, ": %s@     ( offset -- byte )  %s-REG C@-PORT ;\n", name, name);
-    sb_printf(sb, ": %s!     ( byte offset -- )  %s-REG C!-PORT ;\n\n", name, name);
+    sb_printf(sb, ": %s@     ( offset -- byte )  %s-REG INB ;\n", name, name);
+    sb_printf(sb, ": %s!     ( byte offset -- )  %s-REG OUTB ;\n\n", name, name);
 }
 
 /* ---- Stack effect for a HAL call ---- */
@@ -157,13 +179,13 @@ static void emit_base_accessors(strbuf_t* sb, const char* name) {
 static const char* stack_effect_for_hal(const forth_hal_call_t* hc) {
     if (!hc->forth_word) return "( -- )";
     /* Port read: ( port -- value ) */
-    if (strcmp(hc->forth_word, "C@-PORT") == 0) return "( port -- byte )";
-    if (strcmp(hc->forth_word, "W@-PORT") == 0) return "( port -- word )";
-    if (strcmp(hc->forth_word, "@-PORT") == 0)  return "( port -- dword )";
+    if (strcmp(hc->forth_word, "INB") == 0) return "( port -- byte )";
+    if (strcmp(hc->forth_word, "INW") == 0) return "( port -- word )";
+    if (strcmp(hc->forth_word, "INL") == 0) return "( port -- dword )";
     /* Port write: ( value port -- ) */
-    if (strcmp(hc->forth_word, "C!-PORT") == 0) return "( byte port -- )";
-    if (strcmp(hc->forth_word, "W!-PORT") == 0) return "( word port -- )";
-    if (strcmp(hc->forth_word, "!-PORT") == 0)  return "( dword port -- )";
+    if (strcmp(hc->forth_word, "OUTB") == 0) return "( byte port -- )";
+    if (strcmp(hc->forth_word, "OUTW") == 0) return "( word port -- )";
+    if (strcmp(hc->forth_word, "OUTL") == 0) return "( dword port -- )";
     /* MMIO read/write */
     if (strcmp(hc->forth_word, "C@-MMIO") == 0) return "( addr -- byte )";
     if (strcmp(hc->forth_word, "W@-MMIO") == 0) return "( addr -- word )";

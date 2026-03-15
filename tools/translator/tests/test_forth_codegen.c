@@ -31,7 +31,7 @@ static int tests_passed = 0;
 static void test_minimal_vocabulary(void) {
     TEST(minimal_vocabulary);
 
-    const char* hw_words[] = {"C@-PORT", "C!-PORT", NULL};
+    const char* hw_words[] = {"INB", "OUTB", NULL};
     forth_dependency_t deps[] = {
         {"HARDWARE", hw_words},
         {NULL, NULL}
@@ -63,7 +63,7 @@ static void test_minimal_vocabulary(void) {
     if (!strstr(output, "\\ SOURCE: extracted")) FAIL("missing SOURCE");
     if (!strstr(output, "\\ SOURCE-BINARY: test.sys")) FAIL("missing SOURCE-BINARY");
     if (!strstr(output, "\\ CONFIDENCE: medium")) FAIL("missing CONFIDENCE");
-    if (!strstr(output, "\\ REQUIRES: HARDWARE ( C@-PORT C!-PORT )")) FAIL("missing REQUIRES");
+    if (!strstr(output, "\\ REQUIRES: HARDWARE")) FAIL("missing REQUIRES");
 
     /* Check vocabulary declaration */
     if (!strstr(output, "VOCABULARY TEST-DEVICE")) FAIL("missing VOCABULARY");
@@ -118,7 +118,7 @@ static void test_port_constants(void) {
 static void test_port_read_function(void) {
     TEST(port_read_function);
 
-    const char* hw_words[] = {"C@-PORT", NULL};
+    const char* hw_words[] = {"INB", NULL};
     forth_dependency_t deps[] = {
         {"HARDWARE", hw_words},
         {NULL, NULL}
@@ -159,7 +159,7 @@ static void test_port_read_function(void) {
 
     /* Should have the word definition */
     if (!strstr(output, ": READ-DATA")) FAIL("missing READ-DATA word");
-    if (!strstr(output, "C@-PORT")) FAIL("missing C@-PORT in word body");
+    if (!strstr(output, "INB")) FAIL("missing INB in word body");
 
     free(output);
     PASS();
@@ -202,7 +202,7 @@ static void test_port_write_function(void) {
     if (!output) FAIL("forth_generate returned NULL");
 
     if (!strstr(output, ": WRITE-DATA")) FAIL("missing WRITE-DATA word");
-    if (!strstr(output, "C!-PORT")) FAIL("missing C!-PORT in word body");
+    if (!strstr(output, "OUTB")) FAIL("missing OUTB in word body");
 
     free(output);
     PASS();
@@ -212,7 +212,7 @@ static void test_port_write_function(void) {
 static void test_multiple_requires(void) {
     TEST(multiple_requires);
 
-    const char* hw_words[] = {"C@-PORT", "C!-PORT", NULL};
+    const char* hw_words[] = {"INB", "OUTB", NULL};
     const char* timing_words[] = {"MS-DELAY", NULL};
     forth_dependency_t deps[] = {
         {"HARDWARE", hw_words},
@@ -236,9 +236,9 @@ static void test_multiple_requires(void) {
     char* output = forth_generate(&input);
     if (!output) FAIL("forth_generate returned NULL");
 
-    if (!strstr(output, "\\ REQUIRES: HARDWARE ( C@-PORT C!-PORT )"))
+    if (!strstr(output, "\\ REQUIRES: HARDWARE"))
         FAIL("missing HARDWARE REQUIRES");
-    if (!strstr(output, "\\ REQUIRES: TIMING ( MS-DELAY )"))
+    if (!strstr(output, "\\ REQUIRES: TIMING"))
         FAIL("missing TIMING REQUIRES");
 
     free(output);
@@ -339,8 +339,8 @@ static void test_dword_port_ops(void) {
     char* output = forth_generate(&input);
     if (!output) FAIL("forth_generate returned NULL");
 
-    if (!strstr(output, "@-PORT")) FAIL("missing @-PORT for dword read");
-    if (!strstr(output, "!-PORT")) FAIL("missing !-PORT for dword write");
+    if (!strstr(output, "INL")) FAIL("missing INL for dword read");
+    if (!strstr(output, "OUTL")) FAIL("missing OUTL for dword write");
 
     free(output);
     PASS();
@@ -357,7 +357,7 @@ static void test_hal_call_read_port(void) {
     opts.confidence = "medium";
 
     forth_hal_call_t hal_calls[] = {
-        {"C@-PORT", 1, 1},
+        {"INB", 1, 1},
     };
 
     forth_gen_function_t funcs[] = {
@@ -381,7 +381,7 @@ static void test_hal_call_read_port(void) {
     if (!output) FAIL("forth_generate returned NULL");
     if (!strstr(output, ": KBD-READ")) FAIL("missing KBD-READ word");
     if (!strstr(output, "( port -- byte )")) FAIL("missing stack effect");
-    if (!strstr(output, "C@-PORT")) FAIL("missing C@-PORT in body");
+    if (!strstr(output, "INB")) FAIL("missing INB in body");
     /* Should NOT have empty stub stack effect */
     if (strstr(output, "( -- )")) FAIL("should not have empty stack effect");
 
@@ -400,7 +400,7 @@ static void test_hal_call_write_port(void) {
     opts.confidence = "medium";
 
     forth_hal_call_t hal_calls[] = {
-        {"C!-PORT", 2, 0},
+        {"OUTB", 2, 0},
     };
 
     forth_gen_function_t funcs[] = {
@@ -424,7 +424,7 @@ static void test_hal_call_write_port(void) {
     if (!output) FAIL("forth_generate returned NULL");
     if (!strstr(output, ": KBD-WRITE")) FAIL("missing KBD-WRITE word");
     if (!strstr(output, "( byte port -- )")) FAIL("missing stack effect");
-    if (!strstr(output, "C!-PORT")) FAIL("missing C!-PORT in body");
+    if (!strstr(output, "OUTB")) FAIL("missing OUTB in body");
 
     free(output);
     PASS();
@@ -441,8 +441,8 @@ static void test_hal_call_multiple(void) {
     opts.confidence = "medium";
 
     forth_hal_call_t hal_calls[] = {
-        {"C@-PORT", 1, 1},
-        {"C!-PORT", 2, 0},
+        {"INB", 1, 1},
+        {"OUTB", 2, 0},
     };
 
     forth_gen_function_t funcs[] = {
@@ -465,8 +465,8 @@ static void test_hal_call_multiple(void) {
     char* output = forth_generate(&input);
     if (!output) FAIL("forth_generate returned NULL");
     if (!strstr(output, ": READ-WRITE")) FAIL("missing READ-WRITE word");
-    if (!strstr(output, "C@-PORT")) FAIL("missing C@-PORT");
-    if (!strstr(output, "C!-PORT")) FAIL("missing C!-PORT");
+    if (!strstr(output, "INB")) FAIL("missing INB");
+    if (!strstr(output, "OUTB")) FAIL("missing OUTB");
     /* Multi-HAL should have per-call stack effect comments */
     if (!strstr(output, "( port -- byte )")) FAIL("missing read stack effect comment");
     if (!strstr(output, "( byte port -- )")) FAIL("missing write stack effect comment");

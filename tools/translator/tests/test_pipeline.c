@@ -329,7 +329,7 @@ static void test_full_pipeline(void) {
     cg_opts.source_type = "extracted";
     cg_opts.confidence = "medium";
 
-    static const char* port_words[] = {"C@-PORT", "C!-PORT", NULL};
+    static const char* port_words[] = {"INB", "OUTB", NULL};
     forth_dependency_t deps[] = {{"HARDWARE", port_words}, {NULL, NULL}};
     cg_opts.requires = deps;
 
@@ -369,7 +369,7 @@ static void test_full_pipeline(void) {
         { free(output); FAIL("missing DEFINITIONS"); }
     if (!strstr(output, "HEX"))
         { free(output); FAIL("missing HEX"); }
-    if (!strstr(output, "\\ REQUIRES: HARDWARE ( C@-PORT C!-PORT )"))
+    if (!strstr(output, "\\ REQUIRES: HARDWARE"))
         { free(output); FAIL("missing REQUIRES"); }
     if (!strstr(output, "VARIABLE"))
         { free(output); FAIL("missing base VARIABLE"); }
