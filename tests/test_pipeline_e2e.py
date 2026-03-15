@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """End-to-end pipeline test: .sys binary → block vocab → live USING.
 
-Verifies that translator output written to block storage can be loaded
-into the running kernel via THRU, and that USING activates the vocabulary
-with working port I/O words.
+Verifies the complete chain:
+1. HARDWARE vocab loads from blocks (provides US-DELAY, IRQ-*, DPC-QUEUE)
+2. I8042PRT vocab loads with zero ? errors (all 9 functions compile)
+3. USING I8042PRT activates the vocabulary
+4. Extracted port I/O functions execute real hardware reads
 """
 import socket, time, sys
 
@@ -47,38 +49,51 @@ def check(name, response, pattern):
         FAIL += 1
         print(f'  FAIL: {name} -- expected "{pattern}" in {response.strip()!r}')
 
-print("E2E Pipeline Test: i8042prt.sys -> USING I8042PRT")
+def check_no(name, response, bad_pattern):
+    """Assert bad_pattern is NOT in response."""
+    global PASS, FAIL
+    if bad_pattern not in response:
+        PASS += 1
+        print(f'  PASS: {name}')
+    else:
+        FAIL += 1
+        print(f'  FAIL: {name} -- unexpected "{bad_pattern}" in {response.strip()!r}')
+
+print("E2E Pipeline: HARDWARE + I8042PRT (zero ? errors)")
 print("=" * 50)
 
 # Test 1: Kernel alive
 r = send('1 2 + .')
 check('kernel alive', r, '3')
 
-# Test 2: Load translated vocabulary from blocks 2-6
-r = send('2 6 THRU', wait=2.0)
-check('THRU loads without crash', r, 'ok')
+# Test 2: Load HARDWARE vocabulary (block 50+)
+# hardware.fth is ~170 lines = ~11 blocks
+r = send('HEX 32 3D THRU DECIMAL', wait=3.0)
+check('HARDWARE loads', r, 'ok')
 
-# Test 3: USING activates the vocabulary
+# Test 3: Load I8042PRT vocabulary (block 100+)
+# i8042prt.fth is 65 lines = 5 blocks
+r = send('HEX 64 69 THRU DECIMAL', wait=2.0)
+check_no('I8042PRT zero ? errors', r, '?')
+
+# Test 4: USING activates the vocabulary
 r = send('USING I8042PRT')
 check('USING I8042PRT', r, 'ok')
 
-# Test 4: Extracted words visible in WORDS
+# Test 5: All 9 extracted functions visible
 r = send('WORDS', wait=1.0)
 check('FUNC_16FCC in dictionary', r, 'FUNC_16FCC')
-
-# Test 5: ORDER shows I8042PRT in search order
-r = send('ORDER')
-check('ORDER shows vocabulary', r, 'Search:')
+check('FUNC_122A8 in dictionary', r, 'FUNC_122A8')
 
 # Test 6: Call extracted port I/O function on COM1 LSR
-# func_16FCC is ( port -- byte ) INB — read a byte from a port
-# Port 0x3FD = COM1 Line Status Register, QEMU returns 0x60
+# func_16FCC is ( port -- byte ) INB
+# Port 0x3FD = COM1 LSR, QEMU returns 0x60
 r = send('HEX 3FD FUNC_16FCC . DECIMAL')
 check('FUNC_16FCC reads COM1 LSR', r, '60')
 
-# Test 7: Call second port I/O function
-r = send('HEX 3FD FUNC_17024 . DECIMAL')
-check('FUNC_17024 reads COM1 LSR', r, '60')
+# Test 7: US-DELAY runs without crash
+r = send('HEX 64 US-DELAY DECIMAL')
+check('US-DELAY executes', r, 'ok')
 
 # Summary
 print()

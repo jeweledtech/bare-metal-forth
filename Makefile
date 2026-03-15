@@ -149,31 +149,31 @@ TRANSLATOR = tools/translator/bin/translator
 WRITE_BLOCK = tools/write-block.py
 VOCAB_BUILD = $(BUILD)/vocabs
 I8042_SYS = tools/translator/tests/data/i8042prt.sys
+HARDWARE_FTH = forth/dict/hardware.fth
 
-# Translate i8042prt.sys → block disk image
-.PHONY: vocab-i8042
-vocab-i8042: $(VOCAB_BUILD)/i8042prt.img
-
-$(VOCAB_BUILD)/i8042prt.img: $(I8042_SYS) | $(VOCAB_BUILD)
+# Combined block image: HARDWARE at block 50, I8042PRT at block 100
+$(VOCAB_BUILD)/combined.img: $(HARDWARE_FTH) $(I8042_SYS) | $(VOCAB_BUILD)
 	$(TRANSLATOR) -t forth $(I8042_SYS) > $(VOCAB_BUILD)/i8042prt.fth
 	dd if=/dev/zero of=$@ bs=1024 count=1024 2>/dev/null
-	python3 $(WRITE_BLOCK) $@ 2 $(VOCAB_BUILD)/i8042prt.fth
+	python3 $(WRITE_BLOCK) $@ 50 $(HARDWARE_FTH)
+	python3 $(WRITE_BLOCK) $@ 100 $(VOCAB_BUILD)/i8042prt.fth
 
 $(VOCAB_BUILD):
 	mkdir -p $(VOCAB_BUILD)
 
-# Boot with translated vocabulary attached
-run-vocab: $(IMAGE) $(VOCAB_BUILD)/i8042prt.img
+# Boot with HARDWARE + I8042PRT vocabularies
+.PHONY: run-i8042
+run-i8042: $(IMAGE) $(VOCAB_BUILD)/combined.img
 	$(QEMU) -drive format=raw,file=$(IMAGE) \
-	        -drive format=raw,file=$(VOCAB_BUILD)/i8042prt.img,if=ide,index=1 \
+	        -drive format=raw,file=$(VOCAB_BUILD)/combined.img,if=ide,index=1 \
 	        -nographic
 
-# End-to-end pipeline test
-test-pipeline-e2e: $(IMAGE) $(VOCAB_BUILD)/i8042prt.img
+# End-to-end pipeline test (HARDWARE + I8042PRT, zero ? errors)
+test-pipeline-e2e: $(IMAGE) $(VOCAB_BUILD)/combined.img
 	@echo "Running end-to-end pipeline test..."
 	@PORT=$$(($(TEST_PORT_BASE)+30)); \
 	$(QEMU) -drive file=$(IMAGE),format=raw,if=floppy \
-		-drive file=$(VOCAB_BUILD)/i8042prt.img,format=raw,if=ide,index=1 \
+		-drive file=$(VOCAB_BUILD)/combined.img,format=raw,if=ide,index=1 \
 		-serial tcp::$$PORT,server=on,wait=off \
 		-display none -daemonize; \
 	sleep 2; \

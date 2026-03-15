@@ -45,7 +45,7 @@ VARIABLE US-LOOPS  3E8 US-LOOPS !
         42 INB 8 LSHIFT OR
         8000 <
     UNTIL
-    2* 37 / US-LOOPS !
+    DUP + 37 / US-LOOPS !
     ." Calibrated: "
     US-LOOPS @ DECIMAL . HEX
     ." loops/us" CR
@@ -113,6 +113,52 @@ VARIABLE PHYS-HEAP-END
 \ Allocate DMA buffer (below 16MB for ISA)
 : DMA-ALLOC  ( size -- addr | 0 )
     PHYS-ALLOC
+;
+
+\ ============================================
+\ Deferred Procedure Call
+\ ============================================
+\ In cooperative single-threaded Forth,
+\ immediate execution is the correct
+\ semantics. DPC-QUEUE will be redefined
+\ when a scheduler is added.
+
+: DPC-QUEUE  ( xt -- )  EXECUTE ;
+
+\ ============================================
+\ IRQ Management
+\ ============================================
+\ ISR hook table at 29C00 (16 x 4 bytes).
+\ Kernel ISR stubs will dispatch through
+\ this table when hook support is added.
+\ IRQ-UNMASK is a kernel primitive.
+
+29C00 CONSTANT HOOK-TABLE
+
+: NOP-HANDLER  ( -- ) ;
+
+: IRQ-MASK  ( irq# -- )
+    DUP 8 < IF
+        1 SWAP LSHIFT
+        21 INB OR 21 OUTB
+    ELSE
+        8 -
+        1 SWAP LSHIFT
+        A1 INB OR A1 OUTB
+    THEN
+;
+
+: IRQ-CONNECT  ( xt irq# -- )
+    DUP >R
+    4 * HOOK-TABLE + !
+    R> IRQ-UNMASK
+;
+
+: IRQ-DISCONNECT  ( irq# -- )
+    DUP >R
+    4 * HOOK-TABLE +
+    ['] NOP-HANDLER SWAP !
+    R> IRQ-MASK
 ;
 
 \ ============================================
