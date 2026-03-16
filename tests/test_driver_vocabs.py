@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Test that HARDWARE, SERIAL-16550, RTL8139 vocabs
-load from blocks without crash.
+"""Test that driver vocabs load from blocks without crash.
+Tests HARDWARE, SERIAL-16550, RTL8139, PS2-KEYBOARD, PS2-MOUSE.
 """
 import socket
 import time
@@ -98,16 +98,17 @@ def check(name, ok, detail=''):
               (f' -- {detail}' if detail else ''))
 
 
-# Only test the three fixed vocabs
+# Vocabs to test (order matters: dependencies first)
 vocabs_to_test = [
     'HARDWARE',
     'SERIAL-16550',
+    'PS2-KEYBOARD',
+    'PS2-MOUSE',
     'RTL8139',
 ]
 
 # RTL8139 needs PCI-ENUM and HARDWARE loaded first
-# SERIAL-16550 uses kernel INB/OUTB directly now
-# HARDWARE uses kernel INB/OUTB directly now
+# All others use kernel INB/OUTB directly (no deps)
 
 # Load PCI-ENUM first (needed by RTL8139)
 pci_start, pci_end = get_vocab_blocks('PCI-ENUM')
@@ -134,6 +135,33 @@ for name in vocabs_to_test:
     if not ok:
         print(f"  System crashed! Stopping.")
         break
+
+# PS2-MOUSE specific tests
+print("\nPS2-MOUSE word tests:")
+r = send('USING PS2-MOUSE', 2)
+ok = alive()
+check('USING PS2-MOUSE succeeds', ok,
+      f'response: {r.strip()[:80]!r}')
+
+if ok:
+    # Verify constants have correct hex values
+    r = send('HEX DEFAULT-XMAX .', 1)
+    check('DEFAULT-XMAX = 280h (640d)', '280' in r,
+          f'got: {r.strip()!r}')
+    r = send('DEFAULT-YMAX .', 1)
+    check('DEFAULT-YMAX = 1E0h (480d)', '1E0' in r,
+          f'got: {r.strip()!r}')
+    r = send('MOUSE-IRQ .', 1)
+    check('MOUSE-IRQ = C (12d)', 'C' in r,
+          f'got: {r.strip()!r}')
+    # Verify kernel var access works
+    r = send('MOUSE-X-VAR @ .', 1)
+    check('MOUSE-X-VAR readable', '0' in r,
+          f'got: {r.strip()!r}')
+    r = send('MOUSE-XY . .', 1)
+    check('MOUSE-XY returns two values', '0' in r,
+          f'got: {r.strip()!r}')
+    r = send('DECIMAL', 1)
 
 # Final check
 print("\nFinal check:")

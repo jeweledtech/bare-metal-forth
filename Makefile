@@ -102,7 +102,7 @@ test-smoke: $(IMAGE)
 		-display none -daemonize
 	@sleep 2
 	@python3 tests/smoke_test.py $(TEST_PORT_BASE); \
-		STATUS=$$?; pkill -9 -f "qemu.*$(TEST_PORT_BASE)" 2>/dev/null; exit $$STATUS
+		STATUS=$$?; pkill -9 -f "[q]emu.*$(TEST_PORT_BASE)" 2>/dev/null; exit $$STATUS
 
 # Run BEGIN/WHILE/REPEAT test (no block storage needed)
 test-loops: $(IMAGE)
@@ -112,13 +112,13 @@ test-loops: $(IMAGE)
 		-display none -daemonize
 	@sleep 2
 	@python3 tests/test_begin_while.py $$(($(TEST_PORT_BASE)+1)); \
-		STATUS=$$?; pkill -9 -f "qemu.*$$(($(TEST_PORT_BASE)+1))" 2>/dev/null; exit $$STATUS
+		STATUS=$$?; pkill -9 -f "[q]emu.*$$(($(TEST_PORT_BASE)+1))" 2>/dev/null; exit $$STATUS
 
 # Run all vocabulary tests (need block storage)
 test-vocabs: $(IMAGE) $(BLOCKS) write-catalog
 	@echo "Running vocabulary tests..."
 	@PORT_BASE=$$(($(TEST_PORT_BASE)+10)); \
-	for test in test_editor test_x86_asm test_metacompiler; do \
+	for test in test_editor test_x86_asm test_metacompiler test_driver_vocabs; do \
 		PORT=$$PORT_BASE; PORT_BASE=$$((PORT_BASE+1)); \
 		echo "  $$test (port $$PORT)..."; \
 		$(QEMU) -drive file=$(IMAGE),format=raw,if=floppy \
@@ -127,7 +127,7 @@ test-vocabs: $(IMAGE) $(BLOCKS) write-catalog
 			-display none -daemonize; \
 		sleep 2; \
 		python3 tests/$$test.py $$PORT; \
-		STATUS=$$?; pkill -9 -f "qemu.*$$PORT" 2>/dev/null; sleep 1; \
+		STATUS=$$?; pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null; sleep 1; \
 		if [ $$STATUS -ne 0 ]; then exit $$STATUS; fi; \
 	done
 
@@ -141,7 +141,7 @@ test-integration: $(IMAGE) $(BLOCKS) write-catalog
 		-display none -daemonize; \
 	sleep 2; \
 	python3 tests/test_full_integration.py $$PORT; \
-	STATUS=$$?; pkill -9 -f "qemu.*$$PORT" 2>/dev/null; exit $$STATUS
+	STATUS=$$?; pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null; exit $$STATUS
 
 # --- End-to-End Pipeline: .sys binary → block vocab → USING ---
 
@@ -178,7 +178,7 @@ test-pipeline-e2e: $(IMAGE) $(VOCAB_BUILD)/combined.img
 		-display none -daemonize; \
 	sleep 2; \
 	python3 tests/test_pipeline_e2e.py $$PORT; \
-	STATUS=$$?; pkill -9 -f "qemu.*$$PORT" 2>/dev/null; exit $$STATUS
+	STATUS=$$?; pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null; exit $$STATUS
 
 # Run all tests
 test: test-smoke test-loops test-vocabs test-integration test-pipeline-e2e
