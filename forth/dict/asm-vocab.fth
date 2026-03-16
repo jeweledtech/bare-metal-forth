@@ -30,6 +30,7 @@
 
 VOCABULARY ASM-VOCAB
 ASM-VOCAB DEFINITIONS
+ALSO X86-ASM
 HEX
 
 \ ---- Stub marker ----
@@ -164,5 +165,5 @@ HEX
 ." ASM-VOCAB stub loaded" CR
 ." (pending LMI manual recovery)" CR
 
-FORTH DEFINITIONS
+PREVIOUS FORTH DEFINITIONS
 DECIMAL

@@ -145,9 +145,17 @@ static void emit_catalog_header(strbuf_t* sb, const forth_codegen_opts_t* opts) 
 
 /* ---- Generate vocabulary preamble ---- */
 
-static void emit_vocabulary_preamble(strbuf_t* sb, const char* name) {
+static void emit_vocabulary_preamble(strbuf_t* sb, const char* name,
+                                     const forth_dependency_t* requires) {
     sb_printf(sb, "VOCABULARY %s\n", name);
     sb_printf(sb, "%s DEFINITIONS\n", name);
+    /* Add ALSO for each dependency so their words are visible */
+    if (requires) {
+        for (const forth_dependency_t* dep = requires;
+             dep->vocab_name != NULL; dep++) {
+            sb_printf(sb, "ALSO %s\n", dep->vocab_name);
+        }
+    }
     sb_append(sb, "HEX\n\n");
 }
 
@@ -276,7 +284,14 @@ static void emit_function(strbuf_t* sb, const forth_gen_function_t* func,
 
 /* ---- Generate footer ---- */
 
-static void emit_footer(strbuf_t* sb) {
+static void emit_footer(strbuf_t* sb, const forth_dependency_t* requires) {
+    /* Emit PREVIOUS for each ALSO'd dependency */
+    if (requires) {
+        for (const forth_dependency_t* dep = requires;
+             dep->vocab_name != NULL; dep++) {
+            sb_append(sb, "PREVIOUS\n");
+        }
+    }
     sb_append(sb, "FORTH DEFINITIONS\n");
     sb_append(sb, "DECIMAL\n");
 }
@@ -295,7 +310,7 @@ char* forth_generate(const forth_codegen_input_t* input) {
     emit_catalog_header(&sb, &input->opts);
 
     /* 2. Vocabulary preamble */
-    emit_vocabulary_preamble(&sb, input->opts.vocab_name);
+    emit_vocabulary_preamble(&sb, input->opts.vocab_name, input->opts.requires);
 
     /* 3. Register constants (if any) */
     emit_register_constants(&sb, input->port_offsets, input->port_offset_count);
@@ -321,7 +336,7 @@ char* forth_generate(const forth_codegen_input_t* input) {
     }
 
     /* 6. Footer */
-    emit_footer(&sb);
+    emit_footer(&sb, input->opts.requires);
 
     return sb.data;
 }

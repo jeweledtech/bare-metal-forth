@@ -64,9 +64,10 @@ run-serial: $(IMAGE)
 # --- Block Storage Targets ---
 
 # Create blank 1MB blocks disk (1024 x 1K blocks)
-blocks: | $(BUILD)
+$(BLOCKS): | $(BUILD)
 	dd if=/dev/zero of=$(BLOCKS) bs=1024 count=1024
 	@echo "Block disk created: $(BLOCKS) (1MB, 1024 blocks)"
+blocks: $(BLOCKS)
 
 # Run with block storage attached (IDE slave)
 run-blocks: $(IMAGE) $(BLOCKS)

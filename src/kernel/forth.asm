@@ -2418,7 +2418,7 @@ DEFWORD "THRU", THRU, 0
 ; DOVOC runtime — executed when a vocabulary word runs
 ; Replaces top of search order with this vocabulary's LATEST cell address
 DOVOC:
-    mov eax, [eax + 4]         ; Parameter field = addr of vocab's LATEST cell
+    lea eax, [eax + 4]         ; Address of vocab's LATEST cell (param field IS the cell)
     mov [VAR_SEARCH_ORDER], eax ; Replace top of search order
     NEXT
 
