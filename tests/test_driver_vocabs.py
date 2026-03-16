@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Test that driver vocabs load from blocks without crash.
-Tests HARDWARE, SERIAL-16550, RTL8139, PS2-KEYBOARD, PS2-MOUSE.
+Tests HARDWARE, SERIAL-16550, RTL8139, PS2-KEYBOARD, PS2-MOUSE, NE2000.
+Requires QEMU -nic model=ne2k_pci for NE2000 PCI discovery tests.
 """
 import socket
 import time
@@ -104,11 +105,12 @@ vocabs_to_test = [
     'SERIAL-16550',
     'PS2-KEYBOARD',
     'PS2-MOUSE',
+    'NE2000',
     'RTL8139',
 ]
 
-# RTL8139 needs PCI-ENUM and HARDWARE loaded first
-# All others use kernel INB/OUTB directly (no deps)
+# RTL8139 and NE2000 need PCI-ENUM loaded first
+# HARDWARE uses kernel INB/OUTB directly (no deps)
 
 # Load PCI-ENUM first (needed by RTL8139)
 pci_start, pci_end = get_vocab_blocks('PCI-ENUM')
@@ -121,6 +123,50 @@ if pci_start:
     if not ok:
         print("FAIL: Cannot continue without PCI-ENUM")
         sys.exit(1)
+
+# PCI-ENUM word-level tests
+print("\nPCI-ENUM word tests:")
+r = send('USING PCI-ENUM', 2)
+ok = alive()
+check('USING PCI-ENUM succeeds', ok,
+      f'response: {r.strip()[:80]!r}')
+
+if ok:
+    # Verify PCI config port constants (HEX mode)
+    r = send('HEX PCI-APORT .', 1)
+    check('PCI-APORT = CF8', 'CF8' in r.upper(),
+          f'got: {r.strip()!r}')
+    r = send('PCI-DPORT .', 1)
+    check('PCI-DPORT = CFC', 'CFC' in r.upper(),
+          f'got: {r.strip()!r}')
+
+    # PCI-SCAN ran on vocab load — check device count
+    r = send('DECIMAL PCI-COUNT @ .', 1)
+    nums = [int(w) for w in r.split()
+            if w.lstrip('-').isdigit()]
+    has_devs = any(n > 0 for n in nums) if nums else False
+    check('PCI-COUNT > 0 (QEMU devices found)',
+          has_devs, f'got: {r.strip()!r}')
+
+    # PCI-LIST runs and produces device table output
+    r = send('HEX PCI-LIST', 3)
+    check('PCI-LIST executes without crash',
+          alive(), f'got: {r.strip()[:80]!r}')
+    check('PCI-LIST shows device table',
+          'Vend' in r or 'devices' in r,
+          f'got: {r.strip()[:100]!r}')
+
+    # PCI-FIND for i440FX host bridge (always in QEMU)
+    r = send('8086 1237 PCI-FIND DECIMAL .', 2)
+    found = '-1' in r
+    check('PCI-FIND 8086:1237 (i440FX) found',
+          found, f'got: {r.strip()!r}')
+    if found:
+        # Stack has bus dev func — print and verify
+        r = send('. . .', 1)
+        check('i440FX at bus 0 dev 0',
+              '0' in r, f'got: {r.strip()!r}')
+    r = send('DECIMAL FORTH', 1)
 
 for name in vocabs_to_test:
     start, end = get_vocab_blocks(name)
@@ -161,6 +207,73 @@ if ok:
     r = send('MOUSE-XY . .', 1)
     check('MOUSE-XY returns two values', '0' in r,
           f'got: {r.strip()!r}')
+    r = send('DECIMAL', 1)
+
+# NE2000 specific tests (requires QEMU -nic model=ne2k_pci)
+print("\nNE2000 word tests:")
+r = send('USING NE2000', 2)
+ok = alive()
+check('USING NE2000 succeeds', ok,
+      f'response: {r.strip()[:80]!r}')
+
+if ok:
+    # Register offset constants (HEX mode)
+    r = send('HEX NE-CMD .', 1)
+    check('NE-CMD = 0', '0 ' in r or r.strip().endswith('0'),
+          f'got: {r.strip()!r}')
+    r = send('NE-DATA .', 1)
+    check('NE-DATA = 10', '10' in r,
+          f'got: {r.strip()!r}')
+    r = send('NE-RESET .', 1)
+    check('NE-RESET = 1F', '1F' in r.upper(),
+          f'got: {r.strip()!r}')
+
+    # Command bits
+    r = send('CMD-STOP .', 1)
+    check('CMD-STOP = 1', '1 ' in r or r.strip().endswith('1'),
+          f'got: {r.strip()!r}')
+    r = send('CMD-START .', 1)
+    check('CMD-START = 2', '2 ' in r or r.strip().endswith('2'),
+          f'got: {r.strip()!r}')
+
+    # NIC memory layout
+    r = send('RX-START .', 1)
+    check('RX-START = 40', '40' in r,
+          f'got: {r.strip()!r}')
+    r = send('TX-START .', 1)
+    check('TX-START = 20', '20' in r,
+          f'got: {r.strip()!r}')
+
+    # NE2K-INIT should find RTL8029 via PCI (10EC:8029)
+    r = send('NE2K-INIT', 5)
+    found = 'NE2000 at' in r
+    check('NE2K-INIT finds NIC via PCI',
+          found, f'got: {r.strip()[:100]!r}')
+
+    if found:
+        # NE-BASE should be nonzero (PCI BAR0)
+        r = send('NE-BASE @ .', 1)
+        nums = [w for w in r.split() if w.strip()
+                and all(c in '0123456789ABCDEFabcdef'
+                        for c in w.strip())]
+        has_base = any(int(n, 16) > 0 for n in nums) if nums else False
+        check('NE-BASE nonzero (PCI BAR0)',
+              has_base, f'got: {r.strip()!r}')
+
+        # NE2K-MAC. should print without crash
+        r = send('NE2K-MAC.', 2)
+        check('NE2K-MAC. executes',
+              alive(), f'got: {r.strip()[:80]!r}')
+
+        # Statistics should show 0 TX/RX
+        r = send('DECIMAL NE2K-STATS', 2)
+        check('NE2K-STATS shows TX: 0',
+              'TX:' in r and '0' in r,
+              f'got: {r.strip()!r}')
+    else:
+        # NIC not on PCI bus (no -nic model=ne2k_pci)
+        print('  SKIP: NE2K-INIT hardware tests '
+              '(NIC not on PCI bus)')
     r = send('DECIMAL', 1)
 
 # Final check

@@ -123,6 +123,7 @@ test-vocabs: $(IMAGE) $(BLOCKS) write-catalog
 		echo "  $$test (port $$PORT)..."; \
 		$(QEMU) -drive file=$(IMAGE),format=raw,if=floppy \
 			-drive file=$(BLOCKS),format=raw,if=ide,index=1 \
+			-nic model=ne2k_pci \
 			-serial tcp::$$PORT,server=on,wait=off \
 			-display none -daemonize; \
 		sleep 2; \
