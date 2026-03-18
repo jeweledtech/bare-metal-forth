@@ -236,12 +236,12 @@ if ok:
     check('CMD-START = 2', '2 ' in r or r.strip().endswith('2'),
           f'got: {r.strip()!r}')
 
-    # NIC memory layout
+    # NIC memory layout (QEMU PMEM boundary)
     r = send('RX-START .', 1)
-    check('RX-START = 40', '40' in r,
+    check('RX-START = 46', '46' in r,
           f'got: {r.strip()!r}')
     r = send('TX-START .', 1)
-    check('TX-START = 20', '20' in r,
+    check('TX-START = 40', '40' in r,
           f'got: {r.strip()!r}')
 
     # NE2K-INIT should find RTL8029 via PCI (10EC:8029)

@@ -182,6 +182,11 @@ test-pipeline-e2e: $(IMAGE) $(VOCAB_BUILD)/combined.img
 	python3 tests/test_pipeline_e2e.py $$PORT; \
 	STATUS=$$?; pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null; exit $$STATUS
 
+# Run NE2000 network test (two QEMU instances)
+test-network: $(IMAGE) $(BLOCKS) write-catalog
+	@echo "Running NE2000 network test..."
+	@python3 tests/test_ne2000_network.py $$(($(TEST_PORT_BASE)+40))
+
 # Run all tests
 test: test-smoke test-loops test-vocabs test-integration test-pipeline-e2e
 	@echo "All tests passed!"
