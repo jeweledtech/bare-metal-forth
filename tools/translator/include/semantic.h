@@ -31,6 +31,7 @@ typedef enum {
     SEM_CAT_INTERRUPT   = 0x13,
     SEM_CAT_TIMING      = 0x14,
     SEM_CAT_PCI_CONFIG  = 0x15,
+    SEM_CAT_DEVICE_IO   = 0x16,  /* User-space device I/O (DeviceIoControl etc.) */
 
     /* Windows Scaffolding — FILTER */
     SEM_CAT_IRP         = 0x80,
@@ -168,7 +169,7 @@ sem_category_t sem_classify_import(const char* func_name,
 
 /* Check if a category is hardware-relevant (< 0x80) */
 static inline bool sem_is_hardware(sem_category_t cat) {
-    return cat >= SEM_CAT_PORT_IO && cat <= SEM_CAT_PCI_CONFIG;
+    return cat >= SEM_CAT_PORT_IO && cat <= SEM_CAT_DEVICE_IO;
 }
 
 /* Check if a category is scaffolding (>= 0x80) */

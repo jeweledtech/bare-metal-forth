@@ -32,6 +32,8 @@
 
 #include "translator.h"
 #include "pe_loader.h"
+#include "format_detect.h"
+#include "com_loader.h"
 #include "x86_decoder.h"
 #include "uir.h"
 #include "semantic.h"
@@ -323,6 +325,151 @@ static char* generate_forth_output(const sem_result_t* sem,
 }
 
 /* ============================================================================
+ * .NET notice stub
+ * ============================================================================ */
+
+static translate_result_t translate_dotnet_notice(const char* filename) {
+    translate_result_t result = {0};
+    char buf[256];
+    snprintf(buf, sizeof(buf),
+             "\\ .NET assembly detected: %s\n"
+             "\\ IL translation not yet supported.\n"
+             "\\ Use native decompiler (ILSpy, dnSpy) for analysis.\n",
+             filename ? filename : "(unknown)");
+    result.success = true;
+    result.output = strdup(buf);
+    result.output_size = strlen(result.output);
+    return result;
+}
+
+/* ============================================================================
+ * DOS .com translation path
+ * ============================================================================ */
+
+static translate_result_t translate_com(const com_context_t* com,
+                                         const translate_options_t* opts) {
+    translate_result_t result = {0};
+
+    /* ---- Stage 2: Decode x86 instructions ---- */
+    x86_decoder_t dec;
+    x86_decoder_init(&dec, X86_MODE_32, com->code, com->code_size,
+                     com->load_addr);
+    size_t inst_count = 0;
+    x86_decoded_t* insts = x86_decode_range(&dec, &inst_count);
+    if (!insts || inst_count == 0) {
+        result.success = false;
+        result.error_message = strdup("No instructions decoded from COM file");
+        return result;
+    }
+
+    /* TARGET_DISASM: print decoded instructions and return */
+    if (opts->target == TARGET_DISASM) {
+        char* buf = NULL;
+        size_t buf_size = 0;
+        FILE* mem = open_memstream(&buf, &buf_size);
+        for (size_t i = 0; i < inst_count; i++)
+            x86_print_decoded(&insts[i], mem);
+        fclose(mem);
+        free(insts);
+        result.success = true;
+        result.output = buf;
+        result.output_size = buf_size;
+        return result;
+    }
+
+    /* ---- Stage 3: Treat entire COM as one function ---- */
+    uint64_t text_base = com->load_addr;
+    uint64_t text_end = text_base + com->code_size;
+
+    /* ---- Stage 4: Lift to UIR ---- */
+    uir_x86_input_t* uir_input = convert_x86_to_uir_input(insts, inst_count);
+    free(insts);
+
+    if (!uir_input) {
+        result.success = false;
+        result.error_message = strdup("Out of memory during UIR conversion");
+        return result;
+    }
+
+    uir_function_t* uf = uir_lift_function(uir_input, inst_count, text_base);
+    free(uir_input);
+
+    if (!uf) {
+        result.success = false;
+        result.error_message = strdup("UIR lift failed for COM file");
+        return result;
+    }
+
+    uir_function_t* uir_funcs[1] = {uf};
+
+    /* TARGET_UIR: print UIR and return */
+    if (opts->target == TARGET_UIR) {
+        char* buf = NULL;
+        size_t buf_size = 0;
+        FILE* mem = open_memstream(&buf, &buf_size);
+        uir_print_function(uf, mem);
+        fclose(mem);
+        uir_free_function(uf);
+        result.success = true;
+        result.output = buf;
+        result.output_size = buf_size;
+        return result;
+    }
+
+    /* ---- Stage 5: Semantic analysis (no imports for COM) ---- */
+    sem_result_t sem;
+    memset(&sem, 0, sizeof(sem));
+
+    sem_uir_input_t sem_func_input;
+    memset(&sem_func_input, 0, sizeof(sem_func_input));
+    sem_func_input.func = uf;
+    sem_func_input.entry_address = uf->entry_address;
+    sem_func_input.has_port_io = uf->has_port_io;
+    sem_func_input.ports_read = uf->ports_read;
+    sem_func_input.ports_read_count = uf->ports_read_count;
+    sem_func_input.ports_written = uf->ports_written;
+    sem_func_input.ports_written_count = uf->ports_written_count;
+
+    sem_analyze_functions(&sem_func_input, 1, text_base, &sem);
+
+    /* ---- Stage 6: Generate Forth output ---- */
+    if (opts->target == TARGET_FORTH) {
+        char* forth_output = generate_forth_output(&sem,
+            (const uir_function_t**)uir_funcs, 1, NULL, opts);
+
+        sem_cleanup(&sem);
+        uir_free_function(uf);
+
+        if (!forth_output) {
+            result.success = false;
+            result.error_message = strdup("Forth code generation failed");
+            return result;
+        }
+
+        result.success = true;
+        result.output = forth_output;
+        result.output_size = strlen(forth_output);
+        return result;
+    }
+
+    /* Unsupported target */
+    sem_cleanup(&sem);
+    uir_free_function(uf);
+    result.success = false;
+    result.error_message = strdup("Unsupported output target for COM files");
+    return result;
+
+    (void)text_end;
+}
+
+/* ============================================================================
+ * PE translation path (extracted from translate_buffer)
+ * ============================================================================ */
+
+static translate_result_t translate_pe(const uint8_t* data, size_t size,
+                                        const translate_options_t* opts);
+
+/* ============================================================================
  * API Implementation
  * ============================================================================ */
 
@@ -384,6 +531,48 @@ translate_result_t translate_file(const char* filename,
 
 translate_result_t translate_buffer(const uint8_t* data, size_t size,
                                      const translate_options_t* opts) {
+    translate_result_t result = {0};
+
+    /* ---- Stage 0: Detect format ---- */
+    format_info_t fmt = detect_format(data, size, opts->input_filename);
+
+    switch (fmt.format) {
+        case BINFMT_DOS_COM: {
+            com_context_t com;
+            if (com_load(&com, data, size) != 0) {
+                result.success = false;
+                result.error_message = strdup("Failed to load .com file");
+                return result;
+            }
+            return translate_com(&com, opts);
+        }
+
+        case BINFMT_DOTNET:
+            return translate_dotnet_notice(opts->input_filename);
+
+        case BINFMT_PE_DRIVER:
+        case BINFMT_PE_DLL:
+        case BINFMT_PE_EXE:
+            return translate_pe(data, size, opts);
+
+        case BINFMT_ELF:
+            result.success = false;
+            result.error_message = strdup("ELF format not yet supported");
+            return result;
+
+        default:
+            result.success = false;
+            result.error_message = strdup("Unknown binary format");
+            return result;
+    }
+}
+
+/* ============================================================================
+ * PE translation path (original pipeline)
+ * ============================================================================ */
+
+static translate_result_t translate_pe(const uint8_t* data, size_t size,
+                                        const translate_options_t* opts) {
     translate_result_t result = {0};
 
     /* ---- Stage 1: Load PE ---- */

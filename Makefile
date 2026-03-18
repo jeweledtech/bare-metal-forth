@@ -187,8 +187,13 @@ test-network: $(IMAGE) $(BLOCKS) write-catalog
 	@echo "Running NE2000 network test..."
 	@python3 tests/test_ne2000_network.py $$(($(TEST_PORT_BASE)+40))
 
+test-ubt-expansion:
+	@echo "Running UBT expansion tests..."
+	@cd tools/translator && make 2>&1 | tail -1
+	@python3 tests/test_ubt_expansion.py
+
 # Run all tests
-test: test-smoke test-loops test-vocabs test-integration test-pipeline-e2e
+test: test-smoke test-loops test-vocabs test-integration test-pipeline-e2e test-ubt-expansion
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)

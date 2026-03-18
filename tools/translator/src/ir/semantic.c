@@ -87,6 +87,16 @@ const sem_api_entry_t SEM_API_TABLE[] = {
     {"HalSetBusData",           SEM_CAT_PCI_CONFIG, "PCI-WRITE",   "Write PCI config",     5, 1},
     {"HalSetBusDataByOffset",   SEM_CAT_PCI_CONFIG, "PCI-WRITE@",  "Write PCI at offset",  6, 1},
 
+    /* ---- DEVICE I/O (Win32 user-space) — KEEP ---- */
+    {"DeviceIoControl",         SEM_CAT_DEVICE_IO, "IOCTL",      "Win32 device IOCTL",      7, 1},
+    {"CreateFileA",             SEM_CAT_DEVICE_IO, "OPEN-DEV",   "Open device handle",      7, 1},
+    {"CreateFileW",             SEM_CAT_DEVICE_IO, "OPEN-DEV",   "Open device handle",      7, 1},
+    {"ReadFile",                SEM_CAT_DEVICE_IO, "READ-DEV",   "Read from device",        5, 1},
+    {"WriteFile",               SEM_CAT_DEVICE_IO, "WRITE-DEV",  "Write to device",         5, 1},
+    {"CloseHandle",             SEM_CAT_DEVICE_IO, "CLOSE-DEV",  "Close device handle",     1, 1},
+    {"NtDeviceIoControlFile",   SEM_CAT_DEVICE_IO, "NT-IOCTL",   "NT device IOCTL",        10, 1},
+    {"ZwDeviceIoControlFile",   SEM_CAT_DEVICE_IO, "NT-IOCTL",   "NT device IOCTL",        10, 1},
+
     /* ---- IRP — FILTER (signatures not needed, filtered out) ---- */
     {"IoCompleteRequest",       SEM_CAT_IRP, NULL, "Complete IRP",      0, 0},
     {"IoCallDriver",            SEM_CAT_IRP, NULL, "Call lower driver",  0, 0},
