@@ -308,6 +308,67 @@ if got_900:
           '66' in r,
           f'{r.strip()[:80]!r}')
 
+# Flush block caches on B before consecutive test
+time.sleep(1)
+send(sb, 'SAVE-BUFFERS EMPTY-BUFFERS', 3)
+check('B alive between tests', alive(sb))
+if not alive(sb):
+    print("B crashed after single block test!")
+    cleanup()
+    sys.exit(1)
+
+# Test: consecutive block transfers via BLOCK-RECV
+print("\nTest: Consecutive block transfers")
+consec_ok = True
+for blk_num, fill_byte in [(902, 170), (903, 187),
+                            (904, 204)]:
+    # Write known pattern to block on A (decimal)
+    r = send(sa,
+             f'DECIMAL {blk_num} BUFFER '
+             f'DUP 1024 {fill_byte} FILL '
+             f'DROP UPDATE SAVE-BUFFERS HEX', 4)
+    ok_w = alive(sa)
+    check(f'A: wrote block {blk_num}', ok_w)
+    if not ok_w:
+        consec_ok = False
+        break
+    # Send block from A
+    r = send(sa,
+             f'DECIMAL {blk_num} BLOCK-SEND HEX', 4)
+    ok_s = alive(sa)
+    check(f'A: BLOCK-SEND {blk_num}', ok_s,
+          f'{r.strip()[:80]!r}')
+    if not ok_s:
+        consec_ok = False
+        break
+    time.sleep(2)
+    # Receive on B (poll with retries)
+    got_blk = False
+    for attempt in range(10):
+        r = send(sb,
+                 'BLOCK-RECV DECIMAL . HEX', 3)
+        if str(blk_num) in r:
+            got_blk = True
+            break
+        time.sleep(0.5)
+    check(f'B: received block {blk_num}',
+          got_blk, f'{r.strip()[:80]!r}')
+    if not got_blk:
+        consec_ok = False
+        break
+    # Verify content on B (output is decimal)
+    r2 = send(sb,
+              f'DECIMAL {blk_num} BLOCK C@ . HEX',
+              2)
+    check(f'B: block {blk_num} byte = {fill_byte}',
+          str(fill_byte) in r2,
+          f'{r2.strip()[:60]!r}')
+
+check('A alive after consecutive transfers',
+      alive(sa))
+check('B alive after consecutive transfers',
+      alive(sb) if consec_ok else False)
+
 # Final: both instances still alive
 print("\nFinal checks:")
 check('A alive after all tests', alive(sa))

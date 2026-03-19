@@ -262,6 +262,35 @@ VARIABLE DMA-SRC
     <>
 ;
 
+\ ---- BNRY update with CURR guard ----
+\ Validate RX-NXT, set BNRY = nxt-1
+\ with wraparound and CURR collision
+\ avoidance. Uses CMD-GO (not STOP).
+: NE2K-UPDATE-BNRY ( -- )
+    \ Validate RX-NXT in range
+    RX-NXT @ DUP RX-START <
+    OVER RX-STOP >= OR IF
+        DROP RX-START 1+
+        RX-NXT !
+    ELSE DROP THEN
+    \ Compute BNRY = RX-NXT - 1
+    RX-NXT @ 1-
+    DUP RX-START < IF
+        DROP RX-STOP 1-
+    THEN
+    \ Read CURR (page 1, keep NIC on)
+    CMD-GO CMD-PG1 OR NE-CMD NE!
+    NE-CURR NE@
+    CMD-GO NE-CMD NE!
+    \ If candidate == CURR, back off
+    OVER = IF
+        1- DUP RX-START < IF
+            DROP RX-STOP 1-
+        THEN
+    THEN
+    NE-BNRY NE!
+;
+
 \ ---- Receive packet ----
 \ Read next packet from ring buffer.
 \ Returns actual bytes read, or 0.
@@ -293,12 +322,8 @@ VARIABLE DMA-SRC
     RX-BUFP @ RX-DLEN @
     RX-PG @ 8 LSHIFT 4 +
     NE2K-DMA-RD
-    \ Update BNRY
-    RX-NXT @ 1-
-    DUP RX-START < IF
-        DROP RX-STOP 1-
-    THEN
-    NE-BNRY NE!
+    \ Update BNRY (with CURR guard)
+    NE2K-UPDATE-BNRY
     \ Clear RX interrupt
     1 NE-ISR NE!
     1 NE-RX-CNT +!
