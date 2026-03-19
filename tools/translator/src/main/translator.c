@@ -32,6 +32,7 @@
 
 #include "translator.h"
 #include "pe_loader.h"
+#include "elf_loader.h"
 #include "format_detect.h"
 #include "com_loader.h"
 #include "x86_decoder.h"
@@ -463,6 +464,204 @@ static translate_result_t translate_com(const com_context_t* com,
 }
 
 /* ============================================================================
+ * ELF translation path
+ * ============================================================================ */
+
+static translate_result_t translate_elf(const uint8_t* data, size_t size,
+                                         const translate_options_t* opts) {
+    translate_result_t result = {0};
+
+    /* ---- Stage 1: Load ELF ---- */
+    elf_context_t elf;
+    if (elf_load(&elf, data, size) != 0) {
+        result.success = false;
+        result.error_message = strdup("Not a valid ELF file");
+        return result;
+    }
+
+    if (!elf.text_data || elf.text_size == 0) {
+        elf_cleanup(&elf);
+        result.success = false;
+        result.error_message = strdup("No .text section found in ELF");
+        return result;
+    }
+
+    /* ---- Stage 2: Decode x86 instructions ---- */
+    x86_mode_t mode = elf.is_64bit ? X86_MODE_64 : X86_MODE_32;
+    x86_decoder_t dec;
+    x86_decoder_init(&dec, mode, elf.text_data, elf.text_size, elf.text_vaddr);
+    size_t inst_count = 0;
+    x86_decoded_t* insts = x86_decode_range(&dec, &inst_count);
+    if (!insts || inst_count == 0) {
+        elf_cleanup(&elf);
+        result.success = false;
+        result.error_message = strdup("No instructions decoded from ELF .text");
+        return result;
+    }
+
+    /* TARGET_DISASM: print and return */
+    if (opts->target == TARGET_DISASM) {
+        char* buf = NULL;
+        size_t buf_size = 0;
+        FILE* mem = open_memstream(&buf, &buf_size);
+        for (size_t i = 0; i < inst_count; i++)
+            x86_print_decoded(&insts[i], mem);
+        fclose(mem);
+        free(insts);
+        elf_cleanup(&elf);
+        result.success = true;
+        result.output = buf;
+        result.output_size = buf_size;
+        return result;
+    }
+
+    /* ---- Stage 3: Discover function boundaries from symbols ---- */
+    uint64_t text_base = elf.text_vaddr;
+    uint64_t text_end = text_base + elf.text_size;
+
+    /* Build export list from ELF symbols (FUNC type) */
+    sem_pe_export_t* elf_exports = NULL;
+    size_t export_count = 0;
+    if (elf.symbol_count > 0) {
+        elf_exports = calloc(elf.symbol_count, sizeof(sem_pe_export_t));
+        for (size_t i = 0; i < elf.symbol_count; i++) {
+            if (elf.symbols[i].type == STT_FUNC && elf.symbols[i].value > 0) {
+                elf_exports[export_count].address = elf.symbols[i].value;
+                elf_exports[export_count].name = elf.symbols[i].name;
+                export_count++;
+            }
+        }
+    }
+
+    sem_function_map_t func_map;
+    sem_discover_functions(insts, inst_count, text_base, text_end,
+                          elf_exports, export_count, &func_map);
+    free(elf_exports);
+
+    if (func_map.count == 0) {
+        func_map.entries = calloc(1, sizeof(sem_func_boundary_t));
+        func_map.entries[0].start_address = text_base;
+        func_map.entries[0].inst_start = 0;
+        func_map.entries[0].inst_count = inst_count;
+        func_map.count = 1;
+    }
+
+    /* ---- Stage 4: Lift each function to UIR ---- */
+    uir_x86_input_t* uir_input = convert_x86_to_uir_input(insts, inst_count);
+    free(insts);
+
+    if (!uir_input) {
+        sem_function_map_free(&func_map);
+        elf_cleanup(&elf);
+        result.success = false;
+        result.error_message = strdup("Out of memory during UIR conversion");
+        return result;
+    }
+
+    uir_function_t** uir_funcs = calloc(func_map.count, sizeof(uir_function_t*));
+    size_t uir_func_count = 0;
+
+    for (size_t f = 0; f < func_map.count; f++) {
+        sem_func_boundary_t* fb = &func_map.entries[f];
+        if (fb->inst_count == 0) continue;
+        uir_function_t* uf = uir_lift_function(
+            uir_input + fb->inst_start, fb->inst_count, fb->start_address);
+        if (uf) uir_funcs[uir_func_count++] = uf;
+    }
+    free(uir_input);
+
+    if (uir_func_count == 0) {
+        free(uir_funcs);
+        sem_function_map_free(&func_map);
+        elf_cleanup(&elf);
+        result.success = false;
+        result.error_message = strdup("UIR lift failed for all ELF functions");
+        return result;
+    }
+
+    /* TARGET_UIR: print all UIR functions */
+    if (opts->target == TARGET_UIR) {
+        char* buf = NULL;
+        size_t buf_size = 0;
+        FILE* mem = open_memstream(&buf, &buf_size);
+        for (size_t f = 0; f < uir_func_count; f++) {
+            if (f > 0) fprintf(mem, "\n");
+            uir_print_function(uir_funcs[f], mem);
+        }
+        fclose(mem);
+        for (size_t f = 0; f < uir_func_count; f++)
+            uir_free_function(uir_funcs[f]);
+        free(uir_funcs);
+        sem_function_map_free(&func_map);
+        elf_cleanup(&elf);
+        result.success = true;
+        result.output = buf;
+        result.output_size = buf_size;
+        return result;
+    }
+
+    /* ---- Stage 5: Semantic analysis (no IAT for ELF — port I/O path only) ---- */
+    sem_result_t sem;
+    memset(&sem, 0, sizeof(sem));
+
+    sem_uir_input_t* sem_func_inputs = calloc(uir_func_count, sizeof(sem_uir_input_t));
+    for (size_t f = 0; f < uir_func_count; f++) {
+        sem_func_inputs[f].func = uir_funcs[f];
+        sem_func_inputs[f].entry_address = uir_funcs[f]->entry_address;
+        sem_func_inputs[f].has_port_io = uir_funcs[f]->has_port_io;
+        sem_func_inputs[f].ports_read = uir_funcs[f]->ports_read;
+        sem_func_inputs[f].ports_read_count = uir_funcs[f]->ports_read_count;
+        sem_func_inputs[f].ports_written = uir_funcs[f]->ports_written;
+        sem_func_inputs[f].ports_written_count = uir_funcs[f]->ports_written_count;
+
+        for (size_t b = 0; b < func_map.count; b++) {
+            if (func_map.entries[b].start_address == uir_funcs[f]->entry_address) {
+                sem_func_inputs[f].name = func_map.entries[b].name;
+                break;
+            }
+        }
+    }
+    sem_analyze_functions(sem_func_inputs, uir_func_count,
+                          (uint64_t)elf.text_vaddr, &sem);
+    free(sem_func_inputs);
+
+    /* ---- Stage 6: Generate Forth output ---- */
+    if (opts->target == TARGET_FORTH) {
+        char* forth_output = generate_forth_output(&sem,
+            (const uir_function_t**)uir_funcs, uir_func_count, NULL, opts);
+
+        sem_cleanup(&sem);
+        for (size_t f = 0; f < uir_func_count; f++)
+            uir_free_function(uir_funcs[f]);
+        free(uir_funcs);
+        sem_function_map_free(&func_map);
+        elf_cleanup(&elf);
+
+        if (!forth_output) {
+            result.success = false;
+            result.error_message = strdup("Forth code generation failed");
+            return result;
+        }
+
+        result.success = true;
+        result.output = forth_output;
+        result.output_size = strlen(forth_output);
+        return result;
+    }
+
+    /* Unsupported target */
+    sem_cleanup(&sem);
+    for (size_t f = 0; f < uir_func_count; f++)
+        uir_free_function(uir_funcs[f]);
+    free(uir_funcs);
+    sem_function_map_free(&func_map);
+    elf_cleanup(&elf);
+    result.success = false;
+    result.error_message = strdup("Unsupported output target for ELF files");
+    return result;
+}
+
+/* ============================================================================
  * PE translation path (extracted from translate_buffer)
  * ============================================================================ */
 
@@ -556,9 +755,7 @@ translate_result_t translate_buffer(const uint8_t* data, size_t size,
             return translate_pe(data, size, opts);
 
         case BINFMT_ELF:
-            result.success = false;
-            result.error_message = strdup("ELF format not yet supported");
-            return result;
+            return translate_elf(data, size, opts);
 
         default:
             result.success = false;

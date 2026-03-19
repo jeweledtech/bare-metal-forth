@@ -178,6 +178,7 @@ test-16550: | $(BUILDDIR)
 		tests/test_16550_driver.c \
 		$(SRCDIR)/main/translator.c \
 		$(SRCDIR)/loaders/pe_loader.c \
+		$(SRCDIR)/loaders/elf_loader.c \
 		$(SRCDIR)/loaders/format_detect.c \
 		$(SRCDIR)/loaders/com_loader.c \
 		$(SRCDIR)/decoders/x86_decoder.c \
@@ -241,6 +242,7 @@ test-ghidra-compare: | $(BUILDDIR)
 		tests/test_ghidra_compare.c \
 		$(SRCDIR)/main/translator.c \
 		$(SRCDIR)/loaders/pe_loader.c \
+		$(SRCDIR)/loaders/elf_loader.c \
 		$(SRCDIR)/loaders/format_detect.c \
 		$(SRCDIR)/loaders/com_loader.c \
 		$(SRCDIR)/decoders/x86_decoder.c \
@@ -258,6 +260,7 @@ test-i8042-validation: | $(BUILDDIR)
 		tests/test_i8042_validation.c \
 		$(SRCDIR)/main/translator.c \
 		$(SRCDIR)/loaders/pe_loader.c \
+		$(SRCDIR)/loaders/elf_loader.c \
 		$(SRCDIR)/loaders/format_detect.c \
 		$(SRCDIR)/loaders/com_loader.c \
 		$(SRCDIR)/decoders/x86_decoder.c \
@@ -269,6 +272,14 @@ test-i8042-validation: | $(BUILDDIR)
 # ============================================================================
 # Format detection and COM loader tests
 # ============================================================================
+
+.PHONY: test-elf
+test-elf: | $(BUILDDIR)
+	@echo "$(CYAN)Testing ELF loader...$(NC)"
+	$(CC) $(CFLAGS) -o $(BUILDDIR)/tests/test_elf_loader \
+		tests/test_elf_loader.c \
+		$(SRCDIR)/loaders/elf_loader.c
+	./$(BUILDDIR)/tests/test_elf_loader
 
 .PHONY: test-format-detect
 test-format-detect: | $(BUILDDIR)
@@ -293,7 +304,7 @@ test-com-loader: | $(BUILDDIR)
 
 .PHONY: test test-all
 test: test-all
-test-all: test-pe test-x86 test-cil test-arm64 test-uir test-semantic test-forth-codegen test-pipeline test-16550 test-ghidra-compare test-i8042-validation test-format-detect test-com-loader
+test-all: test-pe test-x86 test-cil test-arm64 test-uir test-semantic test-forth-codegen test-pipeline test-16550 test-ghidra-compare test-i8042-validation test-elf test-format-detect test-com-loader
 	@echo ""
 	@echo "$(GREEN)All tests passed$(NC)"
 
