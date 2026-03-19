@@ -211,6 +211,12 @@ int sem_analyze_functions(const sem_uir_input_t* uir_funcs, size_t uir_func_coun
 /* Print analysis report. */
 void sem_print_report(const sem_result_t* result, FILE* out);
 
+/* Emit JSON semantic report matching the Ghidra fixture schema.
+ * Caller must free the returned string. */
+char* sem_to_json(const sem_result_t* sem, const char* filename,
+                   const char* format_desc, const char* machine_desc,
+                   uint64_t image_base);
+
 /* Free all allocated memory in result. */
 void sem_cleanup(sem_result_t* result);
 

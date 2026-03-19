@@ -28,6 +28,7 @@ typedef enum {
     TARGET_DISASM,      /* Human-readable disassembly */
     TARGET_UIR,         /* Universal Intermediate Representation */
     TARGET_FORTH,       /* Forth source code */
+    TARGET_SEMANTIC_REPORT,  /* JSON semantic analysis report */
     TARGET_C,           /* C source code */
     TARGET_X64,         /* Native x86-64 */
     TARGET_ARM64,       /* Native ARM64 */

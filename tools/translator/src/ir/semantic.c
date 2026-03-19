@@ -543,6 +543,161 @@ void sem_print_report(const sem_result_t* result, FILE* out) {
  * Cleanup
  * ============================================================================ */
 
+/* ============================================================================
+ * JSON semantic report (matches Ghidra fixture schema)
+ * ============================================================================ */
+
+/* Helper: escape a string for JSON (handles NULL, quotes, backslashes) */
+static void json_string(FILE* f, const char* s) {
+    if (!s) { fprintf(f, "null"); return; }
+    fputc('"', f);
+    for (; *s; s++) {
+        if (*s == '"') fprintf(f, "\\\"");
+        else if (*s == '\\') fprintf(f, "\\\\");
+        else if (*s == '\n') fprintf(f, "\\n");
+        else fputc(*s, f);
+    }
+    fputc('"', f);
+}
+
+char* sem_to_json(const sem_result_t* sem, const char* filename,
+                   const char* format_desc, const char* machine_desc,
+                   uint64_t image_base) {
+    if (!sem) return NULL;
+
+    char* buf = NULL;
+    size_t buf_size = 0;
+    FILE* f = open_memstream(&buf, &buf_size);
+    if (!f) return NULL;
+
+    fprintf(f, "{\n");
+    fprintf(f, "    \"schema_version\": 1,\n");
+    fprintf(f, "    \"generator\": \"ubt\",\n");
+    fprintf(f, "    \"ubt_version\": \"0.1.0\",\n");
+
+    /* Binary info */
+    fprintf(f, "    \"binary\": {\n");
+    fprintf(f, "        \"filename\": "); json_string(f, filename); fprintf(f, ",\n");
+    fprintf(f, "        \"format\": "); json_string(f, format_desc); fprintf(f, ",\n");
+    fprintf(f, "        \"machine\": "); json_string(f, machine_desc); fprintf(f, ",\n");
+    fprintf(f, "        \"image_base\": \"0x%llX\"\n", (unsigned long long)image_base);
+    fprintf(f, "    },\n");
+
+    /* Port operations — aggregate from all hardware functions */
+    fprintf(f, "    \"port_operations\": [\n");
+    bool first_port = true;
+    for (size_t i = 0; i < sem->function_count; i++) {
+        const sem_function_t* fn = &sem->functions[i];
+        if (!fn->is_hardware) continue;
+        for (size_t p = 0; p < fn->port_count; p++) {
+            if (!first_port) fprintf(f, ",\n");
+            first_port = false;
+            fprintf(f, "        {\n");
+            fprintf(f, "            \"port\": \"0x%X\",\n", fn->ports[p]);
+            fprintf(f, "            \"function\": ");
+            json_string(f, fn->name); fprintf(f, "\n");
+            fprintf(f, "        }");
+        }
+    }
+    fprintf(f, "\n    ],\n");
+
+    /* Hardware functions */
+    fprintf(f, "    \"hardware_functions\": [\n");
+    bool first_hw = true;
+    for (size_t i = 0; i < sem->function_count; i++) {
+        const sem_function_t* fn = &sem->functions[i];
+        if (!fn->is_hardware) continue;
+        if (!first_hw) fprintf(f, ",\n");
+        first_hw = false;
+        fprintf(f, "        {\n");
+        fprintf(f, "            \"name\": "); json_string(f, fn->name); fprintf(f, ",\n");
+        fprintf(f, "            \"address\": \"0x%llX\",\n",
+                (unsigned long long)fn->address);
+
+        /* Ports accessed */
+        fprintf(f, "            \"ports_accessed\": [");
+        for (size_t p = 0; p < fn->port_count; p++) {
+            if (p > 0) fprintf(f, ", ");
+            fprintf(f, "\"0x%X\"", fn->ports[p]);
+        }
+        fprintf(f, "],\n");
+
+        /* Classification */
+        const char* cls = "port_io";
+        if (fn->has_mmio) cls = "mmio";
+        if (fn->has_pci) cls = "pci_config";
+        if (fn->has_timing) cls = "timing";
+        fprintf(f, "            \"classification\": \"%s\",\n", cls);
+
+        /* HAL calls */
+        fprintf(f, "            \"hal_calls\": [");
+        for (size_t h = 0; h < fn->hal_call_count; h++) {
+            if (h > 0) fprintf(f, ", ");
+            json_string(f, fn->hal_calls[h].api_name);
+        }
+        fprintf(f, "],\n");
+
+        fprintf(f, "            \"hw_call_count\": %zu,\n", fn->hw_call_count);
+        fprintf(f, "            \"has_port_io\": %s\n",
+                fn->has_port_io ? "true" : "false");
+        fprintf(f, "        }");
+    }
+    fprintf(f, "\n    ],\n");
+
+    /* Imports */
+    fprintf(f, "    \"imports\": [\n");
+    for (size_t i = 0; i < sem->import_count; i++) {
+        if (i > 0) fprintf(f, ",\n");
+        const sem_import_t* imp = &sem->imports[i];
+        fprintf(f, "        {\n");
+        fprintf(f, "            \"dll\": "); json_string(f, imp->dll_name); fprintf(f, ",\n");
+        fprintf(f, "            \"name\": "); json_string(f, imp->func_name); fprintf(f, ",\n");
+        fprintf(f, "            \"category\": \"0x%X\",\n", (unsigned)imp->category);
+        fprintf(f, "            \"is_hardware\": %s\n",
+                sem_is_hardware(imp->category) ? "true" : "false");
+        fprintf(f, "        }");
+    }
+    fprintf(f, "\n    ],\n");
+
+    /* Scaffolding functions */
+    fprintf(f, "    \"scaffolding_functions\": [\n");
+    bool first_scaf = true;
+    for (size_t i = 0; i < sem->function_count; i++) {
+        const sem_function_t* fn = &sem->functions[i];
+        if (fn->is_hardware) continue;
+        if (!first_scaf) fprintf(f, ",\n");
+        first_scaf = false;
+        fprintf(f, "        {\n");
+        fprintf(f, "            \"name\": "); json_string(f, fn->name); fprintf(f, ",\n");
+        fprintf(f, "            \"address\": \"0x%llX\"\n",
+                (unsigned long long)fn->address);
+        fprintf(f, "        }");
+    }
+    fprintf(f, "\n    ],\n");
+
+    /* Summary */
+    fprintf(f, "    \"summary\": {\n");
+    fprintf(f, "        \"total_functions\": %zu,\n", sem->function_count);
+    fprintf(f, "        \"hardware_functions\": %zu,\n", sem->hw_function_count);
+    fprintf(f, "        \"scaffolding_functions\": %zu,\n", sem->filtered_count);
+    fprintf(f, "        \"total_imports\": %zu,\n", sem->import_count);
+
+    /* Count port I/O and hardware imports */
+    size_t port_io_funcs = 0, hw_imports = 0;
+    for (size_t i = 0; i < sem->function_count; i++)
+        if (sem->functions[i].has_port_io) port_io_funcs++;
+    for (size_t i = 0; i < sem->import_count; i++)
+        if (sem_is_hardware(sem->imports[i].category)) hw_imports++;
+
+    fprintf(f, "        \"port_io_functions\": %zu,\n", port_io_funcs);
+    fprintf(f, "        \"hardware_imports\": %zu\n", hw_imports);
+    fprintf(f, "    }\n");
+
+    fprintf(f, "}\n");
+    fclose(f);
+    return buf;
+}
+
 void sem_cleanup(sem_result_t* result) {
     if (result->imports) {
         for (size_t i = 0; i < result->import_count; i++) {

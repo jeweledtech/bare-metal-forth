@@ -62,7 +62,7 @@ static void print_usage(const char* program) {
     fprintf(stderr, "Copyright (c) 2026 Jolly Genius Inc.\n\n");
     fprintf(stderr, "Usage: %s <binary> [options]\n\n", program);
     fprintf(stderr, "Options:\n");
-    fprintf(stderr, "  -t TARGET   Output target: disasm, uir, forth, c, x64, arm64, riscv64\n");
+    fprintf(stderr, "  -t TARGET   Output target: disasm, uir, forth, report, c, x64, arm64, riscv64\n");
     fprintf(stderr, "  -o FILE     Output file (default: stdout)\n");
     fprintf(stderr, "  -f FUNC     Extract specific function\n");
     fprintf(stderr, "  -n NAME     Vocabulary name for Forth output (default: derived from filename)\n");
@@ -82,6 +82,8 @@ static target_t parse_target(const char* str) {
     if (strcmp(str, "disasm") == 0) return TARGET_DISASM;
     if (strcmp(str, "uir") == 0) return TARGET_UIR;
     if (strcmp(str, "forth") == 0) return TARGET_FORTH;
+    if (strcmp(str, "report") == 0) return TARGET_SEMANTIC_REPORT;
+    if (strcmp(str, "semantic-report") == 0) return TARGET_SEMANTIC_REPORT;
     if (strcmp(str, "c") == 0) return TARGET_C;
     if (strcmp(str, "x64") == 0) return TARGET_X64;
     if (strcmp(str, "arm64") == 0) return TARGET_ARM64;
@@ -326,6 +328,28 @@ static char* generate_forth_output(const sem_result_t* sem,
 }
 
 /* ============================================================================
+ * Semantic report generation (shared across all format paths)
+ * ============================================================================ */
+
+static translate_result_t generate_semantic_report(const sem_result_t* sem,
+                                                     const char* filename,
+                                                     const char* format_desc,
+                                                     const char* machine_desc,
+                                                     uint64_t image_base) {
+    translate_result_t result = {0};
+    char* json = sem_to_json(sem, filename, format_desc, machine_desc, image_base);
+    if (!json) {
+        result.success = false;
+        result.error_message = strdup("Failed to generate semantic report");
+        return result;
+    }
+    result.success = true;
+    result.output = json;
+    result.output_size = strlen(json);
+    return result;
+}
+
+/* ============================================================================
  * .NET notice stub
  * ============================================================================ */
 
@@ -433,7 +457,15 @@ static translate_result_t translate_com(const com_context_t* com,
 
     sem_analyze_functions(&sem_func_input, 1, text_base, &sem);
 
-    /* ---- Stage 6: Generate Forth output ---- */
+    /* ---- Stage 6: Generate output ---- */
+    if (opts->target == TARGET_SEMANTIC_REPORT) {
+        result = generate_semantic_report(&sem, opts->input_filename,
+                                           "DOS COM", "x86", text_base);
+        sem_cleanup(&sem);
+        uir_free_function(uf);
+        return result;
+    }
+
     if (opts->target == TARGET_FORTH) {
         char* forth_output = generate_forth_output(&sem,
             (const uir_function_t**)uir_funcs, 1, NULL, opts);
@@ -625,7 +657,22 @@ static translate_result_t translate_elf(const uint8_t* data, size_t size,
                           (uint64_t)elf.text_vaddr, &sem);
     free(sem_func_inputs);
 
-    /* ---- Stage 6: Generate Forth output ---- */
+    /* ---- Stage 6: Generate output ---- */
+    if (opts->target == TARGET_SEMANTIC_REPORT) {
+        const char* mach = elf.is_64bit ? "x86-64" : "x86";
+        const char* fmt = elf.file_type == ET_DYN ? "ELF shared lib" :
+                          elf.file_type == ET_EXEC ? "ELF executable" : "ELF";
+        result = generate_semantic_report(&sem, opts->input_filename,
+                                           fmt, mach, elf.text_vaddr);
+        sem_cleanup(&sem);
+        for (size_t f = 0; f < uir_func_count; f++)
+            uir_free_function(uir_funcs[f]);
+        free(uir_funcs);
+        sem_function_map_free(&func_map);
+        elf_cleanup(&elf);
+        return result;
+    }
+
     if (opts->target == TARGET_FORTH) {
         char* forth_output = generate_forth_output(&sem,
             (const uir_function_t**)uir_funcs, uir_func_count, NULL, opts);
@@ -747,6 +794,12 @@ translate_result_t translate_buffer(const uint8_t* data, size_t size,
         }
 
         case BINFMT_DOTNET:
+            if (opts->target == TARGET_SEMANTIC_REPORT) {
+                sem_result_t empty_sem;
+                memset(&empty_sem, 0, sizeof(empty_sem));
+                return generate_semantic_report(&empty_sem, opts->input_filename,
+                                                 ".NET assembly", "CIL", 0);
+            }
             return translate_dotnet_notice(opts->input_filename);
 
         case BINFMT_PE_DRIVER:
@@ -945,6 +998,20 @@ static translate_result_t translate_pe(const uint8_t* data, size_t size,
     free(sem_func_inputs);
 
     /* ---- Stage 6: Generate output ---- */
+    if (opts->target == TARGET_SEMANTIC_REPORT) {
+        const char* mach = pe.is_64bit ? "x86-64" : "x86";
+        const char* fmt = pe.is_64bit ? "PE32+" : "PE32";
+        result = generate_semantic_report(&sem, opts->input_filename,
+                                           fmt, mach, pe.image_base);
+        sem_cleanup(&sem);
+        for (size_t f = 0; f < uir_func_count; f++)
+            uir_free_function(uir_funcs[f]);
+        free(uir_funcs);
+        sem_function_map_free(&func_map);
+        pe_cleanup(&pe);
+        return result;
+    }
+
     if (opts->target == TARGET_FORTH) {
         char* forth_output = generate_forth_output(&sem,
             (const uir_function_t**)uir_funcs, uir_func_count, &pe, opts);

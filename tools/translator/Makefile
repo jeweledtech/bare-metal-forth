@@ -273,6 +273,22 @@ test-i8042-validation: | $(BUILDDIR)
 # Format detection and COM loader tests
 # ============================================================================
 
+.PHONY: test-semantic-report
+test-semantic-report: | $(BUILDDIR)
+	@echo "$(CYAN)Testing semantic report...$(NC)"
+	$(CC) $(CFLAGS) -DTRANSLATOR_NO_MAIN -o $(BUILDDIR)/tests/test_semantic_report \
+		tests/test_semantic_report.c \
+		$(SRCDIR)/main/translator.c \
+		$(SRCDIR)/loaders/pe_loader.c \
+		$(SRCDIR)/loaders/elf_loader.c \
+		$(SRCDIR)/loaders/format_detect.c \
+		$(SRCDIR)/loaders/com_loader.c \
+		$(SRCDIR)/decoders/x86_decoder.c \
+		$(SRCDIR)/ir/uir.c \
+		$(SRCDIR)/ir/semantic.c \
+		$(SRCDIR)/codegen/forth_codegen.c
+	./$(BUILDDIR)/tests/test_semantic_report
+
 .PHONY: test-elf
 test-elf: | $(BUILDDIR)
 	@echo "$(CYAN)Testing ELF loader...$(NC)"
@@ -304,7 +320,7 @@ test-com-loader: | $(BUILDDIR)
 
 .PHONY: test test-all
 test: test-all
-test-all: test-pe test-x86 test-cil test-arm64 test-uir test-semantic test-forth-codegen test-pipeline test-16550 test-ghidra-compare test-i8042-validation test-elf test-format-detect test-com-loader
+test-all: test-pe test-x86 test-cil test-arm64 test-uir test-semantic test-forth-codegen test-pipeline test-16550 test-ghidra-compare test-i8042-validation test-elf test-semantic-report test-format-detect test-com-loader
 	@echo ""
 	@echo "$(GREEN)All tests passed$(NC)"
 
