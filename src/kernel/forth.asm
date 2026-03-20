@@ -4015,7 +4015,7 @@ blk_find_buffer:
 ; ----------------------------------------------------------------------------
 ; blk_flush_one - Write a dirty buffer back to disk
 ; Input:  EBX = header address (must point to a valid dirty buffer)
-; Clobbers: EAX, ECX, EDX (and ESI temporarily via ata_write_sector)
+; Preserves ESI (Forth IP). Clobbers: EAX, ECX, EDX, EDI
 ; ----------------------------------------------------------------------------
 blk_flush_one:
     test dword [ebx + 4], BLK_BUF_FLAG_DIRTY
@@ -4023,6 +4023,7 @@ blk_flush_one:
 
     push ebx
     push edi
+    PUSHRSP esi                 ; Save Forth IP BEFORE overwriting ESI
 
     ; Calculate buffer data address from header address
     mov eax, ebx
@@ -4046,15 +4047,14 @@ blk_flush_one:
     mov ecx, eax                ; Save first LBA
 
     ; Write first sector (512 bytes)
-    PUSHRSP esi                 ; Save Forth IP on return stack
-    ; ESI already points to buffer data
     mov ebx, ecx                ; LBA
     call ata_write_sector
+    ; rep outsw already advanced ESI by 512
 
-    ; Write second sector
-    add esi, 512                ; Next 512 bytes
+    ; Write second sector (ESI now points to buffer + 512)
     inc ebx                     ; Next LBA
     call ata_write_sector
+
     POPRSP esi                  ; Restore Forth IP
 
     pop edi
