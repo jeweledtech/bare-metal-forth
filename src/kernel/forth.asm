@@ -2212,6 +2212,16 @@ DEFCODE "UPDATE", UPDATE, 0
 ; SAVE-BUFFERS - ( -- ) Write all dirty buffers to disk
 DEFCODE "SAVE-BUFFERS", SAVEBUFFERS, 0
     PUSHRSP esi                 ; Save Forth IP (blk_flush_one uses ESI)
+%ifdef DEBUG_FLUSH
+    push eax
+    mov al, '['
+    call serial_putchar
+    mov al, 13
+    call serial_putchar
+    mov al, 10
+    call serial_putchar
+    pop eax
+%endif
     mov ebx, BLK_BUF_HEADERS
     mov ecx, BLK_NUM_BUFFERS
 .flush_loop:
@@ -2223,6 +2233,16 @@ DEFCODE "SAVE-BUFFERS", SAVEBUFFERS, 0
     add ebx, BLK_HEADER_SIZE
     dec ecx
     jnz .flush_loop
+%ifdef DEBUG_FLUSH
+    push eax
+    mov al, ']'
+    call serial_putchar
+    mov al, 13
+    call serial_putchar
+    mov al, 10
+    call serial_putchar
+    pop eax
+%endif
     POPRSP esi
     NEXT
 
@@ -4029,15 +4049,37 @@ blk_flush_one:
     mov eax, ebx
     sub eax, BLK_BUF_HEADERS
     push edx
-    xor edx, edx
     push ebx
-    mov ecx, BLK_HEADER_SIZE
-    push eax
-    pop eax
     xor edx, edx
+    mov ecx, BLK_HEADER_SIZE
     div ecx                     ; EAX = buffer index
     pop ebx
     pop edx
+
+%ifdef DEBUG_FLUSH
+    ; Trace entry: F<slot> <block#_hex> <flags_hex>
+    push eax                    ; save buffer index
+    push eax
+    mov al, 'F'
+    call serial_putchar
+    pop eax
+    add al, '0'                 ; slot index as ASCII digit
+    call serial_putchar
+    mov al, ' '
+    call serial_putchar
+    mov eax, [ebx]              ; block#
+    call serial_print_hex
+    mov al, ' '
+    call serial_putchar
+    mov eax, [ebx + 4]          ; flags
+    call serial_print_hex
+    mov al, 13
+    call serial_putchar
+    mov al, 10
+    call serial_putchar
+    pop eax                     ; restore buffer index
+%endif
+
     imul eax, BLOCK_SIZE
     lea esi, [BLK_BUF_DATA + eax]  ; ESI = buffer data (source for write)
 
@@ -4045,6 +4087,24 @@ blk_flush_one:
     mov eax, [ebx]              ; block#
     shl eax, 1                  ; LBA = block# * 2
     mov ecx, eax                ; Save first LBA
+
+%ifdef DEBUG_FLUSH
+    ; Trace write start: W<LBA_hex> <ESI_hex>
+    push eax
+    mov al, 'W'
+    call serial_putchar
+    mov eax, ecx                ; LBA
+    call serial_print_hex
+    mov al, ' '
+    call serial_putchar
+    mov eax, esi                ; buffer data address
+    call serial_print_hex
+    mov al, 13
+    call serial_putchar
+    mov al, 10
+    call serial_putchar
+    pop eax
+%endif
 
     ; Write first sector (512 bytes)
     mov ebx, ecx                ; LBA
@@ -4054,6 +4114,24 @@ blk_flush_one:
     ; Write second sector (ESI now points to buffer + 512)
     inc ebx                     ; Next LBA
     call ata_write_sector
+
+%ifdef DEBUG_FLUSH
+    ; Trace write done: D<ATA_status_hex>
+    push eax
+    push edx
+    mov al, 'D'
+    call serial_putchar
+    mov dx, 0x1F7               ; ATA status register
+    in al, dx
+    movzx eax, al
+    call serial_print_hex
+    mov al, 13
+    call serial_putchar
+    mov al, 10
+    call serial_putchar
+    pop edx
+    pop eax
+%endif
 
     POPRSP esi                  ; Restore Forth IP
 
@@ -4065,6 +4143,37 @@ blk_flush_one:
 
 .not_dirty:
     ret
+
+%ifdef DEBUG_FLUSH
+; ----------------------------------------------------------------------------
+; serial_print_hex - Print 8-digit hex number in EAX to serial port only
+; (Does not touch VGA, unlike print_hex which calls print_char)
+; ----------------------------------------------------------------------------
+serial_print_hex:
+    push ebx
+    push ecx
+    push edx
+    mov ecx, 8
+    mov ebx, eax
+.next_digit:
+    rol ebx, 4
+    mov al, bl
+    and al, 0x0F
+    cmp al, 10
+    jl .decimal
+    add al, 'A' - 10
+    jmp .emit
+.decimal:
+    add al, '0'
+.emit:
+    call serial_putchar
+    dec ecx
+    jnz .next_digit
+    pop edx
+    pop ecx
+    pop ebx
+    ret
+%endif
 
 ; ============================================================================
 ; Cold Start Word List

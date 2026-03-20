@@ -417,9 +417,7 @@ check('B: PIT-TIMER blocks are blank',
       '0 ' in r or r.strip().endswith('0'),
       f'{r.strip()[:80]!r}')
 
-# Send/receive blocks one at a time with per-block
-# SAVE-BUFFERS (bulk SAVE-BUFFERS of 4+ dirty blocks
-# has a known issue with odd-indexed cache slots)
+# Send/receive all blocks, then bulk flush
 recv_ok = True
 for i in range(pit_count):
     blk = pit_s + i
@@ -445,9 +443,7 @@ for i in range(pit_count):
     if not got:
         recv_ok = False
         break
-    # Flush each block to disk immediately
-    send(sb, 'SAVE-BUFFERS', 2)
-send(sb, 'EMPTY-BUFFERS', 2)
+send(sb, 'SAVE-BUFFERS EMPTY-BUFFERS', 3)
 check('B: alive after transfer', alive(sb))
 
 # Compile PIT-TIMER on B via THRU

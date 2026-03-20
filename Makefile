@@ -187,6 +187,29 @@ test-network: $(IMAGE) $(BLOCKS) write-catalog
 	@echo "Running NE2000 network test..."
 	@python3 tests/test_ne2000_network.py $$(($(TEST_PORT_BASE)+40))
 
+# --- Debug flush targets ---
+
+DEBUG_KERNEL = $(BUILD)/kernel-debug.bin
+DEBUG_IMAGE = $(BUILD)/bmforth-debug.img
+
+$(DEBUG_KERNEL): $(SRC_KERNEL)/forth.asm | $(BUILD)
+	$(NASM) -f bin -DDEBUG_FLUSH -o $@ $<
+
+$(DEBUG_IMAGE): $(BOOTLOADER) $(DEBUG_KERNEL)
+	cat $(BOOTLOADER) $(DEBUG_KERNEL) > $@
+
+test-flush: $(DEBUG_IMAGE) $(BLOCKS)
+	@echo "Running flush stress test..."
+	@PORT=$$(($(TEST_PORT_BASE)+50)); \
+	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null; sleep 1; \
+	$(QEMU) -drive file=$(DEBUG_IMAGE),format=raw,if=floppy \
+		-drive file=$(BLOCKS),format=raw,if=ide,index=1 \
+		-serial tcp::$$PORT,server=on,wait=off \
+		-display none -daemonize; \
+	sleep 2; \
+	python3 tests/test_flush_stress.py $$PORT; \
+	STATUS=$$?; pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null; exit $$STATUS
+
 test-ubt-expansion:
 	@echo "Running UBT expansion tests..."
 	@cd tools/translator && make 2>&1 | tail -1
@@ -242,4 +265,4 @@ help:
 	@echo "  - qemu-system-i386 (for testing)"
 	@echo "  - python3 (for write-block utility)"
 
-.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog test test-smoke test-loops test-vocabs test-integration
+.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog test test-smoke test-loops test-vocabs test-integration test-flush
