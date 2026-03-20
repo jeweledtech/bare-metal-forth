@@ -53,9 +53,11 @@ for v in vocabs:
     return None, None
 
 
-def start_qemu_pair():
+def start_qemu_pair(zero_range=None):
     """Start two QEMU instances with socket-paired NICs.
-    Each needs its own copy of disk images (QEMU locks)."""
+    Each needs its own copy of disk images (QEMU locks).
+    zero_range: (first, last) block range to zero on B's
+    disk before boot, so transfer tests are provable."""
     # Copy images for instance B
     image_b = IMAGE + '.b'
     blocks_b = BLOCKS + '.b'
@@ -63,6 +65,13 @@ def start_qemu_pair():
                    capture_output=True)
     subprocess.run(['cp', BLOCKS, blocks_b],
                    capture_output=True)
+    # Zero target blocks on B's disk so transfer is provable
+    if zero_range:
+        first, last = zero_range
+        with open(blocks_b, 'r+b') as f:
+            for blk in range(first, last + 1):
+                f.seek(blk * 1024)
+                f.write(b'\x00' * 1024)
 
     # Instance A: listen side
     cmd_a = [
@@ -140,6 +149,28 @@ def alive(sock):
     return '3' in r
 
 
+def wait_for(sock, target, timeout=30):
+    """Poll socket until target string appears or timeout.
+    Used for commands that block the Forth interpreter
+    (e.g., NET-RECV polling loop)."""
+    sock.settimeout(2)
+    resp = b''
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            d = sock.recv(4096)
+            if d:
+                resp += d
+                if target.encode() in resp:
+                    return resp.decode('ascii',
+                                       errors='replace')
+        except socket.timeout:
+            continue
+        except Exception:
+            break
+    return resp.decode('ascii', errors='replace')
+
+
 PASS = FAIL = 0
 
 
@@ -175,8 +206,12 @@ def cleanup():
 cleanup()
 time.sleep(1)
 
+# Get PIT-TIMER blocks early (needed for zeroing B's disk)
+pit_s, pit_e = get_vocab_blocks('PIT-TIMER')
+
 print("Starting QEMU pair...")
-blocks_b = start_qemu_pair()
+blocks_b = start_qemu_pair(
+    zero_range=(pit_s, pit_e) if pit_s else None)
 
 sa = connect(PORT_A)
 sb = connect(PORT_B)
@@ -196,7 +231,7 @@ if not alive(sa) or not alive(sb):
 pci_s, pci_e = get_vocab_blocks('PCI-ENUM')
 ne_s, ne_e = get_vocab_blocks('NE2000')
 nd_s, nd_e = get_vocab_blocks('NET-DICT')
-pit_s, pit_e = get_vocab_blocks('PIT-TIMER')
+# pit_s, pit_e already retrieved above (for zeroing)
 
 if None in (pci_s, ne_s, nd_s, pit_s):
     print("FAIL: Could not find required vocab blocks")
@@ -368,6 +403,86 @@ check('A alive after consecutive transfers',
       alive(sa))
 check('B alive after consecutive transfers',
       alive(sb) if consec_ok else False)
+
+# ---- Multi-block vocabulary transfer ----
+# Send PIT-TIMER (5 blocks) from A->B over network,
+# compile on B, verify words work.
+print("\nTest: Multi-block vocabulary transfer")
+pit_count = pit_e - pit_s + 1
+
+# Verify B's PIT-TIMER blocks are blank (we zeroed them)
+r = send(sb,
+         f'DECIMAL {pit_s} BLOCK C@ . HEX', 3)
+check('B: PIT-TIMER blocks are blank',
+      '0 ' in r or r.strip().endswith('0'),
+      f'{r.strip()[:80]!r}')
+
+# Send/receive blocks one at a time with per-block
+# SAVE-BUFFERS (bulk SAVE-BUFFERS of 4+ dirty blocks
+# has a known issue with odd-indexed cache slots)
+recv_ok = True
+for i in range(pit_count):
+    blk = pit_s + i
+    r = send(sa,
+             f'DECIMAL {blk} BLOCK-SEND HEX', 3)
+    ok = alive(sa)
+    check(f'A: BLOCK-SEND {blk}', ok,
+          f'{r.strip()[:80]!r}')
+    if not ok:
+        recv_ok = False
+        break
+    time.sleep(2)
+    got = False
+    for attempt in range(10):
+        r = send(sb,
+                 'BLOCK-RECV DECIMAL . HEX', 3)
+        if str(blk) in r:
+            got = True
+            break
+        time.sleep(0.5)
+    check(f'B: received block {blk}',
+          got, f'{r.strip()[:80]!r}')
+    if not got:
+        recv_ok = False
+        break
+    # Flush each block to disk immediately
+    send(sb, 'SAVE-BUFFERS', 2)
+send(sb, 'EMPTY-BUFFERS', 2)
+check('B: alive after transfer', alive(sb))
+
+# Compile PIT-TIMER on B via THRU
+r = send(sb,
+         f'DECIMAL {pit_s} {pit_e} THRU HEX', 10)
+check('B: THRU compiles PIT-TIMER', alive(sb),
+      f'{r.strip()[:80]!r}')
+
+# Activate PIT-TIMER vocab on B
+send(sb, 'ALSO PIT-TIMER', 2)
+
+# Verify PIT-TIMER constants
+r = send(sb, 'PIT-CH0 .', 2)
+check('B: PIT-CH0 = 40h',
+      '40 ' in r or r.strip().endswith('40'),
+      f'{r.strip()[:80]!r}')
+
+r = send(sb, 'PIT-CMD .', 2)
+check('B: PIT-CMD = 43h',
+      '43 ' in r or r.strip().endswith('43'),
+      f'{r.strip()[:80]!r}')
+
+r = send(sb, 'DECIMAL PIT-FREQ . HEX', 2)
+check('B: PIT-FREQ = 1193182',
+      '1193182' in r,
+      f'{r.strip()[:80]!r}')
+
+# Hardware test: PIT-READ returns a value (no error)
+r = send(sb, 'PIT-READ .', 2)
+check('B: PIT-READ works',
+      '?' not in r and len(r.strip()) > 0,
+      f'{r.strip()[:80]!r}')
+
+check('A alive after vocab transfer', alive(sa))
+check('B alive after vocab transfer', alive(sb))
 
 # Final: both instances still alive
 print("\nFinal checks:")
