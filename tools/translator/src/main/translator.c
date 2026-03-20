@@ -198,12 +198,13 @@ static char* generate_forth_output(const sem_result_t* sem,
         if (uir_funcs[f]->has_port_io) { any_port_io = true; break; }
     }
 
-    /* If the code has direct port I/O, add C@-PORT/C!-PORT as requirements */
-    static const char* port_words[] = {"C@-PORT", "C!-PORT", NULL};
+    /* Add HARDWARE dependency only when HAL imports are present
+     * (US-DELAY, IRQ-CONNECT, DPC-QUEUE, etc.).
+     * Direct port I/O uses kernel INB/OUTB — no dependency needed. */
     forth_dependency_t deps[2] = {{NULL, NULL}, {NULL, NULL}};
-    if (any_port_io || hw_word_count > 0) {
+    if (hw_word_count > 0) {
         deps[0].vocab_name = "HARDWARE";
-        deps[0].words_used = any_port_io ? port_words : hw_words_buf;
+        deps[0].words_used = hw_words_buf;
         cg_opts.requires = deps;
     }
 
