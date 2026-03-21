@@ -172,6 +172,21 @@ static void lift_one(const uir_x86_input_t* x86, uir_instruction_t* uir,
         }
         break;
 
+    /* ---- String I/O: INS/OUTS (port always in DX) ---- */
+    case X86_INS_INS:
+        uir->opcode = UIR_PORT_IN;
+        uir->size = x86->operands[0].size;
+        func->has_port_io = true;
+        func->uses_dx_port = true;
+        break;
+
+    case X86_INS_OUTS:
+        uir->opcode = UIR_PORT_OUT;
+        uir->size = x86->operands[0].size;
+        func->has_port_io = true;
+        func->uses_dx_port = true;
+        break;
+
     /* ---- Data movement ---- */
     case X86_INS_MOV:
         /* Distinguish LOAD, STORE, and MOV based on operand types */

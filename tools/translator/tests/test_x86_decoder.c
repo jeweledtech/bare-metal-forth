@@ -425,6 +425,97 @@ static void test_test_al_imm(void) {
     PASS();
 }
 
+/* Helper: decode a single instruction in 16-bit mode */
+static int decode_one_16(const uint8_t* code, size_t len, x86_decoded_t* out) {
+    x86_decoder_t dec;
+    x86_decoder_init(&dec, X86_MODE_16, code, len, 0x100);
+    return x86_decode_one(&dec, out);
+}
+
+/* ---- 16-bit mode tests (Task 2A) ---- */
+
+static void test_16bit_mov_ax_imm(void) {
+    TEST(16bit_MOV_AX_imm16);
+    /* B8 3412 = MOV AX, 0x1234 (16-bit mode: 2-byte immediate) */
+    uint8_t code[] = { 0xB8, 0x34, 0x12 };
+    x86_decoded_t d;
+    int n = decode_one_16(code, sizeof(code), &d);
+    if (n != 3) FAIL("wrong length (expected 3 for 16-bit imm)");
+    if (d.instruction != X86_INS_MOV) FAIL("wrong instruction");
+    if (d.operands[1].imm != 0x1234) FAIL("wrong immediate");
+    PASS();
+}
+
+static void test_16bit_opsize_prefix(void) {
+    TEST(16bit_opsize_gives_32bit);
+    /* 66 B8 78563412 = MOV EAX, 0x12345678 (16-bit + 0x66 → 32-bit) */
+    uint8_t code[] = { 0x66, 0xB8, 0x78, 0x56, 0x34, 0x12 };
+    x86_decoded_t d;
+    int n = decode_one_16(code, sizeof(code), &d);
+    if (n != 6) FAIL("wrong length (expected 6 for 32-bit imm with prefix)");
+    if (d.instruction != X86_INS_MOV) FAIL("wrong instruction");
+    if (d.operands[1].imm != 0x12345678) FAIL("wrong immediate");
+    PASS();
+}
+
+static void test_16bit_in_out(void) {
+    TEST(16bit_IN_OUT_ports);
+    /* E4 60 = IN AL, 0x60 — works the same in 16-bit mode */
+    uint8_t code[] = { 0xE4, 0x60 };
+    x86_decoded_t d;
+    int n = decode_one_16(code, sizeof(code), &d);
+    if (n != 2) FAIL("wrong length");
+    if (d.instruction != X86_INS_IN) FAIL("wrong instruction");
+    if (d.operands[1].imm != 0x60) FAIL("wrong port");
+    PASS();
+}
+
+/* ---- INS/OUTS decode tests (Task 2B) ---- */
+
+static void test_insb(void) {
+    TEST(INSB);
+    uint8_t code[] = { 0x6C };
+    x86_decoded_t d;
+    int n = decode_one(code, sizeof(code), &d);
+    if (n != 1) FAIL("wrong length");
+    if (d.instruction != X86_INS_INS) FAIL("wrong instruction");
+    if (d.operands[0].size != 1) FAIL("wrong size (expected byte)");
+    PASS();
+}
+
+static void test_insd(void) {
+    TEST(INSD);
+    uint8_t code[] = { 0x6D };
+    x86_decoded_t d;
+    int n = decode_one(code, sizeof(code), &d);
+    if (n != 1) FAIL("wrong length");
+    if (d.instruction != X86_INS_INS) FAIL("wrong instruction");
+    if (d.operands[0].size != 4) FAIL("wrong size (expected dword)");
+    PASS();
+}
+
+static void test_outsb(void) {
+    TEST(OUTSB);
+    uint8_t code[] = { 0x6E };
+    x86_decoded_t d;
+    int n = decode_one(code, sizeof(code), &d);
+    if (n != 1) FAIL("wrong length");
+    if (d.instruction != X86_INS_OUTS) FAIL("wrong instruction");
+    if (d.operands[0].size != 1) FAIL("wrong size (expected byte)");
+    PASS();
+}
+
+static void test_rep_insb(void) {
+    TEST(REP_INSB);
+    uint8_t code[] = { 0xF3, 0x6C };  /* REP INSB */
+    x86_decoded_t d;
+    int n = decode_one(code, sizeof(code), &d);
+    if (n != 2) FAIL("wrong length");
+    if (d.instruction != X86_INS_INS) FAIL("wrong instruction");
+    if (!(d.prefixes & X86_PREFIX_REP)) FAIL("REP prefix not detected");
+    PASS();
+}
+
 int main(void) {
     printf("x86 Decoder Tests\n");
     printf("=================\n");
@@ -457,6 +548,13 @@ int main(void) {
     test_leave();
     test_xor_reg_reg();
     test_test_al_imm();
+    test_16bit_mov_ax_imm();
+    test_16bit_opsize_prefix();
+    test_16bit_in_out();
+    test_insb();
+    test_insd();
+    test_outsb();
+    test_rep_insb();
 
     printf("\nResults: %d/%d passed\n", tests_passed, tests_run);
     return tests_passed == tests_run ? 0 : 1;

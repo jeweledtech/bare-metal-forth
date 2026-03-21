@@ -378,8 +378,8 @@ static translate_result_t translate_com(const com_context_t* com,
 
     /* ---- Stage 2: Decode x86 instructions ---- */
     x86_decoder_t dec;
-    x86_decoder_init(&dec, X86_MODE_32, com->code, com->code_size,
-                     com->load_addr);
+    x86_decoder_init(&dec, com->is_16bit ? X86_MODE_16 : X86_MODE_32,
+                     com->code, com->code_size, com->load_addr);
     size_t inst_count = 0;
     x86_decoded_t* insts = x86_decode_range(&dec, &inst_count);
     if (!insts || inst_count == 0) {

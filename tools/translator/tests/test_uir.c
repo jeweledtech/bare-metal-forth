@@ -311,6 +311,57 @@ static void test_port_in_dword(void) {
     PASS();
 }
 
+/* ---- INS/OUTS lifting tests (Task 2B) ---- */
+
+static void test_insb_lifts_to_port_in(void) {
+    TEST(insb_lifts_to_port_in);
+    /* 0x6C = INSB: string port input, byte */
+    uint8_t code[] = { 0x6C, 0xC3 };  /* INSB; RET */
+    x86_decoder_t dec;
+    x86_decoder_init(&dec, X86_MODE_32, code, sizeof(code), 0x1000);
+    size_t count;
+    x86_decoded_t* insts = x86_decode_range(&dec, &count);
+    if (!insts || count < 1) FAIL("decode failed");
+
+    uir_function_t* func = uir_lift_function(insts, count, 0x1000);
+    if (!func) { free(insts); FAIL("lift failed"); }
+
+    if (!func->has_port_io) { uir_free_function(func); free(insts); FAIL("has_port_io not set"); }
+    if (!func->uses_dx_port) { uir_free_function(func); free(insts); FAIL("uses_dx_port not set"); }
+
+    /* First instruction should be UIR_PORT_IN */
+    uir_instruction_t* ins = &func->blocks[0].instructions[0];
+    if (ins->opcode != UIR_PORT_IN) { uir_free_function(func); free(insts); FAIL("expected UIR_PORT_IN"); }
+
+    uir_free_function(func);
+    free(insts);
+    PASS();
+}
+
+static void test_outsb_lifts_to_port_out(void) {
+    TEST(outsb_lifts_to_port_out);
+    /* 0x6E = OUTSB: string port output, byte */
+    uint8_t code[] = { 0x6E, 0xC3 };  /* OUTSB; RET */
+    x86_decoder_t dec;
+    x86_decoder_init(&dec, X86_MODE_32, code, sizeof(code), 0x1000);
+    size_t count;
+    x86_decoded_t* insts = x86_decode_range(&dec, &count);
+    if (!insts || count < 1) FAIL("decode failed");
+
+    uir_function_t* func = uir_lift_function(insts, count, 0x1000);
+    if (!func) { free(insts); FAIL("lift failed"); }
+
+    if (!func->has_port_io) { uir_free_function(func); free(insts); FAIL("has_port_io not set"); }
+    if (!func->uses_dx_port) { uir_free_function(func); free(insts); FAIL("uses_dx_port not set"); }
+
+    uir_instruction_t* ins = &func->blocks[0].instructions[0];
+    if (ins->opcode != UIR_PORT_OUT) { uir_free_function(func); free(insts); FAIL("expected UIR_PORT_OUT"); }
+
+    uir_free_function(func);
+    free(insts);
+    PASS();
+}
+
 int main(void) {
     printf("UIR Lifter Tests\n");
     printf("================\n");
@@ -332,6 +383,8 @@ int main(void) {
     test_mov_reg_reg();
     test_cmp();
     test_port_in_dword();
+    test_insb_lifts_to_port_in();
+    test_outsb_lifts_to_port_out();
 
     printf("\nResults: %d/%d passed\n", tests_passed, tests_run);
     return tests_passed == tests_run ? 0 : 1;

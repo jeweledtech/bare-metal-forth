@@ -187,7 +187,9 @@ int x86_decode_one(x86_decoder_t* dec, x86_decoded_t* out) {
 
     uint8_t opcode = eat(dec);
     int reg;
-    uint8_t op_size = (out->prefixes & X86_PREFIX_OPSIZE) ? 2 : 4;
+    uint8_t default_op_size = (dec->mode == X86_MODE_16) ? 2 : 4;
+    uint8_t op_size = (out->prefixes & X86_PREFIX_OPSIZE)
+        ? (default_op_size == 4 ? 2 : 4) : default_op_size;
 
     switch (opcode) {
 
@@ -671,6 +673,28 @@ int x86_decode_one(x86_decoder_t* dec, x86_decoded_t* out) {
         out->operands[1].size = 1;
         break;
     }
+
+    /* ---- String I/O (INS/OUTS) ---- */
+    case 0x6C: /* INSB: ES:[EDI] <- port DX, byte */
+        out->instruction = X86_INS_INS;
+        out->operand_count = 0;
+        out->operands[0].size = 1;
+        break;
+    case 0x6D: /* INSW/INSD: ES:[EDI] <- port DX, word/dword */
+        out->instruction = X86_INS_INS;
+        out->operand_count = 0;
+        out->operands[0].size = op_size;
+        break;
+    case 0x6E: /* OUTSB: port DX <- DS:[ESI], byte */
+        out->instruction = X86_INS_OUTS;
+        out->operand_count = 0;
+        out->operands[0].size = 1;
+        break;
+    case 0x6F: /* OUTSW/OUTSD: port DX <- DS:[ESI], word/dword */
+        out->instruction = X86_INS_OUTS;
+        out->operand_count = 0;
+        out->operands[0].size = op_size;
+        break;
 
     /* ---- I/O instructions ---- */
     case 0xE4: /* IN AL, imm8 */
