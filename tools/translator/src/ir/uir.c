@@ -187,6 +187,23 @@ static void lift_one(const uir_x86_input_t* x86, uir_instruction_t* uir,
         func->uses_dx_port = true;
         break;
 
+    /* ---- Software interrupt (BIOS/DOS) ---- */
+    case X86_INS_INT:
+        uir->opcode = UIR_INT;
+        uir->src1 = convert_operand(x86, 0);  /* interrupt vector number */
+        uir->size = 1;
+        /* Hardware BIOS interrupts mark function as having hw access */
+        if (x86->operands[0].type == X86_OP_IMM) {
+            uint8_t vec = (uint8_t)x86->operands[0].imm;
+            /* INT 10h=video, 13h=disk, 14h=serial, 15h=system,
+               16h=keyboard, 1Ah=clock — all hardware BIOS services */
+            if (vec == 0x10 || vec == 0x13 || vec == 0x14 ||
+                vec == 0x15 || vec == 0x16 || vec == 0x1A) {
+                func->has_port_io = true;
+            }
+        }
+        break;
+
     /* ---- Data movement ---- */
     case X86_INS_MOV:
         /* Distinguish LOAD, STORE, and MOV based on operand types */
@@ -582,6 +599,7 @@ static const char* opcode_names[] = {
     [UIR_CLI] = "cli", [UIR_STI] = "sti", [UIR_HLT] = "hlt",
     [UIR_SYSREG_READ] = "sysreg_read", [UIR_SYSREG_WRITE] = "sysreg_write",
     [UIR_BARRIER] = "barrier",
+    [UIR_INT] = "int",
 };
 
 const char* uir_opcode_name(uir_opcode_t op) {

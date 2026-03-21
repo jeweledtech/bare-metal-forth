@@ -82,6 +82,9 @@ typedef enum {
     /* Memory barriers */
     UIR_BARRIER,            /* DMB/DSB/ISB */
 
+    /* Software interrupts (BIOS/DOS) */
+    UIR_INT,                /* INT nn — BIOS service call */
+
     /* Sentinel */
     UIR_OPCODE_COUNT
 } uir_opcode_t;

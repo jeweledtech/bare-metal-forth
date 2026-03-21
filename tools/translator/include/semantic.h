@@ -32,6 +32,10 @@ typedef enum {
     SEM_CAT_TIMING      = 0x14,
     SEM_CAT_PCI_CONFIG  = 0x15,
     SEM_CAT_DEVICE_IO   = 0x16,  /* User-space device I/O (DeviceIoControl etc.) */
+    SEM_CAT_BIOS_INT    = 0x17,  /* BIOS interrupt (INT 10h/13h/14h/etc.) */
+
+    /* DOS Scaffolding — FILTER */
+    SEM_CAT_DOS_API     = 0x90,  /* INT 21h DOS services */
 
     /* Windows Scaffolding — FILTER */
     SEM_CAT_IRP         = 0x80,
@@ -169,12 +173,13 @@ sem_category_t sem_classify_import(const char* func_name,
 
 /* Check if a category is hardware-relevant (< 0x80) */
 static inline bool sem_is_hardware(sem_category_t cat) {
-    return cat >= SEM_CAT_PORT_IO && cat <= SEM_CAT_DEVICE_IO;
+    return cat >= SEM_CAT_PORT_IO && cat <= SEM_CAT_BIOS_INT;
 }
 
 /* Check if a category is scaffolding (>= 0x80) */
 static inline bool sem_is_scaffolding(sem_category_t cat) {
-    return cat >= SEM_CAT_IRP && cat <= SEM_CAT_STRING;
+    return (cat >= SEM_CAT_IRP && cat <= SEM_CAT_STRING) ||
+           cat == SEM_CAT_DOS_API;
 }
 
 /* Classify imports from a PE context.

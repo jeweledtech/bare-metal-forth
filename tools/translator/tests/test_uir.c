@@ -362,6 +362,83 @@ static void test_outsb_lifts_to_port_out(void) {
     PASS();
 }
 
+/* ---- INT lifting tests (Phase 3) ---- */
+
+static void test_int10h_lifts_to_uir_int(void) {
+    TEST(int10h_lifts_to_uir_int);
+    /* CD 10 = INT 10h; C3 = RET */
+    uint8_t code[] = { 0xCD, 0x10, 0xC3 };
+    x86_decoder_t dec;
+    x86_decoder_init(&dec, X86_MODE_32, code, sizeof(code), 0x100);
+    size_t count;
+    x86_decoded_t* insts = x86_decode_range(&dec, &count);
+    if (!insts || count < 1) FAIL("decode failed");
+
+    uir_function_t* func = uir_lift_function(insts, count, 0x100);
+    if (!func) { free(insts); FAIL("lift failed"); }
+
+    uir_instruction_t* ins = &func->blocks[0].instructions[0];
+    if (ins->opcode != UIR_INT) { uir_free_function(func); free(insts); FAIL("expected UIR_INT"); }
+    if (ins->src1.imm != 0x10) { uir_free_function(func); free(insts); FAIL("wrong vector"); }
+    /* INT 10h is a BIOS video service — should mark has_port_io */
+    if (!func->has_port_io) { uir_free_function(func); free(insts); FAIL("has_port_io not set for BIOS INT"); }
+
+    uir_free_function(func);
+    free(insts);
+    PASS();
+}
+
+static void test_int21h_no_hw_flag(void) {
+    TEST(int21h_no_hw_flag);
+    /* CD 21 = INT 21h (DOS API); C3 = RET */
+    uint8_t code[] = { 0xCD, 0x21, 0xC3 };
+    x86_decoder_t dec;
+    x86_decoder_init(&dec, X86_MODE_32, code, sizeof(code), 0x100);
+    size_t count;
+    x86_decoded_t* insts = x86_decode_range(&dec, &count);
+    if (!insts || count < 1) FAIL("decode failed");
+
+    uir_function_t* func = uir_lift_function(insts, count, 0x100);
+    if (!func) { free(insts); FAIL("lift failed"); }
+
+    uir_instruction_t* ins = &func->blocks[0].instructions[0];
+    if (ins->opcode != UIR_INT) { uir_free_function(func); free(insts); FAIL("expected UIR_INT"); }
+    /* INT 21h is DOS API — should NOT set has_port_io */
+    if (func->has_port_io) { uir_free_function(func); free(insts); FAIL("has_port_io should NOT be set for DOS INT"); }
+
+    uir_free_function(func);
+    free(insts);
+    PASS();
+}
+
+static void test_mixed_int_portio(void) {
+    TEST(mixed_int_and_port_io);
+    /* E4 60 = IN AL, 0x60; CD 10 = INT 10h; C3 = RET */
+    uint8_t code[] = { 0xE4, 0x60, 0xCD, 0x10, 0xC3 };
+    x86_decoder_t dec;
+    x86_decoder_init(&dec, X86_MODE_32, code, sizeof(code), 0x100);
+    size_t count;
+    x86_decoded_t* insts = x86_decode_range(&dec, &count);
+    if (!insts || count < 2) FAIL("decode failed");
+
+    uir_function_t* func = uir_lift_function(insts, count, 0x100);
+    if (!func) { free(insts); FAIL("lift failed"); }
+
+    if (!func->has_port_io) { uir_free_function(func); free(insts); FAIL("has_port_io not set"); }
+    /* Should have both PORT_IN and INT instructions */
+    bool has_port = false, has_int = false;
+    for (size_t i = 0; i < func->blocks[0].count; i++) {
+        if (func->blocks[0].instructions[i].opcode == UIR_PORT_IN) has_port = true;
+        if (func->blocks[0].instructions[i].opcode == UIR_INT) has_int = true;
+    }
+    if (!has_port) { uir_free_function(func); free(insts); FAIL("missing UIR_PORT_IN"); }
+    if (!has_int) { uir_free_function(func); free(insts); FAIL("missing UIR_INT"); }
+
+    uir_free_function(func);
+    free(insts);
+    PASS();
+}
+
 int main(void) {
     printf("UIR Lifter Tests\n");
     printf("================\n");
@@ -385,6 +462,9 @@ int main(void) {
     test_port_in_dword();
     test_insb_lifts_to_port_in();
     test_outsb_lifts_to_port_out();
+    test_int10h_lifts_to_uir_int();
+    test_int21h_no_hw_flag();
+    test_mixed_int_portio();
 
     printf("\nResults: %d/%d passed\n", tests_passed, tests_run);
     return tests_passed == tests_run ? 0 : 1;

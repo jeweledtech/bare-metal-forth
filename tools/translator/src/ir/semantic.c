@@ -318,6 +318,33 @@ int sem_analyze_functions(const sem_uir_input_t* uir_funcs, size_t uir_func_coun
             }
         }
 
+        /* Check for BIOS interrupt calls in UIR blocks */
+        {
+        const uir_function_t* bios_uf = (const uir_function_t*)uf->func;
+        if (bios_uf && bios_uf->block_count > 0) {
+            for (size_t b = 0; b < bios_uf->block_count; b++) {
+                for (size_t j = 0; j < bios_uf->blocks[b].count; j++) {
+                    uir_instruction_t* ins = &bios_uf->blocks[b].instructions[j];
+                    if (ins->opcode == UIR_INT &&
+                        ins->src1.type == UIR_OPERAND_IMM) {
+                        uint8_t vec = (uint8_t)ins->src1.imm;
+                        if (vec == 0x10 || vec == 0x13 || vec == 0x14 ||
+                            vec == 0x15 || vec == 0x16 || vec == 0x1A) {
+                            sf->primary_category = SEM_CAT_BIOS_INT;
+                            sf->is_hardware = true;
+                        } else if (vec == 0x21) {
+                            /* INT 21h = DOS API — scaffolding unless
+                               function also has real hw access */
+                            if (!sf->has_port_io &&
+                                sf->primary_category == SEM_CAT_UNKNOWN)
+                                sf->primary_category = SEM_CAT_DOS_API;
+                        }
+                    }
+                }
+            }
+        }
+        }
+
         /* Determine primary category from direct port I/O if not already set */
         if (sf->has_port_io && sf->primary_category == SEM_CAT_UNKNOWN) {
             sf->primary_category = SEM_CAT_PORT_IO;

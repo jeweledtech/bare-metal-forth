@@ -355,6 +355,117 @@ static void test_iat_scaffolding_not_hardware(void) {
     PASS();
 }
 
+/* ---- BIOS interrupt classification tests (Phase 3) ---- */
+
+static void test_bios_int10h_classified_hardware(void) {
+    TEST(bios_int10h_classified_hardware);
+
+    sem_result_t result;
+    memset(&result, 0, sizeof(result));
+
+    /* Build a function with UIR_INT 0x10 */
+    uir_function_t uir_func;
+    memset(&uir_func, 0, sizeof(uir_func));
+    uir_func.entry_address = 0x200;
+
+    uir_block_t block;
+    memset(&block, 0, sizeof(block));
+    block.address = 0x200;
+    block.fall_through = -1;
+    block.branch_target = -1;
+
+    uir_instruction_t instrs[2];
+    memset(instrs, 0, sizeof(instrs));
+
+    instrs[0].opcode = UIR_INT;
+    instrs[0].original_address = 0x200;
+    instrs[0].src1.type = UIR_OPERAND_IMM;
+    instrs[0].src1.imm = 0x10;  /* BIOS video */
+    instrs[0].size = 1;
+
+    instrs[1].opcode = UIR_RET;
+    instrs[1].original_address = 0x202;
+
+    block.instructions = instrs;
+    block.count = 2;
+    uir_func.blocks = &block;
+    uir_func.block_count = 1;
+
+    sem_uir_input_t func_input = {
+        .func = &uir_func,
+        .entry_address = 0x200,
+        .name = "bios_video",
+        .has_port_io = true,  /* set by UIR lifter for INT 10h */
+        .ports_read = NULL, .ports_read_count = 0,
+        .ports_written = NULL, .ports_written_count = 0,
+    };
+
+    int rc = sem_analyze_functions(&func_input, 1, 0, &result);
+    if (rc != 0) FAIL("sem_analyze_functions returned error");
+
+    if (!result.functions[0].is_hardware)
+        FAIL("INT 10h function should be classified as hardware");
+    if (result.functions[0].primary_category != SEM_CAT_BIOS_INT)
+        FAIL("INT 10h should have BIOS_INT category");
+
+    sem_cleanup(&result);
+    PASS();
+}
+
+static void test_dos_int21h_classified_scaffolding(void) {
+    TEST(dos_int21h_classified_scaffolding);
+
+    sem_result_t result;
+    memset(&result, 0, sizeof(result));
+
+    uir_function_t uir_func;
+    memset(&uir_func, 0, sizeof(uir_func));
+    uir_func.entry_address = 0x200;
+
+    uir_block_t block;
+    memset(&block, 0, sizeof(block));
+    block.address = 0x200;
+    block.fall_through = -1;
+    block.branch_target = -1;
+
+    uir_instruction_t instrs[2];
+    memset(instrs, 0, sizeof(instrs));
+
+    instrs[0].opcode = UIR_INT;
+    instrs[0].original_address = 0x200;
+    instrs[0].src1.type = UIR_OPERAND_IMM;
+    instrs[0].src1.imm = 0x21;  /* DOS API */
+    instrs[0].size = 1;
+
+    instrs[1].opcode = UIR_RET;
+    instrs[1].original_address = 0x202;
+
+    block.instructions = instrs;
+    block.count = 2;
+    uir_func.blocks = &block;
+    uir_func.block_count = 1;
+
+    sem_uir_input_t func_input = {
+        .func = &uir_func,
+        .entry_address = 0x200,
+        .name = "dos_print",
+        .has_port_io = false,  /* INT 21h does NOT set has_port_io */
+        .ports_read = NULL, .ports_read_count = 0,
+        .ports_written = NULL, .ports_written_count = 0,
+    };
+
+    int rc = sem_analyze_functions(&func_input, 1, 0, &result);
+    if (rc != 0) FAIL("sem_analyze_functions returned error");
+
+    if (result.functions[0].is_hardware)
+        FAIL("INT 21h function should NOT be hardware");
+    if (result.functions[0].primary_category != SEM_CAT_DOS_API)
+        FAIL("INT 21h should have DOS_API category");
+
+    sem_cleanup(&result);
+    PASS();
+}
+
 int main(void) {
     printf("Semantic Analyzer Tests\n");
     printf("=======================\n");
@@ -374,6 +485,8 @@ int main(void) {
     test_classify_sync();
     test_iat_call_detection();
     test_iat_scaffolding_not_hardware();
+    test_bios_int10h_classified_hardware();
+    test_dos_int21h_classified_scaffolding();
 
     printf("\nResults: %d/%d passed\n", tests_passed, tests_run);
     return tests_passed == tests_run ? 0 : 1;
