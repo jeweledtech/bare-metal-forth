@@ -1,0 +1,195 @@
+{
+    "binary": "serial.sys",
+    "source": "ReactOS 0.4.14 Live CD (GPL)",
+    "note": "Function names extracted from .rossym debug section",
+    "rossym_format": {
+        "header": "4x uint32: SymbolsOffset, SymbolsLength, StringsOffset, StringsLength",
+        "entry": "4x uint32: Address, FunctionNameOffset, FileNameOffset, SourceLine",
+        "entry_size": 16,
+        "num_entries": 1270
+    },
+    "hardware_functions": [
+        {
+            "address": "0x1189a",
+            "translator_name": "func_1189A",
+            "rossym_name": "SerialSetBaudRate"
+        },
+        {
+            "address": "0x119f3",
+            "translator_name": "func_119F3",
+            "rossym_name": "SerialSetLineControl"
+        },
+        {
+            "address": "0x11c1e",
+            "translator_name": "func_11C1E",
+            "rossym_name": "SerialDeviceControl"
+        },
+        {
+            "address": "0x13694",
+            "translator_name": "func_13694",
+            "rossym_name": "SerialDetectUartType"
+        },
+        {
+            "address": "0x13ab8",
+            "translator_name": "func_13AB8",
+            "rossym_name": "SerialReceiveByte"
+        },
+        {
+            "address": "0x13bc6",
+            "translator_name": "func_13BC6",
+            "rossym_name": "SerialSendByte"
+        },
+        {
+            "address": "0x13ce7",
+            "translator_name": "func_13CE7",
+            "rossym_name": "SerialInterruptService"
+        },
+        {
+            "address": "0x144e8",
+            "translator_name": "func_144E8",
+            "rossym_name": "SerialPnpStartDevice"
+        },
+        {
+            "address": "0x15457",
+            "translator_name": "func_15457",
+            "rossym_name": "SerialRead"
+        }
+    ],
+    "scaffolding_functions": [
+        {
+            "address": "0x11000",
+            "translator_name": "func_11000",
+            "rossym_name": "_file_alignment__"
+        },
+        {
+            "address": "0x110b5",
+            "translator_name": "func_110B5",
+            "rossym_name": "FreeCircularBuffer"
+        },
+        {
+            "address": "0x11140",
+            "translator_name": "func_11140",
+            "rossym_name": "IsCircularBufferEmpty"
+        },
+        {
+            "address": "0x111b5",
+            "translator_name": "func_111B5",
+            "rossym_name": "GetNumberOfElementsInCircularBuffer"
+        },
+        {
+            "address": "0x11235",
+            "translator_name": "func_11235",
+            "rossym_name": "PushCircularBufferEntry"
+        },
+        {
+            "address": "0x11315",
+            "translator_name": "func_11315",
+            "rossym_name": "PopCircularBufferEntry"
+        },
+        {
+            "address": "0x113e6",
+            "translator_name": "func_113E6",
+            "rossym_name": "IncreaseCircularBufferSize"
+        },
+        {
+            "address": "0x1150c",
+            "translator_name": "func_1150C",
+            "rossym_name": "SerialCleanup"
+        },
+        {
+            "address": "0x1156c",
+            "translator_name": "func_1156C",
+            "rossym_name": "SerialClose"
+        },
+        {
+            "address": "0x115d8",
+            "translator_name": "func_115D8",
+            "rossym_name": "SerialCreate"
+        },
+        {
+            "address": "0x11740",
+            "translator_name": "func_11740",
+            "rossym_name": "SerialClearPerfStats"
+        },
+        {
+            "address": "0x117fc",
+            "translator_name": "func_117FC",
+            "rossym_name": "SerialGetPerfStats"
+        },
+        {
+            "address": "0x13460",
+            "translator_name": "func_13460",
+            "rossym_name": "SerialQueryInformation"
+        },
+        {
+            "address": "0x13840",
+            "translator_name": "func_13840",
+            "rossym_name": "ForwardIrpAndWaitCompletion"
+        },
+        {
+            "address": "0x13877",
+            "translator_name": "func_13877",
+            "rossym_name": "ForwardIrpAndWait"
+        },
+        {
+            "address": "0x13a25",
+            "translator_name": "func_13A25",
+            "rossym_name": "ForwardIrpAndForget"
+        },
+        {
+            "address": "0x13cd2",
+            "translator_name": "func_13CD2",
+            "rossym_name": "SerialCompleteIrp"
+        },
+        {
+            "address": "0x14090",
+            "translator_name": "func_14090",
+            "rossym_name": "SerialAddDeviceInternal"
+        },
+        {
+            "address": "0x144a8",
+            "translator_name": "func_144A8",
+            "rossym_name": "SerialAddDevice"
+        },
+        {
+            "address": "0x14c51",
+            "translator_name": "func_14C51",
+            "rossym_name": "SerialPnp"
+        },
+        {
+            "address": "0x14f00",
+            "translator_name": "func_14F00",
+            "rossym_name": "SerialPower"
+        },
+        {
+            "address": "0x14fa0",
+            "translator_name": "func_14FA0",
+            "rossym_name": "SerialGetUserBuffer"
+        },
+        {
+            "address": "0x14fe4",
+            "translator_name": "func_14FE4",
+            "rossym_name": "ReadBytes"
+        },
+        {
+            "address": "0x153d8",
+            "translator_name": "func_153D8",
+            "rossym_name": "SerialReadWorkItem"
+        },
+        {
+            "address": "0x1579e",
+            "translator_name": "func_1579E",
+            "rossym_name": "SerialWrite"
+        },
+        {
+            "address": "0x159f0",
+            "translator_name": "func_159F0",
+            "rossym_name": "DriverUnload"
+        },
+        {
+            "address": "0x159f7",
+            "translator_name": "func_159F7",
+            "rossym_name": "DriverEntry"
+        }
+    ]
+}

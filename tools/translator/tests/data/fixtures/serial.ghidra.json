@@ -1,0 +1,355 @@
+{
+    "schema_version": 1,
+    "generator": "ghidra",
+    "ghidra_version": "12.0",
+    "binary": {
+        "filename": "serial.sys",
+        "sha256": "6425e79f9de1065ca2e178a8d17c02143b6b18365a39ce59739ca5dc21fa627b",
+        "format": "PE32",
+        "machine": "x86",
+        "image_base": "0x10000"
+    },
+    "port_operations": [
+    ],
+    "hardware_functions": [
+    ],
+    "imports": [
+        {
+            "dll": "HAL.DLL",
+            "function": "KdComPortInUse",
+            "category": "OTHER"
+        },
+        {
+            "dll": "HAL.DLL",
+            "function": "KfAcquireSpinLock",
+            "category": "OTHER"
+        },
+        {
+            "dll": "HAL.DLL",
+            "function": "KfReleaseSpinLock",
+            "category": "OTHER"
+        },
+        {
+            "dll": "HAL.DLL",
+            "function": "READ_PORT_UCHAR",
+            "category": "PORT_IO"
+        },
+        {
+            "dll": "HAL.DLL",
+            "function": "WRITE_PORT_UCHAR",
+            "category": "PORT_IO"
+        },
+        {
+            "dll": "NTOSKRNL.EXE",
+            "function": "DbgPrintEx",
+            "category": "OTHER"
+        },
+        {
+            "dll": "NTOSKRNL.EXE",
+            "function": "ExAllocatePoolWithTag",
+            "category": "SCAFFOLDING"
+        },
+        {
+            "dll": "NTOSKRNL.EXE",
+            "function": "ExFreePoolWithTag",
+            "category": "SCAFFOLDING"
+        },
+        {
+            "dll": "NTOSKRNL.EXE",
+            "function": "IoAcquireRemoveLockEx",
+            "category": "OTHER"
+        },
+        {
+            "dll": "NTOSKRNL.EXE",
+            "function": "IoAllocateWorkItem",
+            "category": "OTHER"
+        },
+        {
+            "dll": "NTOSKRNL.EXE",
+            "function": "IoAttachDeviceToDeviceStackSafe",
+            "category": "OTHER"
+        },
+        {
+            "dll": "NTOSKRNL.EXE",
+            "function": "IoConnectInterrupt",
+            "category": "OTHER"
+        },
+        {
+            "dll": "NTOSKRNL.EXE",
+            "function": "IoCreateDevice",
+            "category": "SCAFFOLDING"
+        },
+        {
+            "dll": "NTOSKRNL.EXE",
+            "function": "IoCreateSymbolicLink",
+            "category": "SCAFFOLDING"
+        },
+        {
+            "dll": "NTOSKRNL.EXE",
+            "function": "IoDeleteDevice",
+            "category": "SCAFFOLDING"
+        },
+        {
+            "dll": "NTOSKRNL.EXE",
+            "function": "IoDeleteSymbolicLink",
+            "category": "SCAFFOLDING"
+        },
+        {
+            "dll": "NTOSKRNL.EXE",
+            "function": "IoFreeWorkItem",
+            "category": "OTHER"
+        },
+        {
+            "dll": "NTOSKRNL.EXE",
+            "function": "IoGetConfigurationInformation",
+            "category": "OTHER"
+        },
+        {
+            "dll": "NTOSKRNL.EXE",
+            "function": "IoInitializeRemoveLockEx",
+            "category": "OTHER"
+        },
+        {
+            "dll": "NTOSKRNL.EXE",
+            "function": "IoQueueWorkItem",
+            "category": "OTHER"
+        },
+        {
+            "dll": "NTOSKRNL.EXE",
+            "function": "IoRegisterDeviceInterface",
+            "category": "OTHER"
+        },
+        {
+            "dll": "NTOSKRNL.EXE",
+            "function": "IoReleaseRemoveLockEx",
+            "category": "OTHER"
+        },
+        {
+            "dll": "NTOSKRNL.EXE",
+            "function": "IoSetDeviceInterfaceState",
+            "category": "OTHER"
+        },
+        {
+            "dll": "NTOSKRNL.EXE",
+            "function": "IofCallDriver",
+            "category": "SCAFFOLDING"
+        },
+        {
+            "dll": "NTOSKRNL.EXE",
+            "function": "IofCompleteRequest",
+            "category": "SCAFFOLDING"
+        },
+        {
+            "dll": "NTOSKRNL.EXE",
+            "function": "KeCancelTimer",
+            "category": "OTHER"
+        },
+        {
+            "dll": "NTOSKRNL.EXE",
+            "function": "KeClearEvent",
+            "category": "OTHER"
+        },
+        {
+            "dll": "NTOSKRNL.EXE",
+            "function": "KeInitializeDpc",
+            "category": "OTHER"
+        },
+        {
+            "dll": "NTOSKRNL.EXE",
+            "function": "KeInitializeEvent",
+            "category": "SCAFFOLDING"
+        },
+        {
+            "dll": "NTOSKRNL.EXE",
+            "function": "KeInitializeTimer",
+            "category": "OTHER"
+        },
+        {
+            "dll": "NTOSKRNL.EXE",
+            "function": "KeInsertQueueDpc",
+            "category": "OTHER"
+        },
+        {
+            "dll": "NTOSKRNL.EXE",
+            "function": "KeQuerySystemTime",
+            "category": "OTHER"
+        },
+        {
+            "dll": "NTOSKRNL.EXE",
+            "function": "KeSetEvent",
+            "category": "SCAFFOLDING"
+        },
+        {
+            "dll": "NTOSKRNL.EXE",
+            "function": "KeSetTimer",
+            "category": "OTHER"
+        },
+        {
+            "dll": "NTOSKRNL.EXE",
+            "function": "KeSynchronizeExecution",
+            "category": "OTHER"
+        },
+        {
+            "dll": "NTOSKRNL.EXE",
+            "function": "KeWaitForMultipleObjects",
+            "category": "OTHER"
+        },
+        {
+            "dll": "NTOSKRNL.EXE",
+            "function": "KeWaitForSingleObject",
+            "category": "SCAFFOLDING"
+        },
+        {
+            "dll": "NTOSKRNL.EXE",
+            "function": "MmMapLockedPagesSpecifyCache",
+            "category": "OTHER"
+        },
+        {
+            "dll": "NTOSKRNL.EXE",
+            "function": "PoCallDriver",
+            "category": "SCAFFOLDING"
+        },
+        {
+            "dll": "NTOSKRNL.EXE",
+            "function": "PoStartNextPowerIrp",
+            "category": "SCAFFOLDING"
+        },
+        {
+            "dll": "NTOSKRNL.EXE",
+            "function": "RtlAssert",
+            "category": "OTHER"
+        },
+        {
+            "dll": "NTOSKRNL.EXE",
+            "function": "RtlInitUnicodeString",
+            "category": "SCAFFOLDING"
+        },
+        {
+            "dll": "NTOSKRNL.EXE",
+            "function": "ZwClose",
+            "category": "SCAFFOLDING"
+        },
+        {
+            "dll": "NTOSKRNL.EXE",
+            "function": "ZwCreateKey",
+            "category": "OTHER"
+        },
+        {
+            "dll": "NTOSKRNL.EXE",
+            "function": "ZwSetValueKey",
+            "category": "OTHER"
+        },
+        {
+            "dll": "NTOSKRNL.EXE",
+            "function": "memmove",
+            "category": "OTHER"
+        },
+        {
+            "dll": "NTOSKRNL.EXE",
+            "function": "swprintf",
+            "category": "OTHER"
+        }
+    ],
+    "scaffolding_functions": [
+        {
+            "name": "FUN_00011000",
+            "address": "0x11000",
+            "reason": "no port I/O operations"
+        },
+        {
+            "name": "FUN_000110b5",
+            "address": "0x110b5",
+            "reason": "no port I/O operations"
+        },
+        {
+            "name": "FUN_00011140",
+            "address": "0x11140",
+            "reason": "no port I/O operations"
+        },
+        {
+            "name": "FUN_000111b5",
+            "address": "0x111b5",
+            "reason": "no port I/O operations"
+        },
+        {
+            "name": "FUN_00011235",
+            "address": "0x11235",
+            "reason": "no port I/O operations"
+        },
+        {
+            "name": "FUN_00011315",
+            "address": "0x11315",
+            "reason": "no port I/O operations"
+        },
+        {
+            "name": "FUN_000113e6",
+            "address": "0x113e6",
+            "reason": "no port I/O operations"
+        },
+        {
+            "name": "FUN_0001189a",
+            "address": "0x1189a",
+            "reason": "no port I/O operations"
+        },
+        {
+            "name": "FUN_000119f3",
+            "address": "0x119f3",
+            "reason": "no port I/O operations"
+        },
+        {
+            "name": "FUN_00013694",
+            "address": "0x13694",
+            "reason": "no port I/O operations"
+        },
+        {
+            "name": "FUN_00013877",
+            "address": "0x13877",
+            "reason": "no port I/O operations"
+        },
+        {
+            "name": "FUN_00013a25",
+            "address": "0x13a25",
+            "reason": "no port I/O operations"
+        },
+        {
+            "name": "FUN_00013bc6",
+            "address": "0x13bc6",
+            "reason": "no port I/O operations"
+        },
+        {
+            "name": "FUN_00014090",
+            "address": "0x14090",
+            "reason": "no port I/O operations"
+        },
+        {
+            "name": "FUN_000144e8",
+            "address": "0x144e8",
+            "reason": "no port I/O operations"
+        },
+        {
+            "name": "FUN_00014fa0",
+            "address": "0x14fa0",
+            "reason": "no port I/O operations"
+        },
+        {
+            "name": "FUN_00014fe4",
+            "address": "0x14fe4",
+            "reason": "no port I/O operations"
+        },
+        {
+            "name": "entry",
+            "address": "0x159f7",
+            "reason": "no port I/O operations"
+        },
+        {
+            "name": "memmove",
+            "address": "0x15a74",
+            "reason": "no port I/O operations"
+        },
+        {
+            "name": "swprintf",
+            "address": "0x15a7c",
+            "reason": "no port I/O operations"
+        }
+    ]
+}
