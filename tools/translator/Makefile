@@ -291,6 +291,69 @@ test-serial-validation: | $(BUILDDIR)
 	./$(BUILDDIR)/tests/test_serial_validation
 
 # ============================================================================
+# ReactOS floppy.sys validation (NEC 765 floppy controller)
+# ============================================================================
+
+.PHONY: test-floppy-validation
+test-floppy-validation: | $(BUILDDIR)
+	@echo "$(CYAN)Testing floppy.sys ReactOS validation...$(NC)"
+	@mkdir -p $(BUILDDIR)/tests
+	$(CC) $(CFLAGS) -DTRANSLATOR_NO_MAIN -o $(BUILDDIR)/tests/test_floppy_validation \
+		tests/test_floppy_validation.c \
+		$(SRCDIR)/main/translator.c \
+		$(SRCDIR)/loaders/pe_loader.c \
+		$(SRCDIR)/loaders/elf_loader.c \
+		$(SRCDIR)/loaders/format_detect.c \
+		$(SRCDIR)/loaders/com_loader.c \
+		$(SRCDIR)/decoders/x86_decoder.c \
+		$(SRCDIR)/ir/uir.c \
+		$(SRCDIR)/ir/semantic.c \
+		$(SRCDIR)/codegen/forth_codegen.c
+	./$(BUILDDIR)/tests/test_floppy_validation
+
+# ============================================================================
+# ReactOS pci.sys validation (PCI bus enumeration)
+# ============================================================================
+
+.PHONY: test-pci-validation
+test-pci-validation: | $(BUILDDIR)
+	@echo "$(CYAN)Testing pci.sys ReactOS validation...$(NC)"
+	@mkdir -p $(BUILDDIR)/tests
+	$(CC) $(CFLAGS) -DTRANSLATOR_NO_MAIN -o $(BUILDDIR)/tests/test_pci_validation \
+		tests/test_pci_validation.c \
+		$(SRCDIR)/main/translator.c \
+		$(SRCDIR)/loaders/pe_loader.c \
+		$(SRCDIR)/loaders/elf_loader.c \
+		$(SRCDIR)/loaders/format_detect.c \
+		$(SRCDIR)/loaders/com_loader.c \
+		$(SRCDIR)/decoders/x86_decoder.c \
+		$(SRCDIR)/ir/uir.c \
+		$(SRCDIR)/ir/semantic.c \
+		$(SRCDIR)/codegen/forth_codegen.c
+	./$(BUILDDIR)/tests/test_pci_validation
+
+# ============================================================================
+# Linux ELF driver validation (ne2k-pci, 8139too, iTCO_wdt, via-rng)
+# ============================================================================
+
+.PHONY: test-elf-drivers
+test-elf-drivers: | $(BUILDDIR)
+	@echo "$(CYAN)Testing Linux ELF driver validation...$(NC)"
+	@mkdir -p $(BUILDDIR)/tests
+	$(CC) $(CFLAGS) -DTRANSLATOR_NO_MAIN -o $(BUILDDIR)/tests/test_elf_drivers \
+		tests/test_elf_drivers.c \
+		$(SRCDIR)/main/translator.c \
+		$(SRCDIR)/loaders/pe_loader.c \
+		$(SRCDIR)/loaders/elf_loader.c \
+		$(SRCDIR)/loaders/format_detect.c \
+		$(SRCDIR)/loaders/com_loader.c \
+		$(SRCDIR)/decoders/x86_decoder.c \
+		$(SRCDIR)/ir/uir.c \
+		$(SRCDIR)/ir/semantic.c \
+		$(SRCDIR)/codegen/forth_codegen.c
+	./$(BUILDDIR)/tests/test_elf_drivers
+
+# ============================================================================
 # Format detection and COM loader tests
 # ============================================================================
 
@@ -341,7 +404,7 @@ test-com-loader: | $(BUILDDIR)
 
 .PHONY: test test-all
 test: test-all
-test-all: test-pe test-x86 test-cil test-arm64 test-uir test-semantic test-forth-codegen test-pipeline test-16550 test-ghidra-compare test-i8042-validation test-serial-validation test-elf test-semantic-report test-format-detect test-com-loader
+test-all: test-pe test-x86 test-cil test-arm64 test-uir test-semantic test-forth-codegen test-pipeline test-16550 test-ghidra-compare test-i8042-validation test-serial-validation test-floppy-validation test-pci-validation test-elf-drivers test-elf test-semantic-report test-format-detect test-com-loader
 	@echo ""
 	@echo "$(GREEN)All tests passed$(NC)"
 
