@@ -75,6 +75,13 @@ typedef struct {
     /* Exports */
     pe_export_t*    exports;
     size_t          export_count;
+
+    /* Function boundaries from .pdata (64-bit PE only) */
+    struct {
+        uint32_t    start_rva;
+        uint32_t    end_rva;
+    }              *func_boundaries;
+    size_t          func_boundary_count;
 } pe_context_t;
 
 /* Load PE from memory buffer. Returns 0 on success, -1 on error. */

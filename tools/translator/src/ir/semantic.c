@@ -87,6 +87,9 @@ const sem_api_entry_t SEM_API_TABLE[] = {
     {"HalSetBusData",           SEM_CAT_PCI_CONFIG, "PCI-WRITE",   "Write PCI config",     5, 1},
     {"HalSetBusDataByOffset",   SEM_CAT_PCI_CONFIG, "PCI-WRITE@",  "Write PCI at offset",  6, 1},
 
+    /* Speaker / beep */
+    {"HalMakeBeep",             SEM_CAT_PORT_IO,    "BEEP",        "PIT speaker beep",     1, 1},
+
     /* ---- DEVICE I/O (Win32 user-space) — KEEP ---- */
     {"DeviceIoControl",         SEM_CAT_DEVICE_IO, "IOCTL",      "Win32 device IOCTL",      7, 1},
     {"CreateFileA",             SEM_CAT_DEVICE_IO, "OPEN-DEV",   "Open device handle",      7, 1},

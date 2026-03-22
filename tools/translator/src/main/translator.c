@@ -844,7 +844,8 @@ static translate_result_t translate_pe(const uint8_t* data, size_t size,
 
     /* ---- Stage 2: Decode x86 instructions ---- */
     x86_decoder_t dec;
-    x86_decoder_init(&dec, X86_MODE_32, pe.text_data, pe.text_size,
+    x86_mode_t pe_mode = pe.is_64bit ? X86_MODE_64 : X86_MODE_32;
+    x86_decoder_init(&dec, pe_mode, pe.text_data, pe.text_size,
                      pe.image_base + pe.text_rva);
     size_t inst_count = 0;
     x86_decoded_t* insts = x86_decode_range(&dec, &inst_count);
@@ -875,19 +876,30 @@ static translate_result_t translate_pe(const uint8_t* data, size_t size,
     uint64_t text_base = pe.image_base + pe.text_rva;
     uint64_t text_end = text_base + pe.text_size;
 
-    /* Build PE export info for function discovery */
+    /* Build function entry points from PE exports + .pdata boundaries */
+    size_t total_entries = pe.export_count + pe.func_boundary_count;
     sem_pe_export_t* pe_exports = NULL;
-    if (pe.export_count > 0) {
-        pe_exports = malloc(pe.export_count * sizeof(sem_pe_export_t));
+    if (total_entries > 0) {
+        pe_exports = calloc(total_entries, sizeof(sem_pe_export_t));
+        size_t idx = 0;
+        /* Add PE exports (named functions) */
         for (size_t i = 0; i < pe.export_count; i++) {
-            pe_exports[i].address = pe.image_base + pe.exports[i].rva;
-            pe_exports[i].name = pe.exports[i].name;
+            pe_exports[idx].address = pe.image_base + pe.exports[i].rva;
+            pe_exports[idx].name = pe.exports[i].name;
+            idx++;
+        }
+        /* Add .pdata function boundaries (unnamed) */
+        for (size_t i = 0; i < pe.func_boundary_count; i++) {
+            pe_exports[idx].address =
+                pe.image_base + pe.func_boundaries[i].start_rva;
+            pe_exports[idx].name = NULL;
+            idx++;
         }
     }
 
     sem_function_map_t func_map;
     sem_discover_functions(insts, inst_count, text_base, text_end,
-                          pe_exports, pe.export_count, &func_map);
+                          pe_exports, total_entries, &func_map);
     free(pe_exports);
 
     /* If no functions discovered, treat entire .text as one function */

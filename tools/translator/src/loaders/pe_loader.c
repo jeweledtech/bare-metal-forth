@@ -115,6 +115,37 @@ static int parse_sections(pe_context_t* ctx, size_t section_table_offset,
                 }
             }
         }
+
+        /* Parse .pdata for 64-bit function boundaries */
+        if (ctx->is_64bit && memcmp(s->name, ".pdata", 6) == 0 &&
+            !ctx->func_boundaries) {
+            uint32_t pdata_size = sh->size_of_raw_data;
+            if (sh->virtual_size > 0 && sh->virtual_size < pdata_size)
+                pdata_size = sh->virtual_size;
+            size_t entry_count = pdata_size / 12;
+            if (entry_count > 0 &&
+                bounds_check(ctx->data_size,
+                             sh->pointer_to_raw_data, pdata_size)) {
+                ctx->func_boundaries = calloc(entry_count,
+                    sizeof(*ctx->func_boundaries));
+                ctx->func_boundary_count = 0;
+                const uint8_t* pdata =
+                    ctx->data + sh->pointer_to_raw_data;
+                for (size_t j = 0; j < entry_count; j++) {
+                    uint32_t begin = pdata[j*12+0] | (pdata[j*12+1]<<8)
+                        | (pdata[j*12+2]<<16) | (pdata[j*12+3]<<24);
+                    uint32_t end = pdata[j*12+4] | (pdata[j*12+5]<<8)
+                        | (pdata[j*12+6]<<16) | (pdata[j*12+7]<<24);
+                    if (begin > 0 && begin < end) {
+                        ctx->func_boundaries[
+                            ctx->func_boundary_count].start_rva = begin;
+                        ctx->func_boundaries[
+                            ctx->func_boundary_count].end_rva = end;
+                        ctx->func_boundary_count++;
+                    }
+                }
+            }
+        }
     }
     return 0;
 }
@@ -401,6 +432,11 @@ void pe_cleanup(pe_context_t* ctx) {
         free(ctx->exports);
         ctx->exports = NULL;
     }
+    if (ctx->func_boundaries) {
+        free(ctx->func_boundaries);
+        ctx->func_boundaries = NULL;
+    }
+    ctx->func_boundary_count = 0;
     ctx->text_data = NULL;
     ctx->text_size = 0;
     ctx->import_count = 0;

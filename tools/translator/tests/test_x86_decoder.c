@@ -470,6 +470,52 @@ static void test_16bit_in_out(void) {
     PASS();
 }
 
+/* ---- 64-bit REX prefix tests (Task A2) ---- */
+
+/* Helper: decode a single instruction in 64-bit mode */
+static int decode_one_64(const uint8_t* code, size_t len, x86_decoded_t* out) {
+    x86_decoder_t dec;
+    x86_decoder_init(&dec, X86_MODE_64, code, len, 0x1000);
+    return x86_decode_one(&dec, out);
+}
+
+static void test_rex_w_prefix(void) {
+    TEST(REX_W_MOV_RBP_RSP);
+    /* 48 89 E5 = MOV RBP, RSP (REX.W + MOV r/m64, r64) */
+    uint8_t code[] = { 0x48, 0x89, 0xE5 };
+    x86_decoded_t d;
+    int n = decode_one_64(code, sizeof(code), &d);
+    if (n != 3) FAIL("wrong length");
+    if (d.instruction != X86_INS_MOV) FAIL("wrong instruction");
+    if (!(d.prefixes & X86_PREFIX_REX)) FAIL("REX prefix not detected");
+    if (d.rex != 0x48) FAIL("wrong REX byte");
+    PASS();
+}
+
+static void test_rex_b_push(void) {
+    TEST(REX_B_PUSH_R8);
+    /* 41 50 = PUSH R8 (REX.B + PUSH r64) — in 64-bit mode */
+    uint8_t code[] = { 0x41, 0x50 };
+    x86_decoded_t d;
+    int n = decode_one_64(code, sizeof(code), &d);
+    if (n != 2) FAIL("wrong length");
+    if (d.instruction != X86_INS_PUSH) FAIL("wrong instruction (got INC?)");
+    if (!(d.prefixes & X86_PREFIX_REX)) FAIL("REX prefix not detected");
+    PASS();
+}
+
+static void test_rex_not_in_32bit(void) {
+    TEST(no_REX_in_32bit_mode);
+    /* 0x48 in 32-bit mode = DEC EAX (NOT a REX prefix) */
+    uint8_t code[] = { 0x48 };
+    x86_decoded_t d;
+    int n = decode_one(code, sizeof(code), &d);
+    if (n != 1) FAIL("wrong length");
+    if (d.instruction != X86_INS_DEC) FAIL("should be DEC in 32-bit mode");
+    if (d.prefixes & X86_PREFIX_REX) FAIL("REX should NOT be set in 32-bit mode");
+    PASS();
+}
+
 /* ---- INS/OUTS decode tests (Task 2B) ---- */
 
 static void test_insb(void) {
@@ -551,6 +597,9 @@ int main(void) {
     test_16bit_mov_ax_imm();
     test_16bit_opsize_prefix();
     test_16bit_in_out();
+    test_rex_w_prefix();
+    test_rex_b_push();
+    test_rex_not_in_32bit();
     test_insb();
     test_insd();
     test_outsb();

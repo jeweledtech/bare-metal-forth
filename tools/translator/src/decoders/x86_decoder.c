@@ -178,6 +178,13 @@ int x86_decode_one(x86_decoder_t* dec, x86_decoded_t* out) {
                 eat(dec);
                 break;
             default:
+                /* REX prefix in 64-bit mode: 0x40-0x4F */
+                if (dec->mode == X86_MODE_64 && b >= 0x40 && b <= 0x4F) {
+                    out->prefixes |= X86_PREFIX_REX;
+                    out->rex = b;
+                    eat(dec);
+                    break;
+                }
                 have_prefix = false;
                 break;
         }
@@ -190,6 +197,9 @@ int x86_decode_one(x86_decoder_t* dec, x86_decoded_t* out) {
     uint8_t default_op_size = (dec->mode == X86_MODE_16) ? 2 : 4;
     uint8_t op_size = (out->prefixes & X86_PREFIX_OPSIZE)
         ? (default_op_size == 4 ? 2 : 4) : default_op_size;
+    /* REX.W promotes operand size to 64-bit */
+    if ((out->prefixes & X86_PREFIX_REX) && (out->rex & 0x08))
+        op_size = 8;
 
     switch (opcode) {
 
@@ -374,9 +384,11 @@ int x86_decode_one(x86_decoder_t* dec, x86_decoded_t* out) {
         break;
     }
 
-    /* ---- INC/DEC reg (one-byte encodings) ---- */
+    /* ---- INC/DEC reg (one-byte encodings, 16/32-bit mode only) ---- */
+    /* In 64-bit mode, 0x40-0x4F are REX prefixes (handled above) */
     case 0x40: case 0x41: case 0x42: case 0x43:
     case 0x44: case 0x45: case 0x46: case 0x47:
+        if (dec->mode == X86_MODE_64) { out->instruction = X86_INS_UNKNOWN; break; }
         out->instruction = X86_INS_INC;
         out->operand_count = 1;
         out->operands[0].type = X86_OP_REG;
@@ -385,6 +397,7 @@ int x86_decode_one(x86_decoder_t* dec, x86_decoded_t* out) {
         break;
     case 0x48: case 0x49: case 0x4A: case 0x4B:
     case 0x4C: case 0x4D: case 0x4E: case 0x4F:
+        if (dec->mode == X86_MODE_64) { out->instruction = X86_INS_UNKNOWN; break; }
         out->instruction = X86_INS_DEC;
         out->operand_count = 1;
         out->operands[0].type = X86_OP_REG;

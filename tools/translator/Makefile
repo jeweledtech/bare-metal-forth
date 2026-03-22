@@ -333,6 +333,27 @@ test-pci-validation: | $(BUILDDIR)
 	./$(BUILDDIR)/tests/test_pci_validation
 
 # ============================================================================
+# ReactOS beep.sys validation (PIT speaker driver)
+# ============================================================================
+
+.PHONY: test-beep-validation
+test-beep-validation: | $(BUILDDIR)
+	@echo "$(CYAN)Testing beep.sys ReactOS validation...$(NC)"
+	@mkdir -p $(BUILDDIR)/tests
+	$(CC) $(CFLAGS) -DTRANSLATOR_NO_MAIN -o $(BUILDDIR)/tests/test_beep_validation \
+		tests/test_beep_validation.c \
+		$(SRCDIR)/main/translator.c \
+		$(SRCDIR)/loaders/pe_loader.c \
+		$(SRCDIR)/loaders/elf_loader.c \
+		$(SRCDIR)/loaders/format_detect.c \
+		$(SRCDIR)/loaders/com_loader.c \
+		$(SRCDIR)/decoders/x86_decoder.c \
+		$(SRCDIR)/ir/uir.c \
+		$(SRCDIR)/ir/semantic.c \
+		$(SRCDIR)/codegen/forth_codegen.c
+	./$(BUILDDIR)/tests/test_beep_validation
+
+# ============================================================================
 # Linux ELF driver validation (ne2k-pci, 8139too, iTCO_wdt, via-rng)
 # ============================================================================
 
@@ -404,7 +425,7 @@ test-com-loader: | $(BUILDDIR)
 
 .PHONY: test test-all
 test: test-all
-test-all: test-pe test-x86 test-cil test-arm64 test-uir test-semantic test-forth-codegen test-pipeline test-16550 test-ghidra-compare test-i8042-validation test-serial-validation test-floppy-validation test-pci-validation test-elf-drivers test-elf test-semantic-report test-format-detect test-com-loader
+test-all: test-pe test-x86 test-cil test-arm64 test-uir test-semantic test-forth-codegen test-pipeline test-16550 test-ghidra-compare test-i8042-validation test-serial-validation test-floppy-validation test-pci-validation test-beep-validation test-elf-drivers test-elf test-semantic-report test-format-detect test-com-loader
 	@echo ""
 	@echo "$(GREEN)All tests passed$(NC)"
 

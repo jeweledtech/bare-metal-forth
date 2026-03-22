@@ -145,7 +145,7 @@ typedef enum {
 
 typedef struct {
     x86_operand_type_t  type;
-    uint8_t             size;       /* 1, 2, or 4 bytes */
+    uint8_t             size;       /* 1, 2, 4, or 8 bytes */
 
     /* REG */
     int8_t              reg;        /* x86_register_t */
@@ -170,7 +170,8 @@ typedef struct {
     x86_operand_t       operands[4];
 
     /* Prefix state */
-    uint8_t             prefixes;       /* Bitmask: REP=1, REPNE=2, LOCK=4, OPSIZE=8, ADDRSIZE=16 */
+    uint8_t             prefixes;       /* Bitmask: REP=1, REPNE=2, LOCK=4, OPSIZE=8, ADDRSIZE=16, REX=32 */
+    uint8_t             rex;            /* Raw REX byte (0x40-0x4F) in 64-bit mode, 0 otherwise */
     x86_cc_t            cc;             /* Condition code for JCC/SETCC */
 } x86_decoded_t;
 
@@ -179,6 +180,7 @@ typedef struct {
 #define X86_PREFIX_LOCK     0x04
 #define X86_PREFIX_OPSIZE   0x08
 #define X86_PREFIX_ADDRSIZE 0x10
+#define X86_PREFIX_REX      0x20
 
 /* ---- Decoder context ---- */
 
