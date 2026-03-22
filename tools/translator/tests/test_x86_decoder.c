@@ -562,6 +562,127 @@ static void test_rep_insb(void) {
     PASS();
 }
 
+/* ---- Two-byte opcode desync recovery ---- */
+
+static void test_multibyte_nop(void) {
+    TEST(multibyte_nop_0F1F);
+    /* 0F 1F 44 00 00 = 5-byte NOP (ModR/M + SIB + disp8) */
+    uint8_t code[] = { 0x0F, 0x1F, 0x44, 0x00, 0x00 };
+    x86_decoded_t d;
+    int n = decode_one(code, sizeof(code), &d);
+    if (n != 5) FAIL("wrong length");
+    if (d.instruction != X86_INS_NOP) FAIL("should be NOP");
+    PASS();
+}
+
+static void test_cmovcc(void) {
+    TEST(cmovcc_0F44);
+    /* 0F 44 C1 = CMOVE EAX, ECX (mod=11, reg=0, rm=1) */
+    uint8_t code[] = { 0x0F, 0x44, 0xC1 };
+    x86_decoded_t d;
+    int n = decode_one(code, sizeof(code), &d);
+    if (n != 3) FAIL("wrong length");
+    if (d.instruction != X86_INS_NOP) FAIL("should be NOP");
+    PASS();
+}
+
+static void test_bt_rm_r(void) {
+    TEST(bt_rm_r_0FA3);
+    /* 0F A3 D8 = BT EAX, EBX (mod=11, reg=3, rm=0) */
+    uint8_t code[] = { 0x0F, 0xA3, 0xD8 };
+    x86_decoded_t d;
+    int n = decode_one(code, sizeof(code), &d);
+    if (n != 3) FAIL("wrong length");
+    if (d.instruction != X86_INS_NOP) FAIL("should be NOP");
+    PASS();
+}
+
+static void test_bt_rm_imm8(void) {
+    TEST(bt_rm_imm8_0FBA);
+    /* 0F BA E0 05 = BT EAX, 5 (mod=11, reg=4, rm=0, imm8=5) */
+    uint8_t code[] = { 0x0F, 0xBA, 0xE0, 0x05 };
+    x86_decoded_t d;
+    int n = decode_one(code, sizeof(code), &d);
+    if (n != 4) FAIL("wrong length");
+    if (d.instruction != X86_INS_NOP) FAIL("should be NOP");
+    PASS();
+}
+
+static void test_cmpxchg(void) {
+    TEST(cmpxchg_0FB1);
+    /* 0F B1 08 = CMPXCHG [EAX], ECX (mod=00, reg=1, rm=0) */
+    uint8_t code[] = { 0x0F, 0xB1, 0x08 };
+    x86_decoded_t d;
+    int n = decode_one(code, sizeof(code), &d);
+    if (n != 3) FAIL("wrong length");
+    if (d.instruction != X86_INS_NOP) FAIL("should be NOP");
+    PASS();
+}
+
+static void test_xadd(void) {
+    TEST(xadd_0FC1);
+    /* 0F C1 C8 = XADD EAX, ECX (mod=11, reg=1, rm=0) */
+    uint8_t code[] = { 0x0F, 0xC1, 0xC8 };
+    x86_decoded_t d;
+    int n = decode_one(code, sizeof(code), &d);
+    if (n != 3) FAIL("wrong length");
+    if (d.instruction != X86_INS_NOP) FAIL("should be NOP");
+    PASS();
+}
+
+static void test_unknown_0f_recovery(void) {
+    TEST(unknown_0f_modrm_recovery);
+    /* 0F 0D C0 = PREFETCH (unknown but has ModR/M) — fallback recovery */
+    uint8_t code[] = { 0x0F, 0x0D, 0xC0 };
+    x86_decoded_t d;
+    int n = decode_one(code, sizeof(code), &d);
+    if (n != 3) FAIL("wrong length — fallback should consume ModR/M");
+    if (d.instruction != X86_INS_NOP) FAIL("should be NOP");
+    PASS();
+}
+
+static void test_desync_recovery(void) {
+    TEST(desync_recovery_BT_then_IN);
+    /* 0F A3 C8  EC = BT EAX,ECX followed by IN AL,DX
+     * Before the fix, BT consumed only 2 bytes, EC was at offset 2
+     * (misinterpreted as part of BT's ModR/M). After the fix, BT
+     * consumes 3 bytes and EC is correctly decoded as IN. */
+    uint8_t code[] = { 0x0F, 0xA3, 0xC8, 0xEC };
+    x86_decoder_t dec;
+    x86_decoder_init(&dec, X86_MODE_32, code, sizeof(code), 0x1000);
+
+    x86_decoded_t d1, d2;
+    int n1 = x86_decode_one(&dec, &d1);
+    int n2 = x86_decode_one(&dec, &d2);
+    if (n1 != 3) FAIL("BT should be 3 bytes");
+    if (d1.instruction != X86_INS_NOP) FAIL("BT should be NOP");
+    if (n2 != 1) FAIL("IN should be 1 byte");
+    if (d2.instruction != X86_INS_IN) FAIL("second instruction should be IN");
+    PASS();
+}
+
+static void test_three_byte_escape_38(void) {
+    TEST(three_byte_0F38);
+    /* 0F 38 00 C1 = PSHUFB xmm0, xmm1 (3-byte escape + ModR/M) */
+    uint8_t code[] = { 0x0F, 0x38, 0x00, 0xC1 };
+    x86_decoded_t d;
+    int n = decode_one(code, sizeof(code), &d);
+    if (n != 4) FAIL("wrong length");
+    if (d.instruction != X86_INS_NOP) FAIL("should be NOP");
+    PASS();
+}
+
+static void test_three_byte_escape_3a(void) {
+    TEST(three_byte_0F3A);
+    /* 0F 3A 0F C1 05 = PALIGNR xmm0, xmm1, 5 (3-byte + ModR/M + imm8) */
+    uint8_t code[] = { 0x0F, 0x3A, 0x0F, 0xC1, 0x05 };
+    x86_decoded_t d;
+    int n = decode_one(code, sizeof(code), &d);
+    if (n != 5) FAIL("wrong length");
+    if (d.instruction != X86_INS_NOP) FAIL("should be NOP");
+    PASS();
+}
+
 int main(void) {
     printf("x86 Decoder Tests\n");
     printf("=================\n");
@@ -604,6 +725,18 @@ int main(void) {
     test_insd();
     test_outsb();
     test_rep_insb();
+
+    /* Two-byte opcode desync recovery tests */
+    test_multibyte_nop();
+    test_cmovcc();
+    test_bt_rm_r();
+    test_bt_rm_imm8();
+    test_cmpxchg();
+    test_xadd();
+    test_unknown_0f_recovery();
+    test_desync_recovery();
+    test_three_byte_escape_38();
+    test_three_byte_escape_3a();
 
     printf("\nResults: %d/%d passed\n", tests_passed, tests_run);
     return tests_passed == tests_run ? 0 : 1;

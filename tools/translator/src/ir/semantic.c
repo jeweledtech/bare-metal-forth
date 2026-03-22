@@ -178,6 +178,7 @@ const size_t SEM_API_TABLE_SIZE =
 sem_category_t sem_classify_import(const char* func_name,
                                     const char** forth_equiv) {
     if (forth_equiv) *forth_equiv = NULL;
+    if (!func_name) return SEM_CAT_UNKNOWN;
 
     for (size_t i = 0; i < SEM_API_TABLE_SIZE; i++) {
         if (strcmp(SEM_API_TABLE[i].name, func_name) == 0) {
@@ -198,9 +199,18 @@ int sem_classify_imports(const sem_pe_import_t* pe_imports, size_t pe_import_cou
 
     for (size_t i = 0; i < pe_import_count; i++) {
         sem_import_t* imp = &result->imports[i];
-        imp->dll_name = strdup(pe_imports[i].dll_name);
-        imp->func_name = strdup(pe_imports[i].func_name);
+        imp->dll_name = pe_imports[i].dll_name ?
+            strdup(pe_imports[i].dll_name) : strdup("(unknown)");
         imp->iat_rva = pe_imports[i].iat_rva;
+
+        /* Ordinal-only imports have no func_name */
+        if (!pe_imports[i].func_name) {
+            imp->func_name = strdup("(ordinal)");
+            imp->category = SEM_CAT_UNKNOWN;
+            continue;
+        }
+
+        imp->func_name = strdup(pe_imports[i].func_name);
         imp->category = sem_classify_import(pe_imports[i].func_name,
                                              &imp->forth_equiv);
         /* Copy signature from API table */
@@ -387,8 +397,8 @@ int sem_discover_functions(const void* decoded_insts, size_t inst_count,
 
     memset(result, 0, sizeof(*result));
 
-    /* Collect candidate entry points (max: exports + calls + prologues) */
-    size_t max_entries = export_count + inst_count + 1;
+    /* Collect candidate entry points (max: exports + calls + prologues + 1) */
+    size_t max_entries = export_count + 2 * inst_count + 1;
     uint64_t* entry_points = malloc(max_entries * sizeof(uint64_t));
     size_t ep_count = 0;
 

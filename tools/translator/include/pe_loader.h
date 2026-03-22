@@ -63,10 +63,19 @@ typedef struct {
     pe_section_t*   sections;
     size_t          section_count;
 
-    /* Convenience: code section */
+    /* Convenience: primary code section (.text) */
     const uint8_t*  text_data;      /* pointer into raw data */
     size_t          text_size;
     uint32_t        text_rva;
+
+    /* All executable code sections (PAGE, INIT, etc.) */
+    struct {
+        const uint8_t*  data;
+        size_t          size;
+        uint32_t        rva;
+        char            name[9];
+    }              *code_sections;
+    size_t          code_section_count;
 
     /* Imports */
     pe_import_t*    imports;

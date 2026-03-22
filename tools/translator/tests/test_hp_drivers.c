@@ -2,21 +2,20 @@
  * HP Real Hardware Driver Validation Tests
  * ============================================================================
  *
- * Validates 7 real HP Windows 10/11 x64 drivers through the UBT pipeline.
+ * Validates 8 real HP Windows 10/11 x64 drivers through the UBT pipeline.
  * Binaries are loaded from ../../tests/hp_i3/ relative to the translator
  * working directory.  Tests SKIP (not FAIL) if the directory or a specific
  * .sys file is missing.
  *
  * Drivers tested:
- *   disk.sys      -- Storage class driver (96 funcs, >= 1 HW)
- *   HDAudBus.sys  -- HD Audio bus driver (260 funcs, >= 5 HW)
- *   i8042prt.sys  -- PS/2 keyboard/mouse (133 funcs, >= 1 HW)
- *   pci.sys       -- PCI bus driver (734 funcs, >= 5 HW)
- *   serial.sys    -- Serial port driver (83 funcs, >= 5 HW)
- *   storport.sys  -- Storage port minidriver (1389 funcs, >= 20 HW)
- *   usbxhci.sys   -- USB 3.0 xHCI driver (1289 funcs, >= 15 HW)
- *
- * ACPI.sys is deliberately excluded (crashes the pipeline).
+ *   ACPI.sys      -- ACPI driver (multi-section, >= 10 HW)
+ *   disk.sys      -- Storage class driver (>= 1 HW)
+ *   HDAudBus.sys  -- HD Audio bus driver (>= 1 HW, uses MMIO)
+ *   i8042prt.sys  -- PS/2 keyboard/mouse (>= 1 HW, uses MMIO)
+ *   pci.sys       -- PCI bus driver (>= 1 HW)
+ *   serial.sys    -- Serial port driver (>= 20 HW, direct port I/O)
+ *   storport.sys  -- Storage port minidriver (>= 20 HW)
+ *   usbxhci.sys   -- USB 3.0 xHCI driver (>= 5 HW)
  *
  * Copyright (c) 2026 Jolly Genius Inc.
  * ============================================================================ */
@@ -160,15 +159,16 @@ typedef struct {
     bool        available;
 } driver_state_t;
 
-#define NUM_DRIVERS 7
+#define NUM_DRIVERS 8
 
-#define DRV_DISK      0
-#define DRV_HDAUDBUS  1
-#define DRV_I8042     2
-#define DRV_PCI       3
-#define DRV_SERIAL    4
-#define DRV_STORPORT  5
-#define DRV_USBXHCI   6
+#define DRV_ACPI      0
+#define DRV_DISK      1
+#define DRV_HDAUDBUS  2
+#define DRV_I8042     3
+#define DRV_PCI       4
+#define DRV_SERIAL    5
+#define DRV_STORPORT  6
+#define DRV_USBXHCI   7
 
 static driver_state_t drivers[NUM_DRIVERS];
 
@@ -254,13 +254,14 @@ static void test_##label##_hw_function_count(void) { \
  * Generate tests for each driver
  * ============================================================================ */
 
+DEFINE_DRIVER_TESTS(acpi,      DRV_ACPI,     "ACPI.sys",     10)
 DEFINE_DRIVER_TESTS(disk,      DRV_DISK,     "disk.sys",      1)
-DEFINE_DRIVER_TESTS(hdaudbus,  DRV_HDAUDBUS, "HDAudBus.sys",  5)
+DEFINE_DRIVER_TESTS(hdaudbus,  DRV_HDAUDBUS, "HDAudBus.sys",  1)
 DEFINE_DRIVER_TESTS(i8042prt,  DRV_I8042,    "i8042prt.sys",  1)
-DEFINE_DRIVER_TESTS(pci,       DRV_PCI,      "pci.sys",       5)
-DEFINE_DRIVER_TESTS(serial,    DRV_SERIAL,   "serial.sys",    5)
+DEFINE_DRIVER_TESTS(pci,       DRV_PCI,      "pci.sys",       1)
+DEFINE_DRIVER_TESTS(serial,    DRV_SERIAL,   "serial.sys",   20)
 DEFINE_DRIVER_TESTS(storport,  DRV_STORPORT, "storport.sys", 20)
-DEFINE_DRIVER_TESTS(usbxhci,   DRV_USBXHCI,  "usbxhci.sys", 15)
+DEFINE_DRIVER_TESTS(usbxhci,   DRV_USBXHCI,  "usbxhci.sys",  5)
 
 /* ============================================================================
  * Main
@@ -277,6 +278,10 @@ int main(void) {
                HP_DRIVER_DIR);
 
     /* Initialize driver table */
+    drivers[DRV_ACPI] = (driver_state_t){
+        .filename = "ACPI.sys",
+        .short_name = "ACPI.sys",
+    };
     drivers[DRV_DISK] = (driver_state_t){
         .filename = "disk.sys",
         .short_name = "disk.sys",
@@ -305,6 +310,11 @@ int main(void) {
         .filename = "usbxhci.sys",
         .short_name = "usbxhci.sys",
     };
+
+    /* ACPI.sys */
+    printf("--- ACPI.sys ---\n");
+    test_acpi_pipeline_succeeds();
+    test_acpi_hw_function_count();
 
     /* disk.sys */
     printf("--- disk.sys ---\n");

@@ -72,11 +72,14 @@ def test_com_has_vocabulary():
     assert 'DEFINITIONS' in stdout, "missing DEFINITIONS"
 
 def test_com_has_requires():
-    """COM output has REQUIRES: HARDWARE dependency."""
+    """COM output with direct port I/O uses INB/OUTB (no REQUIRES)."""
     com_file = os.path.join(FIXTURES, 'test_port_access.com')
     stdout, _, rc = run_translator(['-t', 'forth', com_file])
     assert rc == 0
-    assert 'REQUIRES: HARDWARE' in stdout, "missing REQUIRES: HARDWARE"
+    # COM binaries use direct IN/OUT instructions → kernel INB/OUTB
+    # No REQUIRES: HARDWARE needed (HARDWARE vocab is for HAL wrappers)
+    assert 'INB' in stdout or 'OUTB' in stdout, \
+        "missing INB/OUTB in port I/O output"
 
 def test_com_disasm():
     """COM file produces disassembly output."""

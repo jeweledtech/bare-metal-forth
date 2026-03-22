@@ -842,17 +842,58 @@ static translate_result_t translate_pe(const uint8_t* data, size_t size,
         return result;
     }
 
-    /* ---- Stage 2: Decode x86 instructions ---- */
-    x86_decoder_t dec;
+    /* ---- Stage 2: Decode x86 instructions from ALL code sections ---- */
     x86_mode_t pe_mode = pe.is_64bit ? X86_MODE_64 : X86_MODE_32;
-    x86_decoder_init(&dec, pe_mode, pe.text_data, pe.text_size,
-                     pe.image_base + pe.text_rva);
     size_t inst_count = 0;
-    x86_decoded_t* insts = x86_decode_range(&dec, &inst_count);
+    x86_decoded_t* insts = NULL;
+    size_t inst_cap = 0;
+
+    /* Decode each executable section and merge into one instruction array */
+    size_t sec_count = pe.code_section_count > 0 ?
+        pe.code_section_count : 1;
+    for (size_t s = 0; s < sec_count; s++) {
+        const uint8_t* sec_data;
+        size_t sec_size;
+        uint32_t sec_rva;
+        if (pe.code_section_count > 0) {
+            sec_data = pe.code_sections[s].data;
+            sec_size = pe.code_sections[s].size;
+            sec_rva = pe.code_sections[s].rva;
+        } else {
+            sec_data = pe.text_data;
+            sec_size = pe.text_size;
+            sec_rva = pe.text_rva;
+        }
+
+        x86_decoder_t dec;
+        x86_decoder_init(&dec, pe_mode, sec_data, sec_size,
+                         pe.image_base + sec_rva);
+        size_t sec_inst_count = 0;
+        x86_decoded_t* sec_insts = x86_decode_range(&dec, &sec_inst_count);
+        if (!sec_insts || sec_inst_count == 0) {
+            free(sec_insts);
+            continue;
+        }
+
+        /* Merge into combined array */
+        if (inst_count + sec_inst_count > inst_cap) {
+            inst_cap = (inst_count + sec_inst_count) * 2;
+            x86_decoded_t* tmp = realloc(insts,
+                inst_cap * sizeof(x86_decoded_t));
+            if (!tmp) { free(sec_insts); free(insts); insts = NULL; break; }
+            insts = tmp;
+        }
+        memcpy(insts + inst_count, sec_insts,
+               sec_inst_count * sizeof(x86_decoded_t));
+        inst_count += sec_inst_count;
+        free(sec_insts);
+    }
+
     if (!insts || inst_count == 0) {
+        free(insts);
         pe_cleanup(&pe);
         result.success = false;
-        result.error_message = strdup("No instructions decoded from .text section");
+        result.error_message = strdup("No instructions decoded from code sections");
         return result;
     }
 
@@ -873,8 +914,15 @@ static translate_result_t translate_pe(const uint8_t* data, size_t size,
     }
 
     /* ---- Stage 3: Discover function boundaries ---- */
+    /* Compute code range spanning all executable sections */
     uint64_t text_base = pe.image_base + pe.text_rva;
     uint64_t text_end = text_base + pe.text_size;
+    for (size_t s = 0; s < pe.code_section_count; s++) {
+        uint64_t sb = pe.image_base + pe.code_sections[s].rva;
+        uint64_t se = sb + pe.code_sections[s].size;
+        if (sb < text_base) text_base = sb;
+        if (se > text_end) text_end = se;
+    }
 
     /* Build function entry points from PE exports + .pdata boundaries */
     size_t total_entries = pe.export_count + pe.func_boundary_count;

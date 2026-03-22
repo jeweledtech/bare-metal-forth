@@ -116,6 +116,27 @@ static int parse_sections(pe_context_t* ctx, size_t section_table_offset,
             }
         }
 
+        /* Collect all executable code sections */
+        if ((sh->characteristics & SECTION_CNT_CODE) &&
+            (sh->characteristics & SECTION_MEM_EXECUTE)) {
+            uint32_t sec_size = sh->virtual_size;
+            if (sec_size == 0 || sec_size > sh->size_of_raw_data)
+                sec_size = sh->size_of_raw_data;
+            if (sec_size > 0 &&
+                bounds_check(ctx->data_size,
+                             sh->pointer_to_raw_data, sec_size)) {
+                size_t idx = ctx->code_section_count++;
+                ctx->code_sections = realloc(ctx->code_sections,
+                    ctx->code_section_count *
+                    sizeof(*ctx->code_sections));
+                ctx->code_sections[idx].data =
+                    ctx->data + sh->pointer_to_raw_data;
+                ctx->code_sections[idx].size = sec_size;
+                ctx->code_sections[idx].rva = sh->virtual_address;
+                memcpy(ctx->code_sections[idx].name, s->name, 9);
+            }
+        }
+
         /* Parse .pdata for 64-bit function boundaries */
         if (ctx->is_64bit && memcmp(s->name, ".pdata", 6) == 0 &&
             !ctx->func_boundaries) {
@@ -436,6 +457,11 @@ void pe_cleanup(pe_context_t* ctx) {
         free(ctx->func_boundaries);
         ctx->func_boundaries = NULL;
     }
+    if (ctx->code_sections) {
+        free(ctx->code_sections);
+        ctx->code_sections = NULL;
+    }
+    ctx->code_section_count = 0;
     ctx->func_boundary_count = 0;
     ctx->text_data = NULL;
     ctx->text_size = 0;

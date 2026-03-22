@@ -978,9 +978,201 @@ int x86_decode_one(x86_decoder_t* dec, x86_decoded_t* out) {
             break;
         }
 
-        default:
-            out->instruction = X86_INS_UNKNOWN;
+        /* Multi-byte NOP (0F 1F /0) */
+        case 0x1F:
+            decode_modrm(dec, &out->operands[0], &reg, op_size);
+            out->instruction = X86_INS_NOP;
             break;
+
+        /* CMOVcc (0F 40 - 0F 4F) */
+        case 0x40: case 0x41: case 0x42: case 0x43:
+        case 0x44: case 0x45: case 0x46: case 0x47:
+        case 0x48: case 0x49: case 0x4A: case 0x4B:
+        case 0x4C: case 0x4D: case 0x4E: case 0x4F: {
+            out->instruction = X86_INS_NOP;
+            out->operand_count = 2;
+            decode_modrm(dec, &out->operands[1], &reg, op_size);
+            out->operands[0].type = X86_OP_REG;
+            out->operands[0].reg = reg;
+            out->operands[0].size = op_size;
+            break;
+        }
+
+        /* BT r/m, r (0F A3) */
+        case 0xA3:
+        /* BTS r/m, r (0F AB) */
+        case 0xAB:
+        /* BTR r/m, r (0F B3) */
+        case 0xB3:
+        /* BSF (0F BC), BSR (0F BD) */
+        case 0xBC: case 0xBD:
+            decode_modrm(dec, &out->operands[0], &reg, op_size);
+            out->instruction = X86_INS_NOP;
+            break;
+
+        /* BT/BTS/BTR/BTC r/m, imm8 — Group 8 (0F BA) */
+        case 0xBA:
+            decode_modrm(dec, &out->operands[0], &reg, op_size);
+            if (has_bytes(dec, 1)) eat(dec); /* imm8 */
+            out->instruction = X86_INS_NOP;
+            break;
+
+        /* CMPXCHG r/m8, r8 (0F B0) */
+        case 0xB0:
+            decode_modrm(dec, &out->operands[0], &reg, 1);
+            out->instruction = X86_INS_NOP;
+            break;
+        /* CMPXCHG r/m, r (0F B1) */
+        case 0xB1:
+            decode_modrm(dec, &out->operands[0], &reg, op_size);
+            out->instruction = X86_INS_NOP;
+            break;
+
+        /* XADD r/m8 (0F C0), XADD r/m (0F C1) */
+        case 0xC0:
+            decode_modrm(dec, &out->operands[0], &reg, 1);
+            out->instruction = X86_INS_NOP;
+            break;
+        case 0xC1:
+            decode_modrm(dec, &out->operands[0], &reg, op_size);
+            out->instruction = X86_INS_NOP;
+            break;
+
+        /* SSE: MOVUPS (0F 10/11), MOVAPS (0F 28/29),
+         * UCOMISS (0F 2E), COMISS (0F 2F) — all ModR/M */
+        case 0x10: case 0x11:
+        case 0x28: case 0x29:
+        case 0x2E: case 0x2F:
+        /* MOVSD/MOVSS with F2/F3 prefix also use these opcodes */
+        case 0x12: case 0x13: case 0x14: case 0x15:
+        case 0x16: case 0x17:
+        /* SSE compare/shuffle/convert */
+        case 0x2A: case 0x2B: case 0x2C: case 0x2D:
+        case 0x51: case 0x52: case 0x53: case 0x54:
+        case 0x55: case 0x56: case 0x57: case 0x58:
+        case 0x59: case 0x5A: case 0x5B: case 0x5C:
+        case 0x5D: case 0x5E: case 0x5F:
+        /* SSE compare (0F C2) */
+        case 0xC2:
+        /* SSE pack/unpack/shift */
+        case 0x60: case 0x61: case 0x62: case 0x63:
+        case 0x64: case 0x65: case 0x66: case 0x67:
+        case 0x68: case 0x69: case 0x6A: case 0x6B:
+        case 0x6C: case 0x6D: case 0x6E: case 0x6F:
+        case 0x70:
+        case 0x74: case 0x75: case 0x76:
+        case 0x7C: case 0x7D: case 0x7E: case 0x7F:
+        /* SSE/MMX shift imm (0F 71-73) — group, ModR/M + imm8 handled below */
+        /* MOVD/MOVQ (0F D6, 0F E7) and packed ops */
+        case 0xD0: case 0xD1: case 0xD2: case 0xD3:
+        case 0xD4: case 0xD5: case 0xD6: case 0xD7:
+        case 0xD8: case 0xD9: case 0xDA: case 0xDB:
+        case 0xDC: case 0xDD: case 0xDE: case 0xDF:
+        case 0xE0: case 0xE1: case 0xE2: case 0xE3:
+        case 0xE4: case 0xE5: case 0xE6: case 0xE7:
+        case 0xE8: case 0xE9: case 0xEA: case 0xEB:
+        case 0xEC: case 0xED: case 0xEE: case 0xEF:
+        case 0xF1: case 0xF2: case 0xF3: case 0xF4:
+        case 0xF5: case 0xF6: case 0xF7: case 0xF8:
+        case 0xF9: case 0xFA: case 0xFB: case 0xFC:
+        case 0xFD: case 0xFE:
+            decode_modrm(dec, &out->operands[0], &reg, op_size);
+            out->instruction = X86_INS_NOP;
+            break;
+
+        /* SSE shift-imm groups (0F 71-73): ModR/M + imm8 */
+        case 0x71: case 0x72: case 0x73:
+            decode_modrm(dec, &out->operands[0], &reg, op_size);
+            if (has_bytes(dec, 1)) eat(dec); /* imm8 */
+            out->instruction = X86_INS_NOP;
+            break;
+
+        /* SHUFPS/SHUFPD (0F C6): ModR/M + imm8 */
+        case 0xC6:
+            decode_modrm(dec, &out->operands[0], &reg, op_size);
+            if (has_bytes(dec, 1)) eat(dec); /* imm8 */
+            out->instruction = X86_INS_NOP;
+            break;
+
+        /* Three-byte escape: 0F 38 XX (SSE4/AVX) — ModR/M */
+        case 0x38: {
+            if (!has_bytes(dec, 1)) { out->instruction = X86_INS_NOP; break; }
+            eat(dec); /* third opcode byte */
+            if (has_bytes(dec, 1))
+                decode_modrm(dec, &out->operands[0], &reg, op_size);
+            out->instruction = X86_INS_NOP;
+            break;
+        }
+
+        /* Three-byte escape: 0F 3A XX (SSE4/AVX) — ModR/M + imm8 */
+        case 0x3A: {
+            if (!has_bytes(dec, 1)) { out->instruction = X86_INS_NOP; break; }
+            eat(dec); /* third opcode byte */
+            if (has_bytes(dec, 1))
+                decode_modrm(dec, &out->operands[0], &reg, op_size);
+            if (has_bytes(dec, 1)) eat(dec); /* imm8 */
+            out->instruction = X86_INS_NOP;
+            break;
+        }
+
+        /* System instructions with ModR/M */
+        case 0x00: /* SLDT/STR/LLDT/LTR/VERR/VERW — Group 6 */
+        case 0x01: /* SGDT/SIDT/LGDT/LIDT/SMSW/LMSW/INVLPG — Group 7 */
+        case 0x18: case 0x19: case 0x1A: case 0x1B:
+        case 0x1C: case 0x1D: case 0x1E: /* Prefetch/NOP hints */
+        case 0x0D: /* PREFETCH (3DNow!) */
+        case 0x20: case 0x21: /* MOV from/to control regs */
+        case 0x22: case 0x23: /* MOV from/to debug regs */
+        case 0xA4: case 0xA5: /* SHLD */
+        case 0xAC: case 0xAD: /* SHRD */
+        case 0xAE: /* FXSAVE/FXRSTOR/LDMXCSR/STMXCSR/XSAVE/etc — Group 15 */
+        case 0xA2: /* CPUID — actually no ModR/M, handle below */
+        case 0xB2: /* LSS */
+        case 0xB4: /* LFS */
+        case 0xB5: /* LGS */
+        case 0xC3: /* MOVNTI */
+        case 0xC7: /* CMPXCHG8B/CMPXCHG16B — Group 9 */
+            if (op2 == 0xA2) {
+                /* CPUID has no ModR/M */
+                out->instruction = X86_INS_NOP;
+                break;
+            }
+            decode_modrm(dec, &out->operands[0], &reg, op_size);
+            /* SHLD/SHRD with imm8 (0F A4, 0F AC) */
+            if (op2 == 0xA4 || op2 == 0xAC) {
+                if (has_bytes(dec, 1)) eat(dec); /* imm8 */
+            }
+            out->instruction = X86_INS_NOP;
+            break;
+
+        default: {
+            /* Fallback: consume ModR/M for most unknown 0F XX opcodes
+             * to maintain decoder synchronization. */
+            bool no_modrm = false;
+            switch (op2) {
+            case 0x05: case 0x06: case 0x07: /* SYSCALL/CLTS/SYSRET */
+            case 0x08: case 0x09:             /* INVD/WBINVD */
+            case 0x0A:                        /* (reserved) */
+            case 0x0B:                        /* UD2 */
+            case 0x0E:                        /* FEMMS */
+            case 0x30: case 0x31: case 0x32: /* WRMSR/RDTSC/RDMSR */
+            case 0x33:                        /* RDPMC */
+            case 0x34: case 0x35:             /* SYSENTER/SYSEXIT */
+            case 0x37:                        /* GETSEC */
+            case 0x77:                        /* EMMS */
+            case 0xA0: case 0xA1:             /* PUSH/POP FS */
+            case 0xA8: case 0xA9:             /* PUSH/POP GS */
+            case 0xC8: case 0xC9: case 0xCA: case 0xCB:
+            case 0xCC: case 0xCD: case 0xCE: case 0xCF: /* BSWAP r */
+                no_modrm = true;
+                break;
+            }
+            if (!no_modrm && has_bytes(dec, 1)) {
+                decode_modrm(dec, &out->operands[0], &reg, op_size);
+            }
+            out->instruction = X86_INS_NOP;
+            break;
+        }
         }
         break;
     }
