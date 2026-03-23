@@ -11,6 +11,11 @@
 ;
 ; Boot sequence: BIOS -> boot.asm -> forth.asm
 ;
+; Disk read strategy:
+;   First try INT 13h AH=42h (EDD/LBA) - works with memdisk harddisk + modern BIOS.
+;   Fallback: query geometry (AH=08h), then read one sector at a time with
+;   LBA-to-CHS conversion. Works with ANY geometry including memdisk's 65/1/1.
+;
 ; Memory Map:
 ;   0x0000:0x7C00  - Bootloader (512 bytes, this file)
 ;   0x0000:0x7E00  - Kernel load address (32KB)
@@ -47,17 +52,65 @@ start:
     mov si, msg_boot
     call print_string
 
-    ; Load kernel from disk — single BIOS call
-    ; INT 13h AH=02: Read sectors
-    mov ah, 0x02
-    mov al, KERNEL_SECTORS      ; Number of sectors to read
-    mov bx, KERNEL_OFFSET       ; ES:BX = destination buffer
-    mov ch, 0                   ; Cylinder 0
-    mov cl, 2                   ; Start at sector 2 (sector 1 = boot)
-    mov dh, 0                   ; Head 0
-    mov dl, [boot_drive]        ; Drive number
+    ; Load kernel from disk
+    ; Try EDD/LBA first (works with memdisk harddisk mode + modern BIOS)
+    mov ah, 0x42                ; Extended Read
+    mov dl, [boot_drive]
+    mov si, dap
     int 0x13
-    jc disk_error               ; Carry flag = error
+    jnc .read_ok                ; Success — skip CHS fallback
+
+    ; CHS fallback: query geometry, read one sector at a time
+    ; This handles ANY geometry including memdisk's 65/1/1 (1 sector/track)
+    mov ah, 0x08                ; Get Drive Parameters
+    mov dl, [boot_drive]
+    xor di, di                  ; ES:DI = 0 (some BIOSes require this)
+    int 0x13
+    jc disk_error
+    ; Restore ES — AH=08h sets ES:DI to drive parameter table
+    push cx                     ; save geometry CL
+    xor ax, ax
+    mov es, ax
+    pop cx
+    and cl, 0x3F                ; SPT = max_sector & 0x3F
+    mov [var_spt], cl
+    inc dh                      ; num_heads = max_head + 1
+    mov [var_heads], dh
+
+    mov bx, KERNEL_OFFSET       ; ES:BX = destination buffer
+    mov word [var_lba], 1       ; start at LBA 1 (second sector)
+    mov cx, KERNEL_SECTORS      ; 64 sectors to read
+
+.chs_loop:
+    push cx
+    push bx
+
+    ; LBA-to-CHS conversion
+    mov ax, [var_lba]
+    xor dx, dx
+    movzx cx, byte [var_spt]
+    div cx                      ; AX = LBA/SPT, DX = LBA%SPT
+    push dx                     ; save sector remainder
+    xor dx, dx
+    movzx cx, byte [var_heads]
+    div cx                      ; AX = cylinder, DX = head
+    mov ch, al                  ; CH = cylinder low 8 bits
+    mov dh, dl                  ; DH = head
+    pop ax                      ; AX = sector remainder
+    inc al
+    mov cl, al                  ; CL = sector (1-indexed)
+
+    pop bx                      ; restore buffer pointer
+    mov ax, 0x0201              ; AH=02 read, AL=1 sector
+    mov dl, [boot_drive]
+    int 0x13
+    jc disk_error
+
+    add bx, 512
+    inc word [var_lba]
+    pop cx
+    loop .chs_loop
+.read_ok:
 
     ; Enable A20 line
     call enable_a20
@@ -194,8 +247,21 @@ DATA_SEG equ gdt_data - gdt_start
 ; ============================================================================
 
 boot_drive:     db 0
+var_spt:        db 0                    ; sectors per track (from INT 13h AH=08h)
+var_heads:      db 0                    ; number of heads
+var_lba:        dw 0                    ; current LBA sector number
 msg_boot:       db 'BMForth v0.1', 13, 10, 0
 msg_err:        db 'DISK ERR', 0
+
+; Disk Address Packet for INT 13h AH=42h (EDD/LBA Extended Read)
+dap:
+    db 16                       ; DAP size (16 bytes)
+    db 0                        ; reserved
+    dw KERNEL_SECTORS           ; number of sectors to read
+    dw KERNEL_OFFSET            ; destination offset
+    dw 0                        ; destination segment
+    dd 1                        ; LBA start (sector 1 = second sector, 0-indexed)
+    dd 0                        ; LBA high dword (zero for small disks)
 
 ; ============================================================================
 ; Boot Signature
