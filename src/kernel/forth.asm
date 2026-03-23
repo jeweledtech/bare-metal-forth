@@ -209,8 +209,22 @@ kernel_start:
     call init_idt                   ; Build IDT, load IDTR
     sti                             ; Enable interrupts (all IRQs still masked)
 
+    ; Unmask IRQ0 (timer) + IRQ1 (keyboard)
+    ; Timer needed so hlt in read_key wakes periodically for serial polling
+    in al, PIC1_DATA
+    and al, ~0x03                   ; Clear bits 0+1 = unmask IRQ0 + IRQ1
+    out PIC1_DATA, al
+
     ; Clear screen
     call init_screen
+
+    ; Initialize 8042 keyboard controller (needed on real hardware)
+    call kbd_init_8042
+
+    ; Drain any scancodes captured during init
+    mov dword [kb_ring_count], 0
+    mov eax, [kb_ring_head]
+    mov [kb_ring_tail], eax
 
     ; Print welcome message
     mov esi, msg_welcome
@@ -2673,6 +2687,19 @@ DEFVAR "MOUSE-BTN-VAR", MOUSE_BTN_VAR, mouse_btn
 init_serial:
     push eax
     push edx
+    ; Probe COM1: write scratch register, read back. If mismatch, no UART.
+    mov dx, COM1_PORT + 7   ; Scratch register
+    mov al, 0xA5
+    out dx, al
+    in al, dx
+    cmp al, 0xA5
+    je .com1_found
+    mov byte [serial_present], 0
+    pop edx
+    pop eax
+    ret
+.com1_found:
+    mov byte [serial_present], 1
     mov dx, COM1_PORT + 1
     xor al, al
     out dx, al              ; Disable interrupts
@@ -2697,6 +2724,171 @@ init_serial:
     pop edx
     pop eax
     ret
+
+; ----------------------------------------------------------------------------
+; kbd_init_8042 - Explicitly initialize the 8042 keyboard controller
+; Needed on some hardware where CSM/GRUB transition disables the keyboard
+; ----------------------------------------------------------------------------
+kbd_init_8042:
+    pushad
+    cli                     ; Prevent ISR from consuming 8042 responses
+
+    ; Flush any pending data from 8042 output buffer
+.flush:
+    in al, 0x64
+    test al, 1              ; OBF set?
+    jz .flushed
+    in al, 0x60             ; Read and discard
+    jmp .flush
+.flushed:
+
+    ; Disable keyboard interface during configuration
+    call .wait_input
+    mov al, 0xAD             ; Disable keyboard
+    out 0x64, al
+
+    ; Read current controller command byte
+    call .wait_input
+    mov al, 0x20             ; Read command byte
+    out 0x64, al
+    call .wait_output
+    in al, 0x60             ; Get command byte
+    mov bl, al              ; Save it
+
+    ; Write new command byte: enable keyboard interrupt, enable keyboard, scancode translation ON
+    call .wait_input
+    mov al, 0x60             ; Write command byte
+    out 0x64, al
+    call .wait_input
+    mov al, bl
+    or al, 0x01             ; Bit 0: enable keyboard interrupt (IRQ1)
+    or al, 0x40             ; Bit 6: scancode translation (set 2 → set 1)
+    and al, ~0x10           ; Bit 4: clear = keyboard interface enabled
+    out 0x60, al
+
+    ; Re-enable keyboard interface
+    call .wait_input
+    mov al, 0xAE             ; Enable keyboard
+    out 0x64, al
+
+    ; Reset keyboard (0xFF) — triggers re-initialization on real hardware
+    call .wait_input
+    mov al, 0xFF
+    out 0x60, al
+
+    ; Wait for ACK (0xFA) for reset
+    mov ecx, 0x20000000
+.wait_reset_ack:
+    in al, 0x64
+    test al, 1
+    jnz .got_reset_ack
+    dec ecx
+    jnz .wait_reset_ack
+    jmp .send_enable        ; Timeout — try enable scanning anyway
+.got_reset_ack:
+    in al, 0x60             ; Consume ACK (0xFA)
+
+    ; Wait for self-test result (0xAA) — can take up to 750ms
+    mov ecx, 0x40000000
+.wait_bat:
+    in al, 0x64
+    test al, 1
+    jnz .got_bat
+    dec ecx
+    jnz .wait_bat
+    jmp .send_enable        ; Timeout — proceed anyway
+.got_bat:
+    in al, 0x60             ; Consume self-test result (0xAA)
+
+.send_enable:
+    ; Send 0xF4 (Enable Scanning) — required after reset
+    call .wait_input
+    mov al, 0xF4
+    out 0x60, al
+
+    ; Wait for ACK
+    mov ecx, 0x20000000
+.wait_f4_ack:
+    in al, 0x64
+    test al, 1
+    jnz .got_f4_ack
+    dec ecx
+    jnz .wait_f4_ack
+    jmp .init_done          ; Timeout — proceed
+.got_f4_ack:
+    in al, 0x60             ; Consume ACK
+
+.init_done:
+    sti                     ; Re-enable interrupts after init complete
+    popad
+    ret
+
+.wait_input:
+    ; Wait for 8042 input buffer empty (bit 1 of port 0x64 clear)
+    push ecx
+    mov ecx, 0x10000
+.wi_loop:
+    in al, 0x64
+    test al, 2
+    jz .wi_done
+    dec ecx
+    jnz .wi_loop
+.wi_done:
+    pop ecx
+    ret
+
+.wait_output:
+    ; Wait for 8042 output buffer full (bit 0 of port 0x64 set)
+    push ecx
+    mov ecx, 0x10000
+.wo_loop:
+    in al, 0x64
+    test al, 1
+    jnz .wo_done
+    dec ecx
+    jnz .wo_loop
+.wo_done:
+    pop ecx
+    ret
+
+
+; ----------------------------------------------------------------------------
+; print_hex_byte - Print AL as 2 hex digits to VGA
+; ----------------------------------------------------------------------------
+print_hex_byte:
+    push eax
+    push ecx
+    mov cl, al              ; save byte
+    shr al, 4              ; high nibble
+    call .nibble
+    mov al, cl             ; low nibble
+    and al, 0x0F
+    call .nibble
+    pop ecx
+    pop eax
+    ret
+.nibble:
+    add al, '0'
+    cmp al, '9'
+    jle .digit
+    add al, 7              ; 'A'-'9'-1
+.digit:
+    call print_char
+    ret
+
+; ----------------------------------------------------------------------------
+; print_hex_word - Print AX as 4 hex digits to VGA
+; ----------------------------------------------------------------------------
+print_hex_word:
+    push eax
+    push eax
+    shr eax, 8
+    call print_hex_byte     ; high byte
+    pop eax
+    call print_hex_byte     ; low byte
+    pop eax
+    ret
+
 
 ; ----------------------------------------------------------------------------
 ; init_pic - Remap PIC and mask all IRQs
@@ -2933,6 +3125,8 @@ isr_mouse:
 ; serial_putchar - Write character in AL to serial port
 ; ----------------------------------------------------------------------------
 serial_putchar:
+    cmp byte [serial_present], 0
+    je .skip                ; No COM1 — don't touch serial ports
     push edx
     push eax
     mov dx, COM1_PORT + 5
@@ -2944,6 +3138,7 @@ serial_putchar:
     mov dx, COM1_PORT
     out dx, al
     pop edx
+.skip:
     ret
 
 ; ----------------------------------------------------------------------------
@@ -2952,18 +3147,21 @@ serial_putchar:
 ; (Previously used ZF which broke on NULL characters)
 ; ----------------------------------------------------------------------------
 serial_getchar:
+    cmp byte [serial_present], 0
+    je .no_data             ; No COM1 hardware — skip
     push edx
     mov dx, COM1_PORT + 5
     in al, dx
     test al, 1              ; Data ready?
-    jz .no_data
+    jz .no_data_pop
     mov dx, COM1_PORT
     in al, dx
     pop edx
     clc                     ; CF=0: data available
     ret
-.no_data:
+.no_data_pop:
     pop edx
+.no_data:
     stc                     ; CF=1: no data
     ret
 
@@ -3265,7 +3463,7 @@ read_key:
     push ebx
 
 .wait:
-    ; Check serial port first (for QEMU -nographic mode)
+    ; Check serial port first (for QEMU testing)
     call serial_getchar
     jc .try_kbd             ; CF set = no serial data
     ; Got serial character in AL
@@ -3275,12 +3473,27 @@ read_key:
     ret
 
 .try_kbd:
-    ; Check PS/2 keyboard controller
-    in al, 0x64             ; Read status
-    test al, 1              ; Data available?
-    jz .wait                ; Neither serial nor kbd ready, loop
+    ; Check keyboard ring buffer (filled by IRQ1 ISR)
+    cmp dword [kb_ring_count], 0
+    jne .read_ring
+    hlt                     ; Sleep until interrupt (timer/keyboard)
+    jmp .wait
 
-    in al, 0x60             ; Read scancode
+.read_ring:
+    ; Read scancode from ring buffer
+    push edi
+    mov edi, [kb_ring_tail]
+    movzx eax, byte [kb_ring_buf + edi]
+    inc edi
+    cmp edi, KB_RING_SIZE
+    jb .no_wrap
+    xor edi, edi
+.no_wrap:
+    mov [kb_ring_tail], edi
+    dec dword [kb_ring_count]
+    pop edi
+
+.got_scancode:
 
     ; Track Ctrl key state (scancode 0x1D = press, 0x9D = release)
     cmp al, 0x1D
@@ -3288,9 +3501,9 @@ read_key:
     cmp al, 0x9D
     je .ctrl_release
 
-    ; Key release? (bit 7 set = release)
+    ; Key release? (bit 7 set = release, unsigned >= 0x80)
     cmp al, 0x80
-    jge .wait
+    jae .wait
 
     ; Check for Ctrl+C: Ctrl held + 'c' scancode (0x2E)
     cmp byte [ctrl_held], 0
@@ -3299,7 +3512,7 @@ read_key:
     je .ctrl_c
 
 .normal_key:
-    ; Check for shift state for uppercase letters
+    ; Look up ASCII from scancode table
     movzx ebx, al
     mov al, [scancode_to_ascii + ebx]
     test al, al
@@ -4193,6 +4406,7 @@ cursor_y:       dd 0
 
 ; Ctrl+C break handler state
 ctrl_held:      db 0                ; 1 = Ctrl key currently pressed
+serial_present: db 1                ; 0 = no COM1 hardware (set by init_serial probe)
 break_flag:     db 0                ; 1 = Ctrl+C detected, pending break
                 align 4
 save_esp:       dd 0                ; Snapshot: data stack pointer
