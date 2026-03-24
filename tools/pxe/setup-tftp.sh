@@ -15,7 +15,7 @@ sudo mkdir -p "$TFTP_ROOT/pxelinux.cfg"
 # Copy pxelinux bootloader and memdisk
 sudo cp /usr/lib/PXELINUX/pxelinux.0 "$TFTP_ROOT/"
 sudo cp /usr/lib/syslinux/modules/bios/ldlinux.c32 "$TFTP_ROOT/"
-sudo cp /usr/lib/syslinux/modules/bios/memdisk "$TFTP_ROOT/"
+sudo cp /usr/lib/syslinux/memdisk "$TFTP_ROOT/"
 
 # Configure tftpd-hpa
 sudo tee /etc/default/tftpd-hpa > /dev/null <<EOF
