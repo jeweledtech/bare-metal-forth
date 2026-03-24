@@ -134,6 +134,13 @@ F_IMMEDIATE         equ 0x80        ; Immediate word
 F_HIDDEN            equ 0x40        ; Hidden from FIND
 F_LENMASK           equ 0x3F        ; Length mask
 
+; ECHOPORT trace buffer
+TRACE_BUF_SIZE      equ 256         ; 256 entries (power of 2 for masking)
+TRACE_ENTRY_SZ      equ 12          ; 12 bytes per entry
+; Entry: [type:1][pad:1][port:2][value:4][caller:4]
+; Types: 0=INB 1=OUTB 2=INW 3=OUTW 4=INL 5=OUTL
+; caller = ESI (Forth IP) at time of I/O — points into calling word
+
 ; ============================================================================
 ; Threaded Code Interpreter Macros
 ; ============================================================================
@@ -157,6 +164,31 @@ F_LENMASK           equ 0x3F        ; Length mask
     add ebp, 4
 %endmacro
 
+; TRACE_PORT - Log a port I/O operation to trace ring buffer
+; %1 = type byte (0-5), expects port in DX, value in EAX, caller in ESI
+%macro TRACE_PORT 1
+    cmp byte [trace_enabled], 0
+    je %%skip
+    push edi
+    push ebx
+    mov edi, [trace_head]
+    mov ebx, edi
+    and ebx, (TRACE_BUF_SIZE - 1)
+    imul ebx, TRACE_ENTRY_SZ
+    add ebx, trace_buf
+    mov byte [ebx], %1             ; type
+    mov byte [ebx+1], 0            ; pad
+    mov [ebx+2], dx                ; port
+    mov [ebx+4], eax               ; value
+    mov [ebx+8], esi               ; caller (Forth IP)
+    inc edi
+    mov [trace_head], edi
+    inc dword [trace_count]
+    pop ebx
+    pop edi
+%%skip:
+%endmacro
+
 ; ============================================================================
 ; Kernel Entry Point
 ; ============================================================================
@@ -175,7 +207,7 @@ kernel_start:
     ; Initialize variables
     mov dword [VAR_STATE], 0
     mov dword [VAR_HERE], DICT_START
-    mov dword [VAR_LATEST], name_MORE_LINES_VAR ; Last built-in word
+    mov dword [VAR_LATEST], name_TRACE_BUF_SIZE_W ; Last built-in word
     mov dword [VAR_BASE], 10
     mov dword [VAR_TIB], TIB_START
     mov dword [VAR_TOIN], 0
@@ -199,7 +231,7 @@ kernel_start:
     mov byte [BLK_BUF_GUARD], 0
 
     ; Initialize vocabulary / search order
-    mov dword [VAR_FORTH_LATEST], name_MORE_LINES_VAR ; FORTH vocab starts same as LATEST
+    mov dword [VAR_FORTH_LATEST], name_TRACE_BUF_SIZE_W ; FORTH vocab starts same as LATEST
     mov dword [VAR_SEARCH_DEPTH], 1
     mov dword [VAR_SEARCH_ORDER], VAR_FORTH_LATEST  ; Addr of FORTH's LATEST cell
     mov dword [VAR_CURRENT], VAR_FORTH_LATEST       ; New defs go into FORTH
@@ -888,6 +920,7 @@ DEFCODE "INB", INB, 0       ; ( port -- byte )
     pop edx
     xor eax, eax
     in al, dx
+    TRACE_PORT 0                ; type=INB, port=DX, val=EAX
     push eax
     NEXT
 
@@ -895,30 +928,35 @@ DEFCODE "INW", INW, 0       ; ( port -- word )
     pop edx
     xor eax, eax
     in ax, dx
+    TRACE_PORT 2                ; type=INW
     push eax
     NEXT
 
 DEFCODE "INL", INL, 0       ; ( port -- dword )
     pop edx
     in eax, dx
+    TRACE_PORT 4                ; type=INL
     push eax
     NEXT
 
 DEFCODE "OUTB", OUTB, 0     ; ( byte port -- )
     pop edx
     pop eax
+    TRACE_PORT 1                ; type=OUTB, before write
     out dx, al
     NEXT
 
 DEFCODE "OUTW", OUTW, 0     ; ( word port -- )
     pop edx
     pop eax
+    TRACE_PORT 3                ; type=OUTW
     out dx, ax
     NEXT
 
 DEFCODE "OUTL", OUTL, 0     ; ( dword port -- )
     pop edx
     pop eax
+    TRACE_PORT 5                ; type=OUTL
     out dx, eax
     NEXT
 
@@ -2705,6 +2743,31 @@ DEFCODE "MORE-OFF", MORE_OFF, 0
 
 ; MORE-LINES - ( -- addr ) Variable: current line count
 DEFVAR "MORE-LINES", MORE_LINES_VAR, more_lines
+
+; ECHOPORT kernel trace variables
+DEFCODE "TRACE-ENABLED", TRACE_ENABLED_W, 0  ; ( -- addr )
+    push trace_enabled
+    NEXT
+
+DEFCODE "TRACE-HEAD", TRACE_HEAD_W, 0       ; ( -- addr )
+    push trace_head
+    NEXT
+
+DEFCODE "TRACE-COUNT", TRACE_COUNT_W, 0     ; ( -- addr )
+    push trace_count
+    NEXT
+
+DEFCODE "TRACE-BUF", TRACE_BUF_W, 0         ; ( -- addr )
+    push trace_buf
+    NEXT
+
+DEFCODE "TRACE-ENTRY-SZ", TRACE_ENTRY_SZ_W, 0  ; ( -- n )
+    push TRACE_ENTRY_SZ
+    NEXT
+
+DEFCODE "TRACE-BUF-SIZE", TRACE_BUF_SIZE_W, 0  ; ( -- n )
+    push TRACE_BUF_SIZE
+    NEXT
 
 ; ============================================================================
 ; Low-Level Support Routines
@@ -4526,6 +4589,13 @@ mouse_btn:          dd 0            ; Button state (low 3 bits)
 more_enabled:       db 0            ; 0 = off (default), 1 = on
                     align 4
 more_lines:         dd 0            ; Lines printed since last pause
+
+; ECHOPORT trace state
+trace_enabled:      db 0            ; 0 = off, 1 = on
+                    align 4
+trace_head:         dd 0            ; Next write index (wraps via AND mask)
+trace_count:        dd 0            ; Total entries logged (may exceed BUF_SIZE)
+trace_buf:          times (TRACE_BUF_SIZE * TRACE_ENTRY_SZ) db 0
 
 ; ============================================================================
 ; Embedded Vocabularies (evaluated at boot, no block storage needed)

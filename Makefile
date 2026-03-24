@@ -28,7 +28,7 @@ $(BOOTLOADER): $(SRC_BOOT)/boot.asm | $(BUILD)
 	$(NASM) -f bin -o $@ $<
 
 # Embedded vocabularies (evaluated at boot, no block storage needed)
-EMBED_VOCABS = forth/dict/hardware.fth forth/dict/port-mapper.fth
+EMBED_VOCABS = forth/dict/hardware.fth forth/dict/port-mapper.fth forth/dict/echoport.fth
 EMBEDDED = $(BUILD)/embedded.bin
 
 $(EMBEDDED): $(EMBED_VOCABS) tools/embed-vocabs.py | $(BUILD)
@@ -126,7 +126,7 @@ test-loops: $(IMAGE)
 test-vocabs: $(IMAGE) $(BLOCKS) write-catalog
 	@echo "Running vocabulary tests..."
 	@PORT_BASE=$$(($(TEST_PORT_BASE)+10)); \
-	for test in test_editor test_x86_asm test_metacompiler test_driver_vocabs test_disasm test_port_mapper; do \
+	for test in test_editor test_x86_asm test_metacompiler test_driver_vocabs test_disasm test_port_mapper test_echoport; do \
 		PORT=$$PORT_BASE; PORT_BASE=$$((PORT_BASE+1)); \
 		echo "  $$test (port $$PORT)..."; \
 		$(QEMU) -drive file=$(IMAGE),format=raw,if=floppy \
