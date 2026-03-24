@@ -147,23 +147,27 @@ VARIABLE PID-PORT
 
 \ ---- Standard scans ----
 : MAP-LEGACY ( -- )
+    MORE-ON
     CR ." == Legacy I/O 0000-03FF =="
     0 MAP-V !
     400 0 DO
         I PORT-ID
         SCAN-DLY US-DELAY
     LOOP
+    MORE-OFF
     CR DECIMAL MAP-V @ .
     HEX ." ports found" CR
 ;
 
 : MAP-EXTENDED ( -- )
+    MORE-ON
     CR ." == Extended 0400-0FFF =="
     0 MAP-V !
     C00 0 DO
         I 400 + PORT-ID
         SCAN-DLY US-DELAY
     LOOP
+    MORE-OFF
     CR DECIMAL MAP-V @ .
     HEX ." ports found" CR
 ;

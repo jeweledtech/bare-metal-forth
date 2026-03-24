@@ -175,7 +175,7 @@ kernel_start:
     ; Initialize variables
     mov dword [VAR_STATE], 0
     mov dword [VAR_HERE], DICT_START
-    mov dword [VAR_LATEST], name_MOUSE_BTN_VAR  ; Last built-in word
+    mov dword [VAR_LATEST], name_MORE_LINES_VAR ; Last built-in word
     mov dword [VAR_BASE], 10
     mov dword [VAR_TIB], TIB_START
     mov dword [VAR_TOIN], 0
@@ -199,7 +199,7 @@ kernel_start:
     mov byte [BLK_BUF_GUARD], 0
 
     ; Initialize vocabulary / search order
-    mov dword [VAR_FORTH_LATEST], name_MOUSE_BTN_VAR  ; FORTH vocab starts same as LATEST
+    mov dword [VAR_FORTH_LATEST], name_MORE_LINES_VAR ; FORTH vocab starts same as LATEST
     mov dword [VAR_SEARCH_DEPTH], 1
     mov dword [VAR_SEARCH_ORDER], VAR_FORTH_LATEST  ; Addr of FORTH's LATEST cell
     mov dword [VAR_CURRENT], VAR_FORTH_LATEST       ; New defs go into FORTH
@@ -2691,6 +2691,21 @@ DEFVAR "MOUSE-Y-VAR", MOUSE_Y_VAR, mouse_y
 ; MOUSE-BTN-VAR - ( -- addr ) Address of mouse button state variable
 DEFVAR "MOUSE-BTN-VAR", MOUSE_BTN_VAR, mouse_btn
 
+; MORE-ON - ( -- ) Enable line-count pagination (pause every 23 lines)
+DEFCODE "MORE-ON", MORE_ON, 0
+    mov byte [more_enabled], 1
+    mov dword [more_lines], 0
+    NEXT
+
+; MORE-OFF - ( -- ) Disable pagination
+DEFCODE "MORE-OFF", MORE_OFF, 0
+    mov byte [more_enabled], 0
+    mov dword [more_lines], 0
+    NEXT
+
+; MORE-LINES - ( -- addr ) Variable: current line count
+DEFVAR "MORE-LINES", MORE_LINES_VAR, more_lines
+
 ; ============================================================================
 ; Low-Level Support Routines
 ; ============================================================================
@@ -3242,11 +3257,41 @@ print_char:
 .lf:
     inc dword [cursor_y]
     cmp dword [cursor_y], VGA_HEIGHT
-    jl .done
-    
+    jl .lf_more
     ; Scroll screen
     call scroll_screen
     mov dword [cursor_y], VGA_HEIGHT - 1
+.lf_more:
+    ; MORE pagination: count lines and pause when full screen
+    cmp byte [more_enabled], 0
+    je .done
+    inc dword [more_lines]
+    cmp dword [more_lines], 23
+    jl .done
+    ; Pause: print "-- more --" and wait for keypress
+    push eax
+    push esi
+    mov esi, msg_more
+    call print_string
+    call read_key               ; Wait for any key
+    ; Clear the "-- more --" line: CR + spaces + CR
+    mov al, 13
+    call serial_putchar
+    mov dword [cursor_x], 0
+    mov ecx, 12
+.more_clear:
+    mov al, ' '
+    push ecx
+    call print_char
+    pop ecx
+    dec ecx
+    jnz .more_clear
+    mov al, 13
+    call serial_putchar
+    mov dword [cursor_x], 0
+    pop esi
+    pop eax
+    mov dword [more_lines], 0
     jmp .done
     
 .bs:
@@ -4434,6 +4479,7 @@ msg_welcome:    db 'Bare-Metal Forth v0.1 - Ship Builders System', 13, 10
 msg_stack:      db '<', 0
 msg_undefined:  db ' ? ', 13, 10, 0
 msg_break:      db 'BREAK', 13, 10, 0
+msg_more:       db '-- more --', 0
 see_msg:        db 'SEE: ', 0
 primitive_msg:  db '<primitive>', 0
 msg_search:     db 'Search: ', 0
@@ -4475,6 +4521,11 @@ mouse_pkt_ready:    dd 0            ; 1 = full 3-byte packet available
 mouse_x:            dd 0            ; Accumulated X position
 mouse_y:            dd 0            ; Accumulated Y position
 mouse_btn:          dd 0            ; Button state (low 3 bits)
+
+; MORE pagination state
+more_enabled:       db 0            ; 0 = off (default), 1 = on
+                    align 4
+more_lines:         dd 0            ; Lines printed since last pause
 
 ; ============================================================================
 ; Embedded Vocabularies (evaluated at boot, no block storage needed)
