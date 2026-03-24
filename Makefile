@@ -27,8 +27,15 @@ $(BUILD):
 $(BOOTLOADER): $(SRC_BOOT)/boot.asm | $(BUILD)
 	$(NASM) -f bin -o $@ $<
 
-# Assemble kernel
-$(KERNEL): $(SRC_KERNEL)/forth.asm | $(BUILD)
+# Embedded vocabularies (evaluated at boot, no block storage needed)
+EMBED_VOCABS = forth/dict/hardware.fth forth/dict/port-mapper.fth
+EMBEDDED = $(BUILD)/embedded.bin
+
+$(EMBEDDED): $(EMBED_VOCABS) tools/embed-vocabs.py | $(BUILD)
+	python3 tools/embed-vocabs.py $@ $(EMBED_VOCABS)
+
+# Assemble kernel (depends on embedded vocab binary)
+$(KERNEL): $(SRC_KERNEL)/forth.asm $(EMBEDDED) | $(BUILD)
 	$(NASM) -f bin -o $@ $<
 
 # Create disk image

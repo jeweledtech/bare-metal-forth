@@ -230,6 +230,28 @@ kernel_start:
     mov esi, msg_welcome
     call print_string
 
+    ; Check for embedded vocabularies to evaluate at boot
+    cmp dword [embed_size], 0
+    je .no_embedded
+
+    ; Push return frame on Forth return stack (LIFO order matching block_exhausted pop)
+    ; block_exhausted pops: TIB, TOIN, BLK, ESI
+    sub ebp, 4
+    mov dword [ebp], cold_start     ; ESI: return to interactive loop after eval
+    sub ebp, 4
+    mov dword [ebp], 0              ; BLK: restore to 0 (interactive mode)
+    sub ebp, 4
+    mov dword [ebp], 0              ; TOIN: restore to 0
+    sub ebp, 4
+    mov dword [ebp], TIB_START      ; TIB: restore to serial input buffer
+
+    ; Redirect interpreter to embedded source
+    mov dword [VAR_TIB], embed_data
+    mov dword [VAR_TOIN], 0
+    mov dword [VAR_BLK], 1          ; Nonzero: prevents interactive read_line
+    mov dword [VAR_BLOCK_LOADING], 1 ; Skip first exhaustion check
+
+.no_embedded:
     ; Enter main interpreter loop
     mov esi, cold_start
     NEXT
@@ -1876,11 +1898,7 @@ DEFCODE 'S"', SQUOTE, F_IMMEDIATE
     stosb
     inc ecx
     mov eax, [VAR_TIB]
-    ; In block mode, also check for end of block
-    cmp dword [VAR_BLK], 0
-    je .copy
-    cmp edx, BLOCK_SIZE
-    jl .copy
+    jmp .copy
 .endcopy:
     mov [VAR_TOIN], edx
     ; Patch the length
@@ -1963,11 +1981,7 @@ DEFCODE '."', DOTQUOTE, F_IMMEDIATE
     stosb
     inc ecx
     mov eax, [VAR_TIB]
-    ; In block mode, also check for end of block
-    cmp dword [VAR_BLK], 0
-    je .copy
-    cmp edx, BLOCK_SIZE
-    jl .copy
+    jmp .copy
 .done:
     mov [VAR_TOIN], edx
     ; Patch length
@@ -4461,6 +4475,19 @@ mouse_pkt_ready:    dd 0            ; 1 = full 3-byte packet available
 mouse_x:            dd 0            ; Accumulated X position
 mouse_y:            dd 0            ; Accumulated Y position
 mouse_btn:          dd 0            ; Button state (low 3 bits)
+
+; ============================================================================
+; Embedded Vocabularies (evaluated at boot, no block storage needed)
+; ============================================================================
+; Built by: python3 tools/embed-vocabs.py build/embedded.bin <files...>
+; Contains comment-stripped Forth source as a NUL-terminated token stream.
+; The kernel evaluates this at boot before entering the interactive prompt.
+
+embed_data:
+    incbin "build/embedded.bin"
+embed_end:
+
+embed_size: dd (embed_end - embed_data)
 
 ; ============================================================================
 ; End of Kernel
