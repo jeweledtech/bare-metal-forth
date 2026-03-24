@@ -1,54 +1,71 @@
 #!/bin/bash
-# Setup dnsmasq as PXE DHCP proxy
-# Proxy mode: adds PXE options without replacing existing DHCP server
+# Setup dnsmasq as full DHCP + TFTP server for PXE boot
+# Direct cable: dev machine (enp77s0, 10.42.0.1) → HP laptop
 # Run once on the dev machine (requires sudo)
 set -e
 
-echo "=== Setting up dnsmasq PXE proxy ==="
+ETH_IF="enp77s0"
+DEV_IP="10.42.0.1"
+DHCP_START="10.42.0.100"
+DHCP_END="10.42.0.200"
+DHCP_LEASE="12h"
+
+echo "=== Setting up dnsmasq DHCP + PXE server ==="
+echo "  Interface: $ETH_IF"
+echo "  Dev IP:    $DEV_IP"
+echo "  DHCP pool: $DHCP_START - $DHCP_END"
 
 sudo apt-get install -y dnsmasq
 
-# Find the wired ethernet interface (skip lo and wlan)
-ETH_IF=$(ip -o link show | grep -v lo | grep -v wlan | grep -v docker | awk -F': ' '{print $2}' | head -1)
-if [ -z "$ETH_IF" ]; then
-    echo "ERROR: No wired ethernet interface found"
+# Verify interface exists and has the expected IP
+if ! ip link show "$ETH_IF" > /dev/null 2>&1; then
+    echo "ERROR: Interface $ETH_IF not found"
     echo "Available interfaces:"
-    ip -o link show | awk -F': ' '{print $2}'
+    ip -o link show | awk -F': ' '{print "  " $2}'
     exit 1
 fi
-echo "Using interface: $ETH_IF"
 
-# Get dev machine IP on that interface
-DEV_IP=$(ip -o -4 addr show "$ETH_IF" | awk '{print $4}' | cut -d/ -f1)
-if [ -z "$DEV_IP" ]; then
-    echo "ERROR: No IPv4 address on $ETH_IF"
-    echo "Is the ethernet cable connected?"
-    exit 1
+ACTUAL_IP=$(ip -o -4 addr show "$ETH_IF" 2>/dev/null | awk '{print $4}' | cut -d/ -f1)
+if [ "$ACTUAL_IP" != "$DEV_IP" ]; then
+    echo "WARNING: $ETH_IF has IP $ACTUAL_IP (expected $DEV_IP)"
+    echo "  Continuing anyway — verify your network config"
 fi
-echo "Dev machine IP: $DEV_IP"
 
-# Write PXE proxy config
+# Write DHCP + PXE + TFTP config (full server, not proxy)
 sudo tee /etc/dnsmasq.d/pxe.conf > /dev/null <<EOF
-# PXE proxy mode for ForthOS dev workflow
-# Does NOT replace existing DHCP — only adds PXE boot options
+# ForthOS PXE boot server — full DHCP on direct cable to HP
+# bind-interfaces is CRITICAL: prevents conflict with systemd-resolved
 interface=$ETH_IF
-dhcp-range=$DEV_IP,proxy
+bind-interfaces
+
+# DHCP: serve 10.42.0.100-200 on the direct cable
+dhcp-range=$DHCP_START,$DHCP_END,$DHCP_LEASE
+
+# PXE: tell clients to boot pxelinux.0 from our TFTP
 dhcp-boot=pxelinux.0
+
+# TFTP server (built-in)
 enable-tftp
 tftp-root=/srv/tftp
+
+# Disable DNS (port=0) — we only serve DHCP + TFTP
+# no-resolv prevents reading /etc/resolv.conf
+port=0
+no-resolv
+
+# Logging
 log-dhcp
 EOF
 
-# Disable default dnsmasq DNS to avoid conflicts
-# (we only want DHCP proxy + TFTP)
-sudo tee /etc/dnsmasq.d/no-dns.conf > /dev/null <<EOF
-port=0
-EOF
+# Remove old no-dns.conf if present (now merged into pxe.conf)
+sudo rm -f /etc/dnsmasq.d/no-dns.conf
 
 sudo systemctl enable dnsmasq
 sudo systemctl restart dnsmasq
 
 echo ""
-echo "dnsmasq PXE proxy running on $ETH_IF ($DEV_IP)"
-echo "PXE boot file: pxelinux.0"
-echo "TFTP root: /srv/tftp"
+echo "dnsmasq running on $ETH_IF ($DEV_IP)"
+echo "  DHCP: $DHCP_START - $DHCP_END (lease $DHCP_LEASE)"
+echo "  PXE boot file: pxelinux.0"
+echo "  TFTP root: /srv/tftp"
+echo "  DNS: disabled (port=0, bind-interfaces)"
