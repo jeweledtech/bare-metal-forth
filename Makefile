@@ -119,7 +119,7 @@ test-loops: $(IMAGE)
 test-vocabs: $(IMAGE) $(BLOCKS) write-catalog
 	@echo "Running vocabulary tests..."
 	@PORT_BASE=$$(($(TEST_PORT_BASE)+10)); \
-	for test in test_editor test_x86_asm test_metacompiler test_driver_vocabs test_disasm; do \
+	for test in test_editor test_x86_asm test_metacompiler test_driver_vocabs test_disasm test_port_mapper; do \
 		PORT=$$PORT_BASE; PORT_BASE=$$((PORT_BASE+1)); \
 		echo "  $$test (port $$PORT)..."; \
 		$(QEMU) -drive file=$(IMAGE),format=raw,if=floppy \
