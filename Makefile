@@ -265,4 +265,32 @@ help:
 	@echo "  - qemu-system-i386 (for testing)"
 	@echo "  - python3 (for write-block utility)"
 
-.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog test test-smoke test-loops test-vocabs test-integration test-flush
+# --- PXE Dev Workflow ---
+
+.PHONY: pxe-setup pxe-push pxe-status
+
+pxe-setup:
+	@echo "Setting up PXE boot server..."
+	@bash tools/pxe/setup-tftp.sh
+	@bash tools/pxe/setup-dnsmasq.sh
+	@bash tools/pxe/install-pxelinux-cfg.sh
+	@echo ""
+	@echo "PXE setup complete. Run 'make pxe-push' to deploy an image."
+
+pxe-push: $(IMAGE)
+	@bash tools/pxe/push.sh
+
+pxe-status:
+	@echo "=== TFTP server ==="
+	@systemctl status tftpd-hpa --no-pager 2>&1 | head -5 || echo "  tftpd-hpa not installed"
+	@echo ""
+	@echo "=== dnsmasq ==="
+	@systemctl status dnsmasq --no-pager 2>&1 | head -5 || echo "  dnsmasq not installed"
+	@echo ""
+	@echo "=== TFTP files ==="
+	@ls -la /srv/tftp/ 2>/dev/null || echo "  /srv/tftp/ not found"
+	@echo ""
+	@echo "=== forth.img ==="
+	@md5sum /srv/tftp/forth.img 2>/dev/null || echo "  forth.img not yet pushed"
+
+.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog test test-smoke test-loops test-vocabs test-integration test-flush pxe-setup pxe-push pxe-status
