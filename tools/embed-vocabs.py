@@ -20,15 +20,26 @@ import sys
 import re
 
 
+# Standalone init calls to strip from embedded source.
+# These are lines that consist of ONLY this word (no colon def).
+# CALIBRATE-DELAY hangs on some real hardware; print messages are noise.
+STRIP_INIT_CALLS = {'HARDWARE-INIT', 'PM-INFO'}
+
+
 def strip_comments(source):
-    """Strip \\ and ( ) comments from Forth source, preserving ." strings."""
+    """Strip comments and standalone init calls from Forth source."""
     lines = source.split('\n')
     result_lines = []
 
     for line in lines:
-        stripped = line.lstrip()
+        stripped = line.strip()
+
+        # Skip standalone auto-init calls (but keep colon defs like ": HARDWARE-INIT")
+        if stripped in STRIP_INIT_CALLS:
+            continue
 
         # Skip pure \ comment lines
+        stripped = line.lstrip()
         if stripped.startswith('\\'):
             continue
 
