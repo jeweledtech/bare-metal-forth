@@ -28,7 +28,7 @@ $(BOOTLOADER): $(SRC_BOOT)/boot.asm | $(BUILD)
 	$(NASM) -f bin -o $@ $<
 
 # Embedded vocabularies (evaluated at boot, no block storage needed)
-EMBED_VOCABS = forth/dict/hardware.fth forth/dict/port-mapper.fth forth/dict/echoport.fth
+EMBED_VOCABS = forth/dict/hardware.fth forth/dict/port-mapper.fth forth/dict/echoport.fth forth/dict/pci-enum.fth
 EMBEDDED = $(BUILD)/embedded.bin
 
 $(EMBEDDED): $(EMBED_VOCABS) tools/embed-vocabs.py | $(BUILD)
@@ -288,16 +288,6 @@ pxe-push: $(IMAGE)
 	@bash tools/pxe/push.sh
 
 pxe-status:
-	@echo "=== TFTP server ==="
-	@systemctl status tftpd-hpa --no-pager 2>&1 | head -5 || echo "  tftpd-hpa not installed"
-	@echo ""
-	@echo "=== dnsmasq ==="
-	@systemctl status dnsmasq --no-pager 2>&1 | head -5 || echo "  dnsmasq not installed"
-	@echo ""
-	@echo "=== TFTP files ==="
-	@ls -la /srv/tftp/ 2>/dev/null || echo "  /srv/tftp/ not found"
-	@echo ""
-	@echo "=== forth.img ==="
-	@md5sum /srv/tftp/forth.img 2>/dev/null || echo "  forth.img not yet pushed"
+	@bash tools/pxe/test-pxe.sh
 
 .PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog test test-smoke test-loops test-vocabs test-integration test-flush pxe-setup pxe-push pxe-status
