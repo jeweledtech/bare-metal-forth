@@ -3623,6 +3623,20 @@ read_key:
     cmp al, 0x9D
     je .ctrl_release
 
+    ; Track Shift key state
+    cmp al, 0x2A            ; Left Shift press
+    je .shift_press
+    cmp al, 0x36            ; Right Shift press
+    je .shift_press
+    cmp al, 0xAA            ; Left Shift release
+    je .shift_release
+    cmp al, 0xB6            ; Right Shift release
+    je .shift_release
+
+    ; Caps Lock toggle (press only; release 0xBA falls through to >= 0x80)
+    cmp al, 0x3A
+    je .caps_toggle
+
     ; Key release? (bit 7 set = release, unsigned >= 0x80)
     cmp al, 0x80
     jae .wait
@@ -3634,9 +3648,33 @@ read_key:
     je .ctrl_c
 
 .normal_key:
-    ; Look up ASCII from scancode table
+    ; Look up ASCII — use shifted table if Shift held
     movzx ebx, al
+    cmp byte [shift_held], 0
+    jne .use_shift_table
     mov al, [scancode_to_ascii + ebx]
+    jmp .apply_caps
+.use_shift_table:
+    mov al, [scancode_to_ascii_shift + ebx]
+
+.apply_caps:
+    ; Caps Lock toggles letter case (a-z <-> A-Z)
+    cmp byte [caps_lock], 0
+    je .check_result
+    cmp al, 'a'
+    jb .check_upper
+    cmp al, 'z'
+    ja .check_result
+    sub al, 0x20            ; lowercase -> uppercase
+    jmp .check_result
+.check_upper:
+    cmp al, 'A'
+    jb .check_result
+    cmp al, 'Z'
+    ja .check_result
+    add al, 0x20            ; uppercase -> lowercase
+
+.check_result:
     test al, al
     jz .wait
 
@@ -3649,6 +3687,18 @@ read_key:
 
 .ctrl_release:
     mov byte [ctrl_held], 0
+    jmp .wait
+
+.shift_press:
+    mov byte [shift_held], 1
+    jmp .wait
+
+.shift_release:
+    mov byte [shift_held], 0
+    jmp .wait
+
+.caps_toggle:
+    xor byte [caps_lock], 1
     jmp .wait
 
 .ctrl_c:
@@ -4528,6 +4578,8 @@ cursor_y:       dd 0
 
 ; Ctrl+C break handler state
 ctrl_held:      db 0                ; 1 = Ctrl key currently pressed
+shift_held:     db 0                ; 1 = Shift key currently pressed
+caps_lock:      db 0                ; 1 = Caps Lock active
 serial_present: db 1                ; 0 = no COM1 hardware (set by init_serial probe)
 break_flag:     db 0                ; 1 = Ctrl+C detected, pending break
                 align 4
@@ -4558,6 +4610,14 @@ scancode_to_ascii:
     db 'qwertyuiop[]', 13, 0, 'as'       ; 0x10-0x1F
     db 'dfghjkl;', 39, '`', 0, '\zxcv'   ; 0x20-0x2F
     db 'bnm,./', 0, '*', 0, ' '          ; 0x30-0x3F
+    times 64 db 0                         ; 0x40-0x7F
+
+; Shifted scancode to ASCII table (US layout)
+scancode_to_ascii_shift:
+    db 0, 27, '!@#$%^&*()_+', 8, 9       ; 0x00-0x0F
+    db 'QWERTYUIOP{}', 13, 0, 'AS'       ; 0x10-0x1F
+    db 'DFGHJKL:', 34, '~', 0, '|ZXCV'   ; 0x20-0x2F
+    db 'BNM<>?', 0, '*', 0, ' '          ; 0x30-0x3F
     times 64 db 0                         ; 0x40-0x7F
 
 ; ============================================================================
