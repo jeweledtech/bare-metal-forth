@@ -69,14 +69,15 @@ VARIABLE PCI-COUNT
 \ device and function before >R.
 VARIABLE SCAN-D
 VARIABLE SCAN-F
+VARIABLE SCAN-B
 
-\ ---- Scan bus 0 ----
+\ ---- Scan one PCI bus ----
 \ J=device(0-31) I=function(0-7)
-: PCI-SCAN ( -- )
-    0 PCI-COUNT !
+: PCI-SCAN-BUS ( bus -- )
+    SCAN-B !
     20 0 DO
         8 0 DO
-            0 J I 0 PCI-READ
+            SCAN-B @ J I 0 PCI-READ
             DUP FFFF AND FFFF <> IF
                 PCI-COUNT @
                 MAX-DEVS < IF
@@ -84,7 +85,7 @@ VARIABLE SCAN-F
                     I SCAN-F !
                     PCI-COUNT @
                     PCI-ENTRY >R
-                    0 R@ C!
+                    SCAN-B @ R@ C!
                     SCAN-D @
                     R@ 1+ C!
                     SCAN-F @
@@ -93,7 +94,7 @@ VARIABLE SCAN-F
                     R@ 4 + W!
                     10 RSHIFT
                     R@ 6 + W!
-                    0 SCAN-D @
+                    SCAN-B @ SCAN-D @
                     SCAN-F @
                     8 PCI-READ
                     DUP 18 RSHIFT
@@ -101,7 +102,7 @@ VARIABLE SCAN-F
                     10 RSHIFT
                     FF AND
                     R@ 9 + C!
-                    0 SCAN-D @
+                    SCAN-B @ SCAN-D @
                     SCAN-F @
                     3C PCI-READ
                     FF AND
@@ -116,6 +117,37 @@ VARIABLE SCAN-F
             THEN
         LOOP
     LOOP
+;
+
+VARIABLE B0-CNT
+
+\ ---- Scan behind PCI-to-PCI bridges ----
+\ Class 06/04 = bridge. Reg 18 bits
+\ 16-23 = secondary bus number.
+: PCI-BRIDGES ( -- )
+    PCI-COUNT @ DUP B0-CNT !
+    0<> IF
+        B0-CNT @ 0 DO
+            I PCI-ENTRY
+            DUP 8 + C@ 6 =
+            OVER 9 + C@ 4 = AND IF
+                DUP C@ OVER 1+ C@
+                ROT 2 + C@
+                18 PCI-READ
+                10 RSHIFT FF AND
+                DUP 0<> IF
+                    PCI-SCAN-BUS
+                ELSE DROP THEN
+            ELSE DROP THEN
+        LOOP
+    THEN
+;
+
+\ ---- Scan all PCI buses ----
+: PCI-SCAN ( -- )
+    0 PCI-COUNT !
+    0 PCI-SCAN-BUS
+    PCI-BRIDGES
 ;
 
 \ ---- Find by vendor:device ID ----
