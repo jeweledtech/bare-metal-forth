@@ -440,6 +440,46 @@ VARIABLE TX-PLEN
     ." Sent test packet" CR
 ;
 
+\ ---- Network console ----
+\ Mirror ALL output to UDP packets.
+\ Kernel buffers chars in print_char,
+\ flushes on LF or buffer full.
+: NET-CONSOLE-ON ( -- )
+    RTL-FOUND @ 0= IF
+        ." Init RTL8168 first" CR
+        EXIT
+    THEN
+    \ Store NIC state in kernel vars
+    RTL-BASE @ NET-RTL-BASE !
+    TX-DESC NET-TX-DESC !
+    TX-BUF NET-TX-BUF !
+    \ Build frame header template
+    NET-HDR FP !
+    DEV-MAC 6 F-COPY!
+    RTL-MAC 6 F-COPY!
+    800 F-W!
+    \ IP header
+    45 F!  0 F!
+    0 F-W!  0 F-W!
+    4000 F-W!
+    40 F!  11 F!
+    0 F-W!
+    HP-IP F-L!
+    DEV-IP F-L!
+    \ UDP header
+    UDP-PORT F-W!
+    UDP-PORT F-W!
+    0 F-W!  0 F-W!
+    \ Enable kernel hook
+    NET-CON-ON
+    ." Net console ON" CR
+;
+
+: NET-CONSOLE-OFF ( -- )
+    NET-CON-OFF
+    ." Net console OFF" CR
+;
+
 \ ---- Initialize ----
 : RTL8168-INIT ( -- )
     0 RTL-FOUND !

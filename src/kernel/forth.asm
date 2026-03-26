@@ -2744,6 +2744,29 @@ DEFCODE "MORE-OFF", MORE_OFF, 0
 ; MORE-LINES - ( -- addr ) Variable: current line count
 DEFVAR "MORE-LINES", MORE_LINES_VAR, more_lines
 
+; NET-CON-ON - ( -- ) Enable net console output mirroring
+DEFCODE "NET-CON-ON", NET_CON_ON, 0
+    mov byte [net_console_enabled], 1
+    NEXT
+
+; NET-CON-OFF - ( -- ) Disable net console, reset buffer
+DEFCODE "NET-CON-OFF", NET_CON_OFF, 0
+    mov byte [net_console_enabled], 0
+    mov dword [net_buf_pos], 0
+    NEXT
+
+; NET-HDR - ( -- addr ) Address of 42-byte frame header template
+DEFVAR "NET-HDR", NET_HDR_VAR, net_frame_hdr
+
+; NET-RTL-BASE - ( -- addr ) Kernel copy of RTL-BASE for net_flush
+DEFVAR "NET-RTL-BASE", NET_RTL_BASE_VAR, net_rtl_base
+
+; NET-TX-DESC - ( -- addr ) Kernel copy of TX descriptor address
+DEFVAR "NET-TX-DESC", NET_TX_DESC_VAR, net_tx_desc
+
+; NET-TX-BUF - ( -- addr ) Kernel copy of TX buffer address
+DEFVAR "NET-TX-BUF", NET_TX_BUF_VAR, net_tx_buf
+
 ; ECHOPORT kernel trace variables
 DEFCODE "TRACE-ENABLED", TRACE_ENABLED_W, 0  ; ( -- addr )
     push trace_enabled
@@ -3281,10 +3304,147 @@ init_screen:
     ret
 
 ; ----------------------------------------------------------------------------
+; net_flush - Flush net console buffer as UDP packet via RTL8168 TX
+; Called from print_char when LF detected or buffer full.
+; Uses pre-built frame header template at net_frame_hdr (42 bytes).
+; Patches: IP total length, IP ID, IP checksum, UDP length.
+; Fire-and-forget: does not wait for TX completion.
+; ----------------------------------------------------------------------------
+net_flush:
+    pushad
+    mov byte [net_flushing], 1
+
+    mov ecx, [net_buf_pos]
+    test ecx, ecx
+    jz .nf_done
+
+    ; Copy 42-byte header template to TX-BUF
+    mov edi, [net_tx_buf]
+    mov esi, net_frame_hdr
+    push ecx
+    push edi                    ; save TX-BUF base
+    mov ecx, 42
+    rep movsb
+    ; EDI now at TX-BUF + 42
+
+    ; Copy payload (net_buf) to TX-BUF + 42
+    pop ebx                     ; EBX = TX-BUF base
+    pop ecx                     ; ECX = payload_len
+    mov esi, net_buf
+    push ecx
+    rep movsb
+
+    ; Compute frame length (min 60)
+    pop ecx                     ; payload_len
+    lea edx, [ecx + 42]
+    cmp edx, 60
+    jge .nf_no_pad
+    mov edx, 60
+.nf_no_pad:
+    push edx                    ; save frame_len
+
+    ; Patch IP total length at offset 16 (big-endian)
+    lea eax, [ecx + 28]
+    mov byte [ebx + 16], ah
+    mov byte [ebx + 17], al
+
+    ; Patch UDP length at offset 38 (big-endian)
+    lea eax, [ecx + 8]
+    mov byte [ebx + 38], ah
+    mov byte [ebx + 39], al
+
+    ; Patch IP ID at offset 18 (big-endian)
+    inc dword [net_pkt_id]
+    mov eax, [net_pkt_id]
+    mov byte [ebx + 18], ah
+    mov byte [ebx + 19], al
+
+    ; Zero IP checksum field at offset 24
+    mov word [ebx + 24], 0
+
+    ; Compute IP checksum: sum 10 big-endian 16-bit words
+    ; IP header starts at offset 14 in frame
+    xor eax, eax
+    lea esi, [ebx + 14]
+    mov ecx, 10
+.nf_cksum:
+    movzx edx, byte [esi]
+    shl edx, 8
+    movzx edi, byte [esi + 1]
+    or edx, edi
+    add eax, edx
+    add esi, 2
+    dec ecx
+    jnz .nf_cksum
+
+    ; Fold carry (twice)
+    mov edx, eax
+    shr edx, 16
+    and eax, 0xFFFF
+    add eax, edx
+    mov edx, eax
+    shr edx, 16
+    add eax, edx
+    and eax, 0xFFFF
+    xor eax, 0xFFFF
+
+    ; Store checksum at offset 24 (big-endian)
+    mov byte [ebx + 24], ah
+    mov byte [ebx + 25], al
+
+    ; Set up TX descriptor
+    pop edx                     ; frame_len
+    mov edi, [net_tx_desc]
+    or edx, 0xF0000000          ; OWN + EOR + FS + LS
+    mov [edi], edx              ; opts1
+    mov dword [edi + 4], 0      ; opts2
+    mov [edi + 8], ebx          ; buf addr low (= TX-BUF)
+    mov dword [edi + 12], 0     ; buf addr high
+
+    ; Trigger TX (write NPQ to TxPoll register)
+    mov eax, [net_rtl_base]
+    mov byte [eax + 0x38], 0x40
+
+    ; Reset buffer
+    mov dword [net_buf_pos], 0
+
+.nf_done:
+    mov byte [net_flushing], 0
+    popad
+    ret
+
+; ----------------------------------------------------------------------------
 ; print_char - Print character in AL to both VGA and serial port
 ; ----------------------------------------------------------------------------
 print_char:
     call serial_putchar     ; Mirror to serial port
+
+    ; --- Net console: buffer char for UDP ---
+    cmp byte [net_console_enabled], 0
+    je .no_net
+    cmp byte [net_flushing], 0
+    jne .no_net
+    push edx
+    movzx edx, al
+    push eax
+    mov eax, [net_buf_pos]
+    mov byte [net_buf + eax], dl
+    inc eax
+    mov [net_buf_pos], eax
+    pop eax
+    pop edx
+    ; Flush on LF (0x0A) or buffer full
+    cmp dl, 10
+    je .net_do_flush
+    cmp dword [net_buf_pos], 256
+    jge .net_do_flush
+    jmp .no_net
+.net_do_flush:
+    push eax
+    call net_flush
+    pop eax
+.no_net:
+
     push ebx
     push ecx
     push edx
@@ -4649,6 +4809,18 @@ mouse_btn:          dd 0            ; Button state (low 3 bits)
 more_enabled:       db 0            ; 0 = off (default), 1 = on
                     align 4
 more_lines:         dd 0            ; Lines printed since last pause
+
+; Net console state (UDP output mirror)
+net_console_enabled:    db 0        ; 1 = mirror output to UDP
+net_flushing:           db 0        ; 1 = flush in progress (re-entrancy guard)
+                        align 4
+net_buf_pos:            dd 0        ; Current position in output buffer
+net_rtl_base:           dd 0        ; Copy of RTL-BASE (MMIO address)
+net_tx_desc:            dd 0        ; TX descriptor physical address
+net_tx_buf:             dd 0        ; TX frame buffer physical address
+net_pkt_id:             dd 0        ; IP packet ID counter
+net_frame_hdr:          times 42 db 0   ; Pre-built Ethernet+IP+UDP header
+net_buf:                times 256 db 0  ; Output character buffer
 
 ; ECHOPORT trace state
 trace_enabled:      db 0            ; 0 = off, 1 = on
