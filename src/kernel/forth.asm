@@ -4846,5 +4846,5 @@ embed_size: dd (embed_end - embed_data)
 ; End of Kernel
 ; ============================================================================
 
-; Pad kernel to exactly 32KB (64 sectors) to match bootloader's KERNEL_SECTORS
-times 0x8000 - ($ - $$) db 0
+; Pad kernel to exactly 48KB (96 sectors) to match bootloader's KERNEL_SECTORS
+times 0xC000 - ($ - $$) db 0

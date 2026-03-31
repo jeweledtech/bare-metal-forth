@@ -31,7 +31,7 @@
 ; ============================================================================
 
 KERNEL_OFFSET       equ 0x7E00      ; Where we load the kernel
-KERNEL_SECTORS      equ 64          ; 64 sectors = 32KB (matches kernel padding)
+KERNEL_SECTORS      equ 96          ; 96 sectors = 48KB (matches kernel padding)
 STACK_TOP           equ 0x7C00      ; Stack below bootloader (grows down)
 
 ; ============================================================================
@@ -107,6 +107,13 @@ start:
     jc disk_error
 
     add bx, 512
+    jnc .no_seg_wrap
+    push ax                         ; BX overflowed — advance ES by 64KB
+    mov ax, es
+    add ax, 0x1000
+    mov es, ax
+    pop ax
+.no_seg_wrap:
     inc word [var_lba]
     pop cx
     loop .chs_loop

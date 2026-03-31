@@ -17,6 +17,8 @@
 \   0 SECTOR.
 \   MBR.
 \   GPT.
+\   NTFS-FIND
+\   12345 NTFS-DUMP
 \
 \ ============================================
 
@@ -43,6 +45,10 @@ VARIABLE AH-PORT
 VARIABLE AH-FOUND
 VARIABLE RD-LBA
 VARIABLE RD-CNT
+VARIABLE MBR-P1
+VARIABLE MBR-P2
+VARIABLE MBR-P3
+VARIABLE MBR-P4
 
 \ ---- DMA buffers ----
 1000 PHYS-ALLOC CONSTANT CL-BUF
@@ -210,37 +216,143 @@ VARIABLE RD-CNT
     0 1 AHCI-READ IF
         ." Read err" CR EXIT
     THEN
-    ." MBR:" CR
+    ." MBR:  " CR
     4 0 DO
-        ." P" I 31 + EMIT ." : "
+        50 EMIT I 31 + EMIT 3A EMIT SPACE
         SEC-BUF 1BE + I 10 * +
         DUP 4 + C@ .H2 SPACE
         DUP 8 + @ .H8
-        ." +"
+        2B EMIT
         C + @ .H8 CR
     LOOP
+;
+
+: .RAW8 ( -- )
+    8 0 DO
+        SEC-BUF I + C@ .H2 SPACE
+    LOOP
+;
+
+: GPT-PARTS ( entry-lba -- )
+    1 AHCI-READ DROP
+    4 0 DO
+        SEC-BUF I 80 * +
+        DUP @ OVER 4 + @ OR IF
+            50 EMIT I 31 + EMIT 3A EMIT SPACE
+            DUP 20 + @ .H8
+            2D EMIT
+            28 + @ .H8 CR
+        ELSE
+            DROP
+        THEN
+    LOOP
+;
+
+: FIND-BACKUP ( -- lba -1 | 0 )
+    0 1 AHCI-READ IF 0 EXIT THEN
+    4 0 DO
+        SEC-BUF 1BE + I 10 * +
+        DUP 4 + C@ EE = IF
+            DUP 8 + @
+            OVER C + @ +
+            1- SWAP DROP
+            -1 UNLOOP EXIT
+        THEN
+        DROP
+    LOOP
+    0
 ;
 
 : GPT. ( -- )
     1 1 AHCI-READ IF
         ." Read err" CR EXIT
     THEN
-    SEC-BUF @ 20494645 <> IF
-        ." No GPT" CR EXIT
+    ." LBA1: " .RAW8 CR
+    SEC-BUF @ 20494645 = IF
+        ." GPT:  " CR
+        2 GPT-PARTS EXIT
     THEN
-    ." GPT:" CR
-    2 1 AHCI-READ DROP
-    4 0 DO
-        SEC-BUF I 80 * +
-        DUP @ OVER 4 + @ OR IF
-            ." P" I 31 + EMIT ." : "
-            DUP 20 + @ .H8
-            ." -"
-            28 + @ .H8 CR
-        ELSE
-            DROP
+    ." No GPT at LBA 1" CR
+    FIND-BACKUP IF
+        DUP ." Backup at " .H8 CR
+        1 AHCI-READ IF
+            ." Read err" CR EXIT
         THEN
-    LOOP
+        SEC-BUF @ 20494645 = IF
+            ." Backup GPT:" CR
+            SEC-BUF 48 + @ GPT-PARTS
+            EXIT
+        THEN
+        ." No sig at backup" CR
+    ELSE
+        ." No EE entry" CR
+    THEN
+;
+
+\ ---- NTFS scanning ----
+: NTFS? ( lba -- flag )
+    1 AHCI-READ IF 0 EXIT THEN
+    SEC-BUF 3 + @ 5346544E <> IF
+        0 EXIT
+    THEN
+    SEC-BUF 1FE + C@ 55 <>
+    SEC-BUF 1FF + C@ AA <>
+    OR IF 0 EXIT THEN
+    -1
+;
+
+: TRY-NTFS ( lba -- )
+    DUP 0= IF DROP EXIT THEN
+    DUP NTFS? IF
+        ." NTFS at " .H8 CR
+    ELSE
+        2E EMIT DROP
+    THEN
+;
+
+: SAVE-MBR ( -- )
+    0 1 AHCI-READ IF
+        ." Read err" CR EXIT
+    THEN
+    SEC-BUF 1C6 + @ MBR-P1 !
+    SEC-BUF 1D6 + @ MBR-P2 !
+    SEC-BUF 1E6 + @ MBR-P3 !
+    SEC-BUF 1F6 + @ MBR-P4 !
+;
+
+: NTFS-FIND ( -- )
+    SAVE-MBR
+    MBR-P1 @ TRY-NTFS
+    MBR-P2 @ TRY-NTFS
+    MBR-P3 @ TRY-NTFS
+    MBR-P4 @ TRY-NTFS
+    CR
+;
+
+: NTFS-DUMP ( lba -- )
+    1 AHCI-READ IF
+        ." Read err" CR EXIT
+    THEN
+    SEC-BUF 3 + @ 5346544E <> IF
+        ." Not NTFS" CR EXIT
+    THEN
+    ." NTFS Boot Sector:" CR
+    ." Bytes/sect: "
+    SEC-BUF B + C@
+    SEC-BUF C + C@ 8 LSHIFT OR
+    .H4 CR
+    ." Sect/clust: "
+    SEC-BUF D + C@ .H2 CR
+    ." Total sect: "
+    SEC-BUF 2C + @ .H8
+    3A EMIT SEC-BUF 28 + @ .H8 CR
+    ." MFT cluster: "
+    SEC-BUF 34 + @ .H8
+    3A EMIT SEC-BUF 30 + @ .H8 CR
+    ." MFT offset:  "
+    SEC-BUF 30 + @
+    SEC-BUF D + C@ *
+    .H8 ." sectors from part" CR
 ;
 
 \ ---- Initialize ----
