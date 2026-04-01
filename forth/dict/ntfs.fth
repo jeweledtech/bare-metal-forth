@@ -397,6 +397,36 @@ VARIABLE GPT-N
 ;
 
 \ ============================================
+\ Diagnostics
+\ ============================================
+
+: MFT-SHOW ( n -- )
+    DUP MFT-READ IF
+        DECIMAL . HEX
+        ." : read err" CR EXIT
+    THEN
+    DECIMAL . HEX 3A EMIT SPACE
+    MFT-BUF @ FILE-SIG <> IF
+        ." (no sig)" CR EXIT
+    THEN
+    MFT-BUF 16 + W@ 1 AND 0= IF
+        ." (free)" CR EXIT
+    THEN
+    MFT-FILENAME DUP IF
+        TYPE
+    ELSE
+        2DROP ." (no name)"
+    THEN
+    CR
+;
+
+: MFT-LIST ( start count -- )
+    OVER + SWAP DO
+        I MFT-SHOW
+    LOOP
+;
+
+\ ============================================
 \ High-level file operations
 \ ============================================
 
