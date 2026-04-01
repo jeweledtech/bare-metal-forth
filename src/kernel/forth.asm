@@ -1164,6 +1164,12 @@ DEFCODE "INTERPRET", INTERPRET, 0
     mov al, ' '
     call print_char
 
+    ; Flush net console so prompt appears on dev machine
+    cmp byte [net_console_enabled], 0
+    je .no_prompt_flush
+    call net_flush
+.no_prompt_flush:
+
     ; Save state snapshot for Ctrl+C recovery
     mov [save_esp], esp
     mov [save_ebp], ebp
@@ -2757,6 +2763,14 @@ DEFCODE "NET-CON-OFF", NET_CON_OFF, 0
     mov dword [net_buf_pos], 0
     NEXT
 
+; NET-FLUSH - ( -- ) Flush any partial net console buffer as UDP packet
+DEFCODE "NET-FLUSH", NET_FLUSH, 0
+    cmp byte [net_console_enabled], 0
+    je .nf_skip
+    call net_flush
+.nf_skip:
+    NEXT
+
 ; NET-HDR - ( -- addr ) Address of 42-byte frame header template
 DEFVAR "NET-HDR", NET_HDR_VAR, net_frame_hdr
 
@@ -3418,6 +3432,7 @@ net_flush:
     jnz .nf_wait_txok
 .nf_txdone:
     mov word [eax + 0x3E], 0x000C   ; Acknowledge TX status
+    movzx ecx, word [eax + 0x3E]   ; Read-back flushes PCI posted writes
 
     ; Reset buffer
     mov dword [net_buf_pos], 0
