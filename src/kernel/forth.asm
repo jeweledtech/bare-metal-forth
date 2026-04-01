@@ -3310,7 +3310,7 @@ init_screen:
 ; Called from print_char when LF detected or buffer full.
 ; Uses pre-built frame header template at net_frame_hdr (42 bytes).
 ; Patches: IP total length, IP ID, IP checksum, UDP length.
-; Waits for previous TX to complete before overwriting TX-BUF.
+; Synchronous: waits for TxOK in ISR before returning.
 ; ----------------------------------------------------------------------------
 net_flush:
     pushad
@@ -3319,19 +3319,6 @@ net_flush:
     mov ecx, [net_buf_pos]
     test ecx, ecx
     jz .nf_done
-
-    ; Wait for previous TX to complete (OWN bit clear in descriptor)
-    push ecx                    ; save payload_len
-    mov edi, [net_tx_desc]
-    mov edx, 10000              ; timeout ~10k spins
-.nf_wait_tx:
-    test dword [edi], 0x80000000
-    jz .nf_tx_ready
-    pause
-    dec edx
-    jnz .nf_wait_tx
-.nf_tx_ready:
-    pop ecx                     ; restore payload_len
 
     ; Copy 42-byte header template to TX-BUF
     mov edi, [net_tx_buf]
@@ -3416,9 +3403,21 @@ net_flush:
     mov [edi + 8], ebx          ; buf addr low (= TX-BUF)
     mov dword [edi + 12], 0     ; buf addr high
 
-    ; Trigger TX (write NPQ to TxPoll register)
+    ; Clear TX status, trigger TX, wait for wire completion
     mov eax, [net_rtl_base]
-    mov byte [eax + 0x38], 0x40
+    mov word [eax + 0x3E], 0x000C   ; Clear TxOK + TxErr (w1c)
+    mov byte [eax + 0x38], 0x40     ; TxPoll = NPQ
+
+    ; Wait for TxOK or TxErr (ISR bits 2-3) — frame on wire
+    mov ecx, 100000
+.nf_wait_txok:
+    test word [eax + 0x3E], 0x000C
+    jnz .nf_txdone
+    pause
+    dec ecx
+    jnz .nf_wait_txok
+.nf_txdone:
+    mov word [eax + 0x3E], 0x000C   ; Acknowledge TX status
 
     ; Reset buffer
     mov dword [net_buf_pos], 0
