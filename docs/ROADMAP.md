@@ -2,299 +2,124 @@
 
 ## Vision
 
-Build a bare-metal Forth-83 operating system that:
-- Boots directly on x86 hardware (no Linux/Windows/macOS layers)
-- Provides real-time compilation and execution
-- Enables direct memory and register manipulation
-- Supports cross-architecture binary translation via UIR
+A bare-metal Forth-83 operating system for critical systems:
+- Boots directly on x86 hardware with no OS layers
+- Real-time compilation and execution
+- Direct memory, port, and register access
+- Cross-architecture binary translation for driver extraction
 
----
+## Phase 0: Genesis -- COMPLETE
 
-## Phase 0: Genesis (CURRENT - 95% Complete)
+Core Forth-83 kernel on bare x86 hardware.
 
-**Status: Implementation Complete, Testing Pending**
+- [x] 512-byte bootloader (real mode to protected mode)
+- [x] Direct-threaded code interpreter (NEXT/DOCOL/EXIT)
+- [x] 177+ kernel words (stack, arithmetic, logic, memory, I/O, control flow)
+- [x] Forth-83 floored division semantics
+- [x] VGA text mode + keyboard + serial I/O
+- [x] Colon definitions, CONSTANT, VARIABLE, CREATE/DOES>
+- [x] IF/ELSE/THEN, BEGIN/UNTIL/WHILE/REPEAT, DO/LOOP/+LOOP
+- [x] WORDS, SEE (decompiler), DUMP, .S
 
-### Bootloader ✅
-- [x] 16-bit real mode startup
-- [x] A20 gate enable
-- [x] Protected mode transition
-- [x] GDT setup (code, data segments)
-- [x] Kernel loading (64 sectors, 32KB)
-- [x] Jump to 32-bit kernel
+## Phase 1: Self-Hosting -- COMPLETE
 
-### Forth Kernel ✅
-- [x] Direct Threaded Code (DTC) interpreter
-- [x] NEXT, DOCOL, EXIT primitives
-- [x] Dual stack architecture (parameter + return)
-- [x] Dictionary with linked word headers
-- [x] Name lookup with case-insensitive compare
+Block storage, vocabularies, and source loading.
 
-### Core Words ✅
-- [x] Stack: DROP DUP SWAP OVER ROT ?DUP 2DUP 2DROP 2SWAP 2OVER NIP TUCK PICK ROLL DEPTH
-- [x] Arithmetic: + - * / MOD /MOD NEGATE ABS MIN MAX 1+ 1- 2* 2/ */MOD
-- [x] Comparison: = <> < > <= >= 0= 0< 0> U< U>
-- [x] Logic: AND OR XOR INVERT
-- [x] Memory: @ ! C@ C! +! 2@ 2! FILL MOVE CMOVE CMOVE>
-- [x] Return Stack: >R R> R@ 2>R 2R> 2R@
-
-### Forth-83 Floored Division ✅
-- [x] Correct semantics: -7 / 3 = -3, remainder = 2
-- [x] Applied to: / MOD /MOD */MOD
-- [x] Multi-architecture codegen for division primitives
-
-### I/O ✅
-- [x] VGA text mode (80x25)
-- [x] Keyboard input (scancode translation)
-- [x] KEY EMIT CR SPACE SPACES TYPE
-- [x] Cursor tracking and scrolling
-
-### Compiler Infrastructure ✅
-- [x] : (colon) and ; (semicolon)
-- [x] IMMEDIATE word marking
-- [x] [ ] state switching
-- [x] LITERAL and LIT
-- [x] ' (tick) and EXECUTE
-- [x] FIND and word lookup
-
-### Control Flow ✅
-- [x] IF ELSE THEN
-- [x] BEGIN UNTIL WHILE REPEAT AGAIN
-- [x] DO LOOP +LOOP I J LEAVE
-- [x] RECURSE
-
-### Defining Words ✅
-- [x] VARIABLE CONSTANT
-- [x] CREATE DOES>
-- [x] ALLOT ,
-
-### String Words ✅
-- [x] S" string literals
-- [x] ." print strings
-- [x] COUNT TYPE
-
-### Utility Words ✅
-- [x] WORDS (list dictionary)
-- [x] SEE (decompiler)
-- [x] . .S (stack display)
-- [x] HEX DECIMAL
-- [x] DUMP (memory dump)
-
-### Build System ✅
-- [x] Makefile with assembly targets
-- [x] QEMU test targets
-- [x] Debug configuration
-
-### Pending
-- [ ] Build and boot test
-- [ ] Fix any runtime issues
-
----
-
-## Phase 1: Self-Hosting (Target: +2 months)
-
-### Text Interpreter Enhancement
-- [ ] Line editor with history
-- [ ] ACCEPT for input
-- [ ] QUERY
-- [ ] EVALUATE for string execution
-- [ ] ABORT" error handling
-
-### File System
-- [x] ATA PIO disk driver (IDE slave)
-- [x] Block-based storage (1KB blocks, 4-buffer LRU cache)
-- [x] BLOCK BUFFER UPDATE SAVE-BUFFERS FLUSH EMPTY-BUFFERS
-- [x] Source file loading: LOAD, THRU, --> (chain-load)
-- [x] LIST (display block contents)
-- [ ] INCLUDE (host file loading)
-
-### Dictionary Management
-- [ ] FORGET (remove words)
-- [ ] MARKER (save/restore dictionary state)
-- [x] VOCABULARY (multiple wordlists)
-- [x] ORDER DEFINITIONS ALSO PREVIOUS ONLY FORTH
+- [x] ATA PIO block driver with 4-buffer LRU cache
+- [x] BLOCK, BUFFER, UPDATE, SAVE-BUFFERS, FLUSH
+- [x] LOAD, LIST, THRU, --> (chain load)
+- [x] Vocabulary/search-order system (8-slot)
+- [x] VOCABULARY, DEFINITIONS, ALSO, PREVIOUS, ONLY, ORDER
 - [x] USING syntax for vocabulary activation
+- [x] Catalog resolver for automatic dependency loading
+- [x] Block editor (Vi-style, 373 lines)
+- [x] X86-ASM target assembler
+- [x] META-COMPILER (two-pass bootstrap)
 
-### Error Handling
-- [ ] ABORT ABORT"
-- [ ] CATCH THROW
-- [ ] Stack underflow/overflow detection
+## Phase 2: Platform -- IN PROGRESS
 
----
+Hardware drivers, networking, and real-hardware validation.
 
-## Phase 2: Platform Dictionaries (Target: +4 months)
+### Complete
 
-### CPU-Specific Dictionaries
-- [ ] cpu/x86.fth (32-bit primitives)
-- [ ] cpu/x86-64.fth (64-bit extension)
-- [ ] cpu/arm64.fth (ARM64 primitives)
-- [ ] cpu/riscv64.fth (RISC-V primitives)
+- [x] Interrupt infrastructure (IDT, PIC remapping, ISR stubs)
+- [x] IRQ management (IRQ-UNMASK, ISR hook table)
+- [x] Physical memory allocator (PHYS-ALLOC, 1MB-4MB pool)
+- [x] PCI bus enumeration (config space, BAR discovery)
+- [x] RTL8168 gigabit NIC (PHY init, link negotiation, TX engine, UDP)
+- [x] Network console (UDP output mirror, TxOK synchronous TX)
+- [x] AHCI/SATA driver (DMA sector reads, MBR/GPT, NTFS scanning)
+- [x] Embedded vocabulary system (6 vocabs compiled into kernel)
+- [x] PXE network boot
+- [x] In-system x86 disassembler (824 lines, dictionary-aware)
+- [x] Port mapper (I/O port enumeration)
+- [x] ECHOPORT (I/O call tracing)
+- [x] NE2000 network driver (word-mode DMA, packet receive)
+- [x] NET-DICT (raw Ethernet block transfer between instances)
+- [x] RTL8139 100M NIC driver
+- [x] SERIAL-16550 UART driver
+- [x] PS/2 keyboard and mouse drivers
+- [x] PIT timer driver
+- [x] VGA graphics mode switching
+- [x] Context serialization (MIRROR vocabulary)
+- [x] Bare-metal validation on HP 15-bs0xx laptop
 
-### OS-Mode Dictionaries
-- [ ] os/bare.fth (direct hardware access)
-- [ ] os/linux.fth (syscall wrappers)
-- [ ] os/windows.fth (API translation)
+### Next
 
-### Hardware Abstraction
-- [ ] Register access words (EAX@ EAX! etc.)
-- [x] Port I/O (INB OUTB INW OUTW INL OUTL)
-- [ ] Memory-mapped I/O
-- [x] Interrupt handlers (IDT, PIC, ISR infrastructure)
+- [ ] AHCI write support (sector writes to SATA disk)
+- [ ] FAT32 filesystem (read files, not just raw sectors)
+- [ ] RTL8168 RX path (receive UDP packets, not just transmit)
+- [ ] IRQ-driven keyboard (replace polling)
+- [ ] Multi-sector DMA transfers
 
-### Inline Assembler (LMI Pattern)
-- [ ] CODE...END-CODE defining words
-- [ ] Postfix opcode emitters (MOV, ADD, PUSH, POP, etc.)
-- [ ] Addressing modes (#, [EBP], [], SIB)
-- [ ] Structured control flow (IF, ELSE, THEN, at assembly level)
-- [ ] Forward reference labels
-- [ ] DISASM machine-level disassembler
-- See `docs/LMI_REFERENCE.md` and `forth/dict/asm-vocab.fth` (stub)
+## Phase 3: Binary Translation -- IN PROGRESS
 
----
+Universal Binary Translator for driver extraction.
 
-## Phase 3: UIR Integration (Target: +6 months)
+### Complete
 
-### Binary Translation
-- [ ] Load PE/ELF files from Forth
-- [ ] Disassemble to UIR
-- [ ] UIR to Forth threaded code
-- [ ] Execute translated code
+- [x] PE loader (PE32/PE32+, imports, exports, sections)
+- [x] ELF loader (Linux kernel modules, userspace binaries)
+- [x] COM loader (DOS flat binaries)
+- [x] Format auto-detection (PE/ELF/COM)
+- [x] x86 decoder (100+ instructions, ModR/M+SIB, two-byte opcodes)
+- [x] ARM64 decoder (stub, structural)
+- [x] RISC-V decoder (stub, structural)
+- [x] CIL/.NET decoder (stub, structural)
+- [x] UIR lifter (three-pass: targets, blocks, edges)
+- [x] Semantic analyzer (100+ Windows driver APIs classified)
+- [x] Forth code generator (parametric stack-effect words)
+- [x] End-to-end pipeline: binary -> Forth vocabulary source
+- [x] Ghidra validation framework (oracle comparison)
+- [x] Real driver validation (serial.sys, i8042prt.sys, ACPI.sys, parport_pc.ko)
+- [x] 270 tests across 22 suites, all passing
 
-### Semantic Analysis
-- [ ] API pattern recognition
-- [ ] Function boundary detection
-- [ ] Control flow reconstruction
-- [ ] Call graph analysis
+### Next
 
-### Cross-Platform Support
-- [ ] x86 → ARM64 translation
-- [ ] x86 → RISC-V translation
-- [ ] DLL import resolution
-- [ ] API mapping tables
+- [ ] MMIO detection (MmMapIoSpaceEx pattern recognition)
+- [ ] Multi-function vocabulary merging
+- [ ] Direct block-load of translated output
 
----
+## Phase 4: Ship Systems -- PLANNED
 
-## Phase 4: Ship Systems (Target: +12 months)
+- [ ] Cooperative multitasking (round-robin task switcher)
+- [ ] Inter-task communication (mailboxes or channels)
+- [ ] USB mass storage driver
+- [ ] SD card reader support
+- [ ] Framebuffer graphics (VESA/VBE)
+- [ ] Sound (PC speaker, HDA basic)
 
-### Device Drivers
-- [ ] Serial port (RS-232)
-- [ ] USB (basic)
-- [ ] Network (Ethernet)
-- [ ] Storage (NVMe)
+## Phase 5: Production -- PLANNED
 
-### System Services
-- [ ] Timer/scheduling
-- [ ] Memory management
-- [ ] Task switching (cooperative)
-- [ ] Inter-process communication
+- [ ] Forth-83 compliance test suite
+- [ ] Dictionary image save/restore
+- [ ] Cross-compilation to ARM64 / RISC-V
+- [ ] Hardened memory protection for critical deployments
+- [ ] Documentation and training materials
 
-### Reliability Features
-- [ ] Watchdog timer
-- [ ] Error logging
-- [x] State checkpointing — MIRROR/LOOKINGGLASS vocabulary
-  - MIRROR saves dictionary, variables, stacks to ATA blocks
-  - LOOKINGGLASS restores complete execution context
-  - See `forth/dict/mirror.fth`
-- [ ] Graceful degradation
+## Tested Hardware
 
----
-
-## Phase 5: Production (Target: +24 months)
-
-### Hardening
-- [ ] Memory protection (optional)
-- [ ] Stack canaries
-- [ ] Bounds checking mode
-- [ ] Audit logging
-
-### Documentation
-- [ ] Complete word glossary
-- [ ] System internals guide
-- [ ] Hardware interface manual
-- [ ] Mission adaptation guide
-
-### Validation
-- [ ] Forth-83 compliance suite
-- [ ] Hardware compatibility testing
-- [ ] Long-duration stress tests
-- [ ] Fault injection testing
-
----
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    APPLICATION LAYER                         │
-│            Ship Systems │ Analysis Tools │ Utilities         │
-├─────────────────────────────────────────────────────────────┤
-│                    PLATFORM DICTIONARIES                     │
-│         cpu/x86.fth │ os/bare.fth │ api-map.fth             │
-├─────────────────────────────────────────────────────────────┤
-│                      FORTH KERNEL                            │
-│    Interpreter │ Compiler │ Dictionary │ Control Flow        │
-├─────────────────────────────────────────────────────────────┤
-│                        PRIMITIVES                            │
-│      Stack │ Arithmetic │ Memory │ I/O │ System             │
-├─────────────────────────────────────────────────────────────┤
-│                       BOOTLOADER                             │
-│    Real Mode → Protected Mode → Load Kernel → Start         │
-├─────────────────────────────────────────────────────────────┤
-│                      BARE METAL                              │
-│              x86 │ ARM64 │ RISC-V Hardware                   │
-└─────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Memory Map (x86 Protected Mode)
-
-```
-0x00000000 - 0x00000FFF : Reserved (Real Mode IVT)
-0x00007C00 - 0x00007DFF : Bootloader (512 bytes)
-0x00007E00 - 0x0000FDFF : Forth Kernel (~32KB)
-0x00010000 - 0x0001FFFF : Parameter Stack (64KB)
-0x00020000 - 0x0002FFFF : Return Stack (64KB)
-0x00030000 - 0x000BFFFF : Dictionary Space (576KB)
-0x000B8000 - 0x000B8FFF : VGA Text Buffer
-0x000C0000 - 0x000FFFFF : ROM/Reserved
-0x00100000 - ????????   : Extended Memory (available)
-```
-
----
-
-## Success Metrics
-
-### Phase 0 (Genesis)
-- [ ] Boots to Forth prompt
-- [ ] Can define and execute new words
-- [ ] Basic arithmetic and stack operations work
-- [ ] Can display text and read keyboard
-
-### Phase 1 (Self-Hosting)
-- [ ] Can save/load source files
-- [ ] Can rebuild itself from source
-- [ ] Error recovery without reboot
-
-### Phase 2 (Platform Dictionaries)
-- [ ] Same source runs on multiple CPUs
-- [ ] Direct hardware access from Forth
-- [ ] Platform-specific optimizations
-
-### Phase 3 (UIR Integration)
-- [ ] Can load and analyze Windows DLLs
-- [ ] Can translate x86 code to other architectures
-- [ ] Semantic analysis identifies code purpose
-
-### Phase 4 (Ship Systems)
-- [ ] Runs continuously for 30+ days
-- [ ] Handles hardware faults gracefully
-- [ ] Supports multiple input/output devices
-
-### Phase 5 (Production)
-- [ ] Passes Forth-83 compliance tests
-- [ ] Complete documentation
-- [ ] Ready for mission deployment
-
----
-
-*"Build systems worthy of the void."*
+| Platform | Status | Notes |
+|----------|--------|-------|
+| QEMU i386 | Primary dev/test | floppy boot, IDE blocks, NE2K networking |
+| HP 15-bs0xx laptop | Validated | PXE boot, RTL8168, Intel AHCI (8086:9D03), NTFS read |
