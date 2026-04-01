@@ -20,8 +20,10 @@
 ;   EDX = Working register / I/O
 ;
 ; Memory Map:
-;   0x00007E00 - Kernel start (loaded by bootloader)
-;   0x00010000 - Data stack (grows down)
+;   0x00000500 - Free conventional memory (data stack grows into here)
+;   0x00007C00 - Data stack top (grows down into free memory)
+;   0x00007E00 - Kernel start (loaded by bootloader, 64KB)
+;   0x00017E00 - Kernel end
 ;   0x00020000 - Return stack (grows down)
 ;   0x00028000 - System variables (STATE, HERE, LATEST, BASE, TIB, TOIN)
 ;   0x00028018 - Block/vocabulary variables (BLK, SCR, search order, etc.)
@@ -42,7 +44,7 @@
 ; ============================================================================
 
 ; Stack locations
-DATA_STACK_TOP      equ 0x10000
+DATA_STACK_TOP      equ 0x7C00      ; Below kernel, in free conventional memory
 RETURN_STACK_TOP    equ 0x20000
 
 ; Dictionary
@@ -4846,5 +4848,5 @@ embed_size: dd (embed_end - embed_data)
 ; End of Kernel
 ; ============================================================================
 
-; Pad kernel to exactly 48KB (96 sectors) to match bootloader's KERNEL_SECTORS
-times 0xC000 - ($ - $$) db 0
+; Pad kernel to exactly 64KB (128 sectors) to match bootloader's KERNEL_SECTORS
+times 0x10000 - ($ - $$) db 0
