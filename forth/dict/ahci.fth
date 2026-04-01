@@ -126,6 +126,15 @@ VARIABLE MBR-P4
     FFFFFFFE AND PxCMD P!
     100 0 DO
         PxCMD P@ 8000 AND 0= IF
+            LEAVE
+        THEN
+        1 MS-DELAY
+    LOOP
+    \ Clear FRE (bit 4), wait FR clear
+    PxCMD P@
+    FFFFFFEF AND PxCMD P!
+    100 0 DO
+        PxCMD P@ 4000 AND 0= IF
             UNLOOP EXIT
         THEN
         1 MS-DELAY
@@ -164,7 +173,7 @@ VARIABLE MBR-P4
 ;
 
 : SET-FIS ( -- )
-    CT-BUF 80 0 FILL
+    CT-BUF 100 0 FILL
     258027 CT-BUF !
     RD-LBA @ DUP
     FFFFFF AND 40000000 OR
@@ -175,11 +184,14 @@ VARIABLE MBR-P4
 
 : SET-PRD ( -- )
     SEC-BUF CT-BUF 80 + !
+    0 CT-BUF 84 + !
+    0 CT-BUF 88 + !
     RD-CNT @ 200 * 1-
     CT-BUF 8C + !
 ;
 
 : ISSUE-CMD ( -- )
+    FFFFFFFF PxIS P!
     1 PxCI P!
     200 0 DO
         PxCI P@ 1 AND 0= IF
@@ -199,6 +211,47 @@ VARIABLE MBR-P4
     BUILD-CMD SET-FIS SET-PRD
     ISSUE-CMD
     PxTFD P@ 1 AND
+;
+
+\ ---- Diagnostics ----
+: AHCI-DIAG ( -- )
+    ." CL=" CL-BUF .H8
+    ."  CT=" CT-BUF .H8
+    ."  SEC=" SEC-BUF .H8 CR
+    ." PxCMD=" PxCMD P@ .H8
+    ."  TFD=" PxTFD P@ .H8 CR
+    ." PxIS=" PxIS P@ .H8
+    ."  CI=" PxCI P@ .H8 CR
+;
+
+: CMD-DUMP ( -- )
+    ." Hdr0=" CL-BUF @ .H8
+    ."  CTBA=" CL-BUF 8 + @ .H8
+    ."  CTBAU=" CL-BUF C + @ .H8 CR
+    ." FIS="
+    CT-BUF @ .H8 SPACE
+    CT-BUF 4 + @ .H8 SPACE
+    CT-BUF 8 + @ .H8 SPACE
+    CT-BUF C + @ .H8 CR
+    ." DBA=" CT-BUF 80 + @ .H8
+    ."  DBAU=" CT-BUF 84 + @ .H8
+    ."  DBC=" CT-BUF 8C + @ .H8 CR
+    ." PRDBC=" CL-BUF 4 + @ .H8 CR
+;
+
+: SECTOR-DBG. ( lba -- )
+    1 AHCI-READ IF
+        ." Read err" CR
+        CMD-DUMP EXIT
+    THEN
+    CMD-DUMP
+    ." Data: "
+    10 0 DO
+        SEC-BUF I + C@ .H2 SPACE
+    LOOP
+    ." ..."
+    SEC-BUF 1FE + C@ .H2 SPACE
+    SEC-BUF 1FF + C@ .H2 CR
 ;
 
 \ ---- Display words ----

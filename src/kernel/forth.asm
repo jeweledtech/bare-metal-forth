@@ -3310,7 +3310,7 @@ init_screen:
 ; Called from print_char when LF detected or buffer full.
 ; Uses pre-built frame header template at net_frame_hdr (42 bytes).
 ; Patches: IP total length, IP ID, IP checksum, UDP length.
-; Fire-and-forget: does not wait for TX completion.
+; Waits for previous TX to complete before overwriting TX-BUF.
 ; ----------------------------------------------------------------------------
 net_flush:
     pushad
@@ -3319,6 +3319,19 @@ net_flush:
     mov ecx, [net_buf_pos]
     test ecx, ecx
     jz .nf_done
+
+    ; Wait for previous TX to complete (OWN bit clear in descriptor)
+    push ecx                    ; save payload_len
+    mov edi, [net_tx_desc]
+    mov edx, 10000              ; timeout ~10k spins
+.nf_wait_tx:
+    test dword [edi], 0x80000000
+    jz .nf_tx_ready
+    pause
+    dec edx
+    jnz .nf_wait_tx
+.nf_tx_ready:
+    pop ecx                     ; restore payload_len
 
     ; Copy 42-byte header template to TX-BUF
     mov edi, [net_tx_buf]
