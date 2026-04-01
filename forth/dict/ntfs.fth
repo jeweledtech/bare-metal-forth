@@ -10,11 +10,13 @@
 \ NTFS MFT walker.
 \ Finds files by name on NTFS partitions,
 \ reads file content via AHCI DMA.
+\ Handles fragmented MFT via run map.
 \
 \ Usage:
 \   USING NTFS
 \   NTFS-INIT
-\   S" bootmgr" MFT-FIND
+\   0 25 MFT-LIST
+\   S" ntoskrnl.exe" MFT-FIND
 \   S" i8042prt.sys" FILE-DUMP
 \
 \ ============================================
@@ -35,16 +37,21 @@ FFFFFFFF CONSTANT ATTR-END
 3FE CONSTANT FIXUP-OFF2
 64 CONSTANT DOT-EVERY
 5346544E CONSTANT NTFS-SIG
+200 CONSTANT SECT-SZ
 
 \ ---- Buffers ----
 400 PHYS-ALLOC CONSTANT MFT-BUF
 CREATE NAME-BUF 100 ALLOT
 CREATE GPT-LBAS 20 ALLOT
+\ MFT run map: 32 entries x 8 bytes
+\ Each: +0 start-LBA, +4 record-count
+CREATE MFT-RUNS 100 ALLOT
 
 \ ---- State ----
 VARIABLE PART-LBA
 VARIABLE MFT-BASE
 VARIABLE SEC/CLUS
+VARIABLE RECS/CLUS
 VARIABLE NAME-LEN
 VARIABLE RUN-LBA
 VARIABLE RUN-SECS
@@ -53,6 +60,11 @@ VARIABLE FOUND-REC
 VARIABLE TGT-A
 VARIABLE TGT-L
 VARIABLE GPT-N
+VARIABLE MFT-NRUNS
+VARIABLE MFT-RN
+VARIABLE PR-PTR
+VARIABLE PR-LEN
+VARIABLE PR-OFF
 
 \ ---- Hex helpers ----
 : >HEXCH ( n -- char )
@@ -71,6 +83,33 @@ VARIABLE GPT-N
 ;
 : .H8 ( dword -- )
     DUP 10 RSHIFT .H4 .H4
+;
+
+\ ============================================
+\ Little-endian multi-byte read
+\ ============================================
+
+: LE-U@ ( addr n -- value )
+    0 SWAP
+    0 DO
+        OVER I + C@
+        I 3 LSHIFT LSHIFT
+        OR
+    LOOP
+    NIP
+;
+
+: LE-S@ ( addr n -- value )
+    DUP >R
+    LE-U@
+    R> 3 LSHIFT
+    2DUP
+    1- 1 SWAP LSHIFT
+    AND IF
+        1 SWAP LSHIFT -
+    ELSE
+        DROP
+    THEN
 ;
 
 \ ============================================
@@ -106,36 +145,94 @@ VARIABLE GPT-N
 ;
 
 \ ============================================
-\ MFT fixup + read
+\ MFT fixup
 \ ============================================
 
 : MFT-FIXUP ( -- flag )
     MFT-BUF 4 + W@
     MFT-BUF + >R
     R@ W@
-    \ Check sector 0 signature
     MFT-BUF FIXUP-OFF1 + W@
     OVER <> IF
         DROP R> DROP 1 EXIT
     THEN
-    \ Apply sector 0 fixup
     R@ 2 + W@
     MFT-BUF FIXUP-OFF1 + W!
-    \ Check sector 1 signature
     MFT-BUF FIXUP-OFF2 + W@
     OVER <> IF
         DROP R> DROP 1 EXIT
     THEN
     DROP
-    \ Apply sector 1 fixup
     R> 4 + W@
     MFT-BUF FIXUP-OFF2 + W!
     0
 ;
 
+\ ============================================
+\ Data run parser (reusable)
+\ ============================================
+
+\ Parse one data run from PR-PTR.
+\ Advances PR-PTR. Sets PR-LEN, PR-OFF.
+\ Returns -1 if run parsed, 0 if end.
+: PARSE-RUN ( -- more? )
+    PR-PTR @ C@
+    DUP 0= IF DROP 0 EXIT THEN
+    DUP F AND
+    SWAP 4 RSHIFT
+    SWAP >R
+    PR-PTR @ 1+ R@ LE-U@
+    PR-LEN !
+    PR-PTR @ 1+ R> +
+    DUP >R SWAP
+    2DUP LE-S@
+    PR-OFF !
+    + PR-PTR !
+    R> DROP
+    -1
+;
+
+\ ============================================
+\ MFT run map + record LBA lookup
+\ ============================================
+
+\ Translate MFT record# to absolute LBA.
+\ Uses MFT-RUNS table built by BUILD-MFT-MAP.
+: REC-LBA ( record# -- lba | -1 )
+    MFT-RN !
+    MFT-NRUNS @ 0 DO
+        I 8 * MFT-RUNS +
+        DUP 4 + @
+        MFT-RN @ OVER < IF
+            DROP @
+            MFT-RN @ DUP + +
+            UNLOOP EXIT
+        THEN
+        MFT-RN @ SWAP -
+        MFT-RN !
+        DROP
+    LOOP
+    -1
+;
+
+\ ============================================
+\ MFT read (uses run map)
+\ ============================================
+
 : MFT-READ ( record# -- flag )
-    DUP + MFT-BASE @ +
+    REC-LBA
+    DUP -1 = IF DROP 1 EXIT THEN
     2 AHCI-READ IF
+        1 EXIT
+    THEN
+    SEC-BUF MFT-BUF MFT-REC-SZ CMOVE
+    MFT-FIXUP
+;
+
+\ Bootstrap read: record 0 directly from
+\ MFT-BASE (before run map exists).
+: MFT-READ0 ( -- flag )
+    MFT-BASE @ 2 AHCI-READ IF
         1 EXIT
     THEN
     SEC-BUF MFT-BUF MFT-REC-SZ CMOVE
@@ -166,6 +263,43 @@ VARIABLE GPT-N
         THEN
         +
     AGAIN
+;
+
+\ ============================================
+\ Build MFT run map from $MFT record 0
+\ ============================================
+
+\ Must be called with MFT-BUF containing
+\ record 0 (the $MFT file itself).
+: BUILD-MFT-MAP ( -- )
+    0 MFT-NRUNS !
+    0 RUN-PREV !
+    ATTR-DATA MFT-ATTR
+    DUP 0= IF
+        ." No $MFT data" CR EXIT
+    THEN
+    DUP 8 + C@ 0= IF
+        DROP ." $MFT resident?" CR EXIT
+    THEN
+    DUP 20 + W@ + PR-PTR !
+    BEGIN
+        PARSE-RUN
+    WHILE
+        PR-OFF @ RUN-PREV +!
+        MFT-NRUNS @ 8 *
+        MFT-RUNS +
+        RUN-PREV @
+        SEC/CLUS @ *
+        PART-LBA @ +
+        OVER !
+        PR-LEN @
+        RECS/CLUS @ *
+        SWAP 4 + !
+        1 MFT-NRUNS +!
+        MFT-NRUNS @ 20 = IF
+            EXIT
+        THEN
+    REPEAT
 ;
 
 \ ============================================
@@ -251,31 +385,8 @@ VARIABLE GPT-N
 ;
 
 \ ============================================
-\ Data run parsing
+\ File data run parsing
 \ ============================================
-
-: LE-U@ ( addr n -- value )
-    0 SWAP
-    0 DO
-        OVER I + C@
-        I 3 LSHIFT LSHIFT
-        OR
-    LOOP
-    NIP
-;
-
-: LE-S@ ( addr n -- value )
-    DUP >R
-    LE-U@
-    R> 3 LSHIFT
-    2DUP
-    1- 1 SWAP LSHIFT
-    AND IF
-        1 SWAP LSHIFT -
-    ELSE
-        DROP
-    THEN
-;
 
 : MFT-DATA-RUNS ( -- )
     0 RUN-LBA !
@@ -291,9 +402,7 @@ VARIABLE GPT-N
         ." Resident data" CR
         EXIT
     THEN
-    \ Data runs at attr + W@(attr+0x20)
     DUP 20 + W@ +
-    \ Parse first run
     DUP C@
     DUP 0= IF
         2DROP ." No runs" CR
@@ -301,19 +410,15 @@ VARIABLE GPT-N
     THEN
     DUP F AND
     SWAP 4 RSHIFT
-    \ ( runs-addr len-sz off-sz )
     >R >R
     1+
-    \ Read run length (clusters)
     DUP R@ LE-U@
     SEC/CLUS @ *
     RUN-SECS !
     R> +
-    \ Read run offset (signed clusters)
     DUP R> LE-S@
     RUN-PREV !
     DROP
-    \ Absolute LBA
     RUN-PREV @
     SEC/CLUS @ *
     PART-LBA @ +
@@ -327,11 +432,9 @@ VARIABLE GPT-N
 ;
 
 \ ============================================
-\ NTFS-INIT: GPT scan + partition setup
+\ NTFS-INIT: GPT + MFT run map
 \ ============================================
 
-\ Collect partition start LBAs from one
-\ sector of GPT entries (4 per sector)
 : COLLECT-ENTRIES ( sector-lba -- )
     1 AHCI-READ IF EXIT THEN
     4 0 DO
@@ -387,13 +490,33 @@ VARIABLE GPT-N
     SCAN-GPT 0= IF
         ." No NTFS found" CR EXIT
     THEN
+    \ Compute records per cluster
+    SEC/CLUS @ SECT-SZ *
+    MFT-REC-SZ /
+    RECS/CLUS !
     ." NTFS at LBA "
     PART-LBA @ .H8 CR
     ." MFT at LBA "
     MFT-BASE @ .H8 CR
     SEC/CLUS @
     DECIMAL . HEX
-    ." sect/clust" CR
+    ." sect/clust, "
+    RECS/CLUS @
+    DECIMAL . HEX
+    ." rec/clust" CR
+    \ Bootstrap: read MFT record 0
+    MFT-READ0 IF
+        ." MFT read err" CR EXIT
+    THEN
+    MFT-BUF @ FILE-SIG <> IF
+        ." Bad MFT sig" CR EXIT
+    THEN
+    \ Build run map from $MFT data runs
+    BUILD-MFT-MAP
+    ." MFT: "
+    MFT-NRUNS @
+    DECIMAL . HEX
+    ." runs" CR
 ;
 
 \ ============================================
@@ -423,6 +546,18 @@ VARIABLE GPT-N
 : MFT-LIST ( start count -- )
     OVER + SWAP DO
         I MFT-SHOW
+    LOOP
+;
+
+: MFT-MAP. ( -- )
+    ." MFT runs:" CR
+    MFT-NRUNS @ 0 DO
+        I 8 * MFT-RUNS +
+        ."  LBA "
+        DUP @ .H8
+        ."  recs "
+        4 + @
+        DECIMAL . HEX CR
     LOOP
 ;
 
