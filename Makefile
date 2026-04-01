@@ -28,7 +28,7 @@ $(BOOTLOADER): $(SRC_BOOT)/boot.asm | $(BUILD)
 	$(NASM) -f bin -o $@ $<
 
 # Embedded vocabularies (evaluated at boot, no block storage needed)
-EMBED_VOCABS = forth/dict/hardware.fth forth/dict/port-mapper.fth forth/dict/echoport.fth forth/dict/pci-enum.fth forth/dict/rtl8168.fth forth/dict/ahci.fth forth/dict/auto-detect.fth
+EMBED_VOCABS = forth/dict/hardware.fth forth/dict/port-mapper.fth forth/dict/echoport.fth forth/dict/pci-enum.fth forth/dict/rtl8168.fth forth/dict/ahci.fth forth/dict/ntfs.fth forth/dict/auto-detect.fth
 EMBEDDED = $(BUILD)/embedded.bin
 
 $(EMBEDDED): $(EMBED_VOCABS) tools/embed-vocabs.py | $(BUILD)
