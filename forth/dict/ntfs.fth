@@ -349,10 +349,26 @@ VARIABLE PR-OFF
 \ MFT search
 \ ============================================
 
+VARIABLE MFT-TOTAL
+3E8 CONSTANT DOT-K
+
+\ Compute total MFT records from run map
+: MFT-COUNT ( -- n )
+    0
+    MFT-NRUNS @ 0 DO
+        I 8 * MFT-RUNS + 4 + @
+        +
+    LOOP
+;
+
 : MFT-FIND ( addr len -- rec# -1 | 0 )
     TGT-L ! TGT-A !
-    ." Searching MFT"
-    186A0 0 DO
+    MFT-COUNT MFT-TOTAL !
+    ." Searching "
+    MFT-TOTAL @
+    DECIMAL . HEX
+    ." records" CR
+    MFT-TOTAL @ 0 DO
         I MFT-READ 0= IF
             MFT-BUF @ FILE-SIG = IF
                 MFT-BUF 16 + W@
@@ -362,7 +378,6 @@ VARIABLE PR-OFF
                         TGT-A @
                         TGT-L @
                         NAME= IF
-                            CR
                             ." Found rec "
                             I DECIMAL .
                             HEX CR
@@ -375,7 +390,7 @@ VARIABLE PR-OFF
                 THEN
             THEN
         THEN
-        I DOT-EVERY MOD
+        I DOT-K MOD
         0= IF
             2E EMIT
         THEN
