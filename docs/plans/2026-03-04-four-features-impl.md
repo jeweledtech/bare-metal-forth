@@ -1,6 +1,6 @@
 # Four Major Features Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **Note:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Build interrupt infrastructure + six hardware drivers + Vi-like block editor + self-hosting metacompiler for the Bare-Metal Forth OS.
 

@@ -1,4 +1,4 @@
-# Claude Code Task: ForthOS Metacompiler
+# Task: ForthOS Metacompiler
 
 ## Vision
 

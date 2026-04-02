@@ -4,8 +4,8 @@
 ## Status
 
 The DISASM and ASM vocabularies are **pending implementation**.
-Design is complete. See `CLAUDE_CODE_TASK_DISASM.md`.
-Do not implement until Claude Code task is executed.
+Design is complete. See `TASK_DISASM.md`.
+Do not implement until task is executed.
 
 The LMI manual (physical copy) is held by the project mentor.
 Recovery is an active archival goal. This document captures

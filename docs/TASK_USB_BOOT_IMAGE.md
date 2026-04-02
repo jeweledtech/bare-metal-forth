@@ -1,6 +1,6 @@
 # ForthOS: USB Boot Image for HP Laptop 15-bs0xx Real Hardware
 **Date:** 2026-03-21  
-**Status:** Ready for Claude Code  
+**Status:** Ready for the toolchain  
 **Commit base:** `93f7142` (234 tests passing)  
 **Hardware target:** HP Laptop 15-bs0xx (Intel Core i3-7200U, Kaby Lake, 2017)  
 **Serial:** CND74032JF / Product: 1TJ84UA#ABA  

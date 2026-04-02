@@ -1,6 +1,6 @@
 # UBT: 64-bit PE32+ Fix + beep.sys + HP Real Hardware Validation
 **Date:** 2026-03-21  
-**Status:** Ready for Claude Code  
+**Status:** Ready for the toolchain  
 **Commit base:** `93f7142` (234 tests / 20 suites, all passing)  
 **Priority:** Task A (64-bit fix) blocks Task C (HP validation). Tasks A and B are independent.
 

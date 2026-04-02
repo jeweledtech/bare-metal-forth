@@ -1,6 +1,6 @@
 # Driver Extraction Pipeline — Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **Note:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Build a working extraction pipeline that reads a PE (.sys/.dll) binary, decodes x86 instructions, lifts to UIR, categorizes hardware vs scaffolding, and generates a Forth vocabulary.
 

@@ -1,6 +1,6 @@
 # Ghidra Validation Framework Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **Note:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Build a Ghidra-as-oracle validation framework that proves the translator pipeline extracts the same hardware semantics from a .sys binary as Ghidra does.
 
@@ -567,7 +567,7 @@ diff <(grep 'CONSTANT\|C@-PORT\|C!-PORT' /tmp/pipeline_output.fth | sort) \
 ```
 Expected: Port constants and I/O patterns overlap significantly (not identical — the synthetic binary uses low-byte ports 0xF8-0xFD while the reference uses full 0x3F8-0x3FF with base+offset).
 
-**Step 4: Update CLAUDE.md with Phase B status**
+**Step 4: Update project docs with Phase B status**
 
 Add to the "Current state" section:
 - Phase B validation framework: synthetic .sys builder, Ghidra export script, cached JSON fixtures, comparison test. 80 tests total.
@@ -575,6 +575,6 @@ Add to the "Current state" section:
 **Step 5: Final commit**
 
 ```bash
-git add CLAUDE.md
+git add docs/
 git commit -m "Update project memory with Phase B validation framework status"
 ```
