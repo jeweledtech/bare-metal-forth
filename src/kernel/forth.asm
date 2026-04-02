@@ -1301,7 +1301,7 @@ DEFCODE "WORD", FWORD, 0    ; ( -- c-addr )
     NEXT
 
 DEFCODE "NUMBER", NUMBER, 0 ; ( c-addr -- n )
-    pop esi
+    pop eax                     ; Discard c-addr (number_ reads word_buffer)
     call number_
     push eax
     NEXT

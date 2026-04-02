@@ -29,23 +29,79 @@ VARIABLE T-ORG
 VARIABLE T-SIZE
 VARIABLE T-LINK-VAR
 
+\ ---- Target address calculation ----
+: T-ADDR ( -- target-addr )
+    T-HERE @ T-IMAGE - T-ORG @  +
+;
+
+\ ---- Target address translation ----
+: T>HOST ( target-addr -- host-addr )
+    T-ORG @ - T-IMAGE +
+;
+
+\ ---- Target memory access ----
+: T-C@ ( taddr -- byte ) T>HOST C@ ;
+: T-@ ( taddr -- cell ) T>HOST @ ;
+: T-C! ( byte taddr -- ) T>HOST C! ;
+: T-! ( cell taddr -- ) T>HOST ! ;
+: T-ALLOT ( n -- ) T-HERE +! ;
+: T-ALIGN ( -- )
+    BEGIN T-ADDR 3 AND WHILE
+        0 T-C,
+    REPEAT
+;
+
+\ ---- Runtime address variables ----
+VARIABLE DOCOL-ADDR
+VARIABLE DOCREATE-ADDR
+VARIABLE DOCON-ADDR
+VARIABLE DOVOC-ADDR
+VARIABLE DOLIT-ADDR
+VARIABLE DOBRANCH-ADDR
+VARIABLE DO0BRANCH-ADDR
+VARIABLE DOEXIT-ADDR
+VARIABLE DODO-ADDR
+VARIABLE DOLOOP-ADDR
+VARIABLE DOPLOOP-ADDR
+
+\ ---- Forward reference table ----
+\ Entry: len(1) name(1F) chain(4) flag(4) = 28h
+VARIABLE FREF-COUNT
+CREATE FREF-TBL 3E8 ALLOT
+
+\ ---- Target compilation state ----
+VARIABLE T-STATE
+: T-] ( -- ) -1 T-STATE ! ;
+: T-[ ( -- ) 0 T-STATE ! ; IMMEDIATE
+: T-COMPILE, ( xt -- ) T-, ;
+: T-LITERAL ( n -- )
+    DOLIT-ADDR @ T-, T-,
+;
+: T-; ( -- )
+    DOEXIT-ADDR @ T-, 0 T-STATE !
+;
+
 \ ---- Initialize target ----
 : META-INIT ( -- )
     T-IMAGE 10000 0 FILL
     T-IMAGE T-HERE !
     7E00 T-ORG !
-    0 T-LINK-VAR !
-    0 T-SIZE !
-;
-
-\ ---- Target address calculation ----
-: T-ADDR ( -- target-addr )
-    T-HERE @ T-IMAGE - T-ORG @ +
+    0 T-LINK-VAR ! 0 T-SIZE !
+    0 T-STATE ! 0 FREF-COUNT !
+    0 DOCOL-ADDR !
+    0 DOCREATE-ADDR !
+    0 DOCON-ADDR ! 0 DOVOC-ADDR !
+    0 DOLIT-ADDR !
+    0 DOBRANCH-ADDR !
+    0 DO0BRANCH-ADDR !
+    0 DOEXIT-ADDR !
+    0 DODO-ADDR !
+    0 DOLOOP-ADDR !
+    0 DOPLOOP-ADDR !
 ;
 
 \ ---- Emit target dictionary header ----
 \ Format: link(4) flags+len(1) name(n) align
-\ Takes name as addr+len on stack
 VARIABLE TH-ADDR
 VARIABLE TH-LEN
 VARIABLE TH-FLAGS
@@ -63,10 +119,7 @@ VARIABLE TH-FLAGS
     TH-LEN @ 0 DO
         TH-ADDR @ I + C@ T-C,
     LOOP
-    \ Align to 4 bytes
-    BEGIN T-ADDR 3 AND WHILE
-        0 T-C,
-    REPEAT
+    T-ALIGN
 ;
 
 \ ---- Define a CODE word in target ----
@@ -80,16 +133,178 @@ VARIABLE TH-FLAGS
 ;
 
 \ ---- Define a COLON word in target ----
-VARIABLE DOCOL-ADDR
-
 : T-COLON ( addr len -- )
     0 T-HEADER
     DOCOL-ADDR @ T-,
 ;
 
-\ ---- Forward reference table ----
-VARIABLE FREF-COUNT
-CREATE FREF-TBL 400 ALLOT
+\ ============================================
+\ Forward references
+\ ============================================
+\ Entry: namelen(1) name(1F) chain(4) flag(4)
+\ chain = target addr of newest placeholder
+\ flag = 0 unresolved, FFFFFFFF resolved
+28 CONSTANT FREF-ESIZ
+VARIABLE FR-ADDR
+VARIABLE FR-LEN
+
+: FREF-ENTRY ( idx -- addr )
+    FREF-ESIZ * FREF-TBL +
+;
+: FREF-CHAIN ( idx -- addr )
+    FREF-ENTRY 20 +
+;
+: FREF-FLAG ( idx -- addr )
+    FREF-ENTRY 24 +
+;
+
+\ Name comparison
+: FREF-NAMEEQ ( addr len idx -- flag )
+    FREF-ENTRY DUP C@
+    2 PICK <> IF
+        DROP DROP DROP 0 EXIT
+    THEN
+    SWAP 0 DO
+        OVER I + C@
+        OVER 1+ I + C@
+        <> IF
+            DROP DROP 0
+            UNLOOP EXIT
+        THEN
+    LOOP
+    DROP DROP -1
+;
+
+\ Declare a forward reference
+: FORWARD ( addr len -- )
+    FR-LEN ! FR-ADDR !
+    FREF-COUNT @ FREF-ENTRY
+    FR-LEN @ OVER C!
+    1+
+    FR-ADDR @ SWAP FR-LEN @ CMOVE
+    0 FREF-COUNT @ FREF-CHAIN !
+    0 FREF-COUNT @ FREF-FLAG !
+    1 FREF-COUNT +!
+;
+
+\ Compile a forward-ref placeholder
+: T-FORWARD, ( addr len -- )
+    FR-LEN ! FR-ADDR !
+    FREF-COUNT @ 0 DO
+        FR-ADDR @ FR-LEN @ I FREF-NAMEEQ
+        IF
+            I FREF-CHAIN @
+            T-ADDR I FREF-CHAIN !
+            T-,
+            UNLOOP EXIT
+        THEN
+    LOOP
+    ." FREF? " FR-ADDR @ FR-LEN @ TYPE CR
+;
+
+\ Patch all uses of a forward reference
+VARIABLE FR-TMP
+: RESOLVE ( tgt-addr addr len -- )
+    FR-LEN ! FR-ADDR !
+    FREF-COUNT @ 0 DO
+        FR-ADDR @ FR-LEN @ I FREF-NAMEEQ
+        IF
+            I FREF-CHAIN @
+            BEGIN DUP WHILE
+                DUP T-@
+                -ROT OVER SWAP T-!
+                SWAP
+            REPEAT
+            DROP DROP
+            -1 I FREF-FLAG !
+            UNLOOP EXIT
+        THEN
+    LOOP
+    DROP ." RESOLVE? "
+    FR-ADDR @ FR-LEN @ TYPE CR
+;
+
+\ Report unresolved references
+: META-CHECK ( -- )
+    FREF-COUNT @ 0 DO
+        I FREF-FLAG @ 0= IF
+            ." Unresolved: "
+            I FREF-ENTRY DUP C@
+            SWAP 1+ SWAP TYPE CR
+        THEN
+    LOOP
+;
+
+\ ============================================
+\ Defining words (target)
+\ ============================================
+VARIABLE TC-TMP
+80 CONSTANT F-IMMED
+
+: T-VARIABLE ( addr len -- )
+    0 T-HEADER
+    DOCREATE-ADDR @ T-, 0 T-,
+;
+
+: T-CONSTANT ( n addr len -- )
+    ROT TC-TMP !
+    0 T-HEADER
+    DOCON-ADDR @ T-, TC-TMP @ T-,
+;
+
+: T-IMMEDIATE ( -- )
+    T-LINK-VAR @ 4 + DUP T-C@
+    F-IMMED OR SWAP T-C!
+;
+
+\ ============================================
+\ Control flow (target)
+\ ============================================
+\ BRANCH: add esi,[esi]
+\   offset = target - offset_cell
+\ DOLOOP: lodsd; add esi,eax
+\   offset = target - offset_cell - 4
+
+: T-IF ( -- orig )
+    DO0BRANCH-ADDR @ T-,
+    T-ADDR 0 T-,
+;
+: T-THEN ( orig -- )
+    T-ADDR OVER - SWAP T-!
+;
+: T-ELSE ( orig1 -- orig2 )
+    DOBRANCH-ADDR @ T-,
+    T-ADDR 0 T-,
+    SWAP T-THEN
+;
+: T-BEGIN ( -- dest ) T-ADDR ;
+: T-UNTIL ( dest -- )
+    DO0BRANCH-ADDR @ T-,
+    T-ADDR - T-,
+;
+: T-AGAIN ( dest -- )
+    DOBRANCH-ADDR @ T-,
+    T-ADDR - T-,
+;
+: T-WHILE ( dest -- orig dest )
+    DO0BRANCH-ADDR @ T-,
+    T-ADDR 0 T-,
+    SWAP
+;
+: T-REPEAT ( orig dest -- )
+    T-AGAIN T-THEN
+;
+: T-DO ( -- do-sys )
+    DODO-ADDR @ T-, T-ADDR
+;
+: T-LOOP ( do-sys -- )
+    DOLOOP-ADDR @ T-,
+    T-ADDR - 4 - T-,
+;
+: T-+LOOP ( do-sys -- )
+    DOPLOOP-ADDR @ T-,
+    T-ADDR - 4 - T-,
+;
 
 \ ---- Build status ----
 VARIABLE META-OK
@@ -113,8 +328,9 @@ VARIABLE META-OK
 \ ---- Minimal build (3-word kernel) ----
 : META-BUILD ( -- )
     META-INIT
-    \ Define EXIT
+    \ Define EXIT (also sets DOEXIT-ADDR)
     S" EXIT" T-CODE
+    T-ADDR 4 - DOEXIT-ADDR !
     C3 T-C,
     END-CODE
     \ Define DROP
@@ -130,6 +346,41 @@ VARIABLE META-OK
     ." META-BUILD complete: "
     T-SIZE @ DECIMAL . HEX
     ." bytes" CR
+;
+
+\ ============================================
+\ Context switching
+\ ============================================
+VOCABULARY TARGET
+
+: IN-META ( -- )
+    ONLY FORTH
+    ALSO META-COMPILER DEFINITIONS
+;
+: IN-TARGET ( -- )
+    ONLY FORTH ALSO TARGET
+    DEFINITIONS
+;
+
+: [FORTH] FORTH ; IMMEDIATE
+: [META] META-COMPILER ; IMMEDIATE
+: [ASM] X86-ASM ; IMMEDIATE
+
+\ ============================================
+\ Base-forcing number parse (interpret only)
+\ ============================================
+: D# ( "num" -- n )
+    BASE @ >R DECIMAL
+    WORD NUMBER R> BASE !
+;
+: H# ( "num" -- n )
+    BASE @ >R HEX
+    WORD NUMBER R> BASE !
+;
+
+\ ---- META-SAVE stub ----
+: META-SAVE ( -- )
+    ." META-SAVE: stub" CR
 ;
 
 PREVIOUS PREVIOUS FORTH DEFINITIONS
