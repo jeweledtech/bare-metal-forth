@@ -2,14 +2,17 @@
 
 ## Vision
 
-The metacompiler lets ForthOS rebuild itself. From the running x86 system, it compiles a NEW kernel image for the same architecture (self-rebuild) or for ARM64 (Raspberry Pi cross-compile). This is the "install files from a dictionary on a stick" concept — the running Forth OS is the master machine that builds kernels for any target.
+The metacompiler lets ForthOS rebuild itself. From the running x86 system, it compiles a NEW kernel image for the same architecture (self-rebuild) or for any supported target (ARM64, RISC-V, SPARC, Cortex-M, and more). This is the "install files from a dictionary on a stick" concept — the running Forth OS is the master machine that builds kernels for any target.
 
 ## Repository
 
 Location: `~/projects/forthos`
-Extend: `forth/dict/meta-compiler.fth` (existing, 136 lines, 21 words)
+Extend: `forth/dict/meta-compiler.fth` (existing, ~387 lines, 85 words after Phase A)
 Create: `forth/dict/target-x86.fth` (x86 target architecture definitions)
-Create: `forth/dict/target-arm64.fth` (ARM64 target definitions, Phase C)
+Create: `forth/dict/target-arm64.fth` (ARM64 target definitions, Phase C.1)
+Create: `forth/dict/target-riscv.fth` (RISC-V target definitions, Phase C.2)
+Create: `forth/dict/target-cortex-m.fth` (Cortex-M33 target, Phase C.3)
+Create: `forth/dict/target-sparc.fth` (SPARC/LEON3 target, Phase C.4)
 
 Reference: `~/taygeta/metacompiler-refs/METACOMPILER-SYNTHESIS.md` (798-line synthesis from 7 sources, complete word catalog with stack effects and execution contexts)
 
@@ -304,9 +307,77 @@ T-CODE and T-COLON should call T-TWIN after building the target header.
 
 ---
 
+## Target Architecture Summary
+
+The metacompiler is target-agnostic. Each architecture provides a
+`target-<arch>.fth` vocabulary. The metacompiler itself never changes.
+
+### Tier 1 — Primary Targets (build and test capability exists)
+
+| Architecture | Target File | CELL | Endian | NEXT Pattern | Test Platform |
+|-------------|-------------|------|--------|--------------|---------------|
+| x86 (32-bit) | target-x86.fth | 4 | little | lodsd; jmp [eax] | QEMU i386, HP laptop |
+| ARM64 (AArch64) | target-arm64.fth | 8 | little | ldr x0,[x28],#8; ldr x1,[x0]; br x1 | Raspberry Pi 3B/4/5 |
+| RISC-V (RV64I) | target-riscv.fth | 8 | little | ld t0,0(s10); addi s10,s10,8; ld t1,0(t0); jr t1 | QEMU riscv64 |
+
+### Tier 2 — Secondary Targets (important for project goals)
+
+| Architecture | Target File | CELL | Endian | Use Case |
+|-------------|-------------|------|--------|----------|
+| ARM Cortex-M33 | target-cortex-m.fth | 4 | little | picoZ80 (RP2350B second core), bare-metal MCUs |
+| SPARC/LEON3 | target-sparc.fth | 4 | big | Space systems (radiation-hardened processors) |
+| PowerPC | target-ppc.fth | 4 | big | Industrial/legacy systems |
+
+### Tier 3 — Future Targets
+
+| Architecture | Target File | CELL | Endian | Use Case |
+|-------------|-------------|------|--------|----------|
+| MIPS | target-mips.fth | 4 | big/little | Embedded/networking equipment |
+| AVR | target-avr.fth | 2 | little | Arduino-class devices (16-bit cells) |
+| ESP32 (Xtensa) | target-esp32.fth | 4 | little | WiFi/IoT devices |
+| x86-64 | target-x86-64.fth | 8 | little | 64-bit PC (long mode) |
+
+---
+
 ## Target Architecture Abstraction
 
-Each target architecture provides these constants/words:
+Each target architecture provides a vocabulary with these constants/words.
+The metacompiler calls `EMIT-NEXT`, `EMIT-DOCOL`, etc. without knowing
+what ISA they produce — only the target file changes.
+
+### What Every Target File Provides
+
+```forth
+VOCABULARY TARGET-<ARCH>
+TARGET-<ARCH> DEFINITIONS
+
+\ ---- Architecture constants ----
+N CONSTANT CELL-SIZE          \ cell size in bytes (2, 4, or 8)
+0 CONSTANT ENDIAN             \ 0=little, 1=big
+XXXX CONSTANT TARGET-ORIGIN   \ where target image loads on bare metal
+
+\ ---- Inner interpreter ----
+: EMIT-NEXT ( -- )            \ NEXT: dispatch to next threaded word
+
+\ ---- Runtime behaviors ----
+: EMIT-DOCOL ( -- )           \ enter colon definition
+: EMIT-DOCON ( -- )           \ push constant value
+: EMIT-DOCREATE ( -- )        \ push parameter field address
+: EMIT-EXIT ( -- )            \ return from colon definition
+
+\ ---- Primitive code generators (~40 words) ----
+: EMIT-PUSH ( -- )            \ push TOS register
+: EMIT-POP ( -- )             \ pop to TOS register
+: EMIT-DUP ( -- )             \ machine code for DUP
+: EMIT-DROP ( -- )            \ machine code for DROP
+: EMIT-SWAP ( -- )            \ machine code for SWAP
+: EMIT-ADD ( -- )             \ machine code for +
+: EMIT-FETCH ( -- )           \ machine code for @
+: EMIT-STORE ( -- )           \ machine code for !
+: EMIT-EMIT ( -- )            \ machine code for EMIT (UART output)
+: EMIT-KEY ( -- )             \ machine code for KEY (UART input)
+\ ... etc.
+```
 
 ### target-x86.fth
 
@@ -348,7 +419,7 @@ TARGET-X86 DEFINITIONS
     EMIT-NEXT ;
 ```
 
-### target-arm64.fth (Phase C)
+### target-arm64.fth (Phase C.1)
 
 ```forth
 VOCABULARY TARGET-ARM64
@@ -356,12 +427,68 @@ TARGET-ARM64 DEFINITIONS
 
 8 CONSTANT CELL-SIZE         \ 64-bit cells
 0 CONSTANT ENDIAN            \ little-endian
-80000 CONSTANT TARGET-ORIGIN \ ARM kernel load address
+80000 CONSTANT TARGET-ORIGIN \ Pi 3 kernel8.img load address
+
+\ Register conventions:
+\   x28 = IP (instruction pointer)
+\   x27 = RSP (return stack pointer)
+\   SP  = DSP (data stack pointer)
+\   x0  = W (working register / TOS)
 
 \ ARM64 NEXT: ldr x0,[x28],#8; ldr x1,[x0]; br x1
-\   x28 = IP, x0 = W (working), x1 = temp
 : EMIT-NEXT ( -- )
-    ... ARM64 instruction encoding ... ;
+    00 85 40 F8 T-C, T-C, T-C, T-C,  \ ldr x0,[x28],#8
+    21 00 40 F9 T-C, T-C, T-C, T-C,  \ ldr x1,[x0]
+    20 00 1F D6 T-C, T-C, T-C, T-C,  \ br x1
+;
+
+\ DOCOL: push IP, set IP to parameter field
+: EMIT-DOCOL ( -- )
+    \ stp x28,x30,[x27,#-16]!  (push IP to return stack)
+    \ add x28,x0,#8             (IP = CFA + 8)
+    ... ARM64 encoding ... ;
+
+\ Key difference: ARM64 is memory-mapped everything.
+\ INB/OUTB become MMIO loads/stores. No IN/OUT instructions.
+```
+
+### target-riscv.fth (Phase C.2)
+
+```forth
+VOCABULARY TARGET-RISCV
+TARGET-RISCV DEFINITIONS
+
+8 CONSTANT CELL-SIZE         \ 64-bit cells (RV64I)
+0 CONSTANT ENDIAN            \ little-endian
+80000000 CONSTANT TARGET-ORIGIN \ RISC-V boot address
+
+\ Register conventions:
+\   s10 = IP, s11 = RSP, sp = DSP, t0 = W
+
+: EMIT-NEXT ( -- )
+    \ ld t0,0(s10); addi s10,s10,8; ld t1,0(t0); jr t1
+    ... RISC-V encoding ... ;
+```
+
+### target-cortex-m.fth (Phase C.3)
+
+```forth
+VOCABULARY TARGET-CORTEXM
+TARGET-CORTEXM DEFINITIONS
+
+4 CONSTANT CELL-SIZE         \ 32-bit cells
+0 CONSTANT ENDIAN            \ little-endian
+10000000 CONSTANT TARGET-ORIGIN \ RP2350B flash base
+
+\ Thumb-2 instruction set (16/32-bit mixed encoding)
+\ Register conventions:
+\   r8 = IP, r9 = RSP, sp = DSP, r0 = W
+
+: EMIT-NEXT ( -- )
+    \ ldr r0,[r8],#4; ldr r1,[r0]; bx r1
+    ... Thumb-2 encoding ... ;
+
+\ Output format: .uf2 flash image for RP2350B
 ```
 
 ---
@@ -407,17 +534,20 @@ Verification:
 - `WORDS` shows all expected words
 - Behavioral match, not byte-for-byte match
 
-### Phase C: Cross-Compile (x86 → ARM64)
+### Phase C: Multi-Architecture Cross-Compile
+
+The workflow is identical for every target — only the USING line changes:
 
 ```forth
 USING META-COMPILER
-USING TARGET-ARM64
+USING TARGET-ARM64          ( or TARGET-RISCV, TARGET-SPARC, etc. )
 
-META-COMPILE-ARM64          \ builds ARM64 kernel
-META-SAVE                   \ write to SD card image
+META-COMPILE                ( builds target kernel in T-IMAGE )
+META-CHECK                  ( verify all forward refs resolved )
+META-SAVE                   ( write to USB stick or SD card )
 ```
 
-Test with `qemu-system-aarch64`.
+Plug the stick into target hardware, boot. ForthOS runs on the target.
 
 ---
 
@@ -477,17 +607,66 @@ The entry point: INTERPRET in infinite loop. System variables. VGA init. Serial 
 **Step B6: Boot test**
 Save image, boot in QEMU, verify "ok" prompt and basic operations.
 
-### Phase C: ARM64 Cross-Compile
+### Phase C: Multi-Architecture Cross-Compile
 
-**Step C1: Write target-arm64.fth**
-ARM64 instruction encoding for NEXT, DOCOL, DOCON, DOCREATE, EXIT.
-Register conventions: X28=IP, X27=RSP, SP=DSP, X0=W.
+**Phase C.1: ARM64 (Raspberry Pi 3B/4/5)** — first cross target
 
-**Step C2: Build ARM64 primitives**
-Same word list as Phase B but with ARM64 assembly.
+The Pi boots from a file on an SD card, we have physical hardware,
+and ARM64 is well-documented. Cheapest proof that the metacompiler
+is truly target-agnostic.
 
-**Step C3: Boot test**
-`qemu-system-aarch64` with the generated image.
+- Step C1.1: Write target-arm64.fth — ARM64 instruction emitters
+  (EMIT-NEXT, EMIT-DOCOL, EMIT-DOCON, EMIT-DOCREATE, EMIT-EXIT)
+  Register conventions: X28=IP, X27=RSP, SP=DSP, X0=W
+- Step C1.2: Build ARM64 primitives — same word list as Phase B
+- Step C1.3: Test in QEMU: `qemu-system-aarch64 -M raspi3b -kernel kernel8.img`
+- Step C1.4: Test on physical Raspberry Pi 3B/4/5 via SD card
+
+**Phase C.2: RISC-V (RV64I)** — open ISA
+
+- Step C2.1: Write target-riscv.fth — RISC-V RV64I instruction emitters
+  Register conventions: s10=IP, s11=RSP, sp=DSP, t0=W
+- Step C2.2: Build RISC-V primitives
+- Step C2.3: Test in QEMU: `qemu-system-riscv64 -M virt -kernel forthos-rv64.elf`
+- Note: UBT already has a complete RISC-V decoder + codegen
+
+**Phase C.3: Cortex-M33 (picoZ80 / RP2350B)** — MCU target
+
+The RP2350B on the picoZ80 board has a Cortex-M33 second core that
+can run ForthOS alongside the Z80 emulation. Thumb-2 instruction set.
+UBT ROM vocabulary packs as commercial differentiator.
+
+- Step C3.1: Write target-cortex-m.fth — Thumb-2 instruction emitters
+  (16/32-bit mixed encoding, no ARM mode)
+  Register conventions: r8=IP, r9=RSP, sp=DSP, r0=W
+- Step C3.2: Build Cortex-M primitives (subset — no block I/O, UART only)
+- Step C3.3: Output .uf2 flash image for RP2350B
+- Step C3.4: Test on physical picoZ80 board
+
+**Phase C.4: SPARC/LEON3** — space systems
+
+LEON3/LEON4 is THE processor for European space missions.
+ForthOS on SPARC = Forth on spacecraft (the original use case).
+Big-endian. Register windows add complexity but map naturally
+to the return stack.
+
+- Step C4.1: Write target-sparc.fth — SPARC V8 instruction emitters
+  Big-endian cell storage. Register windows for RSP.
+- Step C4.2: Build SPARC primitives
+- Step C4.3: Test in QEMU: `qemu-system-sparc -M leon3_generic`
+
+**Phase C.5: Future targets** — MIPS, PowerPC, AVR, ESP32, x86-64
+
+Each follows the same pattern: write a target-<arch>.fth, build
+primitives, test in QEMU or on hardware. No metacompiler changes.
+
+| Target | Key Challenge | Test Platform |
+|--------|--------------|---------------|
+| MIPS | Branch delay slots | QEMU mips/mipsel |
+| PowerPC | CTR-based dispatch | QEMU ppc |
+| AVR | 16-bit cells, Harvard arch | Arduino Mega |
+| ESP32 | Xtensa ISA (non-RISC-V variants) | ESP32 DevKit |
+| x86-64 | Long mode, 8-byte cells | QEMU x86_64 |
 
 ---
 
@@ -530,13 +709,40 @@ Phase B testing (self-rebuild):
 
 ---
 
+## Mentor's Install Model
+
+The workflow for any target:
+
+1. ForthOS boots on the master machine (x86 dev machine)
+2. `USING META-COMPILER`
+3. `USING TARGET-ARM64`  ( or TARGET-RISCV, TARGET-SPARC, etc. )
+4. `META-COMPILE`        ( builds T-IMAGE for selected target )
+5. `META-SAVE`           ( writes to USB stick or SD card )
+6. Plug stick into target hardware, boot
+7. ForthOS runs on the target with appropriate dictionaries
+
+"The trick is to have install files that you can run from the Forth OS
+master machine. So you can build for the OS by using an installer or a
+dictionary that is held on a stick and then transferred during install."
+
+The master machine holds ALL target dictionaries. You pick which one
+to build for. The metacompiler produces the image. One master, many
+targets.
+
+---
+
 ## File Structure
 
 ```
 forth/dict/
-├── meta-compiler.fth       extend from 136 to ~600 lines
-├── target-x86.fth          ~150 lines (x86 assembly patterns)
-└── target-arm64.fth        ~150 lines (Phase C, ARM64 patterns)
+├── meta-compiler.fth       existing (~387 lines after Phase A)
+├── target-x86.fth          ~150 lines (Phase B)
+├── target-arm64.fth        ~150 lines (Phase C.1)
+├── target-riscv.fth        ~150 lines (Phase C.2)
+├── target-cortex-m.fth     ~150 lines (Phase C.3)
+├── target-sparc.fth        ~150 lines (Phase C.4)
+└── (future: target-mips.fth, target-ppc.fth,
+     target-avr.fth, target-esp32.fth, target-x86-64.fth)
 ```
 
 The meta-compiler.fth stays as a block-loadable vocabulary. It is NOT embedded (too large, not needed at boot). Load sequence:
