@@ -155,6 +155,12 @@ VARIABLE T-HERE-VAR
 : JGE, ( -- fixup )
     0F T-C, 8D T-C, T-HERE @ 0 T-,
 ;
+: JNS, ( -- fixup )
+    0F T-C, 89 T-C, T-HERE @ 0 T-,
+;
+: JS, ( -- fixup )
+    0F T-C, 88 T-C, T-HERE @ 0 T-,
+;
 
 \ ---- MOV [reg+disp8], reg ----
 VARIABLE DISP-TMP
@@ -223,6 +229,140 @@ VARIABLE DISP-TMP
 : SAR-CL, ( reg -- )
     D3 T-C, 3 SWAP 7 MODRM T-C,
 ;
+
+\ ---- Imm8 ALU forms (compact) ----
+: ADD-I8, ( imm8 reg -- )
+    83 T-C, 3 SWAP 0 MODRM T-C, T-C,
+;
+: SUB-I8, ( imm8 reg -- )
+    83 T-C, 3 SWAP 5 MODRM T-C, T-C,
+;
+: CMP-I8, ( imm8 reg -- )
+    83 T-C, 3 SWAP 7 MODRM T-C, T-C,
+;
+
+\ ---- [ESP] ops (need SIB byte 24) ----
+: ADD[ESP], ( reg -- )
+    01 T-C, 0 SWAP 4 MODRM T-C,
+    24 T-C,
+;
+: SUB[ESP], ( reg -- )
+    29 T-C, 0 SWAP 4 MODRM T-C,
+    24 T-C,
+;
+: AND[ESP], ( reg -- )
+    21 T-C, 0 SWAP 4 MODRM T-C,
+    24 T-C,
+;
+: OR[ESP], ( reg -- )
+    09 T-C, 0 SWAP 4 MODRM T-C,
+    24 T-C,
+;
+: XOR[ESP], ( reg -- )
+    31 T-C, 0 SWAP 4 MODRM T-C,
+    24 T-C,
+;
+: CMP[ESP], ( reg -- )
+    39 T-C, 0 SWAP 4 MODRM T-C,
+    24 T-C,
+;
+\ mov reg,[esp]
+: MOV[ESP], ( dst -- )
+    8B T-C, 0 SWAP 4 MODRM T-C,
+    24 T-C,
+;
+\ mov reg,[esp+disp8]
+: MOV-ESP+, ( dst disp -- )
+    SWAP 8B T-C,
+    1 SWAP 4 MODRM T-C, 24 T-C, T-C,
+;
+
+\ ---- Unary [ESP] ----
+: NEG[ESP], ( -- )
+    F7 T-C, 1C T-C, 24 T-C, ;
+: NOT[ESP], ( -- )
+    F7 T-C, 14 T-C, 24 T-C, ;
+: INC[ESP], ( -- )
+    FF T-C, 04 T-C, 24 T-C, ;
+: DEC[ESP], ( -- )
+    FF T-C, 0C T-C, 24 T-C, ;
+
+\ ---- push [reg+disp8] (DOCON) ----
+: PUSH-D8, ( reg disp -- )
+    DISP-TMP !
+    FF T-C, 1 6 ROT MODRM T-C,
+    DISP-TMP @ T-C,
+;
+
+\ ---- lea dst,[src+disp8] (DOCREATE) ----
+: LEA-D8, ( src dst disp -- )
+    DISP-TMP !
+    8D T-C,
+    SWAP 1 -ROT MODRM T-C,
+    DISP-TMP @ T-C,
+;
+
+\ ---- movzx reg,byte [reg] (C@) ----
+: MOVZXB[], ( [src] dst -- )
+    0F T-C, B6 T-C,
+    0 -ROT SWAP MODRM T-C,
+;
+\ movzx eax,al
+: MOVZX-AL, ( -- )
+    0F T-C, B6 T-C, C0 T-C, ;
+
+\ ---- add reg,[reg] (BRANCH) ----
+: ADD[], ( [src] dst -- )
+    03 T-C, 0 -ROT SWAP MODRM T-C,
+;
+
+\ ---- mov [reg],reg8 (C!) ----
+: []MOV-B, ( src8 [dest] -- )
+    88 T-C, 0 -ROT MODRM T-C,
+;
+
+\ ---- one-operand imul (*) ----
+: IMUL1, ( reg -- )
+    F7 T-C, 3 SWAP 5 MODRM T-C,
+;
+
+\ ---- setcc al (comparisons) ----
+: SETE, ( -- )
+    0F T-C, 94 T-C, C0 T-C, ;
+: SETNE, ( -- )
+    0F T-C, 95 T-C, C0 T-C, ;
+: SETL, ( -- )
+    0F T-C, 9C T-C, C0 T-C, ;
+: SETG, ( -- )
+    0F T-C, 9F T-C, C0 T-C, ;
+: SETLE, ( -- )
+    0F T-C, 9E T-C, C0 T-C, ;
+: SETGE, ( -- )
+    0F T-C, 9D T-C, C0 T-C, ;
+
+\ ---- shl/shr [esp],cl (LSHIFT/RSHIFT) ----
+: SHL-CL[ESP], ( -- )
+    D3 T-C, 24 T-C, 24 T-C, ;
+: SHR-CL[ESP], ( -- )
+    D3 T-C, 2C T-C, 24 T-C, ;
+
+\ ---- sets al (0<) ----
+: SETS, ( -- )
+    0F T-C, 98 T-C, C0 T-C, ;
+
+\ ---- absolute addressing ----
+\ mov [imm32],reg
+: []ABS-MOV, ( reg addr -- )
+    89 T-C, 0 ROT 5 MODRM T-C, T-,
+;
+\ mov reg,[imm32]
+: MOV-ABS[], ( addr dst -- )
+    8B T-C, 0 SWAP 5 MODRM T-C, T-,
+;
+
+\ ---- rep string ops ----
+: REP-MOVSB, ( -- ) F3 T-C, A4 T-C, ;
+: REP-STOSB, ( -- ) F3 T-C, AA T-C, ;
 
 FORTH DEFINITIONS
 DECIMAL

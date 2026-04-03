@@ -125,7 +125,7 @@ VARIABLE TH-FLAGS
 \ ---- Define a CODE word in target ----
 : T-CODE ( addr len -- )
     0 T-HEADER
-    T-ADDR T-,
+    T-ADDR 4 + T-,
 ;
 
 : END-CODE ( -- )

@@ -588,21 +588,34 @@ Test: define a CODE word, verify twin is created, verify twin compiles address w
 
 ### Phase B: x86 Self-Rebuild
 
-**Step B1: Build EXIT + stack primitives (10 words)**
-EXIT, DROP, DUP, SWAP, OVER, ROT, NIP, TUCK, DEPTH, ?DUP.
-Test: inspect target image, verify code matches kernel.
+**Step B1: CODE primitives — COMPLETE (target-x86.fth)**
+54 CODE words metacompiled into 1272-byte target image.
+T-CODE bug fixed (code field self-reference → code_field+4).
+X86-ASM extended with 30+ instruction forms (SIB, imm8,
+movzx, setcc, absolute addressing, etc.).
+Runtimes: DOCOL, EXIT, LIT, BRANCH, 0BRANCH, DOCON,
+DOCREATE, EXECUTE.
+Stack: DROP DUP SWAP OVER ROT -ROT 2DROP 2DUP ?DUP
+NIP TUCK DEPTH >R R> R@ RDROP.
+Arithmetic: + - * 1+ 1- 2+ 2- NEGATE ABS.
+Logic: AND OR XOR INVERT LSHIFT RSHIFT.
+Compare: = <> < > 0= 0<> 0< 0>.
+Memory: @ ! C@ C! +! -! CMOVE FILL.
+test_target_x86.py: 22/22 tests.
+Byte-verified: DOCOL, EXIT, LIT, BRANCH, DOCON, DOCREATE.
 
-**Step B2: Build arithmetic + logic (15 words)**
-+, -, *, /, MOD, /MOD, NEGATE, ABS, MIN, MAX, AND, OR, XOR, INVERT, LSHIFT, RSHIFT.
+**Step B2: Assembly infrastructure + I/O**
+Helper routines (word_, find_, number_, create_, comma_),
+I/O (KEY, EMIT, CR, TYPE, ., .S), serial/VGA init.
+Strategy: T-BINARY, to copy stable assembly from kernel.
 
-**Step B3: Build memory access (10 words)**
-@, !, C@, C!, W@, W!, +!, FILL, CMOVE, CMOVE>.
+**Step B3: Compiler + defining words**
+:, ;, CONSTANT, VARIABLE, CREATE, INTERPRET, FIND.
+System variables (STATE, HERE, LATEST, BASE, etc.).
 
-**Step B4: Build I/O + compiler (20 words)**
-EMIT, KEY, CR, TYPE, ., INTERPRET, :, ;, CONSTANT, VARIABLE, etc.
-
-**Step B5: Build cold_start + boot**
-The entry point: INTERPRET in infinite loop. System variables. VGA init. Serial init.
+**Step B4: Boot infrastructure**
+kernel_start init, PIC/IDT, ISR handlers, cold_start.
+Data sections (scancode tables, messages).
 
 **Step B6: Boot test**
 Save image, boot in QEMU, verify "ok" prompt and basic operations.
