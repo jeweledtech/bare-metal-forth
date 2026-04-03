@@ -84,11 +84,106 @@ HEX
 ;
 
 \ ============================================
+\ Target symbol table
+\ ============================================
+\ Tracks (CFA, name) for each target word.
+\ TX-CODE auto-registers; T-COMPILE-NAME
+\ looks up CFA by name for T-COLON defs.
+\ Entry: CFA(4) + len(1) + name(1F) = 24h
+
+DECIMAL 36 CONSTANT TSYM-SZ HEX
+CREATE TSYM-TBL 1000 ALLOT
+VARIABLE TSYM-N
+
+: TSYM-E ( i -- addr )
+    TSYM-SZ * TSYM-TBL + ;
+
+\ Register a target symbol
+VARIABLE TR-A VARIABLE TR-L
+: TSYM-REG ( cfa addr len -- )
+    TR-L ! TR-A !
+    TSYM-N @ TSYM-E !
+    TR-L @ TSYM-N @ TSYM-E 4 + C!
+    TR-A @ TSYM-N @ TSYM-E 5 +
+    TR-L @ CMOVE
+    1 TSYM-N +!
+;
+
+\ Compare name with symbol entry
+: TSYM-EQ ( addr len i -- flag )
+    TSYM-E 4 + DUP C@
+    2 PICK <> IF
+        DROP DROP DROP 0 EXIT
+    THEN
+    1+
+    SWAP 0 DO
+        OVER I + C@
+        OVER I + C@
+        <> IF
+            DROP DROP 0
+            UNLOOP EXIT
+        THEN
+    LOOP
+    DROP DROP -1
+;
+
+\ Find CFA by name
+: T-FIND-SYM ( addr len -- cfa | 0 )
+    TSYM-N @ 0 DO
+        2DUP I TSYM-EQ IF
+            DROP DROP
+            I TSYM-E @
+            UNLOOP EXIT
+        THEN
+    LOOP
+    DROP DROP 0
+;
+
+\ Compile target word by name into T-IMAGE
+: T-COMPILE-NAME ( addr len -- )
+    T-FIND-SYM
+    DUP 0= IF
+        DROP ." T? "
+    ELSE
+        T-,
+    THEN
+;
+
+\ TX-CODE: like T-CODE but auto-registers
+VARIABLE TX-A VARIABLE TX-L
+: TX-CODE ( addr len -- )
+    2DUP TX-L ! TX-A !
+    T-CODE
+    T-ADDR 4 -
+    TX-A @ TX-L @ TSYM-REG
+;
+
+\ TX-CONST: like T-CONSTANT, auto-registers
+VARIABLE TXC-V
+: TX-CONST ( n addr len -- )
+    2DUP TX-L ! TX-A !
+    ROT TXC-V !
+    0 T-HEADER
+    DOCON-ADDR @ T-,
+    TXC-V @ T-,
+    T-ADDR 8 -
+    TX-A @ TX-L @ TSYM-REG
+;
+
+\ TX-COLON: like T-COLON, auto-registers
+: TX-COLON ( addr len -- )
+    2DUP TX-L ! TX-A !
+    T-COLON
+    T-ADDR 4 -
+    TX-A @ TX-L @ TSYM-REG
+;
+
+\ Reset symbol table
+: TSYM-INIT 0 TSYM-N ! ;
+
+\ ============================================
 \ Build driver: META-COMPILE-X86
 \ ============================================
-\ Emits ~40 CODE words into T-IMAGE.
-\ Phase B1: stack, arith, logic, memory,
-\ comparison, control-flow runtimes.
 
 VARIABLE BRANCH-CODE
 
@@ -99,17 +194,17 @@ VARIABLE BRANCH-CODE
     EMIT-DOCOL
 
     \ EXIT
-    S" EXIT" T-CODE
+    S" EXIT" TX-CODE
     T-ADDR 4 - DOEXIT-ADDR !
     EMIT-EXIT
 
     \ LIT
-    S" LIT" T-CODE
+    S" LIT" TX-CODE
     T-ADDR 4 - DOLIT-ADDR !
     EMIT-LIT
 
     \ BRANCH: add esi,[esi]; NEXT
-    S" BRANCH" T-CODE
+    S" BRANCH" TX-CODE
     T-ADDR 4 - DOBRANCH-ADDR !
     T-ADDR BRANCH-CODE !
     %ESI %ESI ADD[],
@@ -117,7 +212,7 @@ VARIABLE BRANCH-CODE
 
     \ 0BRANCH: pop; test; jz BRANCH;
     \          add esi,4; NEXT
-    S" 0BRANCH" T-CODE
+    S" 0BRANCH" TX-CODE
     T-ADDR 4 - DO0BRANCH-ADDR !
     %EAX POP,
     %EAX %EAX TEST,
@@ -128,73 +223,73 @@ VARIABLE BRANCH-CODE
     END-CODE
 
     \ DOCON
-    S" DOCON" T-CODE
+    S" DOCON" TX-CODE
     T-ADDR DOCON-ADDR !
     EMIT-DOCON
 
     \ DOCREATE
-    S" DOCREATE" T-CODE
+    S" DOCREATE" TX-CODE
     T-ADDR DOCREATE-ADDR !
     EMIT-DOCREATE
 
     \ EXECUTE: pop eax; jmp [eax]
-    S" EXECUTE" T-CODE
+    S" EXECUTE" TX-CODE
     %EAX POP,
     %EAX JMP[],
 ;
 
 : MC-STACK ( -- )
-    S" DROP" T-CODE
+    S" DROP" TX-CODE
     %EAX POP, END-CODE
 
-    S" DUP" T-CODE
+    S" DUP" TX-CODE
     %EAX MOV[ESP],
     %EAX PUSH, END-CODE
 
-    S" SWAP" T-CODE
+    S" SWAP" TX-CODE
     %EAX POP, %EBX POP,
     %EAX PUSH, %EBX PUSH,
     END-CODE
 
-    S" OVER" T-CODE
+    S" OVER" TX-CODE
     %EAX 4 MOV-ESP+,
     %EAX PUSH, END-CODE
 
-    S" ROT" T-CODE
+    S" ROT" TX-CODE
     %EAX POP, %EBX POP, %ECX POP,
     %EBX PUSH, %EAX PUSH,
     %ECX PUSH, END-CODE
 
-    S" -ROT" T-CODE
+    S" -ROT" TX-CODE
     %EAX POP, %EBX POP, %ECX POP,
     %EAX PUSH, %ECX PUSH,
     %EBX PUSH, END-CODE
 
-    S" 2DROP" T-CODE
+    S" 2DROP" TX-CODE
     %EAX POP, %EAX POP, END-CODE
 
-    S" 2DUP" T-CODE
+    S" 2DUP" TX-CODE
     %EAX MOV[ESP],
     %EBX 4 MOV-ESP+,
     %EBX PUSH, %EAX PUSH,
     END-CODE
 
-    S" ?DUP" T-CODE
+    S" ?DUP" TX-CODE
     %EAX MOV[ESP],
     %EAX %EAX TEST,
     JZ, %EAX PUSH, SWAP >RESOLVE
     END-CODE
 
-    S" NIP" T-CODE
+    S" NIP" TX-CODE
     %EAX POP, %EBX POP,
     %EAX PUSH, END-CODE
 
-    S" TUCK" T-CODE
+    S" TUCK" TX-CODE
     %EAX POP, %EBX POP,
     %EAX PUSH, %EBX PUSH,
     %EAX PUSH, END-CODE
 
-    S" DEPTH" T-CODE
+    S" DEPTH" TX-CODE
     7C00 %EAX MOV-IMM,
     %ESP %EAX SUB,
     \ shr eax, 2 (C1 E8 02)
@@ -202,48 +297,48 @@ VARIABLE BRANCH-CODE
     %EAX PUSH, END-CODE
 
     \ Return stack
-    S" >R" T-CODE
+    S" >R" TX-CODE
     %EAX POP,
     %EAX EMIT-PUSHRSP
     END-CODE
 
-    S" R>" T-CODE
+    S" R>" TX-CODE
     %EAX EMIT-POPRSP
     %EAX PUSH, END-CODE
 
-    S" R@" T-CODE
+    S" R@" TX-CODE
     %EBP %EAX 0 MOV-DISP@,
     %EAX PUSH, END-CODE
 
-    S" RDROP" T-CODE
+    S" RDROP" TX-CODE
     4 %EBP ADD-I8, END-CODE
 ;
 
 : MC-ARITH ( -- )
-    S" +" T-CODE
+    S" +" TX-CODE
     %EAX POP, %EAX ADD[ESP], END-CODE
 
-    S" -" T-CODE
+    S" -" TX-CODE
     %EAX POP, %EAX SUB[ESP], END-CODE
 
-    S" *" T-CODE
+    S" *" TX-CODE
     %EAX POP, %EBX POP,
     %EBX IMUL1,
     %EAX PUSH, END-CODE
 
-    S" 1+" T-CODE INC[ESP], END-CODE
-    S" 1-" T-CODE DEC[ESP], END-CODE
+    S" 1+" TX-CODE INC[ESP], END-CODE
+    S" 1-" TX-CODE DEC[ESP], END-CODE
 
-    S" 2+" T-CODE
+    S" 2+" TX-CODE
     INC[ESP], INC[ESP], END-CODE
 
-    S" 2-" T-CODE
+    S" 2-" TX-CODE
     DEC[ESP], DEC[ESP], END-CODE
 
-    S" NEGATE" T-CODE
+    S" NEGATE" TX-CODE
     NEG[ESP], END-CODE
 
-    S" ABS" T-CODE
+    S" ABS" TX-CODE
     %EAX MOV[ESP],
     %EAX %EAX TEST,
     JNS, NEG[ESP], SWAP >RESOLVE
@@ -251,110 +346,110 @@ VARIABLE BRANCH-CODE
 ;
 
 : MC-LOGIC ( -- )
-    S" AND" T-CODE
+    S" AND" TX-CODE
     %EAX POP, %EAX AND[ESP], END-CODE
 
-    S" OR" T-CODE
+    S" OR" TX-CODE
     %EAX POP, %EAX OR[ESP], END-CODE
 
-    S" XOR" T-CODE
+    S" XOR" TX-CODE
     %EAX POP, %EAX XOR[ESP], END-CODE
 
-    S" INVERT" T-CODE
+    S" INVERT" TX-CODE
     NOT[ESP], END-CODE
 
-    S" LSHIFT" T-CODE
+    S" LSHIFT" TX-CODE
     %ECX POP, SHL-CL[ESP], END-CODE
 
-    S" RSHIFT" T-CODE
+    S" RSHIFT" TX-CODE
     %ECX POP, SHR-CL[ESP], END-CODE
 ;
 
 : MC-COMPARE ( -- )
-    S" =" T-CODE
+    S" =" TX-CODE
     %EAX POP, %EBX POP,
     %EAX %EBX CMP,
     SETE, MOVZX-AL, %EAX NEG,
     %EAX PUSH, END-CODE
 
-    S" <>" T-CODE
+    S" <>" TX-CODE
     %EAX POP, %EBX POP,
     %EAX %EBX CMP,
     SETNE, MOVZX-AL, %EAX NEG,
     %EAX PUSH, END-CODE
 
-    S" <" T-CODE
+    S" <" TX-CODE
     %EAX POP, %EBX POP,
     %EAX %EBX CMP,
     SETL, MOVZX-AL, %EAX NEG,
     %EAX PUSH, END-CODE
 
-    S" >" T-CODE
+    S" >" TX-CODE
     %EAX POP, %EBX POP,
     %EAX %EBX CMP,
     SETG, MOVZX-AL, %EAX NEG,
     %EAX PUSH, END-CODE
 
-    S" 0=" T-CODE
+    S" 0=" TX-CODE
     %EAX POP, %EAX %EAX TEST,
     SETE, MOVZX-AL, %EAX NEG,
     %EAX PUSH, END-CODE
 
-    S" 0<>" T-CODE
+    S" 0<>" TX-CODE
     %EAX POP, %EAX %EAX TEST,
     SETNE, MOVZX-AL, %EAX NEG,
     %EAX PUSH, END-CODE
 
-    S" 0<" T-CODE
+    S" 0<" TX-CODE
     %EAX POP, %EAX %EAX TEST,
     SETS, MOVZX-AL, %EAX NEG,
     %EAX PUSH, END-CODE
 
-    S" 0>" T-CODE
+    S" 0>" TX-CODE
     %EAX POP, %EAX %EAX TEST,
     SETG, MOVZX-AL, %EAX NEG,
     %EAX PUSH, END-CODE
 ;
 
 : MC-MEMORY ( -- )
-    S" @" T-CODE
+    S" @" TX-CODE
     %EAX POP,
     %EAX %EAX MOV[],
     %EAX PUSH, END-CODE
 
-    S" !" T-CODE
+    S" !" TX-CODE
     %EBX POP, %EAX POP,
     %EAX %EBX []MOV, END-CODE
 
-    S" C@" T-CODE
+    S" C@" TX-CODE
     %EAX POP,
     %EAX %EAX MOVZXB[],
     %EAX PUSH, END-CODE
 
-    S" C!" T-CODE
+    S" C!" TX-CODE
     %EBX POP, %EAX POP,
     %EAX %EBX []MOV-B, END-CODE
 
-    S" +!" T-CODE
+    S" +!" TX-CODE
     %EBX POP, %EAX POP,
     \ add [ebx],eax (01 03)
     01 T-C, 0 %EAX %EBX MODRM T-C,
     END-CODE
 
-    S" -!" T-CODE
+    S" -!" TX-CODE
     %EBX POP, %EAX POP,
     \ sub [ebx],eax (29 03)
     29 T-C, 0 %EAX %EBX MODRM T-C,
     END-CODE
 
-    S" CMOVE" T-CODE
+    S" CMOVE" TX-CODE
     %ESI EMIT-PUSHRSP
     %ECX POP, %EDI POP, %ESI POP,
     REP-MOVSB,
     %ESI EMIT-POPRSP
     END-CODE
 
-    S" FILL" T-CODE
+    S" FILL" TX-CODE
     %EAX POP, %ECX POP, %EDI POP,
     REP-STOSB, END-CODE
 ;
@@ -370,7 +465,7 @@ VARIABLE FX5
 
 : MC-DIVISION ( -- )
     \ / (floored division, Forth-83)
-    S" /" T-CODE
+    S" /" TX-CODE
     %EBX POP, %EAX POP,
     %EBX %EBX TEST,
     JZ, FX1 !
@@ -400,7 +495,7 @@ VARIABLE FX5
     7FFFFFFF PUSH-IMM, END-CODE
 
     \ MOD (floored modulo)
-    S" MOD" T-CODE
+    S" MOD" TX-CODE
     %EBX POP, %EAX POP,
     %EBX %EBX TEST,
     JZ, FX1 !
@@ -419,7 +514,7 @@ VARIABLE FX5
     0 PUSH-IMM, END-CODE
 
     \ /MOD (floored divmod)
-    S" /MOD" T-CODE
+    S" /MOD" TX-CODE
     %EBX POP, %EAX POP,
     %EBX %EBX TEST,
     JZ, FX1 !
@@ -440,7 +535,7 @@ VARIABLE FX5
     7FFFFFFF PUSH-IMM, END-CODE
 
     \ MIN: pop b a; cmp b,a; jl->pushB
-    S" MIN" T-CODE
+    S" MIN" TX-CODE
     %EAX POP, %EBX POP,
     %EBX %EAX CMP,
     JL,
@@ -449,7 +544,7 @@ VARIABLE FX5
     %EAX PUSH, END-CODE
 
     \ MAX: pop b a; cmp b,a; jg->pushB
-    S" MAX" T-CODE
+    S" MAX" TX-CODE
     %EAX POP, %EBX POP,
     %EBX %EAX CMP,
     JG,
@@ -459,20 +554,20 @@ VARIABLE FX5
 ;
 
 : MC-STACK2 ( -- )
-    S" 2SWAP" T-CODE
+    S" 2SWAP" TX-CODE
     %EAX POP, %EBX POP,
     %ECX POP, %EDX POP,
     %EBX PUSH, %EAX PUSH,
     %EDX PUSH, %ECX PUSH,
     END-CODE
 
-    S" 2OVER" T-CODE
+    S" 2OVER" TX-CODE
     %EAX C MOV-ESP+,
     %EBX 8 MOV-ESP+,
     %EBX PUSH, %EAX PUSH,
     END-CODE
 
-    S" PICK" T-CODE
+    S" PICK" TX-CODE
     %EAX POP,
     \ mov eax,[esp+eax*4] = 8B 04 84
     8B T-C, 04 T-C, 84 T-C,
@@ -480,42 +575,42 @@ VARIABLE FX5
 ;
 
 : MC-PORTIO ( -- )
-    S" INB" T-CODE
+    S" INB" TX-CODE
     %EDX POP, %EAX %EAX XOR,
     IN-AL-DX, %EAX PUSH, END-CODE
 
-    S" INW" T-CODE
+    S" INW" TX-CODE
     %EDX POP, %EAX %EAX XOR,
     IN-AX-DX, %EAX PUSH, END-CODE
 
-    S" INL" T-CODE
+    S" INL" TX-CODE
     %EDX POP,
     IN-EAX-DX, %EAX PUSH, END-CODE
 
-    S" OUTB" T-CODE
+    S" OUTB" TX-CODE
     %EDX POP, %EAX POP,
     OUT-DX-AL, END-CODE
 
-    S" OUTW" T-CODE
+    S" OUTW" TX-CODE
     %EDX POP, %EAX POP,
     OUT-DX-AX, END-CODE
 
-    S" OUTL" T-CODE
+    S" OUTL" TX-CODE
     %EDX POP, %EAX POP,
     OUT-DX-EAX, END-CODE
 ;
 
 : MC-MEMORY2 ( -- )
-    S" W@" T-CODE
+    S" W@" TX-CODE
     %EAX POP,
     %EAX %EAX MOVZXW[],
     %EAX PUSH, END-CODE
 
-    S" W!" T-CODE
+    S" W!" TX-CODE
     %EBX POP, %EAX POP,
     %EAX %EBX []MOV-W, END-CODE
 
-    S" CMOVE>" T-CODE
+    S" CMOVE>" TX-CODE
     %ESI EMIT-PUSHRSP
     %ECX POP, %EDI POP, %ESI POP,
     %ECX %ESI ADD, %ESI DEC,
@@ -526,36 +621,69 @@ VARIABLE FX5
 ;
 
 : MC-UTILITY ( -- )
-    S" SP@" T-CODE
+    S" SP@" TX-CODE
     %ESP PUSH, END-CODE
 
-    S" SP!" T-CODE
+    S" SP!" TX-CODE
     %ESP POP, END-CODE
 
-    S" >BODY" T-CODE
+    S" >BODY" TX-CODE
     %EAX POP,
     4 %EAX ADD-I8,
     %EAX PUSH, END-CODE
 
-    S" CELLS" T-CODE
+    S" CELLS" TX-CODE
     %EAX POP,
     \ shl eax, 2  (C1 E0 02)
     C1 T-C, E0 T-C, 2 T-C,
     %EAX PUSH, END-CODE
 
-    S" CELL+" T-CODE
+    S" CELL+" TX-CODE
     \ add dword [esp], 4
     83 T-C, 04 T-C, 24 T-C, 4 T-C,
     END-CODE
 
     \ Constants via T-CONSTANT
-    -1 S" TRUE" T-CONSTANT
-    0 S" FALSE" T-CONSTANT
+    -1 S" TRUE" TX-CONST
+    0 S" FALSE" TX-CONST
+;
+
+\ ============================================
+\ T-COLON definitions (threaded code)
+\ ============================================
+\ These prove the metacompiler can build
+\ high-level Forth words from primitives.
+
+: MC-COLON ( -- )
+    \ : SQUARE ( n -- n*n ) DUP * ;
+    S" SQUARE" TX-COLON
+    S" DUP" T-COMPILE-NAME
+    S" *" T-COMPILE-NAME
+    T-;
+
+    \ : CUBE ( n -- n^3 ) DUP SQUARE * ;
+    S" CUBE" TX-COLON
+    S" DUP" T-COMPILE-NAME
+    S" SQUARE" T-COMPILE-NAME
+    S" *" T-COMPILE-NAME
+    T-;
+
+    \ : NOOP ( -- ) ;
+    S" NOOP" TX-COLON T-;
+
+    \ : ABS2 ( n -- |n| ) DUP 0< IF NEGATE
+    S" ABS2" TX-COLON
+    S" DUP" T-COMPILE-NAME
+    S" 0<" T-COMPILE-NAME
+    T-IF
+    S" NEGATE" T-COMPILE-NAME
+    T-THEN
+    T-;
 ;
 
 \ ---- Top-level build driver ----
 : META-COMPILE-X86 ( -- )
-    META-INIT HEX
+    META-INIT TSYM-INIT HEX
     MC-RUNTIMES
     MC-STACK
     MC-ARITH
@@ -567,12 +695,14 @@ VARIABLE FX5
     MC-PORTIO
     MC-MEMORY2
     MC-UTILITY
+    MC-COLON
     META-CHECK
     T-HERE @ T-IMAGE - T-SIZE !
     1 META-OK !
     DECIMAL
     ." Phase B complete: "
-    META-SIZE . ." bytes" CR
+    META-SIZE . ." bytes, "
+    TSYM-N @ . ." syms" CR
 ;
 
 PREVIOUS PREVIOUS PREVIOUS

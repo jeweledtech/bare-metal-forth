@@ -279,8 +279,8 @@ print("\nTest 8: DROP machine code")
 # Check META-SIZE is reasonable for ~40 words
 r = send('DECIMAL META-SIZE .', 1)
 val = extract_number(r)
-check('META-SIZE reasonable (200-2000)',
-      val is not None and 200 <= val <= 2000,
+check('META-SIZE reasonable (200-4000)',
+      val is not None and 200 <= val <= 4000,
       f'got {val}')
 
 # ---- Test 9: Dictionary chain valid ----
@@ -339,8 +339,71 @@ verify_bytes('DOCREATE',
              [0x8D, 0x40, 0x04, 0x50,
               0xAD, 0xFF, 0x20])
 
-# ---- Test 15: Stack clean ----
-print("\nTest 15: Stack clean")
+# ---- Test 15: SQUARE threaded code ----
+# SQUARE = T-COLON def: DOCOL, DUP, *, EXIT
+# Code field = DOCOL-ADDR, then body = CFAs
+print("\nTest 15: SQUARE threaded code")
+# Find SQUARE CFA via symbol table
+r = send(
+    'S" SQUARE" T-FIND-SYM DECIMAL .', 2)
+sq_cfa = extract_number(r)
+check('SQUARE found in symbol table',
+      sq_cfa is not None and sq_cfa > 0,
+      f'got {sq_cfa}')
+
+if sq_cfa and sq_cfa > 0:
+    # Code field should contain DOCOL-ADDR
+    r = send(
+        f'HEX {sq_cfa:X} T-@ DECIMAL .', 1)
+    cf_val = extract_number(r)
+    r = send('DOCOL-ADDR @ DECIMAL .', 1)
+    docol = extract_number(r)
+    check('SQUARE code field = DOCOL',
+          cf_val == docol,
+          f'cf={cf_val}, docol={docol}')
+
+    # Body: first cell = DUP CFA
+    r = send(
+        f'HEX {sq_cfa+4:X} T-@ DECIMAL .', 1)
+    body1 = extract_number(r)
+    r = send(
+        'S" DUP" T-FIND-SYM DECIMAL .', 1)
+    dup_cfa = extract_number(r)
+    check('SQUARE body[0] = DUP CFA',
+          body1 == dup_cfa,
+          f'body1={body1}, dup={dup_cfa}')
+
+    # Body: second cell = * CFA
+    r = send(
+        f'HEX {sq_cfa+8:X} T-@ DECIMAL .', 1)
+    body2 = extract_number(r)
+    r = send(
+        'S" *" T-FIND-SYM DECIMAL .', 1)
+    mul_cfa = extract_number(r)
+    check('SQUARE body[1] = * CFA',
+          body2 == mul_cfa,
+          f'body2={body2}, mul={mul_cfa}')
+
+    # Body: third cell = EXIT CFA
+    r = send(
+        f'HEX {sq_cfa+12:X} T-@ DECIMAL .', 1)
+    body3 = extract_number(r)
+    r = send('DOEXIT-ADDR @ DECIMAL .', 1)
+    exit_cfa = extract_number(r)
+    check('SQUARE body[2] = EXIT CFA',
+          body3 == exit_cfa,
+          f'body3={body3}, exit={exit_cfa}')
+
+# ---- Test 16: Symbol count ----
+print("\nTest 16: Symbol count")
+r = send('TSYM-N @ DECIMAL .', 1)
+val = extract_number(r)
+check('Symbol count >= 78',
+      val is not None and val >= 78,
+      f'got {val}')
+
+# ---- Test 17: Stack clean ----
+print("\nTest 17: Stack clean")
 r = send('.S', 1)
 print(f"  .S => {r.strip()!r}")
 check('Stack clean',
