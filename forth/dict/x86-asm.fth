@@ -161,6 +161,12 @@ VARIABLE T-HERE-VAR
 : JS, ( -- fixup )
     0F T-C, 88 T-C, T-HERE @ 0 T-,
 ;
+: JG, ( -- fixup )
+    0F T-C, 8F T-C, T-HERE @ 0 T-,
+;
+: JLE, ( -- fixup )
+    0F T-C, 8E T-C, T-HERE @ 0 T-,
+;
 
 \ ---- MOV [reg+disp8], reg ----
 VARIABLE DISP-TMP
@@ -359,6 +365,23 @@ VARIABLE DISP-TMP
 : MOV-ABS[], ( addr dst -- )
     8B T-C, 0 SWAP 5 MODRM T-C, T-,
 ;
+
+\ ---- unsigned div (F7 /6) ----
+: UDIV1, ( reg -- )
+    F7 T-C, 3 SWAP 6 MODRM T-C, ;
+
+\ ---- push imm32 ----
+: PUSH-IMM, ( imm32 -- ) 68 T-C, T-, ;
+
+\ ---- movzx reg, word [reg] (W@) ----
+: MOVZXW[], ( [src] dst -- )
+    0F T-C, B7 T-C,
+    0 -ROT SWAP MODRM T-C, ;
+
+\ ---- mov [reg], reg16 (W!) ----
+: []MOV-W, ( src16 [dest] -- )
+    66 T-C, 89 T-C,
+    0 -ROT MODRM T-C, ;
 
 \ ---- rep string ops ----
 : REP-MOVSB, ( -- ) F3 T-C, A4 T-C, ;
