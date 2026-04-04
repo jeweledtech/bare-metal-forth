@@ -705,6 +705,23 @@ VARIABLE FX5
     TSYM-N @ . ." syms" CR
 ;
 
+\ ============================================
+\ Phase B3: Full kernel copy for boot test
+\ ============================================
+\ Copies the running kernel binary (64KB at
+\ 0x7E00) into T-IMAGE. This is a 1:1 copy
+\ that should boot identically.
+
+: META-COPY-KERNEL ( -- )
+    META-INIT HEX
+    7E00 10000 T-BINARY,
+    T-HERE @ T-IMAGE - T-SIZE !
+    1 META-OK !
+    DECIMAL
+    ." Kernel copy: "
+    META-SIZE . ." bytes" CR
+;
+
 PREVIOUS PREVIOUS PREVIOUS
 FORTH DEFINITIONS
 DECIMAL

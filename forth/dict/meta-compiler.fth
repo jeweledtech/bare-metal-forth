@@ -378,6 +378,22 @@ VOCABULARY TARGET
     WORD NUMBER R> BASE !
 ;
 
+\ ---- Copy bytes from host to target ----
+: T-BINARY, ( host-addr count -- )
+    0 DO
+        DUP I + C@ T-C,
+    LOOP
+    DROP
+;
+
+\ ---- Dump target bytes as hex ----
+: TDUMP ( taddr n -- )
+    0 DO
+        DUP I + T-C@ .
+    LOOP
+    DROP
+;
+
 \ ---- META-SAVE stub ----
 : META-SAVE ( -- )
     ." META-SAVE: stub" CR
