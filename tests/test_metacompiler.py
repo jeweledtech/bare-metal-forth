@@ -403,6 +403,9 @@ check('Stack is clean after all tests',
       '<>' in r,
       f'stack: {r.strip()!r}')
 
+# NOTE: Phase B5 tests are in test_meta_compile.py
+# (separate QEMU instance for clean state)
+
 # ---- Summary ----
 print()
 print(f'Passed: {PASS}/{PASS + FAIL}')

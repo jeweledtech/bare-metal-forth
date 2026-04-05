@@ -378,6 +378,13 @@ VOCABULARY TARGET
     WORD NUMBER R> BASE !
 ;
 
+\ ---- CALL to absolute target address ----
+: CALL-ABS, ( target-addr -- )
+    E8 T-C,
+    T-ADDR 4 + -
+    T-,
+;
+
 \ ---- Copy bytes from host to target ----
 : T-BINARY, ( host-addr count -- )
     0 DO

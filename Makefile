@@ -217,6 +217,10 @@ test-flush: $(DEBUG_IMAGE) $(BLOCKS)
 	python3 tests/test_flush_stress.py $$PORT; \
 	STATUS=$$?; pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null; exit $$STATUS
 
+test-meta-compile: $(IMAGE) $(BLOCKS) write-catalog
+	@echo "Running metacompiler compile test (B5)..."
+	@python3 tests/test_meta_compile.py $$(($(TEST_PORT_BASE)+55))
+
 test-meta-boot: $(IMAGE) $(BLOCKS) write-catalog
 	@echo "Running metacompiler boot test..."
 	@python3 tests/test_meta_boot.py $$(($(TEST_PORT_BASE)+60))
@@ -227,7 +231,7 @@ test-ubt-expansion:
 	@python3 tests/test_ubt_expansion.py
 
 # Run all tests
-test: test-smoke test-loops test-vocabs test-integration test-pipeline-e2e test-ubt-expansion
+test: test-smoke test-loops test-vocabs test-integration test-pipeline-e2e test-ubt-expansion test-meta-compile
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)
@@ -294,4 +298,4 @@ pxe-push: $(IMAGE)
 pxe-status:
 	@bash tools/pxe/test-pxe.sh
 
-.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog test test-smoke test-loops test-vocabs test-integration test-flush test-meta-boot pxe-setup pxe-push pxe-status
+.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog test test-smoke test-loops test-vocabs test-integration test-flush test-meta-compile test-meta-boot pxe-setup pxe-push pxe-status

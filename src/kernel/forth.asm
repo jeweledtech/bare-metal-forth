@@ -209,7 +209,7 @@ kernel_start:
     ; Initialize variables
     mov dword [VAR_STATE], 0
     mov dword [VAR_HERE], DICT_START
-    mov dword [VAR_LATEST], name_TRACE_BUF_SIZE_W ; Last built-in word
+    mov dword [VAR_LATEST], name_ADDR_READ_LINE ; Last built-in word
     mov dword [VAR_BASE], 10
     mov dword [VAR_TIB], TIB_START
     mov dword [VAR_TOIN], 0
@@ -233,7 +233,7 @@ kernel_start:
     mov byte [BLK_BUF_GUARD], 0
 
     ; Initialize vocabulary / search order
-    mov dword [VAR_FORTH_LATEST], name_TRACE_BUF_SIZE_W ; FORTH vocab starts same as LATEST
+    mov dword [VAR_FORTH_LATEST], name_ADDR_READ_LINE ; FORTH vocab starts same as LATEST
     mov dword [VAR_SEARCH_DEPTH], 1
     mov dword [VAR_SEARCH_ORDER], VAR_FORTH_LATEST  ; Addr of FORTH's LATEST cell
     mov dword [VAR_CURRENT], VAR_FORTH_LATEST       ; New defs go into FORTH
@@ -2807,6 +2807,23 @@ DEFCODE "TRACE-ENTRY-SZ", TRACE_ENTRY_SZ_W, 0  ; ( -- n )
 DEFCODE "TRACE-BUF-SIZE", TRACE_BUF_SIZE_W, 0  ; ( -- n )
     push TRACE_BUF_SIZE
     NEXT
+
+; ============================================================================
+; Metacompiler Support - Internal Routine Addresses
+; ============================================================================
+; Expose assembly helper addresses so the metacompiler can
+; emit CALL instructions to them via CALL-ABS,.
+
+DEFCONST "ADDR-READ-KEY", ADDR_READ_KEY, read_key
+DEFCONST "ADDR-PRINT-CHAR", ADDR_PRINT_CHAR, print_char
+DEFCONST "ADDR-PRINT-NUM", ADDR_PRINT_NUM, print_number
+DEFCONST "ADDR-PRINT-STR", ADDR_PRINT_STR, print_string
+DEFCONST "ADDR-WORD", ADDR_WORD_FN, word_
+DEFCONST "ADDR-FIND", ADDR_FIND_FN, find_
+DEFCONST "ADDR-NUMBER", ADDR_NUMBER_FN, number_
+DEFCONST "ADDR-CREATE", ADDR_CREATE_FN, create_
+DEFCONST "ADDR-COMMA", ADDR_COMMA_FN, comma_
+DEFCONST "ADDR-READ-LINE", ADDR_READ_LINE, read_line
 
 ; ============================================================================
 ; Low-Level Support Routines

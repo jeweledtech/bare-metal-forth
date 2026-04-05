@@ -649,6 +649,142 @@ VARIABLE FX5
 ;
 
 \ ============================================
+\ Phase B5: I/O words (need helper calls)
+\ ============================================
+
+: MC-IO ( -- )
+    S" KEY" TX-CODE
+    ADDR-READ-KEY CALL-ABS,
+    %EAX PUSH, END-CODE
+
+    S" EMIT" TX-CODE
+    %EAX POP,
+    ADDR-PRINT-CHAR CALL-ABS,
+    END-CODE
+
+    S" CR" TX-CODE
+    0D %EAX MOV-IMM,
+    ADDR-PRINT-CHAR CALL-ABS,
+    0A %EAX MOV-IMM,
+    ADDR-PRINT-CHAR CALL-ABS,
+    END-CODE
+
+    S" SPACE" TX-CODE
+    20 %EAX MOV-IMM,
+    ADDR-PRINT-CHAR CALL-ABS,
+    END-CODE
+
+    S" TYPE" TX-CODE
+    %ECX POP,
+    %ESI EMIT-PUSHRSP
+    %ESI POP,
+    %ECX %ECX TEST,
+    JZ,
+    \ .loop: lodsb; call print_char; loop
+    AC T-C,
+    ADDR-PRINT-CHAR CALL-ABS,
+    E2 T-C, F8 T-C,
+    >RESOLVE
+    %ESI EMIT-POPRSP
+    END-CODE
+;
+
+\ ============================================
+\ Phase B5: Number display
+\ ============================================
+
+: MC-DISPLAY ( -- )
+    S" ." TX-CODE
+    %EAX POP,
+    ADDR-PRINT-NUM CALL-ABS,
+    20 %EAX MOV-IMM,
+    ADDR-PRINT-CHAR CALL-ABS,
+    END-CODE
+
+    \ HEX: mov dword [VAR_BASE], 16
+    S" HEX" TX-CODE
+    C7 T-C, 05 T-C, 2800C T-, 10 T-,
+    END-CODE
+
+    \ DECIMAL: mov dword [VAR_BASE], 10
+    S" DECIMAL" TX-CODE
+    C7 T-C, 05 T-C, 2800C T-, 0A T-,
+    END-CODE
+;
+
+\ ============================================
+\ Phase B5: System variables and constants
+\ ============================================
+
+: MC-SYSVAR ( -- )
+    \ Variables (push address, like DEFVAR)
+    28000 S" STATE" TX-CONST
+    28004 S" HERE" TX-CONST
+    28008 S" LATEST" TX-CONST
+    2800C S" BASE" TX-CONST
+    \ Constants
+    1 S" VERSION" TX-CONST
+    4 S" CELL" TX-CONST
+;
+
+\ ============================================
+\ Phase B5: Dictionary/compiler words
+\ ============================================
+
+: MC-DICT ( -- )
+    \ WORD: call word_; push result
+    S" WORD" TX-CODE
+    ADDR-WORD CALL-ABS,
+    %EAX PUSH, END-CODE
+
+    \ NUMBER: pop dummy; call number_; push
+    S" NUMBER" TX-CODE
+    %EAX POP,
+    ADDR-NUMBER CALL-ABS,
+    %EAX PUSH, END-CODE
+
+    \ FIND: call find_; push xt
+    S" FIND" TX-CODE
+    ADDR-FIND CALL-ABS,
+    %EAX PUSH, END-CODE
+
+    \ , (comma): pop eax; call comma_
+    S" ," TX-CODE
+    %EAX POP,
+    ADDR-COMMA CALL-ABS,
+    END-CODE
+
+    \ C, : pop eax; mov edi,[HERE]; stosb;
+    \      mov [HERE],edi
+    S" C," TX-CODE
+    %EAX POP,
+    28004 %EDI MOV-ABS[],
+    AA T-C,
+    %EDI 28004 []ABS-MOV,
+    END-CODE
+
+    \ ALLOT: pop eax; add [HERE],eax
+    S" ALLOT" TX-CODE
+    %EAX POP,
+    \ add [0x28004], eax = 01 05 04800200
+    01 T-C, 05 T-C, 28004 T-,
+    END-CODE
+
+    \ CREATE: word_; create_; write CFA
+    S" CREATE" TX-CODE
+    ADDR-WORD CALL-ABS,
+    ADDR-CREATE CALL-ABS,
+    28004 %EAX MOV-ABS[],
+    \ mov dword [eax], DOCREATE code addr
+    C7 T-C, 00 T-C,
+    DOCREATE-ADDR @ T-,
+    \ add dword [0x28004], 4
+    83 T-C, 05 T-C, 28004 T-,
+    04 T-C,
+    END-CODE
+;
+
+\ ============================================
 \ T-COLON definitions (threaded code)
 \ ============================================
 \ These prove the metacompiler can build
@@ -695,6 +831,10 @@ VARIABLE FX5
     MC-PORTIO
     MC-MEMORY2
     MC-UTILITY
+    MC-IO
+    MC-DISPLAY
+    MC-SYSVAR
+    MC-DICT
     MC-COLON
     META-CHECK
     T-HERE @ T-IMAGE - T-SIZE !
