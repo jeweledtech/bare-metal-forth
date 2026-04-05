@@ -394,9 +394,12 @@ VOCABULARY TARGET
     DROP
 ;
 
-\ ---- META-SAVE stub ----
+\ ---- META-SAVE: report T-IMAGE location ----
 : META-SAVE ( -- )
-    ." META-SAVE: stub" CR
+    ." META-SAVE:" SPACE
+    T-IMAGE DECIMAL . SPACE
+    T-HERE @ T-IMAGE - .
+    ." bytes" CR
 ;
 
 PREVIOUS PREVIOUS FORTH DEFINITIONS

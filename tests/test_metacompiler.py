@@ -381,11 +381,11 @@ check('H# FF in DECIMAL mode = 255',
       val == 255,
       f'expected 255, got {val}')
 
-# ---- Test 23: META-SAVE stub executes ----
-print("\nTest 23: META-SAVE stub executes")
+# ---- Test 23: META-SAVE reports address/size ----
+print("\nTest 23: META-SAVE reports address/size")
 r = send('META-SAVE', 2)
-check('META-SAVE executes without crash',
-      'stub' in r.lower(),
+check('META-SAVE reports bytes',
+      'bytes' in r.lower(),
       f'response: {r.strip()!r}')
 
 # ---- Test 24: Full regression META-BUILD ----
