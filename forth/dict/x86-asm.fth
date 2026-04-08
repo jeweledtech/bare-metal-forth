@@ -114,10 +114,10 @@ VARIABLE T-HERE-VAR
 
 \ ---- ALU reg, imm32 ----
 : ADD-IMM, ( imm32 reg -- )
-    81 T-C, 3 SWAP 0 MODRM T-C, T-,
+    81 T-C, 3 0 ROT MODRM T-C, T-,
 ;
 : SUB-IMM, ( imm32 reg -- )
-    81 T-C, 3 SWAP 5 MODRM T-C, T-,
+    81 T-C, 3 5 ROT MODRM T-C, T-,
 ;
 
 \ ---- INC/DEC reg ----
@@ -173,11 +173,7 @@ VARIABLE DISP-TMP
 : MOV-DISP!, ( src [base] disp -- )
     DISP-TMP !
     89 T-C,
-    DUP 5 = IF
-        2 -ROT MODRM T-C,
-    ELSE
-        1 -ROT MODRM T-C,
-    THEN
+    1 -ROT MODRM T-C,
     DISP-TMP @ T-C,
 ;
 
@@ -185,11 +181,7 @@ VARIABLE DISP-TMP
 : MOV-DISP@, ( [base] dst disp -- )
     DISP-TMP !
     8B T-C,
-    OVER 5 = IF
-        2 -ROT SWAP MODRM T-C,
-    ELSE
-        1 -ROT SWAP MODRM T-C,
-    THEN
+    1 -ROT SWAP MODRM T-C,
     DISP-TMP @ T-C,
 ;
 
@@ -214,37 +206,37 @@ VARIABLE DISP-TMP
 
 \ ---- IDIV reg ----
 : IDIV, ( reg -- )
-    F7 T-C, 3 SWAP 7 MODRM T-C,
+    F7 T-C, 3 7 ROT MODRM T-C,
 ;
 
 \ ---- NOT/NEG reg ----
 : NOT, ( reg -- )
-    F7 T-C, 3 SWAP 2 MODRM T-C,
+    F7 T-C, 3 2 ROT MODRM T-C,
 ;
 : NEG, ( reg -- )
-    F7 T-C, 3 SWAP 3 MODRM T-C,
+    F7 T-C, 3 3 ROT MODRM T-C,
 ;
 
 \ ---- SHL/SHR by CL ----
 : SHL-CL, ( reg -- )
-    D3 T-C, 3 SWAP 4 MODRM T-C,
+    D3 T-C, 3 4 ROT MODRM T-C,
 ;
 : SHR-CL, ( reg -- )
-    D3 T-C, 3 SWAP 5 MODRM T-C,
+    D3 T-C, 3 5 ROT MODRM T-C,
 ;
 : SAR-CL, ( reg -- )
-    D3 T-C, 3 SWAP 7 MODRM T-C,
+    D3 T-C, 3 7 ROT MODRM T-C,
 ;
 
 \ ---- Imm8 ALU forms (compact) ----
 : ADD-I8, ( imm8 reg -- )
-    83 T-C, 3 SWAP 0 MODRM T-C, T-C,
+    83 T-C, 3 0 ROT MODRM T-C, T-C,
 ;
 : SUB-I8, ( imm8 reg -- )
-    83 T-C, 3 SWAP 5 MODRM T-C, T-C,
+    83 T-C, 3 5 ROT MODRM T-C, T-C,
 ;
 : CMP-I8, ( imm8 reg -- )
-    83 T-C, 3 SWAP 7 MODRM T-C, T-C,
+    83 T-C, 3 7 ROT MODRM T-C, T-C,
 ;
 
 \ ---- [ESP] ops (need SIB byte 24) ----
@@ -329,7 +321,7 @@ VARIABLE DISP-TMP
 
 \ ---- one-operand imul (*) ----
 : IMUL1, ( reg -- )
-    F7 T-C, 3 SWAP 5 MODRM T-C,
+    F7 T-C, 3 5 ROT MODRM T-C,
 ;
 
 \ ---- setcc al (comparisons) ----
@@ -368,7 +360,7 @@ VARIABLE DISP-TMP
 
 \ ---- unsigned div (F7 /6) ----
 : UDIV1, ( reg -- )
-    F7 T-C, 3 SWAP 6 MODRM T-C, ;
+    F7 T-C, 3 6 ROT MODRM T-C, ;
 
 \ ---- push imm32 ----
 : PUSH-IMM, ( imm32 -- ) 68 T-C, T-, ;

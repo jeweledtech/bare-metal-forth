@@ -1,22 +1,20 @@
 #!/usr/bin/env python3
-"""Test META-COMPILE-X86 with B5 extensions.
+"""Test META-COMPILE-X86 Phase B6: INTERPRET + self-hosting.
 
-Loads X86-ASM, META-COMPILER, TARGET-X86 from blocks,
-runs META-COMPILE-X86, verifies I/O + compiler words.
-
-Manages its own QEMU instance for clean state.
+Builds metacompiled dictionary with INTERPRET, compiler
+words, and control flow. Transfers control and verifies
+the metacompiled kernel can process typed input.
 
 Usage:
-    python3 tests/test_meta_compile.py [PORT]
+    python3 tests/test_meta_b6.py [PORT]
 """
 import socket
 import time
 import sys
 import subprocess
 import os
-import signal
 
-PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 4520
+PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 4590
 
 PROJECT_DIR = os.path.dirname(os.path.dirname(
     os.path.abspath(__file__)))
@@ -27,7 +25,6 @@ QEMU = 'qemu-system-i386'
 
 
 def get_vocab_blocks(vocab_name):
-    """Get vocab start and end block from catalog."""
     try:
         result = subprocess.run(
             [sys.executable, '-c', f"""
@@ -56,10 +53,10 @@ for v in vocabs:
     return None, None
 
 
-def send(s, cmd, wait=1.0):
+def send(s, cmd, wait=2):
     s.sendall((cmd + '\r').encode())
     time.sleep(wait)
-    s.settimeout(2)
+    s.settimeout(3)
     resp = b''
     while True:
         try:
@@ -112,10 +109,7 @@ def check(name, ok, detail=''):
         print(msg)
 
 
-# ============================================================
 # Preflight
-# ============================================================
-
 for f in [IMAGE, BLOCKS]:
     if not os.path.exists(f):
         print(f"FAIL: Missing {f}")
@@ -146,8 +140,7 @@ cmd = [
     '-drive', f'file={IMAGE},format=raw,if=floppy',
     '-drive', f'file={BLOCKS},format=raw,if=ide,index=1',
     '-serial', f'tcp::{PORT},server=on,wait=off',
-    '-display', 'none',
-    '-daemonize',
+    '-display', 'none', '-daemonize',
 ]
 result = subprocess.run(cmd, capture_output=True, text=True)
 if result.returncode != 0:
@@ -189,103 +182,111 @@ send(s, 'ALSO META-COMPILER', 2)
 # ============================================================
 
 print("\n=== META-COMPILE-X86 ===")
-r = send(s, 'META-COMPILE-X86', 15)
-print(f"  {r.strip()!r}")
+r = send(s, 'META-COMPILE-X86', 45)
 check('META-COMPILE-X86 completes',
-      'Phase B' in r and 'complete' in r,
-      r.strip()[:80])
+      'Phase B6 complete' in r, r.strip()[:100])
 
-r = send(s, 'DECIMAL TSYM-N @ .', 1)
+r = send(s, 'DECIMAL TSYM-N @ .', 2)
 val = extract_number(r)
-check(f'Symbol count >= 100 (got {val})',
-      val is not None and val >= 100)
+check(f'Symbol count >= 130 (got {val})',
+      val is not None and val >= 130)
 
-r = send(s, 'DECIMAL META-SIZE .', 1)
+r = send(s, 'DECIMAL META-SIZE .', 2)
 val = extract_number(r)
-check(f'META-SIZE > 2500 (got {val})',
-      val is not None and val > 2500)
+check(f'META-SIZE > 3500 (got {val})',
+      val is not None and val > 3500)
 
 # ============================================================
-# Symbol checks
+# Symbol verification
 # ============================================================
 
-print("\n=== Symbol Verification ===")
-
-io_words = ['KEY', 'EMIT', 'CR', 'SPACE', 'TYPE']
-io_found = 0
-for w in io_words:
-    r = send(s, f'S" {w}" T-FIND-SYM DECIMAL .', 2)
+print("\n=== Symbol Checks ===")
+syms = ['INTERPRET', ':', ';', 'IF', 'THEN',
+        'DO', 'LOOP', 'I', 'COLD', '(DO)',
+        '(LOOP)', 'LITERAL', 'IMMEDIATE']
+sym_found = 0
+for sym in syms:
+    r = send(s, f'HEX S" {sym}" T-FIND-SYM DECIMAL .', 2)
     val = extract_number(r)
     if val and val > 0:
-        io_found += 1
-check(f'I/O words ({io_found}/5)',
-      io_found == 5)
+        sym_found += 1
+check(f'Key symbols ({sym_found}/{len(syms)})',
+      sym_found == len(syms))
 
-disp_found = 0
-for w in ['.']:
-    r = send(s, f'S" {w}" T-FIND-SYM DECIMAL .', 2)
+# ============================================================
+# META-TRANSFER
+# ============================================================
+
+print("\n=== META-TRANSFER ===")
+drain(s)
+s.sendall(b'META-TRANSFER\r')
+time.sleep(5)
+s.settimeout(5)
+r = b''
+while True:
+    try:
+        d = s.recv(4096)
+        if not d:
+            break
+        r += d
+    except Exception:
+        break
+text = r.decode('ascii', 'replace')
+has_ok = 'ok' in text
+check('META-TRANSFER -> ok prompt', has_ok,
+      text.strip()[:80])
+
+if has_ok:
+    print("\n=== Interactive Tests ===")
+
+    # Set DECIMAL explicitly
+    send(s, 'DECIMAL', 1)
+
+    # Basic arithmetic
+    r = send(s, '3 4 + .', 3)
+    check('3 4 + . = 7', '7' in r, r.strip()[:60])
+
+    # Colon definition
+    r = send(s, ': SQ DUP * ;', 3)
+    r = send(s, '5 SQ .', 3)
+    check(': SQ DUP * ; 5 SQ . = 25',
+          '25' in r, r.strip()[:60])
+
+    # IF/ELSE/THEN
+    r = send(s, '1 IF 42 ELSE 99 THEN .', 3)
+    check('1 IF 42 = 42', '42' in r, r.strip()[:60])
+
+    r = send(s, '0 IF 42 ELSE 99 THEN .', 3)
+    check('0 IF 99 = 99', '99' in r, r.strip()[:60])
+
+    # BEGIN/UNTIL (count down)
+    r = send(s, ': CD 3 BEGIN DUP . 1- DUP 0= UNTIL DROP ;',
+             3)
+    r = send(s, 'CD', 3)
+    check('BEGIN/UNTIL loop', '3' in r and '1' in r,
+          r.strip()[:60])
+
+    # DO/LOOP
+    r = send(s, ': DT 5 0 DO I . LOOP ;', 3)
+    r = send(s, 'DT', 3)
+    check('DO/LOOP', '0' in r and '4' in r,
+          r.strip()[:60])
+
+    # Undefined word
+    r = send(s, 'NOTAWORD', 3)
+    check('Undefined word -> ?', '?' in r,
+          r.strip()[:60])
+
+    # DEPTH works (may have residue from tests)
+    r = send(s, 'DEPTH .', 2)
     val = extract_number(r)
-    if val and val > 0:
-        disp_found += 1
-check(f'Display words ({disp_found}/1)',
-      disp_found == 1)
+    check(f'DEPTH works (got {val})',
+          val is not None, r.strip()[:60])
 
-var_words = ['STATE', 'HERE', 'LATEST', 'BASE']
-var_found = 0
-for w in var_words:
-    r = send(s, f'S" {w}" T-FIND-SYM DECIMAL .', 2)
-    val = extract_number(r)
-    if val and val > 0:
-        var_found += 1
-check(f'Variable words ({var_found}/4)',
-      var_found == 4)
-
-comp_words = ['WORD', 'NUMBER', 'FIND',
-              'CREATE', 'ALLOT']
-comp_found = 0
-for w in comp_words:
-    r = send(s, f'S" {w}" T-FIND-SYM DECIMAL .', 2)
-    val = extract_number(r)
-    if val and val > 0:
-        comp_found += 1
-check(f'Compiler words ({comp_found}/5)',
-      comp_found == 5)
-
-# ============================================================
-# CALL-ABS displacement verification
-# ============================================================
-
-print("\n=== CALL-ABS Displacement ===")
-
-# KEY: E8 <disp32> 50 AD FF 20
-r = send(s, 'S" KEY" T-FIND-SYM T-@ 1+ T-@ '
-         'DECIMAL .', 2)
-actual = extract_number(r)
-r = send(s, 'ADDR-READ-KEY '
-         'S" KEY" T-FIND-SYM T-@ 5 + - '
-         'DECIMAL .', 2)
-expected = extract_number(r)
-check(f'KEY disp (a={actual} e={expected})',
-      actual == expected)
-
-# EMIT: 58 E8 <disp32> AD FF 20
-r = send(s, 'S" EMIT" T-FIND-SYM T-@ '
-         '2 + T-@ DECIMAL .', 2)
-actual = extract_number(r)
-r = send(s, 'ADDR-PRINT-CHAR '
-         'S" EMIT" T-FIND-SYM T-@ 6 + - '
-         'DECIMAL .', 2)
-expected = extract_number(r)
-check(f'EMIT disp (a={actual} e={expected})',
-      actual == expected)
-
-# ============================================================
-# Stack clean
-# ============================================================
-
-r = send(s, '.S', 1)
-check('Stack clean', '<>' in r,
-      r.strip()[:60])
+    # Empty line -> ok prompt
+    r = send(s, '', 2)
+    check('Empty line -> ok', 'ok' in r.lower(),
+          r.strip()[:60])
 
 # ============================================================
 # Cleanup

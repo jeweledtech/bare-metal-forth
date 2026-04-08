@@ -92,7 +92,7 @@ HEX
 \ Entry: CFA(4) + len(1) + name(1F) = 24h
 
 DECIMAL 36 CONSTANT TSYM-SZ HEX
-CREATE TSYM-TBL 1000 ALLOT
+CREATE TSYM-TBL 2000 ALLOT
 VARIABLE TSYM-N
 
 : TSYM-E ( i -- addr )
@@ -649,6 +649,89 @@ VARIABLE FX5
 ;
 
 \ ============================================
+\ Phase B6: DO/LOOP runtimes
+\ ============================================
+\ Additional fixup variables for complex
+\ control flow with many forward jumps
+
+VARIABLE FX6 VARIABLE FX7
+VARIABLE FX8 VARIABLE FX9
+VARIABLE FX10
+
+: MC-LOOP-RT ( -- )
+    \ (DO): pop index+limit, push to rstack
+    S" (DO)" TX-CODE
+    T-ADDR 4 - DODO-ADDR !
+    %EAX POP, %EBX POP,
+    %EBX EMIT-PUSHRSP
+    %EAX EMIT-PUSHRSP
+    END-CODE
+
+    \ (LOOP): inc index, cmp limit, branch
+    S" (LOOP)" TX-CODE
+    T-ADDR 4 - DOLOOP-ADDR !
+    %EBP %EAX 0 MOV-DISP@,
+    %EAX INC,
+    %EAX %EBP 0 MOV-DISP!,
+    %EBP %EBX 4 MOV-DISP@,
+    %EBX %EAX CMP,
+    JGE, FX6 !
+    LODSD,
+    %EAX %ESI ADD,
+    EMIT-NEXT
+    FX6 @ >RESOLVE
+    8 %EBP ADD-I8,
+    LODSD,
+    EMIT-NEXT
+
+    \ (+LOOP): add increment, check crossing
+    S" (+LOOP)" TX-CODE
+    T-ADDR 4 - DOPLOOP-ADDR !
+    %ECX POP,
+    %EBP %EAX 0 MOV-DISP@,
+    %ECX %EAX ADD,
+    %EAX %EBP 0 MOV-DISP!,
+    %EBP %EBX 4 MOV-DISP@,
+    %ECX %ECX TEST,
+    JS, FX6 !
+    %EBX %EAX CMP,
+    JGE, FX7 !
+    JMP, FX8 !
+    FX6 @ >RESOLVE
+    %EBX %EAX CMP,
+    JL, FX9 !
+    FX8 @ >RESOLVE
+    LODSD,
+    %EAX %ESI ADD,
+    EMIT-NEXT
+    FX7 @ >RESOLVE
+    FX9 @ >RESOLVE
+    8 %EBP ADD-I8,
+    LODSD,
+    EMIT-NEXT
+
+    \ I: push index from return stack
+    S" I" TX-CODE
+    %EBP %EAX 0 MOV-DISP@,
+    %EAX PUSH, END-CODE
+
+    \ J: push outer loop index
+    S" J" TX-CODE
+    %EBP %EAX 8 MOV-DISP@,
+    %EAX PUSH, END-CODE
+
+    \ UNLOOP: remove loop params
+    S" UNLOOP" TX-CODE
+    8 %EBP ADD-I8, END-CODE
+
+    \ LEAVE: set index = limit
+    S" LEAVE" TX-CODE
+    %EBP %EAX 4 MOV-DISP@,
+    %EAX %EBP 0 MOV-DISP!,
+    END-CODE
+;
+
+\ ============================================
 \ Phase B5: I/O words (need helper calls)
 \ ============================================
 
@@ -817,10 +900,430 @@ VARIABLE FX5
     T-;
 ;
 
+\ ============================================
+\ Phase B6: Compiler words
+\ ============================================
+\ : ; [ ] LITERAL IMMEDIATE COMPILE, ['] '
+
+VARIABLE COMPILEC-CFA
+
+: MC-COMPILER ( -- )
+    \ : (COLON) — define new word
+    S" :" TX-CODE
+    ADDR-WORD CALL-ABS,
+    ADDR-CREATE CALL-ABS,
+    \ mov eax, [HERE]
+    28004 %EAX MOV-ABS[],
+    \ mov dword [eax], DOCOL
+    C7 T-C, 00 T-C, DOCOL-ADDR @ T-,
+    \ add dword [HERE], 4
+    83 T-C, 05 T-C, 28004 T-, 04 T-C,
+    \ hide: mov eax,[LATEST]; or [eax+4],40
+    28008 %EAX MOV-ABS[],
+    80 T-C, 48 T-C, 04 T-C, 40 T-C,
+    \ mov dword [STATE], 1
+    C7 T-C, 05 T-C, 28000 T-, 1 T-,
+    END-CODE
+
+    \ ; (SEMICOLON) — end definition
+    S" ;" TX-CODE
+    \ mov eax, [HERE]
+    28004 %EAX MOV-ABS[],
+    \ mov dword [eax], EXIT-CFA
+    C7 T-C, 00 T-C, DOEXIT-ADDR @ T-,
+    \ add dword [HERE], 4
+    83 T-C, 05 T-C, 28004 T-, 04 T-C,
+    \ unhide: mov eax,[LATEST]
+    28008 %EAX MOV-ABS[],
+    \ and byte [eax+4], 0xBF
+    80 T-C, 60 T-C, 04 T-C, 0BF T-C,
+    \ mov dword [STATE], 0
+    C7 T-C, 05 T-C, 28000 T-, 0 T-,
+    END-CODE
+    T-IMMEDIATE
+
+    \ [ — enter interpret mode (IMMEDIATE)
+    S" [" TX-CODE
+    C7 T-C, 05 T-C, 28000 T-, 0 T-,
+    END-CODE
+    T-IMMEDIATE
+
+    \ ] — enter compile mode
+    S" ]" TX-CODE
+    C7 T-C, 05 T-C, 28000 T-, 1 T-,
+    END-CODE
+
+    \ LITERAL — compile LIT + n (IMMEDIATE)
+    S" LITERAL" TX-CODE
+    28004 %EAX MOV-ABS[],
+    \ mov dword [eax], LIT-CFA
+    C7 T-C, 00 T-C, DOLIT-ADDR @ T-,
+    %EBX POP,
+    \ mov [eax+4], ebx
+    89 T-C, 58 T-C, 04 T-C,
+    \ add dword [HERE], 8
+    83 T-C, 05 T-C, 28004 T-, 08 T-C,
+    END-CODE
+    T-IMMEDIATE
+
+    \ IMMEDIATE — toggle flag on LATEST
+    S" IMMEDIATE" TX-CODE
+    28008 %EAX MOV-ABS[],
+    \ xor byte [eax+4], 0x80
+    80 T-C, 70 T-C, 04 T-C, 80 T-C,
+    END-CODE
+
+    \ COMPILE, — store XT at HERE
+    S" COMPILE," TX-CODE
+    %EBX POP,
+    28004 %EAX MOV-ABS[],
+    \ mov [eax], ebx
+    89 T-C, 18 T-C,
+    \ add dword [HERE], 4
+    83 T-C, 05 T-C, 28004 T-, 04 T-C,
+    END-CODE
+    S" COMPILE," T-FIND-SYM COMPILEC-CFA !
+
+    \ ' (TICK) -- find word, push XT
+    S" '" TX-CODE
+    ADDR-WORD CALL-ABS,
+    ADDR-FIND CALL-ABS,
+    %EAX PUSH, END-CODE
+
+    \ ['] -- compile LIT + XT (IMMEDIATE)
+    S" [']" TX-CODE
+    ADDR-WORD CALL-ABS,
+    ADDR-FIND CALL-ABS,
+    %EBX %EAX MOV,
+    28004 %EAX MOV-ABS[],
+    C7 T-C, 00 T-C, DOLIT-ADDR @ T-,
+    89 T-C, 58 T-C, 04 T-C,
+    83 T-C, 05 T-C, 28004 T-, 08 T-C,
+    END-CODE
+    T-IMMEDIATE
+
+    \ POSTPONE (IMMEDIATE)
+    S" POSTPONE" TX-CODE
+    ADDR-WORD CALL-ABS,
+    ADDR-FIND CALL-ABS,
+    %EAX %EBX MOV,
+    F6 T-C, C1 T-C, 80 T-C,
+    JNZ, FX6 !
+    28004 %EAX MOV-ABS[],
+    C7 T-C, 00 T-C, DOLIT-ADDR @ T-,
+    89 T-C, 58 T-C, 04 T-C,
+    C7 T-C, 40 T-C, 08 T-C,
+    COMPILEC-CFA @ T-,
+    83 T-C, 05 T-C, 28004 T-, 0C T-C,
+    EMIT-NEXT
+    FX6 @ >RESOLVE
+    28004 %EAX MOV-ABS[],
+    89 T-C, 18 T-C,
+    83 T-C, 05 T-C, 28004 T-, 04 T-C,
+    END-CODE
+    T-IMMEDIATE
+;
+
+\ ============================================
+\ Phase B6: Control flow (compile-time)
+\ ============================================
+\ IF THEN ELSE BEGIN UNTIL AGAIN
+\ WHILE REPEAT DO LOOP +LOOP
+\ All are IMMEDIATE — they execute at compile
+\ time to compile branch patterns.
+
+: MC-CONTROLFLOW ( -- )
+    \ IF — compile 0BRANCH + placeholder
+    S" IF" TX-CODE
+    28004 %EAX MOV-ABS[],
+    C7 T-C, 00 T-C,
+    DO0BRANCH-ADDR @ T-,
+    \ push addr of placeholder
+    \ lea ebx,[eax+4]
+    8D T-C, 58 T-C, 04 T-C,
+    %EBX PUSH,
+    \ zero the placeholder; HERE += 8
+    C7 T-C, 40 T-C, 04 T-C, 0 T-,
+    83 T-C, 05 T-C, 28004 T-, 08 T-C,
+    END-CODE
+    T-IMMEDIATE
+
+    \ THEN — patch placeholder
+    S" THEN" TX-CODE
+    %EBX POP,
+    28004 %EAX MOV-ABS[],
+    \ offset = HERE - patch_addr
+    %EBX %EAX SUB,
+    \ mov [ebx], eax
+    89 T-C, 03 T-C,
+    END-CODE
+    T-IMMEDIATE
+
+    \ ELSE — BRANCH + placeholder, patch IF
+    S" ELSE" TX-CODE
+    \ compile BRANCH + placeholder
+    28004 %EAX MOV-ABS[],
+    C7 T-C, 00 T-C,
+    DOBRANCH-ADDR @ T-,
+    \ push new placeholder addr
+    8D T-C, 58 T-C, 04 T-C,
+    \ zero placeholder; HERE += 8
+    C7 T-C, 40 T-C, 04 T-C, 0 T-,
+    83 T-C, 05 T-C, 28004 T-, 08 T-C,
+    \ patch IF: pop old, calc offset
+    %ECX POP,
+    28004 %EAX MOV-ABS[],
+    %ECX %EAX SUB,
+    89 T-C, 01 T-C,
+    \ push new placeholder
+    %EBX PUSH,
+    END-CODE
+    T-IMMEDIATE
+
+    \ BEGIN — push HERE
+    S" BEGIN" TX-CODE
+    28004 %EAX MOV-ABS[],
+    %EAX PUSH, END-CODE
+    T-IMMEDIATE
+
+    \ UNTIL — compile 0BRANCH + backward off
+    S" UNTIL" TX-CODE
+    28004 %EAX MOV-ABS[],
+    C7 T-C, 00 T-C,
+    DO0BRANCH-ADDR @ T-,
+    \ offset = dest - (HERE+4)
+    %EBX POP,
+    \ lea ecx,[eax+4]  (patch addr)
+    8D T-C, 48 T-C, 04 T-C,
+    %ECX %EBX SUB,
+    \ mov [ecx], ebx
+    89 T-C, 19 T-C,
+    83 T-C, 05 T-C, 28004 T-, 08 T-C,
+    END-CODE
+    T-IMMEDIATE
+
+    \ AGAIN — compile BRANCH + backward off
+    S" AGAIN" TX-CODE
+    28004 %EAX MOV-ABS[],
+    C7 T-C, 00 T-C,
+    DOBRANCH-ADDR @ T-,
+    %EBX POP,
+    8D T-C, 48 T-C, 04 T-C,
+    %ECX %EBX SUB,
+    89 T-C, 19 T-C,
+    83 T-C, 05 T-C, 28004 T-, 08 T-C,
+    END-CODE
+    T-IMMEDIATE
+
+    \ WHILE — 0BRANCH + placeholder, swap
+    S" WHILE" TX-CODE
+    28004 %EAX MOV-ABS[],
+    C7 T-C, 00 T-C,
+    DO0BRANCH-ADDR @ T-,
+    8D T-C, 58 T-C, 04 T-C,
+    C7 T-C, 40 T-C, 04 T-C, 0 T-,
+    83 T-C, 05 T-C, 28004 T-, 08 T-C,
+    \ swap: pop dest, push orig, push dest
+    %EAX POP, %EBX PUSH, %EAX PUSH,
+    END-CODE
+    T-IMMEDIATE
+
+    \ REPEAT — BRANCH back + patch WHILE
+    S" REPEAT" TX-CODE
+    \ BRANCH backward to dest
+    28004 %EAX MOV-ABS[],
+    C7 T-C, 00 T-C,
+    DOBRANCH-ADDR @ T-,
+    %EBX POP,
+    8D T-C, 48 T-C, 04 T-C,
+    %ECX %EBX SUB,
+    89 T-C, 19 T-C,
+    83 T-C, 05 T-C, 28004 T-, 08 T-C,
+    \ patch WHILE placeholder
+    %ECX POP,
+    28004 %EAX MOV-ABS[],
+    %ECX %EAX SUB,
+    89 T-C, 01 T-C,
+    END-CODE
+    T-IMMEDIATE
+
+    \ DO — compile (DO), push HERE
+    S" DO" TX-CODE
+    28004 %EAX MOV-ABS[],
+    C7 T-C, 00 T-C, DODO-ADDR @ T-,
+    83 T-C, 05 T-C, 28004 T-, 04 T-C,
+    \ push body address for LOOP
+    28004 %EAX MOV-ABS[],
+    %EAX PUSH, END-CODE
+    T-IMMEDIATE
+
+    \ LOOP — compile (LOOP) + backward off
+    S" LOOP" TX-CODE
+    28004 %EAX MOV-ABS[],
+    C7 T-C, 00 T-C,
+    DOLOOP-ADDR @ T-,
+    %EBX POP,
+    \ offset = dest - (HERE+4) - 4
+    8D T-C, 48 T-C, 04 T-C,
+    %ECX %EBX SUB,
+    4 %EBX SUB-I8,
+    89 T-C, 19 T-C,
+    83 T-C, 05 T-C, 28004 T-, 08 T-C,
+    END-CODE
+    T-IMMEDIATE
+
+    \ +LOOP — compile (+LOOP) + backward off
+    S" +LOOP" TX-CODE
+    28004 %EAX MOV-ABS[],
+    C7 T-C, 00 T-C,
+    DOPLOOP-ADDR @ T-,
+    %EBX POP,
+    8D T-C, 48 T-C, 04 T-C,
+    %ECX %EBX SUB,
+    4 %EBX SUB-I8,
+    89 T-C, 19 T-C,
+    83 T-C, 05 T-C, 28004 T-, 08 T-C,
+    END-CODE
+    T-IMMEDIATE
+;
+
+\ ============================================
+\ Phase B6: INTERPRET (simplified)
+\ ============================================
+\ Interactive only: no BLK, no Ctrl+C.
+\ Uses CALL-ABS for all kernel helpers.
+
+: MC-INTERPRET ( -- )
+    S" INTERPRET" TX-CODE
+
+    \ Check TOIN: if > 0, have input
+    28014 %EAX MOV-ABS[],
+    %EAX %EAX TEST,
+    JNZ, FX1 !
+
+    \ Interactive: print "ok "
+    6F %EAX MOV-IMM,
+    ADDR-PRINT-CHAR CALL-ABS,
+    6B %EAX MOV-IMM,
+    ADDR-PRINT-CHAR CALL-ABS,
+    20 %EAX MOV-IMM,
+    ADDR-PRINT-CHAR CALL-ABS,
+
+    \ Read line of input
+    ADDR-READ-LINE CALL-ABS,
+
+    \ Set TOIN = 0
+    C7 T-C, 05 T-C, 28014 T-, 0 T-,
+
+    \ .have_input:
+    FX1 @ >RESOLVE
+
+    \ Parse next word
+    ADDR-WORD CALL-ABS,
+    %EAX %EAX TEST,
+    JZ, FX2 !
+
+    \ Look up in dictionary
+    ADDR-FIND CALL-ABS,
+    %EAX %EAX TEST,
+    JZ, FX3 !
+
+    \ Found: save XT in EBX
+    %EAX %EBX MOV,
+
+    \ Check STATE
+    28000 %EDX MOV-ABS[],
+    %EDX %EDX TEST,
+    JZ, FX4 !
+
+    \ Check IMMEDIATE (test cl, 0x80)
+    F6 T-C, C1 T-C, 80 T-C,
+    JNZ, FX5 !
+
+    \ Compile: call comma_(ebx)
+    %EBX %EAX MOV,
+    ADDR-COMMA CALL-ABS,
+    EMIT-NEXT
+
+    \ .execute_word:
+    FX4 @ >RESOLVE
+    FX5 @ >RESOLVE
+    %EBX %EAX MOV,
+    %EAX JMP[],
+
+    \ .try_number:
+    FX3 @ >RESOLVE
+    ADDR-NUMBER CALL-ABS,
+    %EDX %EDX TEST,
+    JNZ, FX6 !
+
+    \ Got number: check STATE
+    28000 %EDX MOV-ABS[],
+    %EDX %EDX TEST,
+    JNZ, FX7 !
+
+    \ Interpreting: push number
+    %EAX PUSH,
+    EMIT-NEXT
+
+    \ .compile_number:
+    FX7 @ >RESOLVE
+    %EAX PUSH,
+    DOLIT-ADDR @ %EAX MOV-IMM,
+    ADDR-COMMA CALL-ABS,
+    %EAX POP,
+    ADDR-COMMA CALL-ABS,
+    EMIT-NEXT
+
+    \ .undefined:
+    FX6 @ >RESOLVE
+    %ESI PUSH,
+    ADDR-WORD-BUF %ESI MOV-IMM,
+    ADDR-PRINT-STR CALL-ABS,
+    ADDR-MSG-UNDEF %ESI MOV-IMM,
+    ADDR-PRINT-STR CALL-ABS,
+    %ESI POP,
+    \ Reset STATE = 0
+    C7 T-C, 05 T-C, 28000 T-, 0 T-,
+    EMIT-NEXT
+
+    \ .end_of_line:
+    FX2 @ >RESOLVE
+    END-CODE
+;
+
+\ ============================================
+\ Phase B6: Cold start + transfer
+\ ============================================
+
+: MC-COLDSTART ( -- )
+    S" COLD" TX-COLON
+    S" INTERPRET" T-COMPILE-NAME
+    S" BRANCH" T-COMPILE-NAME
+    FFFFFFF8 T-,
+    \ No T-; — loops forever
+;
+
+\ META-TRANSFER: set vars + transfer ctrl
+\ No CMOVE needed: T-ORG = T-IMAGE, so code
+\ is already at the correct address.
+: META-TRANSFER ( -- does not return )
+    T-LINK-VAR @ DUP 28048 ! 28008 !
+    T-ADDR 28004 !
+    0 28000 ! 0 28014 !
+    0A 2800C !
+    28048 28020 !
+    1 28040 !
+    28048 28044 !
+    S" COLD" T-FIND-SYM EXECUTE
+;
+
 \ ---- Top-level build driver ----
 : META-COMPILE-X86 ( -- )
     META-INIT TSYM-INIT HEX
+    T-IMAGE T-ORG !
     MC-RUNTIMES
+    MC-LOOP-RT
     MC-STACK
     MC-ARITH
     MC-LOGIC
@@ -835,12 +1338,16 @@ VARIABLE FX5
     MC-DISPLAY
     MC-SYSVAR
     MC-DICT
+    MC-COMPILER
+    MC-CONTROLFLOW
+    MC-INTERPRET
+    MC-COLDSTART
     MC-COLON
     META-CHECK
     T-HERE @ T-IMAGE - T-SIZE !
     1 META-OK !
     DECIMAL
-    ." Phase B complete: "
+    ." Phase B6 complete: "
     META-SIZE . ." bytes, "
     TSYM-N @ . ." syms" CR
 ;
