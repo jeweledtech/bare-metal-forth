@@ -209,7 +209,7 @@ kernel_start:
     ; Initialize variables
     mov dword [VAR_STATE], 0
     mov dword [VAR_HERE], DICT_START
-    mov dword [VAR_LATEST], name_ADDR_MSG_UNDEF ; Last built-in word
+    mov dword [VAR_LATEST], name_ADDR_EMBED_SIZE ; Last built-in word
     mov dword [VAR_BASE], 10
     mov dword [VAR_TIB], TIB_START
     mov dword [VAR_TOIN], 0
@@ -233,7 +233,7 @@ kernel_start:
     mov byte [BLK_BUF_GUARD], 0
 
     ; Initialize vocabulary / search order
-    mov dword [VAR_FORTH_LATEST], name_ADDR_MSG_UNDEF ; FORTH vocab starts same as LATEST
+    mov dword [VAR_FORTH_LATEST], name_ADDR_EMBED_SIZE ; FORTH vocab starts same as LATEST
     mov dword [VAR_SEARCH_DEPTH], 1
     mov dword [VAR_SEARCH_ORDER], VAR_FORTH_LATEST  ; Addr of FORTH's LATEST cell
     mov dword [VAR_CURRENT], VAR_FORTH_LATEST       ; New defs go into FORTH
@@ -2826,6 +2826,8 @@ DEFCONST "ADDR-COMMA", ADDR_COMMA_FN, comma_
 DEFCONST "ADDR-READ-LINE", ADDR_READ_LINE, read_line
 DEFCONST "ADDR-WORD-BUF", ADDR_WORD_BUF, word_buffer
 DEFCONST "ADDR-MSG-UNDEF", ADDR_MSG_UNDEF, msg_undefined
+DEFCONST "ADDR-COLD-START", ADDR_COLD_START, cold_start
+DEFCONST "ADDR-EMBED-SIZE", ADDR_EMBED_SIZE, embed_size
 
 ; ============================================================================
 ; Low-Level Support Routines

@@ -1304,6 +1304,83 @@ VARIABLE COMPILEC-CFA
     \ No T-; — loops forever
 ;
 
+\ ============================================
+\ Phase B6b: Standalone bootable kernel
+\ ============================================
+\ Build a disk-bootable metacompiled kernel.
+\ Copies the running kernel into T-IMAGE at
+\ T-ORG=7E00, overlays metacompiled dictionary
+\ in the free space, patches kernel_start init.
+
+\ Scan T-IMAGE for C7 05 <addr32 LE>, patch
+\ the following imm32 with new-val.
+\ Used to patch mov [VAR_LATEST],X etc.
+VARIABLE SP-NEW VARIABLE SP-TGT
+: MC-SCAN-PATCH6 ( new-val addr32 -- f )
+    SP-TGT ! SP-NEW !
+    T-HERE @ T-IMAGE - 6 - 0 DO
+        T-IMAGE I + C@ C7 = IF
+        T-IMAGE I + 1+ C@ 05 = IF
+        T-IMAGE I + 2 + @
+        SP-TGT @ = IF
+            SP-NEW @
+            T-IMAGE I + 6 + !
+            -1 UNLOOP EXIT
+        THEN THEN THEN
+    LOOP 0
+;
+
+: MC-PATCH-LATEST ( -- )
+    T-LINK-VAR @ 28008
+    MC-SCAN-PATCH6
+    0= IF ." WARN: LATEST patch fail"
+    CR THEN
+    T-LINK-VAR @ 28048
+    MC-SCAN-PATCH6
+    0= IF ." WARN: FORTH_LATEST fail"
+    CR THEN
+;
+
+: MC-PATCH-COLDSTART ( -- )
+    S" INTERPRET" T-FIND-SYM
+    DUP 0= IF
+        ." WARN: no INTERPRET" CR
+        DROP EXIT
+    THEN
+    ADDR-COLD-START T-!
+;
+
+: MC-PATCH-EMBED ( -- )
+    0 ADDR-EMBED-SIZE T-!
+;
+
+: META-COMPILE-X86-BOOT ( -- )
+    META-INIT TSYM-INIT HEX
+    \ T-ORG stays 7E00 from META-INIT
+    7E00 10000 T-BINARY,
+    \ Rewind past kernel code (~B8CD)
+    T-IMAGE C000 + T-HERE !
+    T-ALIGN
+    MC-RUNTIMES MC-LOOP-RT
+    MC-STACK MC-ARITH MC-LOGIC
+    MC-COMPARE MC-MEMORY MC-DIVISION
+    MC-STACK2 MC-PORTIO MC-MEMORY2
+    MC-UTILITY MC-IO MC-DISPLAY
+    MC-SYSVAR MC-DICT MC-COMPILER
+    MC-CONTROLFLOW MC-INTERPRET
+    MC-COLDSTART MC-COLON
+    META-CHECK
+    MC-PATCH-LATEST
+    MC-PATCH-COLDSTART
+    MC-PATCH-EMBED
+    10000 T-SIZE !
+    1 META-OK !
+    DECIMAL
+    ." Phase B6b complete: "
+    T-HERE @ T-IMAGE - . ." used, "
+    TSYM-N @ . ." syms" CR
+;
+
 \ META-TRANSFER: set vars + transfer ctrl
 \ No CMOVE needed: T-ORG = T-IMAGE, so code
 \ is already at the correct address.

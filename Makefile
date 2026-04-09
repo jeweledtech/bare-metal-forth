@@ -225,6 +225,10 @@ test-meta-boot: $(IMAGE) $(BLOCKS) write-catalog
 	@echo "Running metacompiler boot test..."
 	@python3 tests/test_meta_boot.py $$(($(TEST_PORT_BASE)+60))
 
+test-meta-b6b: $(IMAGE) $(BLOCKS) write-catalog
+	@echo "Running metacompiler B6b standalone boot test..."
+	@python3 tests/test_meta_b6b.py $$(($(TEST_PORT_BASE)+70))
+
 test-ubt-expansion:
 	@echo "Running UBT expansion tests..."
 	@cd tools/translator && make 2>&1 | tail -1
@@ -298,4 +302,4 @@ pxe-push: $(IMAGE)
 pxe-status:
 	@bash tools/pxe/test-pxe.sh
 
-.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog test test-smoke test-loops test-vocabs test-integration test-flush test-meta-compile test-meta-boot pxe-setup pxe-push pxe-status
+.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog test test-smoke test-loops test-vocabs test-integration test-flush test-meta-compile test-meta-boot test-meta-b6b pxe-setup pxe-push pxe-status
