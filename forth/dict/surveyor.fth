@@ -448,6 +448,9 @@ VARIABLE SD-END
                             1 SD-DEPTH +!
                             DO-SCAN-DIR
                             -1 SD-DEPTH +!
+                            0 SD-END !
+                            OVER
+                            READ-CLUST DROP
                         ELSE
                             DROP
                         THEN
