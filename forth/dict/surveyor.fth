@@ -307,33 +307,40 @@ CREATE F3-COM 43 C, 4F C, 4D C,
 
 VARIABLE SV-REC
 
-: TALLY-EXT ( na nl -- )
+: TALLY-EXT ( na nl -- matched? )
     2DUP EXT-SYS EXT-MATCH? IF
         1 SV-NSYS +!
-        2DROP EXIT
+        2DROP -1 EXIT
     THEN
     2DUP EXT-DLL EXT-MATCH? IF
         1 SV-NDLL +!
-        2DROP EXIT
+        2DROP -1 EXIT
     THEN
     2DUP EXT-EXE EXT-MATCH? IF
         1 SV-NEXE +!
-        2DROP EXIT
+        2DROP -1 EXIT
     THEN
     2DUP EXT-EFI EXT-MATCH? IF
         1 SV-NEFI +!
-        2DROP EXIT
+        2DROP -1 EXIT
     THEN
     2DUP EXT-COM EXT-MATCH? IF
         1 SV-NCOM +!
-        2DROP EXIT
+        2DROP -1 EXIT
     THEN
-    2DROP
+    2DROP 0
 ;
+
+\ Show first N filenames for diagnostics
+VARIABLE DBG-SHOW
+A CONSTANT DBG-MAX
 
 : NTFS-SURVEY ( -- )
     ." Scanning MFT..." CR
+    0 DBG-SHOW !
     MFT-COUNT SV-REC !
+    ." Records: "
+    SV-REC @ DECIMAL . HEX CR
     SV-REC @ 0 DO
         I MFT-READ 0= IF
             MFT-BUF @ FILE-SIG = IF
@@ -341,8 +348,22 @@ VARIABLE SV-REC
                 1 AND IF
                     MFT-FILENAME
                     DUP IF
-                        2DUP TALLY-EXT
+                        \ Show first 10 names
+                        DBG-SHOW @
+                        DBG-MAX < IF
+                            ." ["
+                            I DECIMAL . HEX
+                            ." ] "
+                            2DUP TYPE CR
+                            1 DBG-SHOW +!
+                        THEN
                         1 SV-NTOT +!
+                        2DUP TALLY-EXT
+                        IF
+                            TYPE CR
+                        ELSE
+                            2DROP
+                        THEN
                     ELSE
                         2DROP
                     THEN
