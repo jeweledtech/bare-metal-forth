@@ -410,8 +410,6 @@ A CONSTANT DBG-MAX
 \ FAT32-SURVEY: walk directories
 \ ============================================
 
-VARIABLE SD-DEPTH
-
 : FAT-TALLY ( entry -- )
     DUP F3-SYS FAT-EXT? IF
         1 SV-NSYS +! DROP EXIT
@@ -431,16 +429,36 @@ VARIABLE SD-DEPTH
     DROP
 ;
 
-\ Forward ref for recursion
-VARIABLE 'SCAN-DIR
-
-: DO-SCAN-DIR ( cluster -- )
-    'SCAN-DIR @ EXECUTE
+\ Safe EMIT: skip non-printable chars
+: ?EMIT ( c -- )
+    DUP 20 > OVER 7F < AND IF
+        EMIT
+    ELSE
+        DROP
+    THEN
 ;
 
+\ Print 8.3 name filtering garbage
+: .FNAME-SAFE ( entry -- )
+    8 0 DO
+        DUP I + C@ ?EMIT
+    LOOP
+    DUP 8 + C@ 20 <> IF
+        DUP 8 + C@ 7F < IF
+            2E EMIT
+            3 0 DO
+                DUP 8 I + + C@ ?EMIT
+            LOOP
+        THEN
+    THEN
+    DROP
+;
+
+\ Flat directory scan (no recursion)
+\ Walks one cluster chain, lists files
 VARIABLE SD-END
 
-: SCAN-DIR ( cluster -- )
+: FLAT-DIR ( cluster -- )
     0 SD-END !
     BEGIN
         DUP READ-CLUST IF
@@ -462,25 +480,14 @@ VARIABLE SD-END
                 DROP
             ELSE
                 DUP B + C@ 10 AND IF
-                    \ Subdirectory
-                    SD-DEPTH @ 8 < IF
-                        DUP DIR-CLUST
-                        DUP 2 >= IF
-                            1 SD-DEPTH +!
-                            DO-SCAN-DIR
-                            -1 SD-DEPTH +!
-                            0 SD-END !
-                            OVER
-                            READ-CLUST DROP
-                        ELSE
-                            DROP
-                        THEN
-                    THEN
+                    \ Subdirectory: print name
+                    DUP .FNAME-SAFE
+                    ."  <DIR>" CR
                     DROP
                 ELSE
                     DUP FAT-TALLY
                     1 SV-NTOT +!
-                    DUP .FNAME CR
+                    DUP .FNAME-SAFE CR
                     DROP
                 THEN
             THEN THEN THEN
@@ -493,12 +500,68 @@ VARIABLE SD-END
     AGAIN
 ;
 
+\ Variables for two-level walk
+VARIABLE F-SUB
+CREATE F-SUBS 20 ALLOT
+VARIABLE F-NSUB
+
+\ Collect subdir clusters from root
+: COLLECT-SUBS ( cluster -- )
+    0 F-NSUB !
+    0 SD-END !
+    BEGIN
+        DUP READ-CLUST IF
+            DROP EXIT
+        THEN
+        DIR-ENTRIES 0 DO
+            DIR-BUF I DIR-ESIZ * +
+            DUP C@ 0= IF
+                DROP -1 SD-END !
+                LEAVE
+            THEN
+            DUP C@ E5 = IF DROP ELSE
+            DUP B + C@ 0F = IF DROP ELSE
+            DUP B + C@ 8 = IF DROP ELSE
+                DUP B + C@ 10 AND IF
+                    DUP DIR-CLUST
+                    DUP 2 >= IF
+                        F-NSUB @ 8 < IF
+                            F-NSUB @
+                            4 * F-SUBS + !
+                            1 F-NSUB +!
+                        ELSE
+                            DROP
+                        THEN
+                    ELSE
+                        DROP
+                    THEN
+                THEN
+                DROP
+            THEN THEN THEN
+        LOOP
+        SD-END @ IF DROP EXIT THEN
+        FAT-NEXT
+        DUP FAT-END? IF
+            DROP EXIT
+        THEN
+    AGAIN
+;
+
 : FAT32-SURVEY ( -- )
     ." Scanning FAT32..." CR
-    0 SD-DEPTH !
-    ' SCAN-DIR 'SCAN-DIR !
     ROOT-CLUST @ CUR-DIR !
-    CUR-DIR @ SCAN-DIR
+    ." Root:" CR
+    CUR-DIR @ FLAT-DIR
+    \ Collect subdirectory clusters
+    CUR-DIR @ COLLECT-SUBS
+    \ Walk each subdir (1 level only)
+    F-NSUB @ 0 DO
+        I 4 * F-SUBS + @ F-SUB !
+        ." Subdir cl "
+        F-SUB @ DECIMAL . HEX
+        3A EMIT CR
+        F-SUB @ FLAT-DIR
+    LOOP
     ." FAT32: "
     SV-NEFI @ DECIMAL . HEX
     ." .efi" CR
@@ -515,6 +578,7 @@ VARIABLE PE-OFF
         EXIT
     THEN
     SEC-BUF 3C + @ PE-OFF !
+    PE-OFF @ 0< IF EXIT THEN
     PE-OFF @ 1C0 > IF EXIT THEN
     SEC-BUF PE-OFF @ + W@
     PE-DWORD <> IF EXIT THEN
@@ -601,7 +665,7 @@ VARIABLE PE-OFF
     0 RUN-SECS !
     0 RUN-PREV !
     ATTR-DATA MFT-ATTR
-    DUP 0= IF EXIT THEN
+    DUP 0= IF DROP EXIT THEN
     DUP 8 + C@ 0= IF
         DROP EXIT
     THEN
@@ -692,29 +756,13 @@ VARIABLE PE-OFF
 ;
 
 \ ============================================
-\ DRIVER-REPORT: PE binary classification
-\ Classifies ALL PE binaries (.sys .dll .exe)
+\ DRIVER-REPORT: .sys PE classification
 \ ============================================
 
 VARIABLE DR-CNT
-VARIABLE DR-PE?
-
-\ Check if file matches any PE extension
-: PE-FILE? ( na nl -- flag )
-    2DUP EXT-SYS EXT-MATCH? IF
-        2DROP -1 EXIT
-    THEN
-    2DUP EXT-DLL EXT-MATCH? IF
-        2DROP -1 EXIT
-    THEN
-    2DUP EXT-EXE EXT-MATCH? IF
-        2DROP -1 EXIT
-    THEN
-    2DROP 0
-;
 
 : DRIVER-REPORT ( -- )
-    ." === Binary Report ===" CR
+    ." === Driver Report ===" CR
     0 DR-CNT !
     MFT-COUNT 0 DO
         I MFT-READ 0= IF
@@ -723,7 +771,8 @@ VARIABLE DR-PE?
                 1 AND IF
                     MFT-FILENAME
                     DUP IF
-                        2DUP PE-FILE? IF
+                        2DUP EXT-SYS
+                        EXT-MATCH? IF
                             TYPE SPACE
                             MFT-DATA-Q
                             RUN-LBA @
