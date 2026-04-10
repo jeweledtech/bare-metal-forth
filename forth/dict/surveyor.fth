@@ -75,11 +75,19 @@ CREATE PART-TBL 60 ALLOT
 VARIABLE PART-N
 
 \ Counters for extension survey
+\ Consolidated by category:
+\   SV-NSYS = .sys + .drv (Windows drivers)
+\   SV-NDLL = .dll + .ocx + .cpl + .ax + .mui
+\   SV-NEXE = .exe + .scr
+\   SV-NKO  = .ko (Linux drivers)
+\   SV-NSO  = .so (Linux libraries)
 VARIABLE SV-NSYS
 VARIABLE SV-NDLL
 VARIABLE SV-NEXE
 VARIABLE SV-NEFI
 VARIABLE SV-NCOM
+VARIABLE SV-NKO
+VARIABLE SV-NSO
 VARIABLE SV-NTOT
 
 \ ============================================
@@ -87,11 +95,22 @@ VARIABLE SV-NTOT
 \ ============================================
 
 \ Extension strings (stored as counted data)
+\ Tier 1: PE/EFI/COM
 CREATE EXT-SYS 4 C, 2E C, 53 C, 59 C, 53 C,
 CREATE EXT-DLL 4 C, 2E C, 44 C, 4C C, 4C C,
 CREATE EXT-EXE 4 C, 2E C, 45 C, 58 C, 45 C,
 CREATE EXT-EFI 4 C, 2E C, 45 C, 46 C, 49 C,
 CREATE EXT-COM 4 C, 2E C, 43 C, 4F C, 4D C,
+\ Tier 2: Windows PE variants
+CREATE EXT-DRV 4 C, 2E C, 44 C, 52 C, 56 C,
+CREATE EXT-OCX 4 C, 2E C, 4F C, 43 C, 58 C,
+CREATE EXT-CPL 4 C, 2E C, 43 C, 50 C, 4C C,
+CREATE EXT-AX  3 C, 2E C, 41 C, 58 C,
+CREATE EXT-MUI 4 C, 2E C, 4D C, 55 C, 49 C,
+CREATE EXT-SCR 4 C, 2E C, 53 C, 43 C, 52 C,
+\ Tier 3: Linux ELF
+CREATE EXT-KO  3 C, 2E C, 4B C, 4F C,
+CREATE EXT-SO  3 C, 2E C, 53 C, 4F C,
 
 \ Variables for extension comparison
 VARIABLE EM-NA
@@ -140,6 +159,14 @@ CREATE F3-DLL 44 C, 4C C, 4C C,
 CREATE F3-EXE 45 C, 58 C, 45 C,
 CREATE F3-EFI 45 C, 46 C, 49 C,
 CREATE F3-COM 43 C, 4F C, 4D C,
+CREATE F3-DRV 44 C, 52 C, 56 C,
+CREATE F3-OCX 4F C, 43 C, 58 C,
+CREATE F3-CPL 43 C, 50 C, 4C C,
+CREATE F3-AX  41 C, 58 C, 20 C,
+CREATE F3-MUI 4D C, 55 C, 49 C,
+CREATE F3-SCR 53 C, 43 C, 52 C,
+CREATE F3-KO  4B C, 4F C, 20 C,
+CREATE F3-SO  53 C, 4F C, 20 C,
 
 \ ============================================
 \ Partition table access
@@ -308,25 +335,49 @@ CREATE F3-COM 43 C, 4F C, 4D C,
 VARIABLE SV-REC
 
 : TALLY-EXT ( na nl -- matched? )
+    \ Windows drivers
     2DUP EXT-SYS EXT-MATCH? IF
-        1 SV-NSYS +!
-        2DROP -1 EXIT
+        1 SV-NSYS +! 2DROP -1 EXIT
     THEN
+    2DUP EXT-DRV EXT-MATCH? IF
+        1 SV-NSYS +! 2DROP -1 EXIT
+    THEN
+    \ Windows libraries
     2DUP EXT-DLL EXT-MATCH? IF
-        1 SV-NDLL +!
-        2DROP -1 EXIT
+        1 SV-NDLL +! 2DROP -1 EXIT
     THEN
+    2DUP EXT-OCX EXT-MATCH? IF
+        1 SV-NDLL +! 2DROP -1 EXIT
+    THEN
+    2DUP EXT-CPL EXT-MATCH? IF
+        1 SV-NDLL +! 2DROP -1 EXIT
+    THEN
+    2DUP EXT-MUI EXT-MATCH? IF
+        1 SV-NDLL +! 2DROP -1 EXIT
+    THEN
+    2DUP EXT-AX EXT-MATCH? IF
+        1 SV-NDLL +! 2DROP -1 EXIT
+    THEN
+    \ Windows executables
     2DUP EXT-EXE EXT-MATCH? IF
-        1 SV-NEXE +!
-        2DROP -1 EXIT
+        1 SV-NEXE +! 2DROP -1 EXIT
     THEN
+    2DUP EXT-SCR EXT-MATCH? IF
+        1 SV-NEXE +! 2DROP -1 EXIT
+    THEN
+    \ UEFI / DOS
     2DUP EXT-EFI EXT-MATCH? IF
-        1 SV-NEFI +!
-        2DROP -1 EXIT
+        1 SV-NEFI +! 2DROP -1 EXIT
     THEN
     2DUP EXT-COM EXT-MATCH? IF
-        1 SV-NCOM +!
-        2DROP -1 EXIT
+        1 SV-NCOM +! 2DROP -1 EXIT
+    THEN
+    \ Linux drivers / libraries
+    2DUP EXT-KO EXT-MATCH? IF
+        1 SV-NKO +! 2DROP -1 EXIT
+    THEN
+    2DUP EXT-SO EXT-MATCH? IF
+        1 SV-NSO +! 2DROP -1 EXIT
     THEN
     2DROP 0
 ;
@@ -376,13 +427,15 @@ A CONSTANT DBG-MAX
     CR
     ." NTFS: "
     SV-NSYS @ DECIMAL . HEX
-    ." .sys, "
+    ." drv, "
     SV-NDLL @ DECIMAL . HEX
-    ." .dll, "
+    ." lib, "
     SV-NEXE @ DECIMAL . HEX
-    ." .exe, "
-    SV-NCOM @ DECIMAL . HEX
-    ." .com" CR
+    ." exe, "
+    SV-NKO @ DECIMAL . HEX
+    ." ko, "
+    SV-NSO @ DECIMAL . HEX
+    ." so" CR
 ;
 
 \ ============================================
@@ -414,10 +467,28 @@ A CONSTANT DBG-MAX
     DUP F3-SYS FAT-EXT? IF
         1 SV-NSYS +! DROP EXIT
     THEN
+    DUP F3-DRV FAT-EXT? IF
+        1 SV-NSYS +! DROP EXIT
+    THEN
     DUP F3-DLL FAT-EXT? IF
         1 SV-NDLL +! DROP EXIT
     THEN
+    DUP F3-OCX FAT-EXT? IF
+        1 SV-NDLL +! DROP EXIT
+    THEN
+    DUP F3-CPL FAT-EXT? IF
+        1 SV-NDLL +! DROP EXIT
+    THEN
+    DUP F3-MUI FAT-EXT? IF
+        1 SV-NDLL +! DROP EXIT
+    THEN
+    DUP F3-AX FAT-EXT? IF
+        1 SV-NDLL +! DROP EXIT
+    THEN
     DUP F3-EXE FAT-EXT? IF
+        1 SV-NEXE +! DROP EXIT
+    THEN
+    DUP F3-SCR FAT-EXT? IF
         1 SV-NEXE +! DROP EXIT
     THEN
     DUP F3-EFI FAT-EXT? IF
@@ -425,6 +496,12 @@ A CONSTANT DBG-MAX
     THEN
     DUP F3-COM FAT-EXT? IF
         1 SV-NCOM +! DROP EXIT
+    THEN
+    DUP F3-KO FAT-EXT? IF
+        1 SV-NKO +! DROP EXIT
+    THEN
+    DUP F3-SO FAT-EXT? IF
+        1 SV-NSO +! DROP EXIT
     THEN
     DROP
 ;
@@ -697,17 +774,21 @@ VARIABLE PE-OFF
 
 : SURVEY-SUMMARY ( -- )
     ." === Survey Summary ===" CR
-    ." .sys: "
+    ." Win drivers (sys/drv):  "
     SV-NSYS @ DECIMAL . HEX CR
-    ." .dll: "
+    ." Win libs (dll/ocx/..):  "
     SV-NDLL @ DECIMAL . HEX CR
-    ." .exe: "
+    ." Win exe (exe/scr):      "
     SV-NEXE @ DECIMAL . HEX CR
-    ." .efi: "
+    ." UEFI (.efi):            "
     SV-NEFI @ DECIMAL . HEX CR
-    ." .com: "
+    ." DOS (.com):             "
     SV-NCOM @ DECIMAL . HEX CR
-    ." Total files: "
+    ." Linux drivers (.ko):    "
+    SV-NKO @ DECIMAL . HEX CR
+    ." Linux libs (.so):       "
+    SV-NSO @ DECIMAL . HEX CR
+    ." Total files:            "
     SV-NTOT @ DECIMAL . HEX CR
 ;
 
@@ -718,6 +799,8 @@ VARIABLE PE-OFF
     0 SV-NEXE !
     0 SV-NEFI !
     0 SV-NCOM !
+    0 SV-NKO !
+    0 SV-NSO !
     0 SV-NTOT !
     PARTITION-MAP
     PART-N @ 0= IF
@@ -756,14 +839,57 @@ VARIABLE PE-OFF
 ;
 
 \ ============================================
-\ DRIVER-REPORT: .sys PE classification
+\ DRIVER-REPORT: PE binary classification
+\ Walks all NTFS partitions, all PE extensions
+\ (.sys .dll .exe)
 \ ============================================
 
 VARIABLE DR-CNT
 
-: DRIVER-REPORT ( -- )
-    ." === Driver Report ===" CR
-    0 DR-CNT !
+\ Check if name is a classifiable binary
+\ (PE or ELF extensions)
+: BIN-FILE? ( na nl -- flag )
+    2DUP EXT-SYS EXT-MATCH? IF
+        2DROP -1 EXIT
+    THEN
+    2DUP EXT-DRV EXT-MATCH? IF
+        2DROP -1 EXIT
+    THEN
+    2DUP EXT-DLL EXT-MATCH? IF
+        2DROP -1 EXIT
+    THEN
+    2DUP EXT-OCX EXT-MATCH? IF
+        2DROP -1 EXIT
+    THEN
+    2DUP EXT-CPL EXT-MATCH? IF
+        2DROP -1 EXIT
+    THEN
+    2DUP EXT-MUI EXT-MATCH? IF
+        2DROP -1 EXIT
+    THEN
+    2DUP EXT-AX EXT-MATCH? IF
+        2DROP -1 EXIT
+    THEN
+    2DUP EXT-EXE EXT-MATCH? IF
+        2DROP -1 EXIT
+    THEN
+    2DUP EXT-SCR EXT-MATCH? IF
+        2DROP -1 EXIT
+    THEN
+    2DUP EXT-EFI EXT-MATCH? IF
+        2DROP -1 EXIT
+    THEN
+    2DUP EXT-COM EXT-MATCH? IF
+        2DROP -1 EXIT
+    THEN
+    2DUP EXT-KO EXT-MATCH? IF
+        2DROP -1 EXIT
+    THEN
+    EXT-SO EXT-MATCH?
+;
+
+\ Single-partition PE scan (NTFS must be init'd)
+: DRIVER-SCAN ( -- )
     MFT-COUNT 0 DO
         I MFT-READ 0= IF
             MFT-BUF @ FILE-SIG = IF
@@ -771,8 +897,7 @@ VARIABLE DR-CNT
                 1 AND IF
                     MFT-FILENAME
                     DUP IF
-                        2DUP EXT-SYS
-                        EXT-MATCH? IF
+                        2DUP BIN-FILE? IF
                             TYPE SPACE
                             MFT-DATA-Q
                             RUN-LBA @
@@ -796,6 +921,28 @@ VARIABLE DR-CNT
         THEN
         I DOT-K MOD
         0= IF 2E EMIT THEN
+    LOOP
+;
+
+: DRIVER-REPORT ( -- )
+    ." === Binary Report ===" CR
+    0 DR-CNT !
+    PARTITION-MAP
+    PART-N @ 0= IF
+        ." No partitions" CR EXIT
+    THEN
+    PART-N @ 0 DO
+        I PART-ENT 8 + C@ PT-NTFS = IF
+            ." --- NTFS P"
+            I 1+ DECIMAL . HEX
+            ." ---" CR
+            I PART-ENT @
+            NTFS-PROBE IF
+                DRIVER-SCAN
+            ELSE
+                ." NTFS init fail" CR
+            THEN
+        THEN
     LOOP
     CR
     DR-CNT @
