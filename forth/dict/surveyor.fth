@@ -839,6 +839,68 @@ VARIABLE PE-OFF
 ;
 
 \ ============================================
+\ NTFS-FIND: search for file by name
+\ Walks MFT, matches case-insensitive,
+\ reads first sector, classifies PE/ELF.
+\ Usage: S" i8042prt.sys" NTFS-FIND
+\ ============================================
+
+VARIABLE NF-A VARIABLE NF-L
+
+: NTFS-FIND ( a l -- )
+    NF-L ! NF-A !
+    PARTITION-MAP
+    PART-N @ 0= IF
+        ." No partitions" CR EXIT
+    THEN
+    PART-N @ 0 DO
+        I PART-ENT 8 + C@ PT-NTFS = IF
+            I PART-ENT @
+            NTFS-PROBE IF
+                MFT-COUNT 0 DO
+                    I MFT-READ 0= IF
+                    MFT-BUF @ FILE-SIG = IF
+                    MFT-BUF 16 + W@
+                    1 AND IF
+                        MFT-FILENAME
+                        DUP IF
+                            NF-A @ NF-L @
+                            NAME= IF
+                                ." MFT "
+                                I DECIMAL .
+                                HEX
+                                ." -- "
+                                MFT-DATA-Q
+                                RUN-LBA @ IF
+                                    RUN-LBA @
+                                    1 AHCI-READ
+                                    0= IF
+                                        CLASSIFY
+                                    ELSE
+                                        ." read err"
+                                    THEN
+                                ELSE
+                                    ." no data"
+                                THEN
+                                CR
+                                UNLOOP
+                                UNLOOP
+                                EXIT
+                            THEN
+                        ELSE
+                            2DROP
+                        THEN
+                    THEN THEN THEN
+                    I DOT-K MOD
+                    0= IF 2E EMIT THEN
+                LOOP
+            THEN
+        THEN
+    LOOP
+    ." not found" CR
+;
+
+\ ============================================
 \ DRIVER-REPORT: PE binary classification
 \ Walks all NTFS partitions, all PE extensions
 \ (.sys .dll .exe)

@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ForthOS — The Machine, Unfiltered</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --p: #39ff6e; --p-dim: #1a6b30; --p-glow: rgba(57,255,110,0.12);
+    --amber: #ffb347; --bg: #050a05; --bg2: #080f08; --bg3: #0a130a;
+    --border: #162816; --body: #8ab88a; --dim: #3a5a3a; --title: #deeede;
+    --mono: 'IBM Plex Mono', monospace; --sans: 'IBM Plex Sans', sans-serif;
+    --display: 'Bebas Neue', sans-serif; --tag: 'Share Tech Mono', monospace;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body { background:var(--bg); color:var(--body); font-family:var(--sans); overflow-x:hidden; }
+  body::before {
+    content:''; position:fixed; inset:0;
+    background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.08) 3px,rgba(0,0,0,0.08) 4px);
+    pointer-events:none; z-index:9000;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+  /* NAV */
+  nav {
+    position:fixed; top:0; left:0; right:0; z-index:100;
+    display:flex; justify-content:space-between; align-items:center;
+    padding:18px 48px; background:rgba(5,10,5,0.92);
+    backdrop-filter:blur(10px); border-bottom:1px solid var(--border);
+  }
+  .nav-logo { font-family:var(--display); font-size:22px; letter-spacing:4px; color:var(--p); text-shadow:0 0 20px rgba(57,255,110,0.35); text-decoration:none; }
+  .nav-links { display:flex; gap:36px; list-style:none; }
+  .nav-links a { font-family:var(--tag); font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--dim); text-decoration:none; transition:color .2s; }
+  .nav-links a:hover { color:var(--p); }
+
+  /* LAYOUT */
+  .wrap { max-width:1060px; margin:0 auto; padding:0 40px; }
+  .section { padding:96px 0; }
+  .section-alt { background:var(--bg2); border-top:1px solid var(--border); border-bottom:1px solid var(--border); }
+  .eyebrow { font-family:var(--tag); font-size:10px; letter-spacing:4px; color:var(--p-dim); text-transform:uppercase; display:flex; align-items:center; gap:10px; margin-bottom:20px; }
+  .eyebrow::before { content:''; width:6px; height:6px; border-radius:50%; background:var(--p); box-shadow:0 0 8px var(--p); flex-shrink:0; animation:blink 1.4s step-end infinite; }
+  h2 { font-family:var(--display); font-size:clamp(44px,6vw,72px); color:var(--title); line-height:.95; letter-spacing:1px; margin-bottom:28px; }
+  h2 em { color:var(--p); font-style:normal; }
+  p.lead { font-size:16px; line-height:1.8; color:var(--body); max-width:580px; }
+
+  /* BUTTONS */
+  .btn-row { display:flex; gap:14px; flex-wrap:wrap; }
+  .btn { font-family:var(--mono); font-size:12px; font-weight:600; letter-spacing:2px; text-transform:uppercase; text-decoration:none; padding:14px 30px; display:inline-block; transition:all .2s; }
+  .btn-solid { background:var(--p); color:var(--bg); clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,10px 100%,0 calc(100% - 10px)); }
+  .btn-solid:hover { background:var(--title); box-shadow:0 0 24px rgba(57,255,110,.3); transform:translateY(-2px); }
+  .btn-outline { background:transparent; color:var(--p); border:1px solid var(--p-dim); }
+  .btn-outline:hover { border-color:var(--p); background:var(--p-glow); }
+
+  /* HERO */
+  .hero { min-height:100vh; display:flex; align-items:center; padding:120px 40px 80px; position:relative; overflow:hidden; }
+  .hero-bg { position:absolute; inset:0; background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px); background-size:64px 64px; opacity:.35; }
+  .hero-inner { position:relative; z-index:2; max-width:1060px; margin:0 auto; width:100%; display:grid; grid-template-columns:1fr 1fr; gap:64px; align-items:center; }
+  .hero-text .tag { font-family:var(--tag); font-size:10px; letter-spacing:3px; color:var(--p-dim); text-transform:uppercase; margin-bottom:24px; }
+  .hero-title { font-family:var(--display); font-size:clamp(80px,12vw,148px); line-height:.88; color:var(--p); text-shadow:0 0 60px rgba(57,255,110,.3),0 0 120px rgba(57,255,110,.1); letter-spacing:-2px; margin-bottom:8px; }
+  .hero-sub { font-family:var(--display); font-size:clamp(22px,3vw,38px); color:var(--dim); letter-spacing:3px; margin-bottom:32px; }
+  .hero-line { font-family:var(--mono); font-size:14px; line-height:1.8; color:var(--body); max-width:440px; margin-bottom:40px; border-left:2px solid var(--p-dim); padding-left:18px; }
+  .hero-line strong { color:var(--p); }
+
+  /* TERMINAL */
+  .terminal { background:#000; border:1px solid var(--border); border-top:2px solid var(--p); font-family:var(--mono); font-size:12px; line-height:1.9; padding:20px 22px; box-shadow:0 0 60px rgba(0,0,0,.8),0 0 40px rgba(57,255,110,.04); }
+  .t-bar { font-family:var(--tag); font-size:9px; letter-spacing:2px; color:var(--p-dim); padding-bottom:12px; margin-bottom:12px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; }
+  .t { color:var(--body); }
+  .t .p  { color:var(--p-dim); }
+  .t .c  { color:var(--p); }
+  .t .ok { color:var(--p-dim); font-size:10px; }
+  .t .r  { color:var(--title); }
+  .t .f  { color:var(--amber); }
+  .t .cm { color:var(--dim); }
+  .cur { display:inline-block; width:7px; height:13px; background:var(--p); animation:blink 1s step-end infinite; vertical-align:middle; box-shadow:0 0 5px var(--p); }
+
+  /* WHY WE BUILD */
+  .principles { display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--border); border:1px solid var(--border); margin-top:56px; }
+  .principle { background:var(--bg2); padding:36px 30px; transition:background .25s; }
+  .principle:hover { background:var(--bg3); }
+  .principle-num { font-family:var(--display); font-size:56px; color:rgba(57,255,110,.06); line-height:1; margin-bottom:12px; }
+  .principle-title { font-family:var(--mono); font-size:13px; font-weight:600; color:var(--title); letter-spacing:1px; text-transform:uppercase; margin-bottom:12px; }
+  .principle-desc { font-size:13px; line-height:1.7; color:var(--body); }
+  .principle-desc em { color:var(--p); font-style:normal; }
+
+  /* VOCAB PACKS */
+  .pack-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:1px; background:var(--border); border:1px solid var(--border); margin-top:56px; }
+  .pack { background:var(--bg2); padding:32px 28px; transition:background .25s; position:relative; }
+  .pack:hover { background:var(--bg3); }
+  .pack-name { font-family:var(--display); font-size:28px; color:var(--title); letter-spacing:1px; margin-bottom:6px; }
+  .pack-tag { font-family:var(--tag); font-size:9px; letter-spacing:2px; color:var(--p-dim); text-transform:uppercase; margin-bottom:18px; }
+  .pack-items { list-style:none; display:flex; flex-direction:column; gap:6px; }
+  .pack-items li { font-family:var(--mono); font-size:11px; color:var(--body); display:flex; align-items:baseline; gap:8px; }
+  .pack-items li::before { content:'USING'; color:var(--p-dim); font-size:9px; flex-shrink:0; }
+  .pack-price { font-family:var(--display); font-size:36px; color:var(--p); margin-top:24px; }
+  .pack-price span { font-family:var(--tag); font-size:10px; color:var(--dim); letter-spacing:2px; vertical-align:super; }
+  .pack-btn { display:block; margin-top:20px; text-align:center; font-family:var(--mono); font-size:11px; font-weight:600; letter-spacing:2px; text-transform:uppercase; text-decoration:none; padding:12px; background:var(--border); color:var(--p); border:1px solid var(--border); transition:all .2s; }
+  .pack-btn:hover { background:var(--p-glow); border-color:var(--p-dim); }
+  .pack-featured { border-top:2px solid var(--p); }
+  .pack-featured .pack-btn { background:var(--p); color:var(--bg); border-color:var(--p); }
+  .pack-featured .pack-btn:hover { background:var(--title); }
+  .pack-badge { position:absolute; top:-1px; right:20px; font-family:var(--tag); font-size:8px; letter-spacing:2px; background:var(--p); color:var(--bg); padding:3px 10px; }
+
+  /* WHO */
+  .who-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:24px; margin-top:56px; }
+  .who-card { border:1px solid var(--border); padding:30px 26px; background:var(--bg2); transition:border-color .25s,transform .25s; }
+  .who-card:hover { border-color:var(--p-dim); transform:translateY(-3px); }
+  .who-era { font-family:var(--tag); font-size:9px; letter-spacing:3px; color:var(--p); text-transform:uppercase; margin-bottom:12px; }
+  .who-name { font-family:var(--display); font-size:28px; color:var(--title); margin-bottom:12px; }
+  .who-desc { font-size:13px; line-height:1.7; color:var(--body); }
+
+  /* CORE BELIEFS */
+  .belief-text { font-family:var(--mono); font-size:clamp(15px,2vw,19px); line-height:1.85; color:var(--body); max-width:720px; margin:0 auto; text-align:center; }
+  .belief-text .big { display:block; font-family:var(--display); font-size:clamp(52px,8vw,90px); color:var(--p); line-height:1; margin:28px 0 16px; text-shadow:0 0 40px rgba(57,255,110,.25); }
+  .belief-text .struck { color:var(--dim); text-decoration:line-through; }
+
+  /* STATS */
+  .stats { display:flex; justify-content:center; gap:64px; flex-wrap:wrap; margin-top:56px; }
+  .stat { text-align:center; }
+  .stat-val { font-family:var(--display); font-size:52px; color:var(--p); line-height:1; }
+  .stat-label { font-family:var(--tag); font-size:9px; letter-spacing:3px; color:var(--dim); text-transform:uppercase; margin-top:4px; }
+
+  /* CTA */
+  .cta-section { text-align:center; padding:100px 40px; position:relative; }
+  .cta-glow { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:500px; height:300px; background:radial-gradient(ellipse,rgba(57,255,110,.05) 0%,transparent 70%); pointer-events:none; }
+  .cta-section h2 { font-size:clamp(52px,8vw,96px); margin-bottom:12px; }
+  .cta-sub { font-family:var(--mono); font-size:13px; color:var(--dim); margin-bottom:40px; letter-spacing:1px; }
+
+  /* FOOTER */
+  footer { border-top:1px solid var(--border); padding:32px 40px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; }
+  footer span, footer a { font-family:var(--tag); font-size:10px; color:var(--dim); letter-spacing:1px; text-decoration:none; }
+  footer a:hover { color:var(--p); }
+
+  @media (max-width:768px) {
+    .hero-inner { grid-template-columns:1fr; }
+    .principles { grid-template-columns:1fr; }
+    nav { padding:14px 20px; }
+    .nav-links { display:none; }
+    .wrap { padding:0 20px; }
+    .hero { padding:100px 20px 60px; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="#" class="nav-logo">FORTHOS</a>
+  <ul class="nav-links">
+    <li><a href="#mission">Why We Build</a></li>
+    <li><a href="#packs">Vocabulary Packs</a></li>
+    <li><a href="#who">Who</a></li>
+    <li><a href="#cta">Get Access</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-inner">
+    <div class="hero-text">
+      <div class="tag">Jolly Genius Inc · Bare Metal · x86 Assembly · Forth-83</div>
+      <div class="hero-title">FORTH<br>OS</div>
+      <div class="hero-sub">The Machine, Unfiltered</div>
+      <p class="hero-line">
+        No Windows. No Linux. No HAL.<br>
+        Boot it — <strong>you are the OS.</strong><br>
+        Every port. Every register. Directly.<br>
+        Like it used to be.
+      </p>
+      <div class="btn-row">
+        <a href="https://github.com/jeweledtech/bare-metal-forth" class="btn btn-solid" target="_blank">Free Kernel → GitHub</a>
+        <a href="#packs" class="btn btn-outline">Vocabulary Packs</a>
+      </div>
+    </div>
+
+    <div class="terminal">
+      <div class="t-bar">
+        <span>FORTHOS 0.1 // HP 15-bs0xx // PXE BOOT</span>
+        <span>LIVE HARDWARE</span>
+      </div>
+      <div class="t"><span class="cm">\ Auto-detects hardware on boot</span></div>
+      <div class="t"><span class="f">=== ForthOS Auto-Detection ===</span></div>
+      <div class="t"><span class="f">Intel AHCI  8086:9D03 ... OK</span></div>
+      <div class="t"><span class="f">RTL8168 GbE 10EC:8168 ... OK</span></div>
+      <div class="t"><span class="f">Console UP  10.42.0.100:6666</span></div>
+      <div class="t">&nbsp;</div>
+      <div class="t"><span class="p">ok </span><span class="c">USING I8042PRT</span></div>
+      <div class="t"><span class="ok">145 hw functions  ok</span></div>
+      <div class="t"><span class="p">ok </span><span class="c">S" i8042prt.sys" NTFS-FIND</span></div>
+      <div class="t"><span class="r">MFT 74031 -- PE x86 driver</span></div>
+      <div class="t"><span class="p">ok </span><span class="c">3 4 + .</span></div>
+      <div class="t"><span class="r">7</span>&nbsp;&nbsp;<span class="ok">ok</span>&nbsp;<span class="cur"></span></div>
+    </div>
+  </div>
+</div>
+
+<!-- WHY WE BUILD -->
+<div class="section-alt" id="mission">
+  <div class="section wrap">
+    <div class="eyebrow">Why We Build</div>
+    <h2>Software Built the Way<br><em>Ships Are Built</em></h2>
+    <p class="lead">When a ship goes to sea, there is no tech support. No patches. No vendor support line. The systems must work — absolutely and completely. This is how we think about software.</p>
+
+    <div class="principles">
+      <div class="principle">
+        <div class="principle-num">01</div>
+        <div class="principle-title">Radical Simplicity</div>
+        <p class="principle-desc">Every line of code must be understood by every crew member. In a critical system, there is no Stack Overflow. There is only <em>the crew and the machine.</em> Forth embodies this — the entire system fits in your head.</p>
+      </div>
+      <div class="principle">
+        <div class="principle-num">02</div>
+        <div class="principle-title">Complete Transparency</div>
+        <p class="principle-desc">No black boxes. No "trust us" components. Every word is inspectable, auditable, and modifiable on the running system. <em>SEE any word. Understand any system.</em> The source is the documentation.</p>
+      </div>
+      <div class="principle">
+        <div class="principle-num">03</div>
+        <div class="principle-title">The 100-Year Rule</div>
+        <p class="principle-desc">Every design decision must answer: <em>will this still work in 100 years?</em> No dependencies that might disappear. No planned obsolescence. No shortcuts that trade future pain for present convenience.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- VOCABULARY PACKS -->
+<div class="section" id="packs">
+  <div class="wrap">
+    <div class="eyebrow">Vocabulary Packs</div>
+    <h2>Load What You <em>Need</em></h2>
+    <p class="lead">The kernel is free and open source — clone it, build it, run it on bare metal with one dependency. Hardware vocabulary packs extend it with validated, production-ready drivers. Buy once, yours forever.</p>
+
+    <div class="pack-grid">
+
+      <div class="pack">
+        <div class="pack-name">Disk Stack</div>
+        <div class="pack-tag">Storage + Filesystem</div>
+        <ul class="pack-items">
+          <li>AHCI</li>
+          <li>NTFS</li>
+          <li>FAT32</li>
+          <li>AUTO-DETECT</li>
+        </ul>
+        <div class="pack-price"><span>$</span>49</div>
+        <a href="https://jeweledtech.com/products/disk-stack" class="pack-btn" target="_blank">Add to Cart</a>
+      </div>
+
+      <div class="pack">
+        <div class="pack-name">Network</div>
+        <div class="pack-tag">Ethernet Driver</div>
+        <ul class="pack-items">
+          <li>RTL8168</li>
+          <li>NET-CONSOLE</li>
+          <li>AUTO-DETECT</li>
+        </ul>
+        <div class="pack-price"><span>$</span>39</div>
+        <a href="https://jeweledtech.com/products/network" class="pack-btn" target="_blank">Add to Cart</a>
+      </div>
+
+      <div class="pack pack-featured">
+        <div class="pack-badge">Most Popular</div>
+        <div class="pack-name">Full Hardware</div>
+        <div class="pack-tag">Everything Running on Real Iron</div>
+        <ul class="pack-items">
+          <li>RTL8168</li>
+          <li>AHCI</li>
+          <li>NTFS</li>
+          <li>FAT32</li>
+          <li>I8042PRT</li>
+          <li>AUTO-DETECT</li>
+          <li>DISASM</li>
+        </ul>
+        <div class="pack-price"><span>$</span>99</div>
+        <a href="https://jeweledtech.com/products/full-hardware" class="pack-btn" target="_blank">Add to Cart</a>
+      </div>
+
+      <div class="pack">
+        <div class="pack-name">UBT Pipeline</div>
+        <div class="pack-tag">Translate Your Own Drivers</div>
+        <ul class="pack-items">
+          <li>tools/translator</li>
+          <li>Semantic analyzer</li>
+          <li>145-test suite</li>
+          <li>18 validated drivers</li>
+        </ul>
+        <div class="pack-price"><span>$</span>149</div>
+        <a href="https://jeweledtech.com/products/ubt" class="pack-btn" target="_blank">Add to Cart</a>
+      </div>
+
+      <div class="pack">
+        <div class="pack-name">Metacompiler</div>
+        <div class="pack-tag">Self-Rebuilding · New Architectures</div>
+        <ul class="pack-items">
+          <li>meta-compiler.fth</li>
+          <li>target-x86.fth</li>
+          <li>target-arm64.fth</li>
+          <li>target-riscv.fth</li>
+        </ul>
+        <div class="pack-price"><span>$</span>199</div>
+        <a href="https://jeweledtech.com/products/metacompiler" class="pack-btn" target="_blank">Add to Cart</a>
+      </div>
+
+      <div class="pack" style="display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;min-height:260px;">
+        <div style="font-family:var(--tag);font-size:9px;letter-spacing:2px;color:var(--dim);margin-bottom:12px;">CUSTOM ENGAGEMENT</div>
+        <div style="font-family:var(--display);font-size:30px;color:var(--title);margin-bottom:12px;">Full Access + Support</div>
+        <div style="font-size:13px;color:var(--body);max-width:200px;margin-bottom:24px;line-height:1.6;">All packs, private repo access, custom vocabulary development</div>
+        <a href="mailto:connect@jollygeniusinc.com" class="btn btn-outline" style="display:inline-block">Contact Us</a>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- WHO -->
+<div class="section-alt" id="who">
+  <div class="section wrap">
+    <div class="eyebrow">Who It's For</div>
+    <h2>You Know Who <em>You Are</em></h2>
+
+    <div class="who-grid">
+      <div class="who-card">
+        <div class="who-era">Pre-1995 · The Original Crew</div>
+        <div class="who-name">The Direct-Hardware Engineer</div>
+        <p class="who-desc">You wrote to COM ports in DOS. You poked memory in CP/M. You ran Forth on an Amiga or a PDP. You remember what it felt like when the computer did exactly what you told it — immediately, completely, without asking for permission.</p>
+      </div>
+      <div class="who-card">
+        <div class="who-era">Embedded · Safety-Critical Systems</div>
+        <div class="who-name">The Systems Builder</div>
+        <p class="who-desc">You build things where failure is not an option — control systems, avionics, instruments, industrial hardware. You've always understood that software you don't fully understand is a liability you can't afford. ForthOS is an OS you can read in an afternoon.</p>
+      </div>
+      <div class="who-card">
+        <div class="who-era">Firmware · Reverse Engineering</div>
+        <div class="who-name">The Driver Archaeologist</div>
+        <p class="who-desc">You've looked at Windows drivers and thought: "I just want the 40 lines that actually talk to the hardware." The UBT pipeline strips the scaffolding, names the protocol, and gives it back to you as a clean callable module.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CORE BELIEFS -->
+<div class="section" style="background:var(--bg2);border-top:1px solid var(--border);border-bottom:1px solid var(--border);">
+  <div class="section wrap">
+    <div class="belief-text">
+      A computer should do what you tell it to.
+      <span class="big">IMMEDIATELY.</span>
+      Not what the OS permits. Not what the HAL allows.
+      Not what the driver model supports.
+      <br><br>
+      <span class="struck">They took that away.</span>
+      <span class="big">WE BUILT IT BACK.</span>
+      Clean from scratch. Starting with machine code.
+      No Linux layer. No Windows layer. No Apple layer.
+      <br><br>
+      The sea does not forgive mistakes.
+      Neither does bare metal.
+      <em style="font-style:normal;color:var(--p);">That's the point.</em>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="stat-val">178</div><div class="stat-label">Kernel Words</div></div>
+      <div class="stat"><div class="stat-val">32.5<span style="font-size:24px">KB</span></div><div class="stat-label">Bootable Image</div></div>
+      <div class="stat"><div class="stat-val">258</div><div class="stat-label">Tests Passing</div></div>
+      <div class="stat"><div class="stat-val">1</div><div class="stat-label">Dependency</div></div>
+      <div class="stat"><div class="stat-val">0</div><div class="stat-label">OS Layers</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- CTA -->
+<div class="cta-section" id="cta">
+  <div class="cta-glow"></div>
+  <div class="eyebrow" style="justify-content:center;margin-bottom:24px">Get Started</div>
+  <h2>Get on <em>the Ship</em></h2>
+  <p class="cta-sub">Free kernel on GitHub. Hardware vocabulary packs at jeweledtech.com.</p>
+  <div class="btn-row" style="justify-content:center">
+    <a href="https://github.com/jeweledtech/bare-metal-forth" class="btn btn-outline" target="_blank">Free Kernel → GitHub</a>
+    <a href="#packs" class="btn btn-solid">Vocabulary Packs</a>
+  </div>
+</div>
+
+<footer>
+  <span>© 2026 Jolly Genius Inc. · ForthOS</span>
+  <a href="https://github.com/jeweledtech/bare-metal-forth" target="_blank">github.com/jeweledtech/bare-metal-forth</a>
+  <a href="mailto:connect@jollygeniusinc.com">connect@jollygeniusinc.com</a>
+</footer>
+
+</body>
+</html>
