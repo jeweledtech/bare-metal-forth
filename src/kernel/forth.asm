@@ -4370,10 +4370,17 @@ read_line:
 ; ----------------------------------------------------------------------------
 ata_wait_ready:
     mov dx, ATA_CMD_STATUS
+    mov ecx, 10000000           ; timeout ~100ms at 3GHz
 .wait:
     in al, dx
     test al, 0x80               ; BSY bit
+    jz .ready
+    dec ecx
     jnz .wait
+    stc                         ; CF=1: timeout
+    ret
+.ready:
+    clc                         ; CF=0: success
     ret
 
 ; ----------------------------------------------------------------------------
@@ -4383,18 +4390,25 @@ ata_wait_ready:
 ; ----------------------------------------------------------------------------
 ata_wait_drq:
     mov dx, ATA_CMD_STATUS
+    mov ecx, 10000000           ; timeout ~100ms at 3GHz
 .wait:
     in al, dx
     test al, 0x80               ; Still busy?
-    jnz .wait
+    jnz .check_timeout
     test al, 0x01               ; ERR bit?
     jnz .error
     test al, 0x08               ; DRQ bit?
-    jz .wait
-    clc
+    jnz .ready
+.check_timeout:
+    dec ecx
+    jnz .wait
+    stc                         ; timeout
     ret
 .error:
     stc
+    ret
+.ready:
+    clc
     ret
 
 ; ----------------------------------------------------------------------------
@@ -4406,6 +4420,7 @@ ata_wait_drq:
 ; ----------------------------------------------------------------------------
 ata_read_sector:
     call ata_wait_ready
+    jc .done                     ; bail on timeout
 
     ; Set sector count = 1
     mov dx, ATA_SECCOUNT
@@ -4460,6 +4475,7 @@ ata_read_sector:
 ; ----------------------------------------------------------------------------
 ata_write_sector:
     call ata_wait_ready
+    jc .done                     ; bail on timeout
 
     ; Set sector count = 1
     mov dx, ATA_SECCOUNT
@@ -4504,10 +4520,12 @@ ata_write_sector:
 
     ; Flush write cache
     call ata_wait_ready
+    jc .done                     ; bail on timeout
     mov dx, ATA_CMD_STATUS
     mov al, 0xE7                ; FLUSH CACHE command
     out dx, al
     call ata_wait_ready
+    jc .done                     ; bail on timeout
 
     clc
 .done:
