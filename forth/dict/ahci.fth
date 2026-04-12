@@ -436,5 +436,40 @@ VARIABLE MBR-P4
     ." AHCI ok" CR
 ;
 
+\ ============================================
+\ AHCI-BLOCK: redirect BLOCK through AHCI
+\ ============================================
+\ On HP hardware, kernel BLOCK uses ATA PIO
+\ which hangs (no legacy ATA ports). When AHCI
+\ is loaded and in search order, these words
+\ shadow the kernel versions.
+\
+\ AHCI-READ reads into SEC-BUF (4KB).
+\ BLOCK = 1KB = 2 sectors at LBA = blk# * 2.
+\ Read-only: SAVE-BUFFERS prints warning.
+
+: AHCI-BLOCK ( n -- addr )
+    DUP + 2 AHCI-READ DROP
+    SEC-BUF
+;
+
+: BLOCK ( n -- addr )
+    AH-FOUND @ IF
+        AHCI-BLOCK
+    ELSE
+        BLOCK
+    THEN
+;
+
+: BUFFER ( n -- addr ) BLOCK ;
+
+: SAVE-BUFFERS ( -- )
+    AH-FOUND @ IF
+        ." AHCI read-only" CR
+    ELSE
+        SAVE-BUFFERS
+    THEN
+;
+
 ONLY FORTH DEFINITIONS
 DECIMAL
