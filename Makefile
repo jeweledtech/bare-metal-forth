@@ -15,6 +15,8 @@ BOOTLOADER = $(BUILD)/boot.bin
 KERNEL = $(BUILD)/kernel.bin
 IMAGE = $(BUILD)/bmforth.img
 BLOCKS = $(BUILD)/blocks.img
+COMBINED = $(BUILD)/combined.img
+COMBINED_IDE = $(BUILD)/combined-ide.img
 
 # Default target
 all: $(IMAGE)
@@ -76,16 +78,16 @@ $(BLOCKS): | $(BUILD)
 	@echo "Block disk created: $(BLOCKS) (1MB, 1024 blocks)"
 blocks: $(BLOCKS)
 
-# Run with block storage attached (IDE slave)
-run-blocks: $(IMAGE) $(BLOCKS)
-	$(QEMU) -drive format=raw,file=$(IMAGE) \
-	        -drive format=raw,file=$(BLOCKS),if=ide,index=1 \
+# Run with block storage attached (combined image)
+run-blocks: $(COMBINED) $(COMBINED_IDE)
+	$(QEMU) -drive format=raw,file=$(COMBINED) \
+	        -drive format=raw,file=$(COMBINED_IDE),if=ide,index=1 \
 	        -nographic
 
 # Run with block storage and graphics
-run-blocks-gui: $(IMAGE) $(BLOCKS)
-	$(QEMU) -drive format=raw,file=$(IMAGE) \
-	        -drive format=raw,file=$(BLOCKS),if=ide,index=1
+run-blocks-gui: $(COMBINED) $(COMBINED_IDE)
+	$(QEMU) -drive format=raw,file=$(COMBINED) \
+	        -drive format=raw,file=$(COMBINED_IDE),if=ide,index=1
 
 # Write Forth source into a block (auto-spans multiple blocks for long files)
 # Usage: make write-block BLK=0 SRC=forth/dict/myfile.fth
@@ -96,6 +98,34 @@ write-block: $(BLOCKS)
 # Block 0: reserved, Block 1: catalog, Block 2+: vocabularies
 write-catalog: $(BLOCKS)
 	python3 tools/write-catalog.py $(BLOCKS) forth/dict/
+
+# --- Combined Image ---
+
+# Combined image: kernel + blocks concatenated
+# Block N is at LBA 129 + N*2 within this image
+$(COMBINED): $(IMAGE) $(BLOCKS)
+	cat $(IMAGE) $(BLOCKS) > $(COMBINED)
+	@echo "Combined image: $(COMBINED)"
+	@echo "  Kernel: $$(stat -c%s $(IMAGE)) bytes (LBA 0-128)"
+	@echo "  Blocks: $$(stat -c%s $(BLOCKS)) bytes (LBA 129+)"
+	@echo "  Total:  $$(stat -c%s $(COMBINED)) bytes"
+
+combined: $(COMBINED)
+
+# QEMU IDE copy: avoids file lock conflict when same data is both floppy and IDE
+$(COMBINED_IDE): $(COMBINED)
+	cp $(COMBINED) $(COMBINED_IDE)
+
+# Verify kernel size hasn't exceeded 66048 bytes (BLOCKS_LBA_BASE constraint)
+check-kernel-size: $(IMAGE)
+	@SIZE=$$(stat -c%s $(IMAGE)); \
+	 if [ $$SIZE -gt 66048 ]; then \
+	   echo "ERROR: Kernel image $$SIZE bytes exceeds 66048 limit!"; \
+	   echo "  BLOCKS_LBA_BASE must be updated in forth.asm"; \
+	   exit 1; \
+	 else \
+	   echo "Kernel size OK: $$SIZE bytes (limit: 66048)"; \
+	 fi
 
 # --- Test Targets ---
 
@@ -124,13 +154,15 @@ test-loops: $(IMAGE)
 
 # Run all vocabulary tests (need block storage)
 test-vocabs: $(IMAGE) $(BLOCKS) write-catalog
+	@cat $(IMAGE) $(BLOCKS) > $(COMBINED)
+	@cp $(COMBINED) $(COMBINED_IDE)
 	@echo "Running vocabulary tests..."
 	@PORT_BASE=$$(($(TEST_PORT_BASE)+10)); \
 	for test in test_editor test_x86_asm test_metacompiler test_driver_vocabs test_disasm test_port_mapper test_echoport; do \
 		PORT=$$PORT_BASE; PORT_BASE=$$((PORT_BASE+1)); \
 		echo "  $$test (port $$PORT)..."; \
-		$(QEMU) -drive file=$(IMAGE),format=raw,if=floppy \
-			-drive file=$(BLOCKS),format=raw,if=ide,index=1 \
+		$(QEMU) -drive file=$(COMBINED),format=raw,if=floppy \
+			-drive file=$(COMBINED_IDE),format=raw,if=ide,index=1 \
 			-nic model=ne2k_pci \
 			-serial tcp::$$PORT,server=on,wait=off \
 			-display none -daemonize; \
@@ -142,10 +174,12 @@ test-vocabs: $(IMAGE) $(BLOCKS) write-catalog
 
 # Run full integration test
 test-integration: $(IMAGE) $(BLOCKS) write-catalog
+	@cat $(IMAGE) $(BLOCKS) > $(COMBINED)
+	@cp $(COMBINED) $(COMBINED_IDE)
 	@echo "Running full integration test..."
 	@PORT=$$(($(TEST_PORT_BASE)+20)); \
-	$(QEMU) -drive file=$(IMAGE),format=raw,if=floppy \
-		-drive file=$(BLOCKS),format=raw,if=ide,index=1 \
+	$(QEMU) -drive file=$(COMBINED),format=raw,if=floppy \
+		-drive file=$(COMBINED_IDE),format=raw,if=ide,index=1 \
 		-serial tcp::$$PORT,server=on,wait=off \
 		-display none -daemonize; \
 	sleep 2; \
@@ -160,29 +194,35 @@ VOCAB_BUILD = $(BUILD)/vocabs
 I8042_SYS = tools/translator/tests/data/i8042prt.sys
 HARDWARE_FTH = forth/dict/hardware.fth
 
-# Combined block image: HARDWARE at block 50, I8042PRT at block 100
-$(VOCAB_BUILD)/combined.img: $(HARDWARE_FTH) $(I8042_SYS) | $(VOCAB_BUILD)
+# Pipeline block image: HARDWARE at block 50, I8042PRT at block 100
+$(VOCAB_BUILD)/blocks-pipeline.img: $(HARDWARE_FTH) $(I8042_SYS) | $(VOCAB_BUILD)
 	$(TRANSLATOR) -t forth $(I8042_SYS) > $(VOCAB_BUILD)/i8042prt.fth
 	dd if=/dev/zero of=$@ bs=1024 count=1024 2>/dev/null
 	python3 $(WRITE_BLOCK) $@ 50 $(HARDWARE_FTH)
 	python3 $(WRITE_BLOCK) $@ 100 $(VOCAB_BUILD)/i8042prt.fth
+
+$(VOCAB_BUILD)/combined.img: $(IMAGE) $(VOCAB_BUILD)/blocks-pipeline.img
+	cat $(IMAGE) $(VOCAB_BUILD)/blocks-pipeline.img > $@
+
+$(VOCAB_BUILD)/combined-ide.img: $(VOCAB_BUILD)/combined.img
+	cp $< $@
 
 $(VOCAB_BUILD):
 	mkdir -p $(VOCAB_BUILD)
 
 # Boot with HARDWARE + I8042PRT vocabularies
 .PHONY: run-i8042
-run-i8042: $(IMAGE) $(VOCAB_BUILD)/combined.img
-	$(QEMU) -drive format=raw,file=$(IMAGE) \
-	        -drive format=raw,file=$(VOCAB_BUILD)/combined.img,if=ide,index=1 \
+run-i8042: $(VOCAB_BUILD)/combined.img $(VOCAB_BUILD)/combined-ide.img
+	$(QEMU) -drive format=raw,file=$(VOCAB_BUILD)/combined.img \
+	        -drive format=raw,file=$(VOCAB_BUILD)/combined-ide.img,if=ide,index=1 \
 	        -nographic
 
 # End-to-end pipeline test (HARDWARE + I8042PRT, zero ? errors)
-test-pipeline-e2e: $(IMAGE) $(VOCAB_BUILD)/combined.img
+test-pipeline-e2e: $(VOCAB_BUILD)/combined.img $(VOCAB_BUILD)/combined-ide.img
 	@echo "Running end-to-end pipeline test..."
 	@PORT=$$(($(TEST_PORT_BASE)+30)); \
-	$(QEMU) -drive file=$(IMAGE),format=raw,if=floppy \
-		-drive file=$(VOCAB_BUILD)/combined.img,format=raw,if=ide,index=1 \
+	$(QEMU) -drive file=$(VOCAB_BUILD)/combined.img,format=raw,if=floppy \
+		-drive file=$(VOCAB_BUILD)/combined-ide.img,format=raw,if=ide,index=1 \
 		-serial tcp::$$PORT,server=on,wait=off \
 		-display none -daemonize; \
 	sleep 2; \
@@ -191,6 +231,8 @@ test-pipeline-e2e: $(IMAGE) $(VOCAB_BUILD)/combined.img
 
 # Run NE2000 network test (two QEMU instances)
 test-network: $(IMAGE) $(BLOCKS) write-catalog
+	@cat $(IMAGE) $(BLOCKS) > $(COMBINED)
+	@cp $(COMBINED) $(COMBINED_IDE)
 	@echo "Running NE2000 network test..."
 	@python3 tests/test_ne2000_network.py $$(($(TEST_PORT_BASE)+40))
 
@@ -205,12 +247,17 @@ $(DEBUG_KERNEL): $(SRC_KERNEL)/forth.asm | $(BUILD)
 $(DEBUG_IMAGE): $(BOOTLOADER) $(DEBUG_KERNEL)
 	cat $(BOOTLOADER) $(DEBUG_KERNEL) > $@
 
+DEBUG_COMBINED = $(BUILD)/combined-debug.img
+DEBUG_COMBINED_IDE = $(BUILD)/combined-debug-ide.img
+
 test-flush: $(DEBUG_IMAGE) $(BLOCKS)
+	@cat $(DEBUG_IMAGE) $(BLOCKS) > $(DEBUG_COMBINED)
+	@cp $(DEBUG_COMBINED) $(DEBUG_COMBINED_IDE)
 	@echo "Running flush stress test..."
 	@PORT=$$(($(TEST_PORT_BASE)+50)); \
 	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null; sleep 1; \
-	$(QEMU) -drive file=$(DEBUG_IMAGE),format=raw,if=floppy \
-		-drive file=$(BLOCKS),format=raw,if=ide,index=1 \
+	$(QEMU) -drive file=$(DEBUG_COMBINED),format=raw,if=floppy \
+		-drive file=$(DEBUG_COMBINED_IDE),format=raw,if=ide,index=1 \
 		-serial tcp::$$PORT,server=on,wait=off \
 		-display none -daemonize; \
 	sleep 2; \
@@ -218,14 +265,20 @@ test-flush: $(DEBUG_IMAGE) $(BLOCKS)
 	STATUS=$$?; pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null; exit $$STATUS
 
 test-meta-compile: $(IMAGE) $(BLOCKS) write-catalog
+	@cat $(IMAGE) $(BLOCKS) > $(COMBINED)
+	@cp $(COMBINED) $(COMBINED_IDE)
 	@echo "Running metacompiler compile test (B5)..."
 	@python3 tests/test_meta_compile.py $$(($(TEST_PORT_BASE)+55))
 
 test-meta-boot: $(IMAGE) $(BLOCKS) write-catalog
+	@cat $(IMAGE) $(BLOCKS) > $(COMBINED)
+	@cp $(COMBINED) $(COMBINED_IDE)
 	@echo "Running metacompiler boot test..."
 	@python3 tests/test_meta_boot.py $$(($(TEST_PORT_BASE)+60))
 
 test-meta-b6b: $(IMAGE) $(BLOCKS) write-catalog
+	@cat $(IMAGE) $(BLOCKS) > $(COMBINED)
+	@cp $(COMBINED) $(COMBINED_IDE)
 	@echo "Running metacompiler B6b standalone boot test..."
 	@python3 tests/test_meta_b6b.py $$(($(TEST_PORT_BASE)+70))
 
@@ -296,10 +349,10 @@ pxe-setup:
 	@echo ""
 	@echo "PXE setup complete. Run 'make pxe-push' to deploy an image."
 
-pxe-push: $(IMAGE)
+pxe-push: $(COMBINED) check-kernel-size
 	@bash tools/pxe/push.sh
 
 pxe-status:
 	@bash tools/pxe/test-pxe.sh
 
-.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog test test-smoke test-loops test-vocabs test-integration test-flush test-meta-compile test-meta-boot test-meta-b6b pxe-setup pxe-push pxe-status
+.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined check-kernel-size test test-smoke test-loops test-vocabs test-integration test-flush test-meta-compile test-meta-boot test-meta-b6b pxe-setup pxe-push pxe-status

@@ -82,6 +82,11 @@ BLK_BUF_FLAG_VALID  equ 1
 BLK_BUF_FLAG_DIRTY  equ 2
 BLOCK_SIZE          equ 1024        ; 1KB per Forth block
 
+; Block storage LBA offset in combined image
+; Block 0 starts at this LBA. Block N = BLOCKS_LBA_BASE + N*2.
+; = (boot_sector + kernel) / 512 = (512 + 65536) / 512 = 129
+BLOCKS_LBA_BASE     equ 129
+
 ; Block buffer data: 4 x 1024 bytes
 BLK_BUF_DATA        equ 0x28200     ; 0x28200 - 0x291FF
 BLK_BUF_GUARD       equ 0x29200     ; NUL guard byte for LOAD termination
@@ -209,7 +214,7 @@ kernel_start:
     ; Initialize variables
     mov dword [VAR_STATE], 0
     mov dword [VAR_HERE], DICT_START
-    mov dword [VAR_LATEST], name_ADDR_EMBED_SIZE ; Last built-in word
+    mov dword [VAR_LATEST], name_BLOCKS_LBA_BASE_CONST ; Last built-in word
     mov dword [VAR_BASE], 10
     mov dword [VAR_TIB], TIB_START
     mov dword [VAR_TOIN], 0
@@ -233,7 +238,7 @@ kernel_start:
     mov byte [BLK_BUF_GUARD], 0
 
     ; Initialize vocabulary / search order
-    mov dword [VAR_FORTH_LATEST], name_ADDR_EMBED_SIZE ; FORTH vocab starts same as LATEST
+    mov dword [VAR_FORTH_LATEST], name_BLOCKS_LBA_BASE_CONST ; FORTH vocab starts same as LATEST
     mov dword [VAR_SEARCH_DEPTH], 1
     mov dword [VAR_SEARCH_ORDER], VAR_FORTH_LATEST  ; Addr of FORTH's LATEST cell
     mov dword [VAR_CURRENT], VAR_FORTH_LATEST       ; New defs go into FORTH
@@ -2240,6 +2245,7 @@ DEFCODE "BLOCK", BLOCK, 0
     push ebx                    ; Save header addr
     mov eax, [ebx]              ; block#
     shl eax, 1                  ; LBA = block# * 2
+    add eax, BLOCKS_LBA_BASE   ; + base offset in combined image
     mov ebx, eax                ; EBX = LBA for ata_read_sector
     ; Read first sector
     call ata_read_sector
@@ -2356,6 +2362,7 @@ DEFCODE "LIST", LIST, 0
     push ebx
     mov eax, [ebx]
     shl eax, 1
+    add eax, BLOCKS_LBA_BASE   ; + base offset in combined image
     mov ebx, eax
     call ata_read_sector
     inc ebx
@@ -2428,6 +2435,7 @@ DEFCODE "LOAD", LOAD, 0
     push ebx
     mov eax, [ebx]
     shl eax, 1
+    add eax, BLOCKS_LBA_BASE   ; + base offset in combined image
     mov ebx, eax
     call ata_read_sector
     inc ebx
@@ -2479,6 +2487,7 @@ DEFCODE "-->", CHAIN, F_IMMEDIATE
     push ebx
     mov eax, [ebx]
     shl eax, 1
+    add eax, BLOCKS_LBA_BASE   ; + base offset in combined image
     mov ebx, eax
     call ata_read_sector
     inc ebx
@@ -2828,6 +2837,7 @@ DEFCONST "ADDR-WORD-BUF", ADDR_WORD_BUF, word_buffer
 DEFCONST "ADDR-MSG-UNDEF", ADDR_MSG_UNDEF, msg_undefined
 DEFCONST "ADDR-COLD-START", ADDR_COLD_START, cold_start
 DEFCONST "ADDR-EMBED-SIZE", ADDR_EMBED_SIZE, embed_size
+DEFCONST "BLOCKS-LBA-BASE", BLOCKS_LBA_BASE_CONST, BLOCKS_LBA_BASE
 
 ; ============================================================================
 ; Low-Level Support Routines
@@ -4699,6 +4709,7 @@ blk_flush_one:
     ; Block# -> LBA: each block is 2 sectors (1024 bytes / 512)
     mov eax, [ebx]              ; block#
     shl eax, 1                  ; LBA = block# * 2
+    add eax, BLOCKS_LBA_BASE   ; + base offset in combined image
     mov ecx, eax                ; Save first LBA
 
 %ifdef DEBUG_FLUSH

@@ -4,7 +4,7 @@
 set -e
 
 TFTP_ROOT=/srv/tftp
-IMG="${1:-build/bmforth.img}"
+IMG="${1:-build/combined.img}"
 
 if [ ! -f "$IMG" ]; then
     echo "ERROR: $IMG not found. Run 'make' first."

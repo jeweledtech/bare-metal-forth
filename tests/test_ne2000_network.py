@@ -19,9 +19,11 @@ NET_PORT = PORT_A + 100  # socket backend port
 
 PROJECT_DIR = os.path.dirname(os.path.dirname(
     os.path.abspath(__file__)))
-IMAGE = os.path.join(PROJECT_DIR, 'build', 'bmforth.img')
-BLOCKS = os.path.join(PROJECT_DIR, 'build', 'blocks.img')
+COMBINED = os.path.join(PROJECT_DIR, 'build', 'combined.img')
+COMBINED_IDE = os.path.join(PROJECT_DIR, 'build', 'combined-ide.img')
 QEMU = 'qemu-system-i386'
+BLOCKS_LBA_BASE = 129  # Block 0 starts at this LBA in combined image
+BLOCK_BYTE_OFFSET = BLOCKS_LBA_BASE * 512  # Byte offset of block 0
 
 
 def get_vocab_blocks(vocab_name):
@@ -58,27 +60,27 @@ def start_qemu_pair(zero_range=None):
     Each needs its own copy of disk images (QEMU locks).
     zero_range: (first, last) block range to zero on B's
     disk before boot, so transfer tests are provable."""
-    # Copy images for instance B
-    image_b = IMAGE + '.b'
-    blocks_b = BLOCKS + '.b'
-    subprocess.run(['cp', IMAGE, image_b],
+    # Copy combined images for instance B
+    combined_b = COMBINED + '.b'
+    combined_ide_b = COMBINED_IDE + '.b'
+    subprocess.run(['cp', COMBINED, combined_b],
                    capture_output=True)
-    subprocess.run(['cp', BLOCKS, blocks_b],
+    subprocess.run(['cp', COMBINED_IDE, combined_ide_b],
                    capture_output=True)
-    # Zero target blocks on B's disk so transfer is provable
+    # Zero target blocks on B's IDE disk so transfer is provable
     if zero_range:
         first, last = zero_range
-        with open(blocks_b, 'r+b') as f:
+        with open(combined_ide_b, 'r+b') as f:
             for blk in range(first, last + 1):
-                f.seek(blk * 1024)
+                f.seek(BLOCK_BYTE_OFFSET + blk * 1024)
                 f.write(b'\x00' * 1024)
 
     # Instance A: listen side
     cmd_a = [
         QEMU,
-        '-drive', f'file={IMAGE},format=raw,if=floppy',
+        '-drive', f'file={COMBINED},format=raw,if=floppy',
         '-drive',
-        f'file={BLOCKS},format=raw,if=ide,index=1',
+        f'file={COMBINED_IDE},format=raw,if=ide,index=1',
         '-netdev', f'socket,id=net0,listen=:{NET_PORT}',
         '-device', 'ne2k_pci,netdev=net0',
         '-serial',
@@ -92,9 +94,9 @@ def start_qemu_pair(zero_range=None):
     cmd_b = [
         QEMU,
         '-drive',
-        f'file={image_b},format=raw,if=floppy',
+        f'file={combined_b},format=raw,if=floppy',
         '-drive',
-        f'file={blocks_b},format=raw,if=ide,index=1',
+        f'file={combined_ide_b},format=raw,if=ide,index=1',
         '-netdev',
         f'socket,id=net0,connect=127.0.0.1:{NET_PORT}',
         '-device', 'ne2k_pci,netdev=net0',
@@ -197,7 +199,7 @@ def cleanup():
          f'[q]emu.*{PORT_B}'],
         capture_output=True
     )
-    for f in [BLOCKS + '.b', IMAGE + '.b']:
+    for f in [COMBINED + '.b', COMBINED_IDE + '.b']:
         if os.path.exists(f):
             os.unlink(f)
 

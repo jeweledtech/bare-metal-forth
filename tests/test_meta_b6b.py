@@ -21,8 +21,8 @@ BOOT_PORT = PORT + 2
 PROJECT_DIR = os.path.dirname(os.path.dirname(
     os.path.abspath(__file__)))
 BUILD_DIR = os.path.join(PROJECT_DIR, 'build')
-IMAGE = os.path.join(BUILD_DIR, 'bmforth.img')
-BLOCKS = os.path.join(BUILD_DIR, 'blocks.img')
+COMBINED = os.path.join(BUILD_DIR, 'combined.img')
+COMBINED_IDE = os.path.join(BUILD_DIR, 'combined-ide.img')
 BOOT_BIN = os.path.join(BUILD_DIR, 'boot.bin')
 META_KERNEL = '/tmp/forthos-meta-B6b.bin'
 META_IMAGE = os.path.join(BUILD_DIR, 'meta-boot-b6b.img')
@@ -161,7 +161,7 @@ def cleanup():
 # Preflight
 # ============================================================
 
-for f in [IMAGE, BLOCKS, BOOT_BIN]:
+for f in [COMBINED, COMBINED_IDE, BOOT_BIN]:
     if not os.path.exists(f):
         print(f"FAIL: Missing {f}")
         sys.exit(1)
@@ -191,8 +191,8 @@ kill_qemu(str(BOOT_PORT))
 
 cmd = [
     QEMU,
-    '-drive', f'file={IMAGE},format=raw,if=floppy',
-    '-drive', f'file={BLOCKS},format=raw,if=ide,index=1',
+    '-drive', f'file={COMBINED},format=raw,if=floppy',
+    '-drive', f'file={COMBINED_IDE},format=raw,if=ide,index=1',
     '-serial', f'tcp::{PORT},server=on,wait=off',
     '-monitor', f'tcp::{MON_PORT},server=on,wait=off',
     '-display', 'none', '-daemonize',

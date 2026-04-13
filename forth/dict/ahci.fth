@@ -449,7 +449,8 @@ VARIABLE MBR-P4
 \ Read-only: SAVE-BUFFERS prints warning.
 
 : AHCI-BLOCK ( n -- addr )
-    DUP + 2 AHCI-READ DROP
+    DUP + BLOCKS-LBA-BASE +
+    2 AHCI-READ DROP
     SEC-BUF
 ;
 

@@ -24,8 +24,8 @@ BOOT_PORT = PORT + 2
 PROJECT_DIR = os.path.dirname(os.path.dirname(
     os.path.abspath(__file__)))
 BUILD_DIR = os.path.join(PROJECT_DIR, 'build')
-IMAGE = os.path.join(BUILD_DIR, 'bmforth.img')
-BLOCKS = os.path.join(BUILD_DIR, 'blocks.img')
+COMBINED = os.path.join(BUILD_DIR, 'combined.img')
+COMBINED_IDE = os.path.join(BUILD_DIR, 'combined-ide.img')
 BOOT_BIN = os.path.join(BUILD_DIR, 'boot.bin')
 KERNEL_BIN = os.path.join(BUILD_DIR, 'kernel.bin')
 META_KERNEL = '/tmp/forthos-meta-B4.bin'
@@ -153,8 +153,8 @@ def launch_builder():
     """Launch builder QEMU with serial + monitor ports."""
     cmd = [
         QEMU,
-        '-drive', f'file={IMAGE},format=raw,if=floppy',
-        '-drive', f'file={BLOCKS},format=raw,if=ide,index=1',
+        '-drive', f'file={COMBINED},format=raw,if=floppy',
+        '-drive', f'file={COMBINED_IDE},format=raw,if=ide,index=1',
         '-serial', f'tcp::{PORT},server=on,wait=off',
         '-monitor', f'tcp::{MON_PORT},server=on,wait=off',
         '-display', 'none',
@@ -214,7 +214,7 @@ def cleanup():
 # Preflight checks
 # ============================================================
 
-for f in [IMAGE, BLOCKS, BOOT_BIN, KERNEL_BIN]:
+for f in [COMBINED, COMBINED_IDE, BOOT_BIN, KERNEL_BIN]:
     if not os.path.exists(f):
         print(f"FAIL: Missing {f} -- run 'make && make blocks"
               " && make write-catalog' first")

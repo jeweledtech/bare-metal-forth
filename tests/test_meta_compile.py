@@ -21,8 +21,8 @@ PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 4520
 PROJECT_DIR = os.path.dirname(os.path.dirname(
     os.path.abspath(__file__)))
 BUILD_DIR = os.path.join(PROJECT_DIR, 'build')
-IMAGE = os.path.join(BUILD_DIR, 'bmforth.img')
-BLOCKS = os.path.join(BUILD_DIR, 'blocks.img')
+COMBINED = os.path.join(BUILD_DIR, 'combined.img')
+COMBINED_IDE = os.path.join(BUILD_DIR, 'combined-ide.img')
 QEMU = 'qemu-system-i386'
 
 
@@ -116,7 +116,7 @@ def check(name, ok, detail=''):
 # Preflight
 # ============================================================
 
-for f in [IMAGE, BLOCKS]:
+for f in [COMBINED, COMBINED_IDE]:
     if not os.path.exists(f):
         print(f"FAIL: Missing {f}")
         sys.exit(1)
@@ -143,8 +143,8 @@ time.sleep(1)
 # Launch QEMU
 cmd = [
     QEMU,
-    '-drive', f'file={IMAGE},format=raw,if=floppy',
-    '-drive', f'file={BLOCKS},format=raw,if=ide,index=1',
+    '-drive', f'file={COMBINED},format=raw,if=floppy',
+    '-drive', f'file={COMBINED_IDE},format=raw,if=ide,index=1',
     '-serial', f'tcp::{PORT},server=on,wait=off',
     '-display', 'none',
     '-daemonize',
