@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Full integration test — load verified vocabs, check no conflicts.
 
-Loads EDITOR, X86-ASM, and META-COMPILER from blocks, verifies
-they don't interfere with each other and core Forth still works.
+Loads EDITOR and X86-ASM from blocks, verifies they don't interfere
+with each other and core Forth still works.
 
 Usage:
     python3 tests/test_full_integration.py [PORT]
@@ -52,11 +52,9 @@ for v in vocabs:
 # Get block ranges for verified vocabs
 ED_START, ED_END = get_vocab_blocks('EDITOR')
 ASM_START, ASM_END = get_vocab_blocks('X86-ASM')
-MC_START, MC_END = get_vocab_blocks('META-COMPILER')
 
 for name, s, e in [('EDITOR', ED_START, ED_END),
-                    ('X86-ASM', ASM_START, ASM_END),
-                    ('META-COMPILER', MC_START, MC_END)]:
+                    ('X86-ASM', ASM_START, ASM_END)]:
     if s is None:
         print(f"FAIL: Could not find {name} blocks")
         sys.exit(1)
@@ -155,21 +153,17 @@ print("\nTest 3: Load X86-ASM")
 r = send(f'{ASM_START} {ASM_END} THRU', 8)
 check('X86-ASM loads', alive(), 'system crashed')
 
-print("\nTest 4: Load META-COMPILER")
-r = send(f'{MC_START} {MC_END} THRU', 8)
-check('META-COMPILER loads', alive(), 'system crashed')
-
-# ---- Test 5: USING each vocab ----
-print("\nTest 5: Access each vocabulary")
-for name in ['EDITOR', 'X86-ASM', 'META-COMPILER']:
+# ---- Test 4: Access each vocabulary ----
+print("\nTest 4: Access each vocabulary")
+for name in ['EDITOR', 'X86-ASM']:
     r = send(f'USING {name}', 2)
     has_ok = 'ok' in r.lower()
     no_error = '?' not in r
     check(f'USING {name}', has_ok and no_error,
           f'response: {r.strip()!r}')
 
-# ---- Test 6: Use words from each vocab ----
-print("\nTest 6: Words from each vocab work")
+# ---- Test 5: Use words from each vocab ----
+print("\nTest 5: Words from each vocab work")
 
 # EDITOR: ED-BLK variable
 r = send('USING EDITOR', 1)
@@ -184,14 +178,8 @@ r = send('DECIMAL %EAX .', 1)
 val = extract_number(r)
 check('X86-ASM %EAX = 0', val == 0, f'got {val}')
 
-# META-COMPILER: META-BUILD
-r = send('USING META-COMPILER', 1)
-r = send('META-BUILD', 5)
-check('META-BUILD completes', 'complete' in r.lower(),
-      f'response: {r.strip()!r}')
-
-# ---- Test 7: Core Forth still works ----
-print("\nTest 7: Core Forth unaffected")
+# ---- Test 6: Core Forth still works ----
+print("\nTest 6: Core Forth unaffected")
 r = send('DECIMAL 100 200 + .', 1)
 val = extract_number(r)
 check('Addition works', val == 300, f'got {val}')
@@ -218,8 +206,8 @@ r = send('DL-T .', 1)
 val = extract_number(r)
 check('DO/LOOP works', val == 5, f'got {val}')
 
-# ---- Test 8: Stack is clean ----
-print("\nTest 8: Stack is clean")
+# ---- Test 7: Stack is clean ----
+print("\nTest 7: Stack is clean")
 r = send('.S', 1)
 check('Stack clean', '<>' in r, f'stack: {r.strip()!r}')
 

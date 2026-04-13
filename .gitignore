@@ -27,3 +27,72 @@ Thumbs.db
 # Original conversation directories
 archive/
 CLAUDE.md
+
+# --- Paid content (private repo: forthos-vocabularies) ---
+# Tier 1: Disk Stack Pack
+forth/dict/ahci.fth
+forth/dict/ntfs.fth
+forth/dict/fat32.fth
+forth/dict/auto-detect.fth
+
+# Tier 2: Network Pack
+forth/dict/rtl8168.fth
+
+# Tier 3: Full Hardware Pack (additional)
+forth/dict/surveyor.fth
+forth/dict/graphics.fth
+forth/dict/audio.fth
+forth/dict/video.fth
+
+# Tier 4: UBT Pipeline
+tools/translator/
+tools/driver-extract/
+tools/floored-division/
+tools/ghidra/
+tools/validate_real_binary.py
+tools/make_test_com.py
+tools/make_test_dotnet.py
+tests/fixtures/test_dotnet.dll
+tests/fixtures/test_port_access.com
+TASK_GHIDRA_AND_UBT_EXPANSION.md
+
+# Tier 5: Metacompiler Pack
+forth/dict/meta-compiler.fth
+forth/dict/target-x86.fth
+forth/dict/target-arm64.fth
+forth/dict/arm64-asm.fth
+
+# Paid tests
+tests/test_disk_survey.py
+tests/test_audio.py
+tests/test_video.py
+tests/test_graphics.py
+tests/test_pipeline_e2e.py
+tests/test_ubt_expansion.py
+tests/test_metacompiler.py
+tests/test_meta_compile.py
+tests/test_meta_b6.py
+tests/test_meta_b6b.py
+tests/test_meta_boot.py
+tests/test_arm64_asm.py
+tests/test_arm64_target.py
+tests/test_target_x86.py
+
+# Paid docs
+docs/TASK_AHCI_BLOCK.md
+docs/TASK_AUTO_DETECT.md
+docs/TASK_DISK_SURVEY.md
+docs/TASK_DISK_SURVEY_PHASE2.md
+docs/TASK_AV_AUDIO.md
+docs/TASK_AV_GRAPHICS.md
+docs/TASK_AV_VIDEO.md
+docs/TASK_METACOMPILER.md
+docs/TASK_GHIDRA_AND_UBT_EXPANSION.md
+docs/TASK_64BIT_PE_AND_HP_VALIDATION.md
+docs/DRIVER_EXTRACTION.md
+docs/REAL_BINARY_VALIDATION.md
+docs/FORTHOS_MULTIARCH_DESIGN.md
+docs/plans/2026-02-21-driver-extraction-pipeline-design.md
+docs/plans/2026-02-21-driver-extraction-pipeline-impl.md
+docs/plans/2026-02-23-ghidra-validation-framework-design.md
+docs/plans/2026-02-23-ghidra-validation-impl.md

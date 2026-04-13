@@ -30,7 +30,7 @@ $(BOOTLOADER): $(SRC_BOOT)/boot.asm | $(BUILD)
 	$(NASM) -f bin -o $@ $<
 
 # Embedded vocabularies (evaluated at boot, no block storage needed)
-EMBED_VOCABS = forth/dict/hardware.fth forth/dict/port-mapper.fth forth/dict/echoport.fth forth/dict/pci-enum.fth forth/dict/rtl8168.fth forth/dict/ahci.fth forth/dict/ntfs.fth forth/dict/fat32.fth forth/dict/surveyor.fth forth/dict/auto-detect.fth
+EMBED_VOCABS = forth/dict/hardware.fth forth/dict/port-mapper.fth forth/dict/echoport.fth forth/dict/pci-enum.fth
 EMBEDDED = $(BUILD)/embedded.bin
 
 $(EMBEDDED): $(EMBED_VOCABS) tools/embed-vocabs.py | $(BUILD)
@@ -158,7 +158,7 @@ test-vocabs: $(IMAGE) $(BLOCKS) write-catalog
 	@cp $(COMBINED) $(COMBINED_IDE)
 	@echo "Running vocabulary tests..."
 	@PORT_BASE=$$(($(TEST_PORT_BASE)+10)); \
-	for test in test_editor test_x86_asm test_metacompiler test_driver_vocabs test_disasm test_port_mapper test_echoport; do \
+	for test in test_editor test_x86_asm test_driver_vocabs test_disasm test_port_mapper test_echoport; do \
 		PORT=$$PORT_BASE; PORT_BASE=$$((PORT_BASE+1)); \
 		echo "  $$test (port $$PORT)..."; \
 		$(QEMU) -drive file=$(COMBINED),format=raw,if=floppy \
@@ -184,49 +184,6 @@ test-integration: $(IMAGE) $(BLOCKS) write-catalog
 		-display none -daemonize; \
 	sleep 2; \
 	python3 tests/test_full_integration.py $$PORT; \
-	STATUS=$$?; pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null; exit $$STATUS
-
-# --- End-to-End Pipeline: .sys binary → block vocab → USING ---
-
-TRANSLATOR = tools/translator/bin/translator
-WRITE_BLOCK = tools/write-block.py
-VOCAB_BUILD = $(BUILD)/vocabs
-I8042_SYS = tools/translator/tests/data/i8042prt.sys
-HARDWARE_FTH = forth/dict/hardware.fth
-
-# Pipeline block image: HARDWARE at block 50, I8042PRT at block 100
-$(VOCAB_BUILD)/blocks-pipeline.img: $(HARDWARE_FTH) $(I8042_SYS) | $(VOCAB_BUILD)
-	$(TRANSLATOR) -t forth $(I8042_SYS) > $(VOCAB_BUILD)/i8042prt.fth
-	dd if=/dev/zero of=$@ bs=1024 count=1024 2>/dev/null
-	python3 $(WRITE_BLOCK) $@ 50 $(HARDWARE_FTH)
-	python3 $(WRITE_BLOCK) $@ 100 $(VOCAB_BUILD)/i8042prt.fth
-
-$(VOCAB_BUILD)/combined.img: $(IMAGE) $(VOCAB_BUILD)/blocks-pipeline.img
-	cat $(IMAGE) $(VOCAB_BUILD)/blocks-pipeline.img > $@
-
-$(VOCAB_BUILD)/combined-ide.img: $(VOCAB_BUILD)/combined.img
-	cp $< $@
-
-$(VOCAB_BUILD):
-	mkdir -p $(VOCAB_BUILD)
-
-# Boot with HARDWARE + I8042PRT vocabularies
-.PHONY: run-i8042
-run-i8042: $(VOCAB_BUILD)/combined.img $(VOCAB_BUILD)/combined-ide.img
-	$(QEMU) -drive format=raw,file=$(VOCAB_BUILD)/combined.img \
-	        -drive format=raw,file=$(VOCAB_BUILD)/combined-ide.img,if=ide,index=1 \
-	        -nographic
-
-# End-to-end pipeline test (HARDWARE + I8042PRT, zero ? errors)
-test-pipeline-e2e: $(VOCAB_BUILD)/combined.img $(VOCAB_BUILD)/combined-ide.img
-	@echo "Running end-to-end pipeline test..."
-	@PORT=$$(($(TEST_PORT_BASE)+30)); \
-	$(QEMU) -drive file=$(VOCAB_BUILD)/combined.img,format=raw,if=floppy \
-		-drive file=$(VOCAB_BUILD)/combined-ide.img,format=raw,if=ide,index=1 \
-		-serial tcp::$$PORT,server=on,wait=off \
-		-display none -daemonize; \
-	sleep 2; \
-	python3 tests/test_pipeline_e2e.py $$PORT; \
 	STATUS=$$?; pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null; exit $$STATUS
 
 # Run NE2000 network test (two QEMU instances)
@@ -264,31 +221,8 @@ test-flush: $(DEBUG_IMAGE) $(BLOCKS)
 	python3 tests/test_flush_stress.py $$PORT; \
 	STATUS=$$?; pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null; exit $$STATUS
 
-test-meta-compile: $(IMAGE) $(BLOCKS) write-catalog
-	@cat $(IMAGE) $(BLOCKS) > $(COMBINED)
-	@cp $(COMBINED) $(COMBINED_IDE)
-	@echo "Running metacompiler compile test (B5)..."
-	@python3 tests/test_meta_compile.py $$(($(TEST_PORT_BASE)+55))
-
-test-meta-boot: $(IMAGE) $(BLOCKS) write-catalog
-	@cat $(IMAGE) $(BLOCKS) > $(COMBINED)
-	@cp $(COMBINED) $(COMBINED_IDE)
-	@echo "Running metacompiler boot test..."
-	@python3 tests/test_meta_boot.py $$(($(TEST_PORT_BASE)+60))
-
-test-meta-b6b: $(IMAGE) $(BLOCKS) write-catalog
-	@cat $(IMAGE) $(BLOCKS) > $(COMBINED)
-	@cp $(COMBINED) $(COMBINED_IDE)
-	@echo "Running metacompiler B6b standalone boot test..."
-	@python3 tests/test_meta_b6b.py $$(($(TEST_PORT_BASE)+70))
-
-test-ubt-expansion:
-	@echo "Running UBT expansion tests..."
-	@cd tools/translator && make 2>&1 | tail -1
-	@python3 tests/test_ubt_expansion.py
-
 # Run all tests
-test: test-smoke test-loops test-vocabs test-integration test-pipeline-e2e test-ubt-expansion test-meta-compile
+test: test-smoke test-loops test-vocabs test-integration
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)
@@ -355,4 +289,4 @@ pxe-push: $(COMBINED) check-kernel-size
 pxe-status:
 	@bash tools/pxe/test-pxe.sh
 
-.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined check-kernel-size test test-smoke test-loops test-vocabs test-integration test-flush test-meta-compile test-meta-boot test-meta-b6b pxe-setup pxe-push pxe-status
+.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined check-kernel-size test test-smoke test-loops test-vocabs test-integration test-flush test-network pxe-setup pxe-push pxe-status
