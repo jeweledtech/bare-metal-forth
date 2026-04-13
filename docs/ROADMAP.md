@@ -1,277 +1,151 @@
-# Bare-Metal Forth Development Roadmap
+# ForthOS Roadmap
 
-## Vision
+## What's Done
 
-A bare-metal Forth-83 operating system for critical systems:
-- Boots directly on x86 hardware with no OS layers
-- Real-time compilation and execution
-- Direct memory, port, and register access
-- Cross-architecture binary translation for driver extraction
+The kernel is real and running on real hardware. Everything below marked ✅ is validated — not planned, not prototyped, not in a VM. Tested on an HP 15-bs0xx booted via PXE.
 
-## Phase 0: Genesis -- COMPLETE
+---
 
-Core Forth-83 kernel on bare x86 hardware.
+### Kernel & Interpreter ✅
 
-- [x] 512-byte bootloader (real mode to protected mode)
-- [x] Direct-threaded code interpreter (NEXT/DOCOL/EXIT)
-- [x] 177+ kernel words (stack, arithmetic, logic, memory, I/O, control flow)
-- [x] Forth-83 floored division semantics
-- [x] VGA text mode + keyboard + serial I/O
-- [x] Colon definitions, CONSTANT, VARIABLE, CREATE/DOES>
-- [x] IF/ELSE/THEN, BEGIN/UNTIL/WHILE/REPEAT, DO/LOOP/+LOOP
-- [x] WORDS, SEE (decompiler), DUMP, .S
+- 178-word dictionary, 66KB bootable image
+- Direct Threaded Code: ESI = instruction pointer, EBP = return stack pointer
+- Forth-83 floored division (`-7 3 /` → `-3`, not `-2`)
+- Full compiler: `:`, `;`, `IMMEDIATE`, `[`, `]`, `LITERAL`
+- Control flow: `IF/ELSE/THEN`, `BEGIN/UNTIL/WHILE/REPEAT`, `DO/LOOP/+LOOP`
+- Defining words: `VARIABLE`, `CONSTANT`, `CREATE`, `DOES>`
+- Block storage: `BLOCK`, `BUFFER`, `UPDATE`, `SAVE-BUFFERS`, `FLUSH`, `LOAD`, `THRU`
+- Vocabulary system: `VOCABULARY`, `ALSO`, `PREVIOUS`, `ONLY`, `DEFINITIONS`, `USING`
+- Direct port I/O: `INB`, `INW`, `INL`, `OUTB`, `OUTW`, `OUTL`
+- In-system x86 disassembler: `DIS`, `DECOMP`, `SEE`
+- Network console: UDP port 6666, reliable on real hardware
 
-## Phase 1: Self-Hosting -- COMPLETE
+### Self-Hosting: Metacompiler ✅
 
-Block storage, vocabularies, and source loading.
+The metacompiler is complete. ForthOS rebuilds itself from its own blocks running inside the live system.
 
-- [x] ATA PIO block driver with 4-buffer LRU cache
-- [x] BLOCK, BUFFER, UPDATE, SAVE-BUFFERS, FLUSH
-- [x] LOAD, LIST, THRU, --> (chain load)
-- [x] Vocabulary/search-order system (8-slot)
-- [x] VOCABULARY, DEFINITIONS, ALSO, PREVIOUS, ONLY, ORDER
-- [x] USING syntax for vocabulary activation
-- [x] Catalog resolver for automatic dependency loading
-- [x] Block editor (Vi-style, 373 lines)
-- [x] X86-ASM target assembler
-- [x] META-COMPILER (two-pass bootstrap)
+- Phase A: target memory, compilation state, forward refs, defining words, control flow
+- Phase B3: `T-BINARY,` — copies 66KB kernel byte-for-byte, 64 spot-checks pass
+- Phase B4: metacompiled kernel boots in QEMU, `3 4 + .` → `7`
+- Phase B5: `CALL-ABS,` pattern — CODE words calling kernel helpers, 103 symbols
+- Phase B6: full `INTERPRET` with control flow + colon defs + error handling
+- Phase B6b: standalone bootable metacompiled kernel, 66KB, full regression green
 
-## Phase 2: Platform -- IN PROGRESS
+This closes the traditional Forth self-hosting loop. NASM is no longer required on the target.
 
-Hardware drivers, networking, and real-hardware validation.
+### Universal Binary Translator (UBT) ✅
 
-### Complete
+End-to-end pipeline: `.sys` binary → translator → block image → `THRU` → `USING I8042PRT` → real hardware reads.
 
-- [x] Interrupt infrastructure (IDT, PIC remapping, ISR stubs)
-- [x] IRQ management (IRQ-UNMASK, ISR hook table)
-- [x] Physical memory allocator (PHYS-ALLOC, 1MB-4MB pool)
-- [x] PCI bus enumeration (config space, BAR discovery)
-- [x] RTL8168 gigabit NIC (PHY init, link negotiation, TX engine, UDP)
-- [x] Network console (UDP output mirror, TxOK synchronous TX)
-- [x] AHCI/SATA driver (DMA sector reads, MBR/GPT, NTFS scanning)
-- [x] Embedded vocabulary system (6 vocabs compiled into kernel)
-- [x] PXE network boot
-- [x] In-system x86 disassembler (824 lines, dictionary-aware)
-- [x] Port mapper (I/O port enumeration)
-- [x] ECHOPORT (I/O call tracing)
-- [x] NE2000 network driver (word-mode DMA, packet receive)
-- [x] NET-DICT (raw Ethernet block transfer between instances)
-- [x] RTL8139 100M NIC driver
-- [x] SERIAL-16550 UART driver
-- [x] PS/2 keyboard and mouse drivers
-- [x] PIT timer driver
-- [x] VGA graphics mode switching
-- [x] Context serialization (MIRROR vocabulary)
-- [x] Bare-metal validation on HP 15-bs0xx laptop
+- 258 tests / 22 suites
+- 18 real-world Windows binaries validated: PE32, PE32+, ELF64, COM
+- HP Win10/11 x64 driver results: serial=17 HW accesses, storport=65, usbxhci=51, HDAudBus=10, pci=13, i8042=2
+- Key finding: Win10/11 x64 drivers use compiler intrinsics (`__inbyte`/`__outbyte`), not HAL imports — instruction-level detection required for 64-bit analysis
 
-### Next
+### Completed Vocabularies ✅
 
-- [ ] AHCI write support (sector writes to SATA disk)
-- [ ] FAT32 filesystem (read files, not just raw sectors)
-- [ ] RTL8168 RX path (receive UDP packets, not just transmit)
-- [ ] IRQ-driven keyboard (replace polling)
-- [ ] Multi-sector DMA transfers
+| Vocabulary | Blocks | Status |
+|---|---|---|
+| HARDWARE | 50–60 | IRQ, DPC, timing (`US-DELAY` via PIT Channel 2) |
+| DISASM | 58–109 | LMI-style in-system x86 disassembler |
+| PS/2 Mouse | — | Complete |
+| AHCI | — | Working on HP hardware |
+| NTFS | — | MFT walker, fragmented MFT, 9-run support, 1.2M records |
+| FAT32 | — | EFI System Partition, GPT GUID auto-detect |
+| AUTO-DETECT | — | PXE boot zero-config: RTL8168, AHCI, HD Graphics 620, xHCI |
+| Network console | — | 100% reliable, UDP port 6666 |
+| DISK-SURVEY | — | Partition map, driver inventory, PE/ELF detection |
+| I8042PRT | 100–104 | Extracted from real Windows driver via UBT |
 
-## Phase 3: Binary Translation -- IN PROGRESS
+---
 
-Universal Binary Translator for driver extraction.
+## In Progress
 
-### Complete
+### ACPI.sys Investigation
+The large ACPI binary causes a SIGSEGV in the translator. Known open item from the binary campaign. Needs large-binary handling in the PE loader.
 
-- [x] PE loader (PE32/PE32+, imports, exports, sections)
-- [x] ELF loader (Linux kernel modules, userspace binaries)
-- [x] COM loader (DOS flat binaries)
-- [x] Format auto-detection (PE/ELF/COM)
-- [x] x86 decoder (100+ instructions, ModR/M+SIB, two-byte opcodes)
-- [x] ARM64 decoder (stub, structural)
-- [x] RISC-V decoder (stub, structural)
-- [x] CIL/.NET decoder (stub, structural)
-- [x] UIR lifter (three-pass: targets, blocks, edges)
-- [x] Semantic analyzer (100+ Windows driver APIs classified)
-- [x] Forth code generator (parametric stack-effect words)
-- [x] End-to-end pipeline: binary -> Forth vocabulary source
-- [x] Ghidra validation framework (oracle comparison)
-- [x] Real driver validation (serial.sys, i8042prt.sys, ACPI.sys, parport_pc.ko)
-- [x] 270 tests across 22 suites, all passing
+### FAT32 LFN Fix
+Long filename entries show garbled output. The 0x0F attribute filter may not be catching all LFN chain cases. Low priority — NTFS is the primary filesystem.
 
-### Next
+### DISK-SURVEY FAT32 Crash on HP
+`DISK-SURVEY` crashes when walking the EFI partition directory tree on real hardware. Workaround: use `PARTITION-MAP` alone, then `HEX 8A800 NTFS-PROBE .` for the NTFS path. Root cause not yet isolated.
 
-- [ ] MMIO detection (MmMapIoSpaceEx pattern recognition)
-- [ ] Multi-function vocabulary merging
-- [ ] Direct block-load of translated output
+---
 
-## Phase 4: Ship Systems -- PLANNED
+## Next: Multi-Architecture Targets
 
-- [ ] Cooperative multitasking (round-robin task switcher)
-- [ ] Inter-task communication (mailboxes or channels)
-- [ ] USB mass storage driver
-- [ ] SD card reader support
-- [ ] Framebuffer graphics (VESA/VBE)
-- [ ] Sound (PC speaker, HDA basic)
+The metacompiler is target-agnostic. Each new CPU needs roughly a 150-line `target-<arch>.fth` file.
 
-## Phase 5: Production -- PLANNED
+**Tier 1** (primary targets):
+- ARM64 — Raspberry Pi 3B/4/5
+- RISC-V — QEMU first, then hardware
+- x86 self-rebuild — already working
 
-- [ ] Forth-83 compliance test suite
-- [ ] Dictionary image save/restore
-- [ ] Cross-compilation to ARM64 / RISC-V
-- [ ] Hardened memory protection for critical deployments
-- [ ] Documentation and training materials
+**Tier 2:**
+- Cortex-M33 — picoZ80 RP2350B (second core, unused by Z80 emulation)
+- SPARC/LEON3 — space-grade hardware
+- PowerPC — industrial
 
-## Phase 6: Protocol Debugging & Hardware Forensics -- PLANNED
+**Tier 3:**
+- MIPS, AVR, ESP32, x86-64
 
-Bare-metal, HAL-free architecture enables ForthOS as a hardware debugging
-and protocol analysis platform — capabilities impossible from within
-Windows/Linux because of mandatory abstraction layers.
+The pattern: write the `target-<arch>.fth` file, run the metacompiler, get a bootable image for that CPU. Same Forth source, different code generator back-end.
 
-**Prerequisite:** Phase 4 USB basic driver (required for Use Cases 1-2).
+---
 
-### Use Case 1: USB-C / DisplayPort Alt Mode Debugging
+## Phase 6: Protocol Debugging & Hardware Forensics
 
-USB-C carries power + DP video + USB3 data simultaneously. DP Alt Mode
-negotiation happens at the physical/link layer (SOP/SOP' PD messages,
-AUX channel DPCD reads). Modern OS stacks give you the result, not the
-wire. ForthOS gives you the wire.
+Roadmap only — not started yet.
 
-**Existing foundation:** usbxhci.sys binary campaign (51 HW sequences
-found via UBT pipeline), PCI-ENUM for controller discovery.
+- USB-C / DisplayPort Alt Mode protocol analysis
+- PCIe / Thunderbolt vocabulary extraction
+- NVMe command vocabulary
+- Embedded/IoT bridging (picoZ80 commercialization)
+- Driver forensics: automated security audit of Windows driver port I/O sequences
 
-- [ ] XHCI vocabulary (xHCI host controller register-level access)
-- [ ] USBC-PD vocabulary (USB Power Delivery protocol state machine)
-- [ ] DP-AUX vocabulary (DisplayPort AUX channel, DPCD register access)
-- [ ] Key words: AUX-READ, AUX-WRITE, DPCD@, PD-MSG-SEND, PD-MSG-RECV,
-      LINK-STATUS, DP-CAPS
+---
 
-**Success metric:** Read DPCD register 0x0000 (receiver capability field)
-from a connected monitor and display link rate + lane count from the
-ForthOS prompt.
-
-### Use Case 2: PCIe / Thunderbolt Device Enumeration
-
-PCIe config space is directly readable via CF8/CFC port I/O (x86).
-ForthOS already has PCI-SCAN in PCI-ENUM vocabulary. Thunderbolt adds a
-tunneling layer. The goal is to walk the full PCIe tree including
-capability structures and identify devices without any OS driver loaded.
-
-**Existing foundation:** PCI-ENUM vocabulary (PCI-SCAN, PCI-FIND,
-PCI-LIST, config space read/write — 8 word-level tests passing).
-
-- [ ] PCI-TREE vocabulary (extends PCI-ENUM with capability chain walking,
-      PCIe extended config space, link status reporting)
-- [ ] TBT vocabulary (Thunderbolt router config registers, tunnel discovery)
-- [ ] Key words: CAP-WALK, PCIE-LINK-STATUS, TBT-ROUTER@, LSPCI
-
-**Success metric:** Boot to ForthOS on a Thunderbolt-equipped machine,
-type `LSPCI`, get full device tree including tunneled PCIe endpoints.
-
-### Use Case 3: NVMe / Storage Protocol Inspection
-
-AHCI vocabulary is complete (DMA sector reads, MBR/GPT, NTFS scanning).
-NVMe is the modern equivalent. Goal is to read NVMe identify
-controller/namespace data and inspect submission/completion queues
-directly — useful for drive firmware analysis or secure erase verification.
-
-**Existing foundation:** AHCI vocabulary (DMA reads, Intel 8086:9D03
-validated on HP 15-bs0xx), PHYS-ALLOC for DMA buffers, PCI-ENUM for
-NVMe controller discovery.
-
-- [ ] NVME vocabulary (NVMe admin queue, submission/completion queue MMIO)
-- [ ] Key words: NVME-IDENTIFY, NVME-GETLOG, NVME-SANITIZE, SQ-DUMP,
-      CQ-DUMP
-
-**Success metric:** `NVME-IDENTIFY` prints controller serial, model, and
-firmware revision from the ForthOS prompt without any OS driver.
-
-### Use Case 4: Embedded/IoT Protocol Bridge (Flipper Zero style)
-
-Devices like Flipper Zero debug protocols (IR, sub-GHz, NFC, iButton) by
-running bare-metal firmware with direct GPIO/SPI/I2C access. ForthOS on
-an RP2350B (picoZ80 platform) can do the same, with live Forth
-compilation — write and execute protocol handlers interactively at the
-prompt, not just flash firmware.
-
-**Existing foundation:** Cross-compilation target infrastructure
-(Phase 5), Forth's interactive REPL for live protocol exploration.
-
-- [ ] SPI vocabulary (SPI master, maps to RP2350B hardware)
-- [ ] I2C vocabulary (I2C master, bus scan, device read/write)
-- [ ] GPIO vocabulary (pin set/get/toggle, direction control)
-- [ ] IR-DECODE vocabulary (NEC/RC5/RC6 decode via timer capture)
-- [ ] Key words: SPI-XFER, I2C-READ, I2C-WRITE, GPIO!, GPIO@, IR-RECV
-
-**Success metric:** Capture and decode an IR remote code from the ForthOS
-prompt on RP2350B hardware.
-
-### Use Case 5: Driver Binary Forensics (extends UBT pipeline)
-
-The UBT pipeline (commit 243b0f0) already translates Windows .sys
-binaries to named Forth vocabularies. This use case adds a *forensic*
-workflow: given an unknown binary (malware, firmware blob, proprietary
-driver), use UBT to extract hardware sequences, name them semantically,
-and build a ForthOS vocabulary that replicates only the hardware
-behavior — stripping all OS scaffolding (IRP handling, PnP, registry,
-security checks).
-
-**Existing foundation:** Full UBT pipeline (PE/ELF/COM loaders, x86
-decoder, UIR lifter, semantic analyzer, Forth codegen), 270 tests across
-22 suites. Semantic categories already classify hardware vs. scaffolding
-(`SEM_CAT_PORT_IO`, `SEM_CAT_MMIO`, `SEM_CAT_PCI_CONFIG`, etc.).
-Real driver validation against 8 HP drivers + parport_pc.ko.
-
-- [ ] `make forensic TARGET=x.sys` Makefile target (end-to-end forensic
-      extraction with semantic report)
-- [ ] TASK_FORENSIC_WORKFLOW.md documenting the full workflow:
-      binary → UIR → semantic categorization → vocabulary generation →
-      ForthOS load → hardware replay
-- [ ] Vocabulary auto-naming from semantic category analysis
-- [ ] Hardware replay verification mode (compare replayed I/O sequences
-      against extracted sequences for correctness)
-- [ ] Key words: BINARY-LOAD, HW-EXTRACT, VOCAB-GEN, HW-REPLAY
-
-**Success metric:** Take an unknown `.sys` binary, run
-`make forensic TARGET=x.sys`, get a loadable `.fth` vocabulary that
-replays only the hardware I/O sequences from that driver.
-
-### Use Case 6: DISK-SURVEY Phase 2 — Archive Extraction
-
-Phase 1 (complete) catalogs every binary directly on the filesystem
-via MFT walking and FAT32 directory traversal. Phase 2 goes deeper:
-opens .cab, .msi, and .zip archives to catalog the binaries packed
-inside them — driver packages in the Windows DriverStore, update
-cabinets in SoftwareDistribution, installer packages in
-C:\Windows\Installer. Together, Phase 1 + Phase 2 give complete
-coverage of every reverse-engineerable binary on a machine, with
-nothing uncovered.
-
-**Existing foundation:** DISK-SURVEY vocabulary (commit 5343877):
-14 binary extensions, 7 consolidated counters, multi-partition NTFS
-walk, PE/ELF classification. Validated on HP 15-bs0xx: 1.2M MFT
-records walked, 69,354 binaries cataloged in ~90 minutes.
-
-- [ ] DEFLATE vocabulary (RFC 1951, ~200 lines, shared primitive)
-- [ ] ZIP-READER vocabulary (End of Central Directory + Deflate)
-- [ ] CAB-EXTRACT vocabulary (Microsoft Cabinet, MSZIP compression)
-- [ ] MSI-READER vocabulary (OLE2 Compound Document + MSI schema)
-- [ ] SURVEYOR-DEEP vocabulary (DEEP-SURVEY walks archives recursively)
-- [ ] DISK-SURVEY-DETAIL (per-extension + per-directory bucketing)
-- [ ] Key words: DEEP-SURVEY, CAB-LIST, MSI-LIST, ZIP-LIST,
-      ARCHIVE-COUNT, DISK-SURVEY-DETAIL
-
-**Success metric:** `DEEP-SURVEY` on HP laptop finds 100K+ additional
-binaries inside .cab/.msi/.zip archives beyond the 69K directly-visible
-files, producing a combined report:
+## Architecture
 
 ```
-Direct binaries:        69,354
-Archive containers:     N CAB / N MSI / N ZIP
-Archived binaries:     150,000+
-Total coverage:        220,000+
+┌─────────────────────────────────────────────────────────┐
+│               APPLICATION VOCABULARIES                   │
+│     NTFS │ AHCI │ RTL8168 │ XHCI │ extracted drivers    │
+├─────────────────────────────────────────────────────────┤
+│               VOCABULARY SYSTEM (USING)                  │
+│    load only what you need, nothing else comes along     │
+├─────────────────────────────────────────────────────────┤
+│                   FORTH-83 KERNEL                        │
+│   Interpreter │ Compiler │ Dictionary │ Control Flow     │
+├─────────────────────────────────────────────────────────┤
+│                 PRIMITIVES (ASSEMBLY)                    │
+│      Stack │ Arithmetic │ Memory │ INB/OUTB │ IRQ        │
+├─────────────────────────────────────────────────────────┤
+│                    BOOTLOADER                            │
+│        Real Mode → Protected Mode → Load Kernel          │
+├─────────────────────────────────────────────────────────┤
+│                     BARE METAL                           │
+│          x86 hardware, no HAL, no OS layer               │
+└─────────────────────────────────────────────────────────┘
 ```
 
-Full task doc: `docs/TASK_DISK_SURVEY_PHASE2.md`
+---
 
-## Tested Hardware
+## Memory Map (x86 Protected Mode)
 
-| Platform | Status | Notes |
-|----------|--------|-------|
-| QEMU i386 | Primary dev/test | floppy boot, IDE blocks, NE2K networking |
-| HP 15-bs0xx laptop | Validated | PXE boot, RTL8168, Intel AHCI (8086:9D03), NTFS read |
+```
+0x00000000 - 0x00000FFF : Reserved (Real Mode IVT)
+0x00007C00 - 0x00007DFF : Bootloader (512 bytes)  ← DATA_STACK_TOP
+0x00007E00 - 0x0000FDFF : Forth Kernel (~66KB)
+0x00010000 - 0x0001FFFF : Parameter Stack (64KB)
+0x00020000 - 0x0002FFFF : Return Stack (64KB)
+0x00029C00              : ISR_HOOK_TABLE (16 slots)
+0x00030000 - 0x000BFFFF : Dictionary Space
+0x000B8000 - 0x000BFFFF : VGA Text Buffer
+0x000C0000 - 0x000FFFFF : ROM / Reserved
+0x00100000+             : Extended Memory
+```
+
+---
+
+*"If it fits in kilobytes, it's not bloat — it's Forth."*
