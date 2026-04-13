@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ForthOS — Metacompiler Phase Tracker</title>
+<style>
+  :root { --color-text-primary:#1a1a18; --color-text-secondary:#5f5e5a; --color-text-tertiary:#888780; --color-text-success:#3B6D11; --color-text-warning:#854F0B; --color-background-primary:#ffffff; --color-background-secondary:#f1efe8; --color-background-success:#EAF3DE; --color-background-warning:#FAEEDA; --color-border-tertiary:rgba(0,0,0,0.12); --color-border-secondary:rgba(0,0,0,0.22); --color-border-success:rgba(59,109,17,0.5); --border-radius-md:8px; --border-radius-lg:12px; --font-sans:system-ui,-apple-system,sans-serif; --font-mono:'Menlo','Consolas',monospace; }
+  @media (prefers-color-scheme: dark) { :root { --color-text-primary:#e8e6de; --color-text-secondary:#b4b2a9; --color-text-tertiary:#888780; --color-text-success:#97C459; --color-text-warning:#EF9F27; --color-background-primary:#1c1c1a; --color-background-secondary:#2c2c2a; --color-background-success:#27500A; --color-background-warning:#633806; --color-border-tertiary:rgba(255,255,255,0.1); --color-border-secondary:rgba(255,255,255,0.18); --color-border-success:rgba(151,196,89,0.5); } }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:var(--font-sans); background:var(--color-background-primary); color:var(--color-text-primary); padding:2rem; max-width:720px; margin:0 auto; }
+  h1 { font-size:18px; font-weight:500; margin-bottom:4px; }
+  .subtitle { font-size:13px; color:var(--color-text-secondary); margin-bottom:20px; }
+  .metrics { display:flex; gap:12px; margin-bottom:20px; }
+  .metric { background:var(--color-background-secondary); border-radius:var(--border-radius-md); padding:10px 14px; flex:1; text-align:center; }
+  .metric-label { font-size:11px; color:var(--color-text-secondary); margin-bottom:2px; }
+  .metric-value { font-size:22px; font-weight:500; }
+  .phase-card { background:var(--color-background-primary); border:0.5px solid var(--color-border-tertiary); border-radius:var(--border-radius-lg); padding:14px 16px; margin-bottom:10px; border-left:3px solid var(--color-border-success); }
+  .phase-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; flex-wrap:wrap; gap:6px; }
+  .phase-title { font-size:14px; font-weight:500; }
+  .phase-meta { font-size:12px; color:var(--color-text-secondary); display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+  .phase-body { font-size:12px; color:var(--color-text-secondary); line-height:1.6; }
+  .tag { display:inline-block; font-size:11px; padding:2px 7px; border-radius:10px; }
+  .tag-done { background:var(--color-background-success); color:var(--color-text-success); }
+  .commit { font-family:var(--font-mono); font-size:11px; color:var(--color-text-tertiary); }
+  footer { margin-top:32px; font-size:11px; color:var(--color-text-tertiary); }
+</style>
+</head>
+<body>
+<h1>ForthOS — Metacompiler phase tracker</h1>
+<p class="subtitle">All six metacompiler phases complete. 151/151 tests passing. Self-hosting proven in Phase B6. Standalone bootable kernel produced in Phase B6b.</p>
+
+<div class="metrics">
+  <div class="metric"><div class="metric-label">Total tests</div><div class="metric-value">151</div></div>
+  <div class="metric"><div class="metric-label">Phases complete</div><div class="metric-value">6 / 6</div></div>
+  <div class="metric"><div class="metric-label">Kernel size</div><div class="metric-value">66 KB</div></div>
+  <div class="metric"><div class="metric-label">Host words</div><div class="metric-value">85</div></div>
+</div>
+
+<div class="phase-card">
+  <div class="phase-header">
+    <span class="phase-title">Phase A — Core infrastructure</span>
+    <div class="phase-meta"><span>26 tests</span><span class="tag tag-done">complete</span><span class="commit">a632de6</span></div>
+  </div>
+  <div class="phase-body">85 words, 387 lines. Target memory (T-C@, T-@, T-!, T-ALLOT), compilation state, forward refs (FORWARD / RESOLVE / META-CHECK), defining words, control flow (T-IF / T-THEN / T-ELSE, T-BEGIN / T-UNTIL, T-DO / T-LOOP), context switching (IN-META / IN-TARGET). Foundation for all subsequent phases.</div>
+</div>
+
+<div class="phase-card">
+  <div class="phase-header">
+    <span class="phase-title">Phase B3 — Binary copy proof</span>
+    <div class="phase-meta"><span>64 spot-checks</span><span class="tag tag-done">complete</span></div>
+  </div>
+  <div class="phase-body">T-BINARY, copies the 64 KB kernel byte-for-byte. 64 spot-checks confirm bit-perfect reproduction. Establishes that the metacompiler can faithfully represent the existing kernel image before adding generative capability.</div>
+</div>
+
+<div class="phase-card">
+  <div class="phase-header">
+    <span class="phase-title">Phase B4 — Boot proof</span>
+    <div class="phase-meta"><span>20 tests</span><span class="tag tag-done">complete</span></div>
+  </div>
+  <div class="phase-body">Metacompiled kernel boots in a fresh QEMU instance. <code style="font-family:var(--font-mono);font-size:11px;">3 4 + .</code> produces <code style="font-family:var(--font-mono);font-size:11px;">7</code>. Proves the output image is a real bootable kernel, not just a byte copy. 20/20 tests passing.</div>
+</div>
+
+<div class="phase-card">
+  <div class="phase-header">
+    <span class="phase-title">Phase B5 — CODE word calls</span>
+    <div class="phase-meta"><span>37 tests</span><span class="tag tag-done">complete</span></div>
+  </div>
+  <div class="phase-body">Adds CALL-ABS, enabling metacompiled CODE words to call back into kernel helper routines. 103 symbols resolved, 37/37 tests. This is the bridge that lets hand-written assembly words coexist with metacompiled Forth in the same image.</div>
+</div>
+
+<div class="phase-card">
+  <div class="phase-header">
+    <span class="phase-title">Phase B6 — INTERPRET metacompiled</span>
+    <div class="phase-meta"><span>15 tests</span><span class="tag tag-done">complete</span><span class="tag tag-done">self-hosting proven</span></div>
+  </div>
+  <div class="phase-body">Full INTERPRET word metacompiled with control flow, colon definitions, and error handling. 133 symbols, 4,076 bytes. 15/15 tests. Self-hosting proven — the metacompiler can produce a kernel that can interpret new Forth source in real time.</div>
+</div>
+
+<div class="phase-card">
+  <div class="phase-header">
+    <span class="phase-title">Phase B6b — Standalone bootable kernel</span>
+    <div class="phase-meta"><span>17 tests</span><span class="tag tag-done">complete</span><span class="tag tag-done">regression clean</span></div>
+  </div>
+  <div class="phase-body">Produces a 66,048-byte standalone bootable metacompiled kernel. 17/17 tests. Full regression green across all 151 tests. This is the output artifact — a kernel PXE-bootable onto real hardware, generated entirely by the metacompiler. Next: multi-architecture target expansion (ARM64, RISC-V).</div>
+</div>
+
+<footer>ForthOS · forthos-vocabularies (private, Tier 5) · metacompiler + TARGET-X86 + TARGET-ARM64 + ARM64-ASM · 151/151 tests · 66,048 byte kernel</footer>
+</body>
+</html>

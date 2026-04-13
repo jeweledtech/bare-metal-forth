@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ForthOS — Bare-Metal Forth OS · JeweledTech</title>
+<meta name="description" content="A bare-metal Forth-83 OS in x86 assembly. Direct hardware access. No HAL. No Linux. No Windows. Real hardware, real time, real control.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:       #0a0a08;
+  --bg2:      #111110;
+  --bg3:      #1a1a18;
+  --border:   #2a2a26;
+  --border2:  #3a3a36;
+  --text:     #e8e6de;
+  --muted:    #888780;
+  --dim:      #555550;
+  --accent:   #c8ff00;
+  --accent2:  #00d4aa;
+  --warn:     #ff9500;
+  --mono:     'IBM Plex Mono', monospace;
+  --sans:     'IBM Plex Sans', sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 14px;
+  line-height: 1.7;
+  overflow-x: hidden;
+}
+
+/* ── SCANLINE OVERLAY ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.03) 2px,
+    rgba(0,0,0,0.03) 4px
+  );
+  pointer-events: none;
+  z-index: 1000;
+}
+
+/* ── LAYOUT ── */
+.wrap { max-width: 900px; margin: 0 auto; padding: 0 2rem; }
+
+/* ── NAV ── */
+nav {
+  border-bottom: 1px solid var(--border);
+  padding: 1rem 0;
+  position: sticky;
+  top: 0;
+  background: rgba(10,10,8,0.95);
+  backdrop-filter: blur(8px);
+  z-index: 100;
+}
+nav .wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.nav-logo {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: .08em;
+  text-decoration: none;
+}
+.nav-logo span { color: var(--muted); font-weight: 300; }
+.nav-links { display: flex; gap: 20px; align-items: center; }
+.nav-links a {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 12px;
+  letter-spacing: .06em;
+  transition: color .15s;
+}
+.nav-links a:hover { color: var(--text); }
+.nav-cta {
+  background: var(--accent);
+  color: #0a0a08 !important;
+  padding: 5px 14px;
+  border-radius: 2px;
+  font-weight: 600 !important;
+  font-size: 11px !important;
+  letter-spacing: .1em !important;
+}
+.nav-cta:hover { background: #b8ef00 !important; color: #0a0a08 !important; }
+
+/* ── HERO ── */
+.hero {
+  padding: 5rem 0 4rem;
+  border-bottom: 1px solid var(--border);
+}
+.hero-tag {
+  font-size: 11px;
+  letter-spacing: .18em;
+  color: var(--accent2);
+  text-transform: uppercase;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.hero-tag::before {
+  content: '';
+  display: inline-block;
+  width: 24px;
+  height: 1px;
+  background: var(--accent2);
+}
+h1 {
+  font-family: var(--mono);
+  font-size: clamp(28px, 5vw, 48px);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -.02em;
+  margin-bottom: 1.5rem;
+  color: var(--text);
+}
+h1 .hl { color: var(--accent); }
+h1 .dim { color: var(--muted); font-weight: 300; }
+.hero-desc {
+  font-family: var(--sans);
+  font-size: 16px;
+  color: var(--muted);
+  max-width: 560px;
+  line-height: 1.7;
+  margin-bottom: 2rem;
+}
+.hero-stats {
+  display: flex;
+  gap: 2rem;
+  flex-wrap: wrap;
+  margin-bottom: 2.5rem;
+  padding: 1.25rem 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.stat { }
+.stat-val {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--accent);
+  display: block;
+  line-height: 1.2;
+}
+.stat-label {
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: .08em;
+}
+.hero-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+.btn-primary {
+  background: var(--accent);
+  color: #0a0a08;
+  padding: 10px 22px;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-decoration: none;
+  border-radius: 2px;
+  transition: background .15s;
+}
+.btn-primary:hover { background: #b8ef00; }
+.btn-secondary {
+  border: 1px solid var(--border2);
+  color: var(--muted);
+  padding: 10px 22px;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: .08em;
+  text-decoration: none;
+  border-radius: 2px;
+  transition: border-color .15s, color .15s;
+}
+.btn-secondary:hover { border-color: var(--muted); color: var(--text); }
+
+/* ── BOOT SEQUENCE ── */
+.boot {
+  padding: 3rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.terminal {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1.5rem;
+  font-size: 13px;
+  line-height: 1.8;
+  overflow-x: auto;
+}
+.terminal .prompt { color: var(--accent2); }
+.terminal .out    { color: var(--muted); }
+.terminal .ok     { color: var(--accent); }
+.terminal .comment{ color: var(--dim); }
+.terminal .hi     { color: var(--text); }
+.cursor {
+  display: inline-block;
+  width: 8px;
+  height: 14px;
+  background: var(--accent);
+  animation: blink .9s step-end infinite;
+  vertical-align: middle;
+  margin-left: 2px;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+/* ── SECTION ── */
+.section { padding: 3.5rem 0; border-bottom: 1px solid var(--border); }
+.section-id {
+  font-size: 11px;
+  letter-spacing: .2em;
+  color: var(--dim);
+  text-transform: uppercase;
+  margin-bottom: .5rem;
+}
+.section-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: .5rem;
+  color: var(--text);
+}
+.section-sub {
+  font-family: var(--sans);
+  color: var(--muted);
+  font-size: 14px;
+  margin-bottom: 2rem;
+  max-width: 520px;
+}
+
+/* ── DIAGRAMS GRID ── */
+.diagram-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.diagram-card {
+  background: var(--bg2);
+  padding: 1.25rem;
+  text-decoration: none;
+  transition: background .12s;
+  display: block;
+}
+.diagram-card:hover { background: var(--bg3); }
+.dc-tag {
+  font-size: 10px;
+  letter-spacing: .15em;
+  color: var(--accent2);
+  text-transform: uppercase;
+  margin-bottom: .5rem;
+}
+.dc-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: .4rem;
+}
+.dc-desc {
+  font-family: var(--sans);
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+.dc-arrow {
+  font-size: 12px;
+  color: var(--dim);
+  margin-top: .75rem;
+  transition: color .12s;
+}
+.diagram-card:hover .dc-arrow { color: var(--accent); }
+
+/* ── TIERS ── */
+.tier-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+.tier-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.tier-card.featured { border-color: var(--accent2); }
+.tier-top {
+  height: 3px;
+  background: var(--border2);
+}
+.tier-card.t1 .tier-top { background: #4a9eff; }
+.tier-card.t2 .tier-top { background: var(--accent2); }
+.tier-card.t3 .tier-top { background: var(--warn); }
+.tier-card.t4 .tier-top { background: #a855f7; }
+.tier-card.t5 .tier-top { background: var(--accent); }
+.tier-body { padding: 1.25rem; flex: 1; }
+.tier-number {
+  font-size: 10px;
+  letter-spacing: .18em;
+  color: var(--dim);
+  text-transform: uppercase;
+  margin-bottom: .35rem;
+}
+.tier-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: .25rem;
+}
+.tier-tag {
+  font-size: 10px;
+  letter-spacing: .1em;
+  color: var(--muted);
+  margin-bottom: 1rem;
+  text-transform: uppercase;
+}
+.tier-words {
+  list-style: none;
+  margin-bottom: 1rem;
+}
+.tier-words li {
+  font-size: 12px;
+  color: var(--muted);
+  padding: 3px 0;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tier-words li::before {
+  content: '→';
+  color: var(--dim);
+  flex-shrink: 0;
+}
+.tier-words li.hi { color: var(--text); }
+.tier-words li.hi::before { color: var(--accent2); }
+.tier-footer { padding: 0 1.25rem 1.25rem; }
+.tier-btn {
+  display: block;
+  text-align: center;
+  padding: 9px 16px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-decoration: none;
+  border-radius: 2px;
+  border: 1px solid var(--border2);
+  color: var(--muted);
+  transition: all .15s;
+}
+.tier-btn:hover { border-color: var(--text); color: var(--text); }
+.tier-btn.primary {
+  background: var(--accent2);
+  border-color: var(--accent2);
+  color: #0a0a08;
+}
+.tier-btn.primary:hover { background: #00bfa0; border-color: #00bfa0; color: #0a0a08; }
+
+/* Free tier */
+.free-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+.free-badge {
+  font-size: 11px;
+  letter-spacing: .15em;
+  color: var(--accent);
+  text-transform: uppercase;
+  border: 1px solid var(--accent);
+  padding: 3px 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin-top: 2px;
+}
+.free-content { flex: 1; min-width: 200px; }
+.free-title { font-size: 15px; font-weight: 600; margin-bottom: .4rem; }
+.free-desc { font-family: var(--sans); font-size: 13px; color: var(--muted); margin-bottom: .75rem; }
+.free-vocabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.vocab-chip {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--accent2);
+  background: rgba(0,212,170,0.08);
+  border: 1px solid rgba(0,212,170,0.2);
+  padding: 2px 9px;
+  border-radius: 2px;
+}
+
+/* ── INSTALL ── */
+.install-steps { display: flex; flex-direction: column; gap: 1px; }
+.step {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  padding: 1.25rem;
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+.step-num {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  min-width: 24px;
+  padding-top: 2px;
+}
+.step-content { flex: 1; }
+.step-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: .35rem;
+}
+.step-desc {
+  font-family: var(--sans);
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: .5rem;
+}
+.code-block {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: .6rem 1rem;
+  border-radius: 2px;
+  font-size: 12px;
+  color: var(--accent2);
+  overflow-x: auto;
+  white-space: pre;
+}
+
+/* ── PHILOSOPHY ── */
+.phi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.phi-item {
+  background: var(--bg2);
+  padding: 1.25rem;
+}
+.phi-label {
+  font-size: 10px;
+  letter-spacing: .2em;
+  color: var(--dim);
+  text-transform: uppercase;
+  margin-bottom: .5rem;
+}
+.phi-text {
+  font-family: var(--sans);
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+.phi-text strong { color: var(--text); font-weight: 500; }
+
+/* ── FOOTER ── */
+footer {
+  padding: 3rem 0 2rem;
+  border-top: 1px solid var(--border);
+}
+.footer-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+@media (max-width: 600px) { .footer-grid { grid-template-columns: 1fr; } }
+.footer-col-title {
+  font-size: 11px;
+  letter-spacing: .15em;
+  color: var(--dim);
+  text-transform: uppercase;
+  margin-bottom: 1rem;
+}
+.footer-links { list-style: none; }
+.footer-links li { margin-bottom: .4rem; }
+.footer-links a {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 13px;
+  transition: color .12s;
+}
+.footer-links a:hover { color: var(--text); }
+.footer-bottom {
+  border-top: 1px solid var(--border);
+  padding-top: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.footer-copy { font-size: 11px; color: var(--dim); }
+.footer-tagline { font-size: 11px; color: var(--dim); font-style: italic; }
+
+/* ── ANIMATIONS ── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.hero > * { animation: fadeUp .5s ease both; }
+.hero > *:nth-child(1) { animation-delay: .05s; }
+.hero > *:nth-child(2) { animation-delay: .12s; }
+.hero > *:nth-child(3) { animation-delay: .18s; }
+.hero > *:nth-child(4) { animation-delay: .24s; }
+.hero > *:nth-child(5) { animation-delay: .30s; }
+.hero > *:nth-child(6) { animation-delay: .36s; }
+@media (prefers-reduced-motion: reduce) {
+  .hero > *, .cursor { animation: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="wrap">
+    <a class="nav-logo" href="#">FORTH<span>OS</span></a>
+    <div class="nav-links">
+      <a href="#diagrams">Diagrams</a>
+      <a href="#tiers">Packs</a>
+      <a href="#install">Install</a>
+      <a href="https://github.com/jeweledtech/bare-metal-forth" target="_blank">GitHub</a>
+      <a href="https://shop.jollygeniusinc.com" target="_blank" class="nav-cta">SHOP</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="wrap">
+    <div class="hero-tag">JeweledTech · Jolly Genius Inc.</div>
+    <h1>
+      Bare-metal Forth-83.<br>
+      <span class="hl">No HAL. No OS.</span><br>
+      <span class="dim">No compromises.</span>
+    </h1>
+    <p class="hero-desc">
+      A complete Forth-83 OS in x86 assembly. Direct hardware access via INB/OUTB/port I/O.
+      Universal Binary Translator that extracts hardware protocols from Windows drivers.
+      A metacompiler targeting 9 architectures. Runs on real hardware in under 5 seconds.
+    </p>
+    <div class="hero-stats">
+      <div class="stat">
+        <span class="stat-val">178</span>
+        <span class="stat-label">kernel words</span>
+      </div>
+      <div class="stat">
+        <span class="stat-val">66 KB</span>
+        <span class="stat-label">bootable kernel</span>
+      </div>
+      <div class="stat">
+        <span class="stat-val">258</span>
+        <span class="stat-label">tests passing</span>
+      </div>
+      <div class="stat">
+        <span class="stat-val">18</span>
+        <span class="stat-label">real drivers analyzed</span>
+      </div>
+      <div class="stat">
+        <span class="stat-val">9</span>
+        <span class="stat-label">arch targets</span>
+      </div>
+    </div>
+    <div class="hero-actions">
+      <a href="https://github.com/jeweledtech/bare-metal-forth" target="_blank" class="btn-primary">GET FREE KERNEL</a>
+      <a href="#tiers" class="btn-secondary">VIEW PAID PACKS →</a>
+      <a href="#diagrams" class="btn-secondary">EXPLORE DOCS →</a>
+    </div>
+  </div>
+</section>
+
+<!-- BOOT SEQUENCE -->
+<section class="boot">
+  <div class="wrap">
+    <div style="font-size:11px;letter-spacing:.15em;color:var(--dim);text-transform:uppercase;margin-bottom:.75rem;">// Live session — HP 15-bs0xx · PXE boot · UDP console</div>
+    <div class="terminal">
+<span class="comment">\ ForthOS boots in &lt;5s. Auto-detects hardware. No typing required.</span>
+<span class="out">AUTO-DETECT: RTL8168 @ PCI 01:00.0  ok</span>
+<span class="out">AUTO-DETECT: AHCI    @ PCI 00:17.0  ok</span>
+<span class="out">AUTO-DETECT: xHCI    @ PCI 00:14.0  ok</span>
+<span class="out">NET console ready · UDP 10.42.0.2:6666</span>
+<span class="out">ForthOS v1.0 · 178 words · 66048 bytes</span>
+<span class="ok">ok</span>
+<span class="prompt">3 4 + . </span><span class="hi">7</span> <span class="ok">ok</span>
+<span class="prompt">USING I8042PRT  </span><span class="ok">ok</span>
+<span class="prompt">I8042_READ_DATA . </span><span class="hi">60</span> <span class="ok">ok</span>
+<span class="prompt">NTFS-INIT  </span><span class="out">GPT found · NTFS partition @ LBA 2048  </span><span class="ok">ok</span>
+<span class="prompt">S" i8042prt.sys" FILE-FIND . </span><span class="hi">74031</span> <span class="ok">ok</span>
+<span class="prompt"><span class="cursor"></span></span>
+    </div>
+  </div>
+</section>
+
+<!-- INTERACTIVE DIAGRAMS -->
+<section class="section" id="diagrams">
+  <div class="wrap">
+    <div class="section-id">// 01 — documentation</div>
+    <div class="section-title">Interactive diagrams</div>
+    <p class="section-sub">Seven fully self-contained HTML diagrams. Open in any browser — no server, no build step, no internet required.</p>
+
+    <div class="diagram-grid">
+      <a class="diagram-card" href="forthos_architecture_overview.html">
+        <div class="dc-tag">Architecture</div>
+        <div class="dc-title">Full stack overview</div>
+        <div class="dc-desc">Five-layer system from bare metal hardware through kernel, vocabularies, UBT pipeline, to metacompiler and 9 multi-arch targets.</div>
+        <div class="dc-arrow">open diagram →</div>
+      </a>
+      <a class="diagram-card" href="ubt_pipeline_visualizer.html">
+        <div class="dc-tag">UBT · Tier 4</div>
+        <div class="dc-title">Pipeline visualizer</div>
+        <div class="dc-desc">Animated four-stage pipeline: PE loader → x86 decoder → UIR lifter → Forth codegen. Clickable stages with detail.</div>
+        <div class="dc-arrow">open diagram →</div>
+      </a>
+      <a class="diagram-card" href="binary_semantic_report.html">
+        <div class="dc-tag">UBT · Analysis</div>
+        <div class="dc-title">Semantic report viewer</div>
+        <div class="dc-desc">Drop-down viewer for 4 real HP Windows drivers — hardware vs scaffolding function counts, MFT record numbers, sample words.</div>
+        <div class="dc-arrow">open diagram →</div>
+      </a>
+      <a class="diagram-card" href="driver_vocabulary_catalog.html">
+        <div class="dc-tag">Vocab catalog</div>
+        <div class="dc-title">Driver vocab catalog</div>
+        <div class="dc-desc">18 analyzed Windows driver binaries mapped to named Forth threaded libraries. Filter by category, sort by hardware word count.</div>
+        <div class="dc-arrow">open diagram →</div>
+      </a>
+      <a class="diagram-card" href="forthos_memory_map.html">
+        <div class="dc-tag">Internals</div>
+        <div class="dc-title">Memory map</div>
+        <div class="dc-desc">Full 32-bit flat address space. Click any region — IVT, kernel, vocab blocks, ISR table, block buffers, VGA framebuffer.</div>
+        <div class="dc-arrow">open diagram →</div>
+      </a>
+      <a class="diagram-card" href="metacompiler_phase_tracker.html">
+        <div class="dc-tag">Metacompiler · Tier 5</div>
+        <div class="dc-title">Phase tracker</div>
+        <div class="dc-desc">All 6 metacompiler phases (A through B6b) complete. 151/151 tests green. Self-hosting proven. 66,048-byte bootable output.</div>
+        <div class="dc-arrow">open diagram →</div>
+      </a>
+      <a class="diagram-card" href="forth83_quick_reference.html">
+        <div class="dc-tag">Reference</div>
+        <div class="dc-title">Forth-83 quick reference</div>
+        <div class="dc-desc">178-word dictionary by category. Flags absent words (no 2*), known constraints, bug log. The card you hand a new contributor.</div>
+        <div class="dc-arrow">open diagram →</div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- TIERS -->
+<section class="section" id="tiers">
+  <div class="wrap">
+    <div class="section-id">// 02 — vocabulary packs</div>
+    <div class="section-title">Free kernel + paid vocabulary packs</div>
+    <p class="section-sub">The kernel is MIT licensed and free. Vocabulary packs are sold separately via Shopify. Purchase grants access to the private <code style="font-size:12px;color:var(--accent2);">forthos-vocabularies</code> repo.</p>
+
+    <!-- Free tier -->
+    <div class="free-card">
+      <div class="free-badge">FREE</div>
+      <div class="free-content">
+        <div class="free-title">Kernel + free vocabularies</div>
+        <div class="free-desc">Complete Forth-83 kernel, bootloader, 4 embedded vocabularies (auto-loaded at boot), and 15 block-loadable community vocabularies. MIT licensed. Clone and go.</div>
+        <div class="free-vocabs">
+          <span class="vocab-chip">HARDWARE</span>
+          <span class="vocab-chip">PORT-MAPPER</span>
+          <span class="vocab-chip">ECHOPORT</span>
+          <span class="vocab-chip">PCI-ENUM</span>
+          <span class="vocab-chip">EDITOR</span>
+          <span class="vocab-chip">X86-ASM</span>
+          <span class="vocab-chip">DISASM</span>
+          <span class="vocab-chip">NE2000</span>
+          <span class="vocab-chip">+11 more</span>
+        </div>
+      </div>
+      <a href="https://github.com/jeweledtech/bare-metal-forth" target="_blank" class="btn-primary" style="align-self:center;white-space:nowrap;">CLONE FREE →</a>
+    </div>
+
+    <!-- Paid tiers -->
+    <div class="tier-grid">
+
+      <div class="tier-card t1">
+        <div class="tier-top"></div>
+        <div class="tier-body">
+          <div class="tier-number">Tier 1</div>
+          <div class="tier-name">Disk Stack Pack</div>
+          <div class="tier-tag">Storage · filesystem · partition</div>
+          <ul class="tier-words">
+            <li class="hi">AHCI — SATA controller, DMA</li>
+            <li class="hi">NTFS — MFT walker, 1.2M records</li>
+            <li class="hi">FAT32 — EFI partition, GPT</li>
+            <li>AUTO-DETECT — boot-time HW init</li>
+            <li>DISK-SURVEY — partition reporter</li>
+          </ul>
+        </div>
+        <div class="tier-footer">
+          <a href="https://shop.jollygeniusinc.com/products/forthos-disk-stack-pack" target="_blank" class="tier-btn">GET DISK STACK PACK →</a>
+        </div>
+      </div>
+
+      <div class="tier-card t2">
+        <div class="tier-top"></div>
+        <div class="tier-body">
+          <div class="tier-number">Tier 2</div>
+          <div class="tier-name">Network Pack</div>
+          <div class="tier-tag">RTL8168 · UDP console · PXE</div>
+          <ul class="tier-words">
+            <li class="hi">RTL8168 — Realtek GbE driver</li>
+            <li>UDP network console (port 6666)</li>
+            <li>PXE boot integration</li>
+            <li>100% reliable TX/RX</li>
+            <li>PCIe posted-write flush fix</li>
+          </ul>
+        </div>
+        <div class="tier-footer">
+          <a href="https://shop.jollygeniusinc.com/products/forthos-network-pack" target="_blank" class="tier-btn">GET NETWORK PACK →</a>
+        </div>
+      </div>
+
+      <div class="tier-card t3 featured">
+        <div class="tier-top"></div>
+        <div class="tier-body">
+          <div class="tier-number">Tier 3 · Most Popular</div>
+          <div class="tier-name">Full Hardware Pack</div>
+          <div class="tier-tag">Everything in Tiers 1 + 2, plus A/V</div>
+          <ul class="tier-words">
+            <li class="hi">All Tier 1 + Tier 2 vocabs</li>
+            <li class="hi">GRAPHICS — HD Graphics 620</li>
+            <li class="hi">AUDIO — HD Audio bus</li>
+            <li class="hi">VIDEO — framebuffer output</li>
+            <li>xHCI USB — ring buffer, doorbells</li>
+          </ul>
+        </div>
+        <div class="tier-footer">
+          <a href="https://shop.jollygeniusinc.com/products/forthos-full-hardware-pack-most-popular" target="_blank" class="tier-btn primary">GET FULL HARDWARE PACK →</a>
+        </div>
+      </div>
+
+      <div class="tier-card t4">
+        <div class="tier-top"></div>
+        <div class="tier-body">
+          <div class="tier-number">Tier 4</div>
+          <div class="tier-name">UBT Pipeline</div>
+          <div class="tier-tag">Universal Binary Translator · host-side tool</div>
+          <ul class="tier-words">
+            <li class="hi">PE loader — PE32 + PE32+ + ELF64</li>
+            <li class="hi">x86 decoder — ModR/M, intrinsics</li>
+            <li class="hi">UIR lifter — semantic analysis</li>
+            <li class="hi">Forth codegen — named words</li>
+            <li>258 tests · 18 real drivers · Ghidra validation</li>
+          </ul>
+        </div>
+        <div class="tier-footer">
+          <a href="https://shop.jollygeniusinc.com/products/forthos-ubt-pipeline" target="_blank" class="tier-btn">GET UBT PIPELINE →</a>
+        </div>
+      </div>
+
+      <div class="tier-card t5">
+        <div class="tier-top"></div>
+        <div class="tier-body">
+          <div class="tier-number">Tier 5</div>
+          <div class="tier-name">Metacompiler Pack</div>
+          <div class="tier-tag">Self-hosting · multi-arch · 9 targets</div>
+          <ul class="tier-words">
+            <li class="hi">META-COMPILER — 85 host words</li>
+            <li class="hi">TARGET-X86 — self-rebuild</li>
+            <li class="hi">TARGET-ARM64 — Pi 3B/4/5</li>
+            <li class="hi">ARM64-ASM — Cortex-M33/RP2350B</li>
+            <li>Self-hosting proven · 151/151 tests</li>
+          </ul>
+        </div>
+        <div class="tier-footer">
+          <a href="https://shop.jollygeniusinc.com/products/forthos-metacompiler-pack" target="_blank" class="tier-btn">GET METACOMPILER PACK →</a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- INSTALL -->
+<section class="section" id="install">
+  <div class="wrap">
+    <div class="section-id">// 03 — getting started</div>
+    <div class="section-title">Boot in 3 steps</div>
+    <p class="section-sub">Requires NASM, GNU Make, and QEMU. Real hardware needs Secure Boot disabled. PXE boot supported via dnsmasq + tftpd.</p>
+
+    <div class="install-steps">
+      <div class="step">
+        <div class="step-num">01</div>
+        <div class="step-content">
+          <div class="step-title">Clone and build</div>
+          <div class="step-desc">Clone the public repo and build the 66 KB kernel image.</div>
+          <div class="code-block">git clone https://github.com/jeweledtech/bare-metal-forth
+cd bare-metal-forth
+make all
+<span style="color:var(--muted)"># → build/forth.img (66,048 bytes)</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <div class="step-content">
+          <div class="step-title">Run in QEMU</div>
+          <div class="step-desc">Boot ForthOS in QEMU and see the Forth prompt.</div>
+          <div class="code-block">make run
+<span style="color:var(--muted)"># → ForthOS boots, 178 words loaded</span>
+<span style="color:var(--accent2)">3 4 + .  </span><span style="color:var(--text)">7 ok</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <div class="step-content">
+          <div class="step-title">Run the test suite</div>
+          <div class="step-desc">Smoke tests, vocabulary tests, and integration tests. All must pass before any commit.</div>
+          <div class="code-block">make test
+<span style="color:var(--muted)"># → 5/5 smoke · vocabs · integration</span>
+<span style="color:var(--accent)">All tests passed!</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">04</div>
+        <div class="step-content">
+          <div class="step-title">Real hardware — PXE boot</div>
+          <div class="step-desc">Boot directly onto real x86 hardware over ethernet. UDP console on port 6666.</div>
+          <div class="code-block">make pxe-push        <span style="color:var(--muted)"># push to TFTP server</span>
+nc -u -l 6666        <span style="color:var(--muted)"># open UDP console</span>
+<span style="color:var(--muted)"># power on target → ForthOS boots in &lt;5s</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PHILOSOPHY -->
+<section class="section" id="philosophy">
+  <div class="wrap">
+    <div class="section-id">// 04 — design principles</div>
+    <div class="section-title">Why bare metal</div>
+    <p class="section-sub">Every design decision flows from a single principle: direct hardware access, no abstraction layers between code and silicon.</p>
+
+    <div class="phi-grid">
+      <div class="phi-item">
+        <div class="phi-label">No HAL</div>
+        <div class="phi-text">Direct INB/OUTB/port I/O. <strong>No hardware abstraction layer.</strong> No OS mediation. No registry. No driver signing. If a port exists, Forth can read it.</div>
+      </div>
+      <div class="phi-item">
+        <div class="phi-label">Live execution</div>
+        <div class="phi-text"><strong>Define a word and run it immediately.</strong> No stop-recompile-restart cycle. Write directly to live memory buffers and execute in real time — exactly as Forth was designed.</div>
+      </div>
+      <div class="phi-item">
+        <div class="phi-label">RPN = hardware native</div>
+        <div class="phi-text">Forth's Reverse Polish Notation maps directly to <strong>how CPUs and registers actually work.</strong> Stack operations mirror hardware operations. No translation layer needed.</div>
+      </div>
+      <div class="phi-item">
+        <div class="phi-label">UBT — driver forensics</div>
+        <div class="phi-text">The Universal Binary Translator <strong>extracts hardware protocols from Windows .sys files</strong> — decompiles them into named Forth vocabulary words you can call directly.</div>
+      </div>
+      <div class="phi-item">
+        <div class="phi-label">Self-hosting</div>
+        <div class="phi-text">The metacompiler produces a kernel that <strong>can compile itself.</strong> One source tree targets x86, ARM64, RISC-V, Cortex-M33, SPARC, PowerPC, MIPS, AVR, ESP32.</div>
+      </div>
+      <div class="phi-item">
+        <div class="phi-label">Forth-83 standard</div>
+        <div class="phi-text">Strict Forth-83 compliance: <strong>floored division, 1 KB block storage,</strong> vocabulary search order, DTC interpreter. Historical correctness, not approximation.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="wrap">
+    <div class="footer-grid">
+      <div>
+        <div class="footer-col-title">Repos</div>
+        <ul class="footer-links">
+          <li><a href="https://github.com/jeweledtech/bare-metal-forth" target="_blank">bare-metal-forth (public, free)</a></li>
+          <li><a href="https://shop.jollygeniusinc.com" target="_blank">forthos-vocabularies (private, paid)</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="footer-col-title">Vocabulary packs</div>
+        <ul class="footer-links">
+          <li><a href="https://shop.jollygeniusinc.com/products/forthos-disk-stack-pack" target="_blank">Disk Stack Pack (Tier 1)</a></li>
+          <li><a href="https://shop.jollygeniusinc.com/products/forthos-network-pack" target="_blank">Network Pack (Tier 2)</a></li>
+          <li><a href="https://shop.jollygeniusinc.com/products/forthos-full-hardware-pack-most-popular" target="_blank">Full Hardware Pack (Tier 3)</a></li>
+          <li><a href="https://shop.jollygeniusinc.com/products/forthos-ubt-pipeline" target="_blank">UBT Pipeline (Tier 4)</a></li>
+          <li><a href="https://shop.jollygeniusinc.com/products/forthos-metacompiler-pack" target="_blank">Metacompiler Pack (Tier 5)</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="footer-col-title">Diagrams</div>
+        <ul class="footer-links">
+          <li><a href="forthos_architecture_overview.html">Architecture overview</a></li>
+          <li><a href="ubt_pipeline_visualizer.html">UBT pipeline</a></li>
+          <li><a href="binary_semantic_report.html">Semantic report viewer</a></li>
+          <li><a href="driver_vocabulary_catalog.html">Driver vocab catalog</a></li>
+          <li><a href="forthos_memory_map.html">Memory map</a></li>
+          <li><a href="metacompiler_phase_tracker.html">Metacompiler phases</a></li>
+          <li><a href="forth83_quick_reference.html">Forth-83 reference</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <div class="footer-copy">© 2026 Jolly Genius Inc. · JeweledTech · Winters, CA · MIT License (kernel)</div>
+      <div class="footer-tagline">"Build systems worthy of the void."</div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

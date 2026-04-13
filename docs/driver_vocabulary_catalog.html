@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ForthOS — Driver Vocabulary Catalog</title>
+<style>
+  :root {
+    --color-text-primary:#1a1a18; --color-text-secondary:#5f5e5a; --color-text-tertiary:#888780;
+    --color-text-info:#185FA5; --color-text-success:#3B6D11; --color-text-warning:#854F0B;
+    --color-background-primary:#ffffff; --color-background-secondary:#f1efe8;
+    --color-background-info:#E6F1FB; --color-background-success:#EAF3DE; --color-background-warning:#FAEEDA;
+    --color-border-tertiary:rgba(0,0,0,0.12); --color-border-secondary:rgba(0,0,0,0.22);
+    --border-radius-md:8px; --border-radius-lg:12px;
+    --font-sans:system-ui,-apple-system,sans-serif; --font-mono:'Menlo','Consolas',monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --color-text-primary:#e8e6de; --color-text-secondary:#b4b2a9; --color-text-tertiary:#888780; --color-text-info:#85B7EB; --color-text-success:#97C459; --color-text-warning:#EF9F27; --color-background-primary:#1c1c1a; --color-background-secondary:#2c2c2a; --color-background-info:#0C447C; --color-background-success:#27500A; --color-background-warning:#633806; --color-border-tertiary:rgba(255,255,255,0.1); --color-border-secondary:rgba(255,255,255,0.18); }
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:var(--font-sans); background:var(--color-background-primary); color:var(--color-text-primary); padding:2rem; max-width:800px; margin:0 auto; }
+  h1 { font-size:18px; font-weight:500; margin-bottom:4px; }
+  .subtitle { font-size:13px; color:var(--color-text-secondary); margin-bottom:20px; }
+  .controls { display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
+  select { font-size:13px; padding:6px 10px; border-radius:var(--border-radius-md); border:0.5px solid var(--color-border-secondary); background:var(--color-background-primary); color:var(--color-text-primary); }
+  .cat-pill { display:inline-block; font-size:11px; padding:2px 8px; border-radius:10px; font-weight:500; }
+  .cat-Input   { background:var(--color-background-info);    color:var(--color-text-info); }
+  .cat-Storage { background:var(--color-background-success);  color:var(--color-text-success); }
+  .cat-USB     { background:var(--color-background-warning); color:var(--color-text-warning); }
+  .cat-Bus     { background:var(--color-background-secondary); color:var(--color-text-secondary); border:0.5px solid var(--color-border-tertiary); }
+  .cat-Audio   { background:#EEEDFE; color:#3C3489; }
+  .cat-System  { background:#FAECE7; color:#712B13; }
+  .drv-row { display:flex; align-items:center; gap:10px; padding:9px 8px; border-bottom:0.5px solid var(--color-border-tertiary); cursor:default; border-radius:4px; transition:background .12s; }
+  .drv-row:hover { background:var(--color-background-secondary); }
+  .drv-row:last-child { border-bottom:none; }
+  .bar-bg { flex:1; height:6px; background:var(--color-border-tertiary); border-radius:3px; overflow:hidden; min-width:80px; }
+  .bar-fill { height:100%; border-radius:3px; background:var(--color-text-info); }
+  .count-line { margin-top:10px; font-size:12px; color:var(--color-text-tertiary); }
+  footer { margin-top:32px; font-size:11px; color:var(--color-text-tertiary); }
+</style>
+</head>
+<body>
+<h1>ForthOS — Driver vocabulary catalog</h1>
+<p class="subtitle">18 real-world Windows driver binaries analyzed by the UBT pipeline and named as Forth threaded libraries. Bar = hardware word count.</p>
+
+<div class="controls">
+  <select id="cat-filter" onchange="renderList()">
+    <option value="">All categories</option>
+    <option value="Input">Input devices</option>
+    <option value="Storage">Storage</option>
+    <option value="USB">USB</option>
+    <option value="Bus">Bus / PCI</option>
+    <option value="Audio">Audio</option>
+    <option value="System">System</option>
+  </select>
+  <select id="sort" onchange="renderList()">
+    <option value="hw">Sort: hardware words</option>
+    <option value="name">Sort: name</option>
+  </select>
+</div>
+
+<div id="drv-list"></div>
+<p class="count-line" id="count-line"></p>
+<footer>ForthOS · bare-metal-forth (public) · forthos-vocabularies (private) · UBT pipeline = Tier 4 · 18 real-world drivers analyzed</footer>
+
+<script>
+const DRIVERS = [
+  {vocab:'I8042PRT', file:'i8042prt.sys', cat:'Input',   hw:2,  scaff:18,  note:'Keyboard/PS2 controller'},
+  {vocab:'STORPORT', file:'storport.sys', cat:'Storage', hw:65, scaff:120, note:'Storage port miniport'},
+  {vocab:'USBXHCI',  file:'usbxhci.sys', cat:'USB',     hw:51, scaff:80,  note:'xHCI host controller'},
+  {vocab:'HDA-BUS',  file:'HDAudBus.sys',cat:'Audio',   hw:10, scaff:22,  note:'HD Audio bus driver'},
+  {vocab:'PCI-BUS',  file:'pci.sys',     cat:'Bus',     hw:13, scaff:40,  note:'PCI enumerator, CF8/CFC access'},
+  {vocab:'DISK-DRV', file:'disk.sys',    cat:'Storage', hw:2,  scaff:12,  note:'Disk class driver'},
+  {vocab:'ACPI-DRV', file:'ACPI.sys',    cat:'System',  hw:0,  scaff:0,   note:'Large binary — SIGSEGV, needs investigation'},
+  {vocab:'SERIAL-16550',file:'serial.sys',cat:'Input',  hw:8,  scaff:15,  note:'16550 UART serial port'},
+  {vocab:'ATAPI-DRV',file:'atapi.sys',   cat:'Storage', hw:14, scaff:28,  note:'ATA/ATAPI command set'},
+  {vocab:'USB-HUB',  file:'usbhub.sys',  cat:'USB',     hw:9,  scaff:20,  note:'USB hub TT management'},
+  {vocab:'KBD-HID',  file:'kbdhid.sys',  cat:'Input',   hw:3,  scaff:9,   note:'HID keyboard filter'},
+  {vocab:'MOU-CLASS',file:'mouclass.sys',cat:'Input',   hw:2,  scaff:8,   note:'Mouse class driver'},
+  {vocab:'NTFS-VOL', file:'ntfs.sys',    cat:'Storage', hw:0,  scaff:4,   note:'NTFS volume — scaffolding only'},
+  {vocab:'VOL-MGR',  file:'volmgr.sys',  cat:'Storage', hw:5,  scaff:18,  note:'Volume manager'},
+  {vocab:'AHCI-PORT',file:'storahci.sys',cat:'Storage', hw:22, scaff:35,  note:'AHCI SATA controller'},
+  {vocab:'USB-STOR', file:'usbstor.sys', cat:'USB',     hw:7,  scaff:14,  note:'USB mass storage class'},
+  {vocab:'PCMCIA',   file:'pcmcia.sys',  cat:'Bus',     hw:4,  scaff:11,  note:'PC Card / CardBus'},
+  {vocab:'COMP-BATT',file:'compbatt.sys',cat:'System',  hw:3,  scaff:6,   note:'Composite battery driver'},
+];
+const maxHw = Math.max(...DRIVERS.map(d=>d.hw));
+function renderList() {
+  const cat = document.getElementById('cat-filter').value;
+  const sort = document.getElementById('sort').value;
+  let list = cat ? DRIVERS.filter(d=>d.cat===cat) : [...DRIVERS];
+  list.sort((a,b) => sort==='name' ? a.vocab.localeCompare(b.vocab) : b.hw-a.hw);
+  document.getElementById('drv-list').innerHTML = list.map(d=>`
+    <div class="drv-row">
+      <span style="font-family:var(--font-mono);font-size:12px;min-width:120px;">${d.vocab}</span>
+      <span class="cat-pill cat-${d.cat}">${d.cat}</span>
+      <span style="font-size:12px;color:var(--color-text-secondary);min-width:28px;text-align:right;">${d.hw}</span>
+      <div class="bar-bg"><div class="bar-fill" style="width:${maxHw>0?Math.round(d.hw/maxHw*100):0}%"></div></div>
+      <span style="font-size:11px;color:var(--color-text-tertiary);min-width:160px;">${d.note}</span>
+    </div>`).join('');
+  document.getElementById('count-line').textContent = `${list.length} vocabularies shown`;
+}
+renderList();
+</script>
+</body>
+</html>

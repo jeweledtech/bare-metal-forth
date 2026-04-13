@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ForthOS — Binary Semantic Report Viewer</title>
+<style>
+  :root {
+    --color-text-primary: #1a1a18;
+    --color-text-secondary: #5f5e5a;
+    --color-text-tertiary: #888780;
+    --color-text-info: #185FA5;
+    --color-text-success: #3B6D11;
+    --color-text-warning: #854F0B;
+    --color-background-primary: #ffffff;
+    --color-background-secondary: #f1efe8;
+    --color-background-info: #E6F1FB;
+    --color-background-success: #EAF3DE;
+    --color-background-warning: #FAEEDA;
+    --color-border-tertiary: rgba(0,0,0,0.12);
+    --color-border-secondary: rgba(0,0,0,0.22);
+    --border-radius-md: 8px;
+    --border-radius-lg: 12px;
+    --font-sans: system-ui, -apple-system, sans-serif;
+    --font-mono: 'Menlo', 'Consolas', monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --color-text-primary: #e8e6de;
+      --color-text-secondary: #b4b2a9;
+      --color-text-tertiary: #888780;
+      --color-text-info: #85B7EB;
+      --color-text-success: #97C459;
+      --color-text-warning: #EF9F27;
+      --color-background-primary: #1c1c1a;
+      --color-background-secondary: #2c2c2a;
+      --color-background-info: #0C447C;
+      --color-background-success: #27500A;
+      --color-background-warning: #633806;
+      --color-border-tertiary: rgba(255,255,255,0.1);
+      --color-border-secondary: rgba(255,255,255,0.18);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font-sans); background: var(--color-background-primary); color: var(--color-text-primary); padding: 2rem; max-width: 760px; margin: 0 auto; }
+  h1 { font-size: 18px; font-weight: 500; margin-bottom: 4px; }
+  .subtitle { font-size: 13px; color: var(--color-text-secondary); margin-bottom: 24px; }
+  .badge { display:inline-block; font-size:11px; font-weight:500; padding:2px 8px; border-radius:4px; }
+  .badge-hw { background:var(--color-background-info); color:var(--color-text-info); }
+  .badge-scaff { background:var(--color-background-secondary); color:var(--color-text-secondary); border: 0.5px solid var(--color-border-tertiary); }
+  .badge-analyzed { background:var(--color-background-info); color:var(--color-text-info); }
+  .fn-row { display:flex; align-items:flex-start; gap:10px; padding:8px 0; border-bottom:0.5px solid var(--color-border-tertiary); }
+  .fn-row:last-child { border-bottom:none; }
+  .fn-name { font-family:var(--font-mono); font-size:12px; color:var(--color-text-primary); min-width:180px; }
+  .fn-desc { font-size:12px; color:var(--color-text-secondary); flex:1; }
+  select { font-size:13px; padding:6px 10px; border-radius:var(--border-radius-md); border:0.5px solid var(--color-border-secondary); background:var(--color-background-primary); color:var(--color-text-primary); margin-bottom:16px; width:100%; max-width:420px; }
+  .card { background:var(--color-background-primary); border:0.5px solid var(--color-border-tertiary); border-radius:var(--border-radius-lg); padding:1rem 1.25rem; }
+  .metric-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:14px; }
+  .metric { background:var(--color-background-secondary); border-radius:var(--border-radius-md); padding:10px; }
+  .metric-label { font-size:11px; color:var(--color-text-secondary); margin-bottom:2px; }
+  .metric-value { font-size:22px; font-weight:500; }
+  .divider { border:none; border-top:0.5px solid var(--color-border-tertiary); margin:12px 0; }
+  .section-label { font-size:11px; font-weight:500; color:var(--color-text-secondary); margin-bottom:6px; text-transform:uppercase; letter-spacing:.04em; }
+  footer { margin-top:32px; font-size:11px; color:var(--color-text-tertiary); }
+</style>
+</head>
+<body>
+<h1>ForthOS — Binary semantic report viewer</h1>
+<p class="subtitle">UBT pipeline output for real Windows x86/x64 kernel drivers. Select a driver to see its hardware function analysis.</p>
+
+<select id="driver-sel" onchange="render()">
+  <option value="i8042">i8042prt.sys — keyboard/mouse controller</option>
+  <option value="storport">storport.sys — storage port driver</option>
+  <option value="usbxhci">usbxhci.sys — USB xHCI controller</option>
+  <option value="pci">pci.sys — PCI bus driver</option>
+</select>
+
+<div id="report-card" class="card"></div>
+
+<footer>ForthOS · bare-metal-forth (public) · UBT pipeline in forthos-vocabularies (private, Tier 4) · 18 real-world binaries</footer>
+
+<script>
+const DRIVERS = {
+  i8042: { file:'i8042prt.sys', mft:74031, size:'52 KB', arch:'PE32 x86', hw:2, scaff:18, verdict:'Keyboard/mouse controller. 2 hardware register words identified.', note:'Compiler intrinsics gap — __inbyte/__outbyte not resolved at binary level.', functions:[{name:'I8042_READ_DATA',type:'hw',desc:'Reads port 0x60 (keyboard data register)'},{name:'I8042_WRITE_CMD',type:'hw',desc:'Writes port 0x64 (controller command register)'},{name:'KBD_ISR_CONNECT',type:'scaff',desc:'Hooks IRQ1 interrupt service routine'},{name:'KBD_RESET',type:'scaff',desc:'Sends 0xFF reset command to controller'},{name:'MOU_READ_STATUS',type:'scaff',desc:'Reads mouse status via PS/2 port 2'}]},
+  storport: { file:'storport.sys', mft:null, size:'~900 KB', arch:'PE32+ x64', hw:65, scaff:120, verdict:'Storage port miniport. 65 hardware access words identified.', note:'Largest hardware function count of any tested driver.', functions:[{name:'STOR_DMA_MAP',type:'hw',desc:'Maps scatter-gather DMA for storage transfers'},{name:'STOR_PORT_READ',type:'hw',desc:'Reads 32-bit value from I/O port'},{name:'STOR_PORT_WRITE',type:'hw',desc:'Writes 32-bit value to I/O port'},{name:'STOR_MMIO_READ',type:'hw',desc:'Memory-mapped register read (BAR-relative)'},{name:'STOR_IRQ_SYNC',type:'scaff',desc:'Synchronizes ISR with DPC queue'}]},
+  usbxhci: { file:'usbxhci.sys', mft:null, size:'~400 KB', arch:'PE32+ x64', hw:51, scaff:80, verdict:'USB xHCI host controller driver. 51 hardware words identified.', note:'Ring buffer management and doorbell register writes cleanly identified.', functions:[{name:'XHCI_DOORBELL',type:'hw',desc:'Writes doorbell register to ring transfer'},{name:'XHCI_CMD_RING',type:'hw',desc:'Enqueues command TRB onto command ring'},{name:'XHCI_PORT_READ',type:'hw',desc:'Reads port status/control register'},{name:'XHCI_RESET_EP',type:'hw',desc:'Issues Reset Endpoint command'},{name:'USB_SETUP_PKT',type:'scaff',desc:'Builds USB control transfer setup packet'}]},
+  pci: { file:'pci.sys', mft:null, size:'~250 KB', arch:'PE32+ x64', hw:13, scaff:40, verdict:'PCI bus enumerator. Config space read/write words extracted.', note:'CF8/CFC port pair clearly identified for config space access.', functions:[{name:'PCI_CFG_READ32',type:'hw',desc:'Reads 32-bit value from config space via CF8/CFC'},{name:'PCI_CFG_WRITE32',type:'hw',desc:'Writes 32-bit value to PCI config space'},{name:'PCI_MMIO_READ',type:'hw',desc:'Reads PCIe MMIO extended config space'},{name:'PCI_SCAN_BUS',type:'scaff',desc:'Enumerates devices on a PCI bus segment'},{name:'PCI_ASSIGN_RES',type:'scaff',desc:'Assigns BARs and interrupt routing'}]}
+};
+function render() {
+  const d = DRIVERS[document.getElementById('driver-sel').value];
+  document.getElementById('report-card').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+      <div><div style="font-size:15px;font-weight:500;margin-bottom:2px;">${d.file}</div><div style="font-size:12px;color:var(--color-text-secondary);">${d.arch} &nbsp;·&nbsp; ${d.size}${d.mft?'&nbsp;·&nbsp; MFT #'+d.mft:''}</div></div>
+      <span class="badge badge-analyzed">UBT analyzed</span>
+    </div>
+    <div class="metric-grid">
+      <div class="metric"><div class="metric-label">Hardware words</div><div class="metric-value">${d.hw}</div></div>
+      <div class="metric"><div class="metric-label">Scaffolding words</div><div class="metric-value">${d.scaff}</div></div>
+      <div class="metric"><div class="metric-label">Total identified</div><div class="metric-value">${d.hw+d.scaff}</div></div>
+    </div>
+    <div style="font-size:13px;margin-bottom:4px;">${d.verdict}</div>
+    ${d.note?`<div style="font-size:12px;color:var(--color-text-warning);margin-bottom:12px;">${d.note}</div>`:''}
+    <hr class="divider">
+    <div class="section-label">Sample identified functions</div>
+    ${d.functions.map(f=>`<div class="fn-row"><span class="fn-name">${f.name}</span><span class="badge ${f.type==='hw'?'badge-hw':'badge-scaff'}">${f.type==='hw'?'hardware':'scaffolding'}</span><span class="fn-desc">${f.desc}</span></div>`).join('')}
+  `;
+}
+render();
+</script>
+</body>
+</html>

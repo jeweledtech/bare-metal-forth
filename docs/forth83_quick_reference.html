@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ForthOS — Forth-83 Kernel Quick Reference</title>
+<style>
+  :root { --color-text-primary:#1a1a18; --color-text-secondary:#5f5e5a; --color-text-tertiary:#888780; --color-text-warning:#854F0B; --color-background-primary:#ffffff; --color-background-secondary:#f1efe8; --color-background-warning:#FAEEDA; --color-border-tertiary:rgba(0,0,0,0.12); --color-border-secondary:rgba(0,0,0,0.22); --color-border-warning:rgba(133,79,11,0.4); --border-radius-md:8px; --border-radius-lg:12px; --font-sans:system-ui,-apple-system,sans-serif; --font-mono:'Menlo','Consolas',monospace; }
+  @media (prefers-color-scheme: dark) { :root { --color-text-primary:#e8e6de; --color-text-secondary:#b4b2a9; --color-text-tertiary:#888780; --color-text-warning:#EF9F27; --color-background-primary:#1c1c1a; --color-background-secondary:#2c2c2a; --color-background-warning:#633806; --color-border-tertiary:rgba(255,255,255,0.1); --color-border-secondary:rgba(255,255,255,0.18); --color-border-warning:rgba(239,159,39,0.4); } }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:var(--font-sans); background:var(--color-background-primary); color:var(--color-text-primary); padding:2rem; max-width:760px; margin:0 auto; }
+  h1 { font-size:18px; font-weight:500; margin-bottom:4px; }
+  .subtitle { font-size:13px; color:var(--color-text-secondary); margin-bottom:20px; }
+  .tab-bar { display:flex; gap:4px; margin-bottom:16px; flex-wrap:wrap; }
+  .tab { padding:5px 12px; border-radius:var(--border-radius-md); border:0.5px solid var(--color-border-secondary); font-size:12px; cursor:pointer; background:var(--color-background-primary); color:var(--color-text-secondary); transition:background .12s; }
+  .tab.active { background:var(--color-background-secondary); color:var(--color-text-primary); font-weight:500; border-color:var(--color-border-secondary); }
+  .word-grid { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:16px; }
+  .word-pill { font-family:var(--font-mono); font-size:12px; padding:3px 9px; border-radius:6px; border:0.5px solid var(--color-border-tertiary); color:var(--color-text-primary); background:var(--color-background-secondary); }
+  .word-pill.warn { border-color:var(--color-border-warning); color:var(--color-text-warning); }
+  .hint { font-size:12px; color:var(--color-text-tertiary); margin-top:4px; }
+  .constraint-box { background:var(--color-background-warning); border:0.5px solid var(--color-border-warning); border-radius:var(--border-radius-md); padding:10px 14px; margin-bottom:10px; font-size:13px; color:var(--color-text-warning); }
+  .constraint-box strong { display:block; margin-bottom:3px; font-weight:500; }
+  .lesson-box { background:var(--color-background-secondary); border-radius:var(--border-radius-md); padding:10px 14px; margin-bottom:8px; font-size:13px; color:var(--color-text-secondary); }
+  .lesson-box strong { display:block; color:var(--color-text-primary); font-weight:500; margin-bottom:3px; }
+  code { font-family:var(--font-mono); font-size:12px; }
+  footer { margin-top:32px; font-size:11px; color:var(--color-text-tertiary); }
+</style>
+</head>
+<body>
+<h1>ForthOS — Forth-83 kernel quick reference</h1>
+<p class="subtitle">178-word dictionary organized by category. Words marked in amber are absent or constrained in the ForthOS kernel — check before using in vocabulary source files.</p>
+
+<div class="tab-bar" id="tabs"></div>
+<div id="content"></div>
+
+<footer>ForthOS · github.com/jeweledtech/bare-metal-forth · forth.asm (public) · 178-word kernel · 64-char line limit · always verify against source</footer>
+
+<script>
+const CATS = [
+  { name:'Stack', words:['DUP','DROP','SWAP','OVER','ROT','-ROT','NIP','TUCK','2DUP','2DROP','2SWAP','2OVER','PICK','ROLL','DEPTH'] },
+  { name:'Arithmetic', words:['+',' -','*','/','MOD','/MOD','*/','*/MOD','ABS','NEGATE','MAX','MIN','DUP +','1+','1-','2+','2-','2*'] },
+  { name:'Logic', words:['AND','OR','XOR','NOT','INVERT','LSHIFT','RSHIFT','=','<>','<','>','0=','0<','0>','U<','U>'] },
+  { name:'Memory', words:['@','!','C@','C!','W@','W!','2@','2!','MOVE','FILL','ERASE','COUNT','HERE','ALLOT',',','C,'] },
+  { name:'Control', words:['IF','THEN','ELSE','BEGIN','UNTIL','WHILE','REPEAT','DO','LOOP','+LOOP','LEAVE','EXIT','ABORT','QUIT'] },
+  { name:'I/O', words:['EMIT','KEY','KEY?','TYPE','CR','SPACE','SPACES','.','U.','HEX','DECIMAL','DUMP','.S','WORDS','SEE'] },
+  { name:'Compiler', words:[':',';','CONSTANT','VARIABLE','CREATE','DOES>','IMMEDIATE','COMPILE','LITERAL','[',']','POSTPONE','RECURSE'] },
+  { name:'Vocabulary', words:['VOCABULARY','DEFINITIONS','FIND','ONLY','ALSO','PREVIOUS','FORTH','ORDER','FORTH-83','ASSEMBLER'] },
+  { name:'Blocks', words:['BLOCK','BUFFER','UPDATE','SAVE-BUFFERS','FLUSH','LOAD','THRU','LIST','SCR','BLK','USING'] },
+  { name:'Constraints', words:[] },
+  { name:'Bug log', words:[] },
+];
+const MISSING = ['2*'];
+const CONSTRAINTS = [
+  { label:'No 2*', body:'<code>2*</code> is absent from the 178-word kernel. Use <code>DUP +</code> instead. Always verify words against forth.asm before using in vocab source files.' },
+  { label:'No " in Forth-83', body:'The double-quote character cannot appear directly. Use: <code>DECIMAL 34 CONSTANT QC</code> then <code>QC EMIT</code> to output a literal quote character.' },
+  { label:'64-char line limit', body:'Forth block format is fixed: 16 lines of 64 characters per 1024-byte block. Lines that exceed 64 chars are silently truncated at the block boundary.' },
+  { label:'Short strings corrupt state', body:'Strings under 6 characters inside <code>."</code> can corrupt the embedded vocab interpreter state. Pad to 6+ characters or use <code>EMIT</code> sequences instead.' },
+  { label:'HEX/DECIMAL bleed', body:'HEX or DECIMAL mode set inside a vocab leaks into subsequent vocabs unless reset. Every vocab must end with <code>ONLY FORTH DEFINITIONS</code> or equivalent.' },
+  { label:'ALSO/PREVIOUS must match', body:'Unmatched ALSO entries cause search order overflow. Confirmed in rtl8168.fth (3 leaks) and port-mapper.fth (1 leak). Always pair every ALSO with a PREVIOUS.' },
+];
+const BUGS = [
+  { label:'Bug #24 — data stack collision', body:'Embedded vocab data crossed data stack top causing IF/THEN backpatch to stomp token stream. Fix: <code>DATA_STACK_TOP</code> moved to 0x7C00. Check for collision any time new memory regions are added.' },
+  { label:'Bug #27 — EBP ModR/M encoding', body:'<code>mod=00/rm=101</code> means [disp32], not [EBP]. Must use <code>mod=01</code> with <code>disp8=0</code> to address EBP indirectly. Classic x86 encoding trap.' },
+  { label:'Bug #28 — ModR/M reg/rm swap', body:'Swapped reg and rm fields caused <code>add ebp,4</code> to emit as <code>sub eax,4</code> across 12 instructions. Fixed by changing SWAP to ROT in the MODRM encoding word.' },
+  { label:'Bug #29 — META-TRANSFER CMOVE', body:'CMOVE self-destructed during metacompiler transfer because source and destination overlapped. Fixed by setting <code>T-ORG = T-IMAGE</code> for in-place execution.' },
+  { label:'PRDT DBAU garbage (AHCI)', body:'PXE boot left garbage in the upper 32-bit DMA address word of the PRDT. Fixed by zeroing DBAU explicitly on every AHCI command. PxIS now cleared before each command.' },
+  { label:'QEMU kill pattern', body:'<code>pkill -f "qemu.*PORT"</code> matched the parent shell cmdline and killed it. Fix: use <code>[q]emu.*PORT</code> bracket trick in all 5 Makefile test targets to exclude the shell process.' },
+  { label:'NEXT encoding', body:'NEXT is <code>AD FF 20</code> (LODSD + JMP [EAX]) — not <code>FF E0</code> (JMP EAX). This is the DTC inner interpreter loop. Getting this wrong breaks every word execution.' },
+];
+
+let active = 0;
+function render(i) {
+  active = i;
+  document.querySelectorAll('.tab').forEach((t,j)=>t.classList.toggle('active',j===i));
+  const cat = CATS[i];
+  const el = document.getElementById('content');
+  if (cat.name === 'Constraints') {
+    el.innerHTML = CONSTRAINTS.map(c=>`<div class="constraint-box"><strong>${c.label}</strong>${c.body}</div>`).join('');
+    return;
+  }
+  if (cat.name === 'Bug log') {
+    el.innerHTML = BUGS.map(b=>`<div class="lesson-box"><strong>${b.label}</strong>${b.body}</div>`).join('');
+    return;
+  }
+  el.innerHTML = `<div class="word-grid">${cat.words.map(w=>{
+    const warn = MISSING.includes(w);
+    return `<span class="word-pill${warn?' warn':''}">${w}${warn?' ✗':''}</span>`;
+  }).join('')}</div><p class="hint">${cat.words.length} words in this category${MISSING.filter(m=>cat.words.includes(m)).length?' · ✗ = absent from kernel, do not use':''}</p>`;
+}
+const bar = document.getElementById('tabs');
+CATS.forEach((c,i)=>{ const t=document.createElement('button'); t.className='tab'+(i===0?' active':''); t.textContent=c.name; t.onclick=()=>render(i); bar.appendChild(t); });
+render(0);
+</script>
+</body>
+</html>

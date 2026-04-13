@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ForthOS — UBT Pipeline Visualizer</title>
+<style>
+  :root {
+    --color-text-primary: #1a1a18;
+    --color-text-secondary: #5f5e5a;
+    --color-text-tertiary: #888780;
+    --color-background-primary: #ffffff;
+    --color-background-secondary: #f1efe8;
+    --font-sans: system-ui, -apple-system, sans-serif;
+    --font-mono: 'Menlo', 'Consolas', monospace;
+    --border-radius-md: 8px;
+    --border-radius-lg: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --color-text-primary: #e8e6de;
+      --color-text-secondary: #b4b2a9;
+      --color-text-tertiary: #888780;
+      --color-background-primary: #1c1c1a;
+      --color-background-secondary: #2c2c2a;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: var(--font-sans);
+    background: var(--color-background-primary);
+    color: var(--color-text-primary);
+    padding: 2rem;
+    max-width: 720px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 18px; font-weight: 500; margin-bottom: 4px; }
+  p { font-size: 13px; color: var(--color-text-secondary); margin-bottom: 24px; }
+
+  /* SVG pre-built classes */
+  svg .th { font-family: var(--font-sans); font-size: 14px; font-weight: 500; fill: var(--color-text-primary); }
+  svg .ts { font-family: var(--font-sans); font-size: 12px; font-weight: 400; fill: var(--color-text-secondary); }
+  svg .t  { font-family: var(--font-sans); font-size: 14px; font-weight: 400; fill: var(--color-text-primary); }
+
+  /* c-gray */
+  svg .c-gray > rect, svg .c-gray > ellipse, svg .c-gray > circle { fill: #F1EFE8; stroke: #5F5E5A; }
+  svg .c-gray > text.th { fill: #444441; }
+  svg .c-gray > text.ts { fill: #5F5E5A; }
+  /* c-purple */
+  svg .c-purple > rect, svg .c-purple > ellipse, svg .c-purple > circle { fill: #EEEDFE; stroke: #534AB7; }
+  svg .c-purple > text.th { fill: #3C3489; }
+  svg .c-purple > text.ts { fill: #534AB7; }
+  /* c-teal */
+  svg .c-teal > rect, svg .c-teal > ellipse, svg .c-teal > circle { fill: #E1F5EE; stroke: #0F6E56; }
+  svg .c-teal > text.th { fill: #085041; }
+  svg .c-teal > text.ts { fill: #0F6E56; }
+  /* c-green */
+  svg .c-green > rect, svg .c-green > ellipse, svg .c-green > circle { fill: #EAF3DE; stroke: #3B6D11; }
+  svg .c-green > text.th { fill: #27500A; }
+  svg .c-green > text.ts { fill: #3B6D11; }
+
+  @media (prefers-color-scheme: dark) {
+    svg .c-gray > rect   { fill: #444441; stroke: #B4B2A9; }
+    svg .c-gray > text.th { fill: #D3D1C7; }
+    svg .c-gray > text.ts { fill: #B4B2A9; }
+    svg .c-purple > rect  { fill: #3C3489; stroke: #AFA9EC; }
+    svg .c-purple > text.th { fill: #CECBF6; }
+    svg .c-purple > text.ts { fill: #AFA9EC; }
+    svg .c-teal > rect    { fill: #085041; stroke: #5DCAA5; }
+    svg .c-teal > text.th { fill: #9FE1CB; }
+    svg .c-teal > text.ts { fill: #5DCAA5; }
+    svg .c-green > rect   { fill: #27500A; stroke: #97C459; }
+    svg .c-green > text.th { fill: #C0DD97; }
+    svg .c-green > text.ts { fill: #97C459; }
+  }
+
+  svg .node { cursor: default; }
+
+  @keyframes flow { to { stroke-dashoffset: -24; } }
+  .pipe {
+    stroke-dasharray: 6 4;
+    animation: flow 1.2s linear infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pipe { animation: none; }
+  }
+
+  footer { margin-top: 32px; font-size: 11px; color: var(--color-text-tertiary); }
+</style>
+</head>
+<body>
+
+<h1>ForthOS — Universal Binary Translator pipeline</h1>
+<p>Five-stage pipeline: Windows .sys / PE binary → PE loader → x86 decoder → UIR lifter → Forth codegen → named Forth vocabulary blocks. End-to-end proven (commit 243b0f0): 145/145 translator tests + 8/8 e2e tests.</p>
+
+<svg width="100%" viewBox="0 0 680 540" role="img">
+<title>ForthOS Universal Binary Translator pipeline</title>
+<desc>Five-stage pipeline: binary input, PE loader, x86 decoder, UIR lifter, Forth codegen, Forth vocabulary output.</desc>
+<defs>
+<marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+<path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+</marker>
+</defs>
+
+<!-- INPUT -->
+<g class="node c-gray">
+<rect x="220" y="30" width="240" height="56" rx="8" stroke-width="0.5"/>
+<text class="th" x="340" y="52" text-anchor="middle" dominant-baseline="central">Binary input</text>
+<text class="ts" x="340" y="70" text-anchor="middle" dominant-baseline="central">.sys, .dll, .exe, .efi, ELF64</text>
+</g>
+
+<!-- arrow 1 -->
+<line class="pipe" x1="340" y1="86" x2="340" y2="118" stroke="#888780" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+
+<!-- STAGE 1: PE LOADER -->
+<g class="node c-purple">
+<rect x="170" y="120" width="340" height="66" rx="8" stroke-width="0.5"/>
+<text class="th" x="340" y="145" text-anchor="middle" dominant-baseline="central">PE loader</text>
+<text class="ts" x="340" y="165" text-anchor="middle" dominant-baseline="central">Parses headers, sections, imports, relocations</text>
+</g>
+<text class="ts" x="530" y="153" dominant-baseline="central">15 KB</text>
+
+<!-- arrow 2 -->
+<line class="pipe" x1="340" y1="186" x2="340" y2="218" stroke="#7F77DD" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+
+<!-- STAGE 2: x86 DECODER -->
+<g class="node c-purple">
+<rect x="170" y="220" width="340" height="66" rx="8" stroke-width="0.5"/>
+<text class="th" x="340" y="245" text-anchor="middle" dominant-baseline="central">x86 decoder</text>
+<text class="ts" x="340" y="265" text-anchor="middle" dominant-baseline="central">Disassembles opcodes, ModR/M, intrinsics</text>
+</g>
+<text class="ts" x="530" y="253" dominant-baseline="central">37 KB</text>
+
+<!-- arrow 3 -->
+<line class="pipe" x1="340" y1="286" x2="340" y2="318" stroke="#7F77DD" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+
+<!-- STAGE 3: UIR LIFTER -->
+<g class="node c-teal">
+<rect x="170" y="320" width="340" height="66" rx="8" stroke-width="0.5"/>
+<text class="th" x="340" y="345" text-anchor="middle" dominant-baseline="central">UIR lifter</text>
+<text class="ts" x="340" y="365" text-anchor="middle" dominant-baseline="central">Semantic analysis, hardware pattern detection</text>
+</g>
+<text class="ts" x="530" y="353" dominant-baseline="central">20 KB</text>
+
+<!-- arrow 4 -->
+<line class="pipe" x1="340" y1="386" x2="340" y2="418" stroke="#1D9E75" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+
+<!-- STAGE 4: FORTH CODEGEN -->
+<g class="node c-teal">
+<rect x="170" y="420" width="340" height="66" rx="8" stroke-width="0.5"/>
+<text class="th" x="340" y="445" text-anchor="middle" dominant-baseline="central">Forth codegen</text>
+<text class="ts" x="340" y="465" text-anchor="middle" dominant-baseline="central">Emits named words, HAL cross-reference</text>
+</g>
+<text class="ts" x="530" y="453" dominant-baseline="central">9 KB</text>
+
+<!-- OUTPUT -->
+<g class="node c-green">
+<rect x="220" y="510" width="240" height="20" rx="6" stroke-width="0.5"/>
+<text class="ts" x="340" y="520" text-anchor="middle" dominant-baseline="central">Forth vocabulary blocks (.fth)</text>
+</g>
+<line x1="340" y1="486" x2="340" y2="508" stroke="#639922" stroke-width="1" fill="none" marker-end="url(#arrow)"/>
+
+<!-- Side labels -->
+<text class="ts" x="152" y="155" text-anchor="end" style="fill:#888780">stage 1</text>
+<text class="ts" x="152" y="255" text-anchor="end" style="fill:#888780">stage 2</text>
+<text class="ts" x="152" y="355" text-anchor="end" style="fill:#888780">stage 3</text>
+<text class="ts" x="152" y="455" text-anchor="end" style="fill:#888780">stage 4</text>
+</svg>
+
+<footer>ForthOS · UBT pipeline in forthos-vocabularies (private, Tier 4) · 258 tests / 22 suites · 18 real-world binaries · bare-metal-forth public kernel free</footer>
+
+</body>
+</html>

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ForthOS — Architecture Overview</title>
+<style>
+  :root { --color-text-primary:#1a1a18; --color-text-secondary:#5f5e5a; --color-text-tertiary:#888780; --color-background-primary:#ffffff; --color-background-secondary:#f1efe8; --font-sans:system-ui,-apple-system,sans-serif; }
+  @media (prefers-color-scheme: dark) {
+    :root { --color-text-primary:#e8e6de; --color-text-secondary:#b4b2a9; --color-text-tertiary:#888780; --color-background-primary:#1c1c1a; --color-background-secondary:#2c2c2a; }
+    svg .c-gray>rect   { fill:#444441!important; stroke:#B4B2A9!important; } svg .c-gray>text.th { fill:#D3D1C7!important; } svg .c-gray>text.ts { fill:#B4B2A9!important; }
+    svg .c-purple>rect { fill:#3C3489!important; stroke:#AFA9EC!important; } svg .c-purple>text.th { fill:#CECBF6!important; } svg .c-purple>text.ts { fill:#AFA9EC!important; }
+    svg .c-teal>rect   { fill:#085041!important; stroke:#5DCAA5!important; } svg .c-teal>text.th { fill:#9FE1CB!important; } svg .c-teal>text.ts { fill:#5DCAA5!important; }
+    svg .c-coral>rect  { fill:#712B13!important; stroke:#F0997B!important; } svg .c-coral>text.th { fill:#F5C4B3!important; } svg .c-coral>text.ts { fill:#F0997B!important; }
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:var(--font-sans); background:var(--color-background-primary); color:var(--color-text-primary); padding:2rem; max-width:760px; margin:0 auto; }
+  h1 { font-size:18px; font-weight:500; margin-bottom:4px; }
+  .subtitle { font-size:13px; color:var(--color-text-secondary); margin-bottom:24px; }
+  svg .th { font-family:var(--font-sans); font-size:14px; font-weight:500; fill:var(--color-text-primary); }
+  svg .ts { font-family:var(--font-sans); font-size:12px; fill:var(--color-text-secondary); }
+  svg .c-gray>rect   { fill:#F1EFE8; stroke:#5F5E5A; } svg .c-gray>text.th { fill:#444441; } svg .c-gray>text.ts { fill:#5F5E5A; }
+  svg .c-purple>rect { fill:#EEEDFE; stroke:#534AB7; } svg .c-purple>text.th { fill:#3C3489; } svg .c-purple>text.ts { fill:#534AB7; }
+  svg .c-teal>rect   { fill:#E1F5EE; stroke:#0F6E56; } svg .c-teal>text.th { fill:#085041; } svg .c-teal>text.ts { fill:#0F6E56; }
+  svg .c-coral>rect  { fill:#FAECE7; stroke:#993C1D; } svg .c-coral>text.th { fill:#712B13; } svg .c-coral>text.ts { fill:#993C1D; }
+  svg .node { cursor:default; }
+  footer { margin-top:32px; font-size:11px; color:var(--color-text-tertiary); }
+</style>
+</head>
+<body>
+<h1>ForthOS — Full architecture overview</h1>
+<p class="subtitle">Five-layer bare-metal Forth-83 OS: from x86 hardware through bootloader, kernel, vocabulary/UBT layer, up to metacompiler and 9 multi-architecture targets across 3 tiers.</p>
+
+<svg width="100%" viewBox="0 0 680 620" role="img">
+<title>ForthOS full architecture overview</title>
+<desc>Five-layer architecture from bare metal hardware through bootloader, Forth-83 kernel, vocabulary and UBT layer, to metacompiler with multi-arch targets.</desc>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<g class="node c-gray"><rect x="40" y="540" width="600" height="52" rx="8" stroke-width="0.5"/><text class="th" x="340" y="561" text-anchor="middle" dominant-baseline="central">Bare metal hardware</text><text class="ts" x="340" y="578" text-anchor="middle" dominant-baseline="central">x86 CPU · ATA PIO · PCI · VGA · UART · RTL8168 · AHCI · xHCI</text></g>
+
+<g class="node c-gray"><rect x="40" y="470" width="600" height="52" rx="8" stroke-width="0.5"/><text class="th" x="340" y="491" text-anchor="middle" dominant-baseline="central">Bootloader (boot.asm)</text><text class="ts" x="340" y="508" text-anchor="middle" dominant-baseline="central">Real mode → protected mode · loads kernel · PXE boot (dnsmasq + tftpd)</text></g>
+<line x1="340" y1="522" x2="340" y2="538" stroke="#888780" stroke-width="1" marker-end="url(#arrow)" fill="none"/>
+
+<g class="node c-purple"><rect x="40" y="370" width="600" height="82" rx="8" stroke-width="0.5"/><text class="th" x="340" y="395" text-anchor="middle" dominant-baseline="central">Forth-83 kernel (forth.asm · ~55 KB)</text><text class="ts" x="340" y="413" text-anchor="middle" dominant-baseline="central">178-word dictionary · DTC interpreter (ESI=IP, EBP=rstack)</text><text class="ts" x="340" y="430" text-anchor="middle" dominant-baseline="central">VGA · keyboard · ATA PIO · PCI · 1 KB block storage</text><text class="ts" x="340" y="447" text-anchor="middle" dominant-baseline="central">Vocabulary search order · ONLY ALSO PREVIOUS</text></g>
+<line x1="340" y1="422" x2="340" y2="468" stroke="#7F77DD" stroke-width="1" marker-end="url(#arrow)" fill="none"/>
+
+<g class="c-teal"><rect x="40" y="220" width="600" height="132" rx="8" stroke-width="0.5"/></g>
+<text class="th" x="340" y="242" text-anchor="middle" dominant-baseline="central" style="fill:#085041">Vocabularies + UBT pipeline</text>
+<g class="node c-teal"><rect x="55" y="254" width="150" height="44" rx="6" stroke-width="0.5"/><text class="th" x="130" y="272" text-anchor="middle" dominant-baseline="central">Free (public)</text><text class="ts" x="130" y="289" text-anchor="middle" dominant-baseline="central">HARDWARE · PORT-MAPPER · ECHOPORT</text></g>
+<g class="node c-teal"><rect x="215" y="254" width="150" height="44" rx="6" stroke-width="0.5"/><text class="th" x="290" y="272" text-anchor="middle" dominant-baseline="central">Tiers 1–3 (private)</text><text class="ts" x="290" y="289" text-anchor="middle" dominant-baseline="central">AHCI · NTFS · FAT32 · RTL8168</text></g>
+<g class="node c-teal"><rect x="375" y="254" width="250" height="44" rx="6" stroke-width="0.5"/><text class="th" x="500" y="272" text-anchor="middle" dominant-baseline="central">Tier 4 — UBT pipeline (private)</text><text class="ts" x="500" y="289" text-anchor="middle" dominant-baseline="central">.sys → PE loader → UIR → Forth codegen</text></g>
+<g class="node c-teal"><rect x="55" y="306" width="150" height="40" rx="6" stroke-width="0.5"/><text class="th" x="130" y="326" text-anchor="middle" dominant-baseline="central">15 free block vocabs</text></g>
+<g class="node c-teal"><rect x="215" y="306" width="150" height="40" rx="6" stroke-width="0.5"/><text class="th" x="290" y="326" text-anchor="middle" dominant-baseline="central">AUTO-DETECT · SURVEYOR</text></g>
+<g class="node c-teal"><rect x="375" y="306" width="250" height="40" rx="6" stroke-width="0.5"/><text class="th" x="500" y="326" text-anchor="middle" dominant-baseline="central">18 real-world drivers analyzed</text></g>
+<line x1="340" y1="272" x2="340" y2="368" stroke="#1D9E75" stroke-width="1" marker-end="url(#arrow)" fill="none"/>
+
+<g class="node c-coral"><rect x="40" y="80" width="600" height="122" rx="8" stroke-width="0.5"/><text class="th" x="340" y="104" text-anchor="middle" dominant-baseline="central">Metacompiler — forthos-vocabularies (private)</text><text class="ts" x="340" y="122" text-anchor="middle" dominant-baseline="central">85 host words · T-IMAGE flat 32-bit model · FORWARD/RESOLVE</text><text class="ts" x="340" y="139" text-anchor="middle" dominant-baseline="central">T-IF T-THEN T-BEGIN T-UNTIL T-DO T-LOOP · self-hosting proven</text><text class="ts" x="340" y="156" text-anchor="middle" dominant-baseline="central">66,048-byte standalone bootable kernel · 151/151 tests green</text></g>
+<g class="node c-coral"><rect x="55" y="176" width="172" height="18" rx="4" stroke-width="0.5"/><text class="ts" x="141" y="185" text-anchor="middle" dominant-baseline="central">Tier 1: x86 · ARM64 · RISC-V</text></g>
+<g class="node c-coral"><rect x="237" y="176" width="206" height="18" rx="4" stroke-width="0.5"/><text class="ts" x="340" y="185" text-anchor="middle" dominant-baseline="central">Tier 2: Cortex-M33 · SPARC · PowerPC</text></g>
+<g class="node c-coral"><rect x="453" y="176" width="172" height="18" rx="4" stroke-width="0.5"/><text class="ts" x="539" y="185" text-anchor="middle" dominant-baseline="central">Tier 3: MIPS · AVR · ESP32 · x64</text></g>
+<line x1="340" y1="202" x2="340" y2="218" stroke="#D85A30" stroke-width="1" marker-end="url(#arrow)" fill="none"/>
+
+<text class="ts" x="340" y="34" text-anchor="middle" style="fill:#888780">ForthOS — bare-metal Forth-83 OS with UBT + metacompiler</text>
+<text class="ts" x="340" y="52" text-anchor="middle" style="fill:#888780">bare-metal-forth (public) · forthos-vocabularies (private)</text>
+</svg>
+
+<footer>ForthOS · Jolly Genius Inc. / JeweledTech · bare-metal-forth (public, free tier) · forthos-vocabularies (private, paid tiers) · 66,048 byte kernel</footer>
+</body>
+</html>
