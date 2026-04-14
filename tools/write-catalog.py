@@ -39,6 +39,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from importlib.machinery import SourceFileLoader
 write_block_mod = SourceFileLoader("write_block",
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "write-block.py")).load_module()
+lint_mod = SourceFileLoader("lint_forth",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "lint-forth.py")).load_module()
 
 source_to_blocks = write_block_mod.source_to_blocks
 source_to_block = write_block_mod.source_to_block
@@ -110,6 +112,25 @@ def main():
     vocabs = scan_vocabs(vocab_dir)
     if not vocabs:
         print(f"No .fth files found in {vocab_dir}", file=sys.stderr)
+        sys.exit(1)
+
+    # Lint all vocabulary files before writing
+    lint_errors = 0
+    for v in vocabs:
+        issues = lint_mod.lint_fth_file(v['filepath'])
+        errors = [i for i in issues if i['level'] == 'ERROR']
+        warns = [i for i in issues if i['level'] == 'WARN']
+        for e in errors:
+            print(lint_mod.format_issue(e))
+        lint_errors += len(errors)
+        if errors:
+            print(f"  Lint FAILED: {v['filename']}")
+        else:
+            note = f" ({len(warns)} BASE note(s))" if warns else ""
+            print(f"  Lint OK: {v['filename']}{note}")
+    if lint_errors:
+        print(f"\nAborting: {lint_errors} lint error(s). "
+              f"Fix before writing catalog.")
         sys.exit(1)
 
     # Compute block layout starting at block 2 (block 0 = reserved, block 1 = catalog)

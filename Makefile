@@ -221,8 +221,13 @@ test-flush: $(DEBUG_IMAGE) $(BLOCKS)
 	python3 tests/test_flush_stress.py $$PORT; \
 	STATUS=$$?; pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null; exit $$STATUS
 
-# Run all tests
-test: test-smoke test-loops test-vocabs test-integration
+# Lint Forth source (vocabulary files + kernel assembly)
+lint:
+	@python3 tools/lint-forth.py forth/dict/*.fth
+	@python3 tools/lint-forth.py --asm $(SRC_KERNEL)/forth.asm
+
+# Run all tests (lint first, then functional tests)
+test: lint test-smoke test-loops test-vocabs test-integration
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)
@@ -232,7 +237,7 @@ iso: $(IMAGE)
 	xorriso -as mkisofs -b bmforth.img -no-emul-boot -o $(BUILD)/bmforth.iso $(BUILD)/iso/
 
 # Check syntax only (no output)
-check:
+check: lint
 	$(NASM) -f bin -o /dev/null $(SRC_BOOT)/boot.asm
 	$(NASM) -f bin -o /dev/null $(SRC_KERNEL)/forth.asm
 	@echo "Syntax check passed."
