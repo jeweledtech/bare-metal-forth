@@ -43,6 +43,12 @@ forth/dict/surveyor.fth
 forth/dict/graphics.fth
 forth/dict/audio.fth
 forth/dict/video.fth
+forth/dict/deflate.fth
+forth/dict/zip-reader.fth
+forth/dict/cab-extract.fth
+forth/dict/msi-reader.fth
+forth/dict/surveyor-deep.fth
+forth/dict/surveyor-detail.fth
 
 # Tier 4: UBT Pipeline
 tools/translator/
@@ -52,6 +58,7 @@ tools/ghidra/
 tools/validate_real_binary.py
 tools/make_test_com.py
 tools/make_test_dotnet.py
+tools/disk-survey-pipeline.py
 tests/fixtures/test_dotnet.dll
 tests/fixtures/test_port_access.com
 TASK_GHIDRA_AND_UBT_EXPANSION.md
@@ -61,13 +68,17 @@ forth/dict/meta-compiler.fth
 forth/dict/target-x86.fth
 forth/dict/target-arm64.fth
 forth/dict/arm64-asm.fth
+forth/dict/thumb2-asm.fth
+forth/dict/target-cortex-m.fth
 
 # Paid tests
 tests/test_disk_survey.py
+tests/test_disk_survey_phase2.py
 tests/test_audio.py
 tests/test_video.py
 tests/test_graphics.py
 tests/test_pipeline_e2e.py
+tests/test_pipeline_integration.py
 tests/test_ubt_expansion.py
 tests/test_metacompiler.py
 tests/test_meta_compile.py
@@ -77,6 +88,9 @@ tests/test_meta_boot.py
 tests/test_arm64_asm.py
 tests/test_arm64_target.py
 tests/test_target_x86.py
+tests/test_thumb2_asm.py
+tests/test_cortexm_target.py
+tests/test_cortexm_boot.py
 
 # Paid docs
 docs/TASK_AHCI_BLOCK.md
