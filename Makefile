@@ -72,10 +72,10 @@ run-serial: $(IMAGE)
 
 # --- Block Storage Targets ---
 
-# Create blank 1MB blocks disk (1024 x 1K blocks)
+# Create blank 2MB blocks disk (2048 x 1K blocks)
 $(BLOCKS): | $(BUILD)
-	dd if=/dev/zero of=$(BLOCKS) bs=1024 count=1024
-	@echo "Block disk created: $(BLOCKS) (1MB, 1024 blocks)"
+	dd if=/dev/zero of=$(BLOCKS) bs=1024 count=2048
+	@echo "Block disk created: $(BLOCKS) (2MB, 2048 blocks)"
 blocks: $(BLOCKS)
 
 # Run with block storage attached (combined image)
@@ -236,6 +236,22 @@ test-arm64-boot: $(IMAGE) $(BLOCKS) write-catalog
 		pkill -9 -f "[q]emu.*$$(($(TEST_PORT_BASE)+50))" 2>/dev/null; \
 		pkill -9 -f "[q]emu.*$$(($(TEST_PORT_BASE)+52))" 2>/dev/null; \
 		exit $$STATUS
+
+# Run Cortex-M33 boot test (cross-compile + QEMU mps2-an505)
+test-cortexm: $(IMAGE) $(BLOCKS) write-catalog
+	@cat $(IMAGE) $(BLOCKS) > $(COMBINED)
+	@cp $(COMBINED) $(COMBINED_IDE)
+	@echo "Running Cortex-M33 boot test..."
+	@python3 tests/test_cortexm_boot.py $$(($(TEST_PORT_BASE)+60)); \
+		STATUS=$$?; \
+		pkill -9 -f "[q]emu.*$$(($(TEST_PORT_BASE)+60))" 2>/dev/null; \
+		pkill -9 -f "[q]emu.*$$(($(TEST_PORT_BASE)+62))" 2>/dev/null; \
+		exit $$STATUS
+
+# Run pipeline integration test (offline)
+test-pipeline:
+	@echo "Running pipeline integration test..."
+	@python3 tests/test_pipeline_integration.py
 
 # Run all tests (lint first, then functional tests)
 test: lint test-smoke test-loops test-vocabs test-integration
