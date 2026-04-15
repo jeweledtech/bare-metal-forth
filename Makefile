@@ -226,6 +226,17 @@ lint:
 	@python3 tools/lint-forth.py forth/dict/*.fth
 	@python3 tools/lint-forth.py --asm $(SRC_KERNEL)/forth.asm
 
+# Run ARM64 boot test (cross-compile + QEMU raspi3b)
+test-arm64-boot: $(IMAGE) $(BLOCKS) write-catalog
+	@cat $(IMAGE) $(BLOCKS) > $(COMBINED)
+	@cp $(COMBINED) $(COMBINED_IDE)
+	@echo "Running ARM64 boot test..."
+	@python3 tests/test_arm64_boot.py $$(($(TEST_PORT_BASE)+50)); \
+		STATUS=$$?; \
+		pkill -9 -f "[q]emu.*$$(($(TEST_PORT_BASE)+50))" 2>/dev/null; \
+		pkill -9 -f "[q]emu.*$$(($(TEST_PORT_BASE)+52))" 2>/dev/null; \
+		exit $$STATUS
+
 # Run all tests (lint first, then functional tests)
 test: lint test-smoke test-loops test-vocabs test-integration
 	@echo "All tests passed!"
