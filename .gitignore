@@ -49,6 +49,17 @@ forth/dict/cab-extract.fth
 forth/dict/msi-reader.fth
 forth/dict/surveyor-deep.fth
 forth/dict/surveyor-detail.fth
+forth/dict/stub-dispatch.fth
+forth/dict/ui-core.fth
+forth/dict/gui-harvest.fth
+forth/dict/ui-parser.fth
+forth/dict/ui-events.fth
+forth/dict/disk-survey-form.fth
+tests/test_stub_dispatch.py
+tests/test_ui_core.py
+tests/test_gui_harvest.py
+tests/test_ui_parser.py
+tests/test_ui_events.py
 
 # Tier 4: UBT Pipeline
 tools/translator/

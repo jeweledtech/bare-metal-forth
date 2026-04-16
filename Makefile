@@ -158,7 +158,7 @@ test-vocabs: $(IMAGE) $(BLOCKS) write-catalog
 	@cp $(COMBINED) $(COMBINED_IDE)
 	@echo "Running vocabulary tests..."
 	@PORT_BASE=$$(($(TEST_PORT_BASE)+10)); \
-	for test in test_editor test_x86_asm test_driver_vocabs test_disasm test_port_mapper test_echoport; do \
+	for test in test_editor test_x86_asm test_driver_vocabs test_disasm test_port_mapper test_echoport test_stub_dispatch test_ui_core test_gui_harvest test_ui_parser test_ui_events; do \
 		PORT=$$PORT_BASE; PORT_BASE=$$((PORT_BASE+1)); \
 		echo "  $$test (port $$PORT)..."; \
 		$(QEMU) -drive file=$(COMBINED),format=raw,if=floppy \
