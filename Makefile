@@ -158,12 +158,31 @@ test-vocabs: $(IMAGE) $(BLOCKS) write-catalog
 	@cp $(COMBINED) $(COMBINED_IDE)
 	@echo "Running vocabulary tests..."
 	@PORT_BASE=$$(($(TEST_PORT_BASE)+10)); \
-	for test in test_editor test_x86_asm test_driver_vocabs test_disasm test_port_mapper test_echoport test_stub_dispatch test_ui_core test_gui_harvest test_ui_parser test_ui_events; do \
+	for test in test_editor test_x86_asm test_driver_vocabs test_disasm test_port_mapper test_echoport; do \
 		PORT=$$PORT_BASE; PORT_BASE=$$((PORT_BASE+1)); \
 		echo "  $$test (port $$PORT)..."; \
 		$(QEMU) -drive file=$(COMBINED),format=raw,if=floppy \
 			-drive file=$(COMBINED_IDE),format=raw,if=ide,index=1 \
 			-nic model=ne2k_pci \
+			-serial tcp::$$PORT,server=on,wait=off \
+			-display none -daemonize; \
+		sleep 2; \
+		python3 tests/$$test.py $$PORT; \
+		STATUS=$$?; pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null; sleep 1; \
+		if [ $$STATUS -ne 0 ]; then exit $$STATUS; fi; \
+	done
+
+# Run GUI vocabulary tests (paid tier — skipped if files absent)
+test-gui: $(IMAGE) $(BLOCKS) write-catalog
+	@cat $(IMAGE) $(BLOCKS) > $(COMBINED)
+	@cp $(COMBINED) $(COMBINED_IDE)
+	@PORT_BASE=$$(($(TEST_PORT_BASE)+30)); \
+	for test in test_stub_dispatch test_ui_core test_gui_harvest test_ui_parser test_ui_events; do \
+		if [ ! -f tests/$$test.py ]; then continue; fi; \
+		PORT=$$PORT_BASE; PORT_BASE=$$((PORT_BASE+1)); \
+		echo "  $$test (port $$PORT)..."; \
+		$(QEMU) -drive file=$(COMBINED),format=raw,if=floppy \
+			-drive file=$(COMBINED_IDE),format=raw,if=ide,index=1 \
 			-serial tcp::$$PORT,server=on,wait=off \
 			-display none -daemonize; \
 		sleep 2; \
@@ -254,7 +273,7 @@ test-pipeline:
 	@python3 tests/test_pipeline_integration.py
 
 # Run all tests (lint first, then functional tests)
-test: lint test-smoke test-loops test-vocabs test-integration
+test: lint test-smoke test-loops test-vocabs test-gui test-integration
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)
@@ -321,4 +340,4 @@ pxe-push: $(COMBINED) check-kernel-size
 pxe-status:
 	@bash tools/pxe/test-pxe.sh
 
-.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined check-kernel-size test test-smoke test-loops test-vocabs test-integration test-flush test-network pxe-setup pxe-push pxe-status
+.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined check-kernel-size test test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network pxe-setup pxe-push pxe-status
