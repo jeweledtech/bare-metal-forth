@@ -267,6 +267,28 @@ test-cortexm: $(IMAGE) $(BLOCKS) write-catalog
 		pkill -9 -f "[q]emu.*$$(($(TEST_PORT_BASE)+62))" 2>/dev/null; \
 		exit $$STATUS
 
+# Run AHCI write test (ICH9-AHCI + scratch disk)
+AHCI_SCRATCH = $(BUILD)/ahci-scratch.img
+$(AHCI_SCRATCH): | $(BUILD)
+	dd if=/dev/zero of=$(AHCI_SCRATCH) bs=512 count=2048 2>/dev/null
+
+test-ahci-write: $(IMAGE) $(BLOCKS) write-catalog $(AHCI_SCRATCH)
+	@cat $(IMAGE) $(BLOCKS) > $(COMBINED)
+	@cp $(COMBINED) $(COMBINED_IDE)
+	@echo "Running AHCI write test..."
+	@PORT=$$(($(TEST_PORT_BASE)+75)); \
+	$(QEMU) \
+		-drive file=$(COMBINED),format=raw,if=floppy \
+		-drive file=$(COMBINED_IDE),format=raw,if=ide,index=1 \
+		-drive file=$(AHCI_SCRATCH),format=raw,if=none,id=sata0 \
+		-device ich9-ahci,id=ahci0 \
+		-device ide-hd,drive=sata0,bus=ahci0.0 \
+		-serial tcp::$$PORT,server=on,wait=off \
+		-display none & \
+	sleep 3; \
+	python3 tests/test_ahci_write.py $$PORT; \
+	STATUS=$$?; pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null; exit $$STATUS
+
 # Run pipeline integration test (offline)
 test-pipeline:
 	@echo "Running pipeline integration test..."
@@ -340,4 +362,4 @@ pxe-push: $(COMBINED) check-kernel-size
 pxe-status:
 	@bash tools/pxe/test-pxe.sh
 
-.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined check-kernel-size test test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network pxe-setup pxe-push pxe-status
+.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined check-kernel-size test test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write pxe-setup pxe-push pxe-status
