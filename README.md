@@ -169,7 +169,7 @@ If you've never touched a Forth before, the [Starting Forth](https://www.forth.c
 
 ## Contributing
 
-Read `CLAUDE.md` (project constraints and conventions) before touching anything. Every vocabulary has a test suite. Regressions block commits.
+Every vocabulary has a test suite. Regressions block commits.
 
 If you want to discuss the project, find us in the Forth Facebook groups or open an issue.
 
