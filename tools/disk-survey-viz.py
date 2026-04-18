@@ -119,9 +119,14 @@ def parse_disk_survey(filepath):
             continue
 
         # Try to extract classification tag
-        # Formats:  "filename PE AMD64 console"  or  "filename unknown"  or  "filename "
+        # v1 formats: "filename PE AMD64 console" / "filename unknown"
+        # v2 formats: "filename unk:XXYYZZ" / "filename PE-res" /
+        #             "filename ELF-res" / "filename res:XXYYZZ"
         classification = ''
-        m = re.match(r'^\.?(.+?)\s+(PE .+|ELF .+|unknown)\s*$', line)
+        m = re.match(
+            r'^\.?(.+?)\s+'
+            r'(PE .+|ELF .+|unknown|unk:[0-9A-Fa-f]+|'
+            r'PE-res|ELF-res|res:[0-9A-Fa-f]+)\s*$', line)
         if m:
             filename = m.group(1).strip()
             classification = m.group(2).strip()
@@ -149,16 +154,19 @@ def analyze(data):
     # Simplified architecture groups
     arch_groups = Counter()
     for cls, count in arch_sub.items():
-        if 'AMD64' in cls:
-            arch_groups['AMD64'] += count
-        elif 'x86' in cls:
-            arch_groups['x86'] += count
-        elif 'ELF' in cls:
+        if 'AMD64' in cls or 'ARM64' in cls:
+            arch_groups['AMD64/ARM64'] += count
+        elif 'x86' in cls or ('ARM' in cls and 'ARM64' not in cls
+                              and 'AArch64' not in cls):
+            arch_groups['x86/ARM'] += count
+        elif 'ELF' in cls or cls == 'ELF-res':
             arch_groups['ELF'] += count
-        elif cls == 'unknown':
-            arch_groups['Unknown (no MZ/ELF)'] += count
+        elif cls == 'unknown' or cls.startswith('unk:'):
+            arch_groups['Unknown (non-PE/ELF)'] += count
         elif cls == 'unclassified':
-            arch_groups['Unclassified (MFT-resident)'] += count
+            arch_groups['Unclassified'] += count
+        elif cls == 'PE-res' or cls.startswith('res:'):
+            arch_groups['MFT-resident'] += count
         else:
             arch_groups['Other'] += count
     stats['arch_groups'] = dict(arch_groups.most_common())
@@ -199,6 +207,10 @@ def analyze(data):
         'elf_classified': 0,
         'unknown_tag': 0,
         'unclassified_resident': 0,
+        'pe_resident': 0,
+        'elf_resident': 0,
+        'res_hex': 0,
+        'unk_hex': 0,
     }
     for cls, count in arch_sub.items():
         if cls.startswith('PE '):
@@ -207,6 +219,14 @@ def analyze(data):
             cls_detail['elf_classified'] += count
         elif cls == 'unknown':
             cls_detail['unknown_tag'] += count
+        elif cls == 'PE-res':
+            cls_detail['pe_resident'] += count
+        elif cls == 'ELF-res':
+            cls_detail['elf_resident'] += count
+        elif cls.startswith('res:'):
+            cls_detail['res_hex'] += count
+        elif cls.startswith('unk:'):
+            cls_detail['unk_hex'] += count
         elif cls == 'unclassified':
             cls_detail['unclassified_resident'] += count
     stats['classification_detail'] = cls_detail
@@ -219,8 +239,10 @@ def analyze(data):
         ext = '.' + m.group(1).lower() if m else '(no ext)'
         if cls == 'unclassified':
             uncls_ext[ext] += 1
-        elif cls == 'unknown':
+        elif cls == 'unknown' or cls.startswith('unk:'):
             unknown_ext[ext] += 1
+        elif cls.startswith('res:') or cls == 'PE-res' or cls == 'ELF-res':
+            uncls_ext[ext] += 1  # resident files grouped with unclassified
     stats['unclassified_by_ext'] = dict(uncls_ext.most_common(10))
     stats['unknown_by_ext'] = dict(unknown_ext.most_common(10))
 
@@ -240,9 +262,17 @@ def analyze(data):
     detailed_arch = Counter()
     for cls, count in arch_sub.items():
         if cls == 'unclassified':
-            detailed_arch['Unclassified (resident)'] += count
+            detailed_arch['Unclassified'] += count
         elif cls == 'unknown':
             detailed_arch['Unknown (not PE/ELF)'] += count
+        elif cls.startswith('unk:'):
+            detailed_arch['unk: (hex triage)'] += count
+        elif cls == 'PE-res':
+            detailed_arch['PE-res (MFT-resident)'] += count
+        elif cls == 'ELF-res':
+            detailed_arch['ELF-res (MFT-resident)'] += count
+        elif cls.startswith('res:'):
+            detailed_arch['res: (resident other)'] += count
         elif 'PE AMD64 driver' in cls:
             detailed_arch['AMD64 Driver'] += count
         elif 'PE x86 driver' in cls:
@@ -255,10 +285,14 @@ def analyze(data):
             detailed_arch['x86 GUI'] += count
         elif 'PE x86 console' in cls:
             detailed_arch['x86 Console'] += count
-        elif 'PE AMD64 sub' in cls:
+        elif 'PE AMD64' in cls:
             detailed_arch['AMD64 Other'] += count
-        elif 'PE x86 sub' in cls:
+        elif 'PE x86' in cls:
             detailed_arch['x86 Other'] += count
+        elif 'PE ARM64' in cls:
+            detailed_arch['ARM64 (PE)'] += count
+        elif 'PE ARM' in cls:
+            detailed_arch['ARM (PE)'] += count
         elif 'PE unk' in cls:
             detailed_arch['PE Unknown Arch'] += count
         elif 'ELF' in cls:
