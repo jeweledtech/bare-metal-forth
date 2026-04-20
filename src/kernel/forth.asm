@@ -76,6 +76,7 @@ BLK_BUF_HEADERS     equ 0x28060     ; 4 headers x 12 bytes = 48 bytes
                                     ; flags: bit 0=valid, bit 1=dirty
 BLK_BUF_CUR         equ 0x28090     ; Index of current buffer (for UPDATE)
 BLK_BUF_CLOCK        equ 0x28094    ; LRU age counter
+MEMDISK_BASE         equ 0x28098    ; Physical base of memdisk RAM image (0 = not memdisk)
 BLK_NUM_BUFFERS     equ 4
 BLK_HEADER_SIZE     equ 12
 BLK_BUF_FLAG_VALID  equ 1
@@ -225,6 +226,8 @@ kernel_start:
     mov dword [VAR_BLOCK_LOADING], 0
     mov dword [BLK_BUF_CUR], 0
     mov dword [BLK_BUF_CLOCK], 0
+    ; MEMDISK_BASE is set by bootloader if memdisk detected; default 0
+    ; (bootloader writes it before PM switch, kernel just reads it)
     ; Clear all 4 buffer headers (block#=-1, flags=0, age=0)
     mov edi, BLK_BUF_HEADERS
     mov ecx, BLK_NUM_BUFFERS
@@ -971,6 +974,7 @@ DEFCODE "OUTL", OUTL, 0     ; ( dword port -- )
 
 DEFCODE "KEY", KEY, 0       ; ( -- char )
     call read_key
+    movzx eax, al              ; zero-extend: read_key sets AL only
     push eax
     NEXT
 
@@ -2240,10 +2244,16 @@ DEFCODE "BLOCK", BLOCK, 0
     call blk_find_buffer        ; EDI=buffer addr, EBX=header addr, CF=needs load
     jnc .cached
 
-    ; Need to read from disk: 2 sectors per block
+    ; Need to load block data into buffer
     push edi                    ; Save buffer addr
     push ebx                    ; Save header addr
     mov eax, [ebx]              ; block#
+
+    ; Check if we booted from memdisk (RAM-backed image)
+    cmp dword [MEMDISK_BASE], 0
+    jne .ram_path
+
+    ; --- ATA PIO path (QEMU / real disk) ---
     shl eax, 1                  ; LBA = block# * 2
     add eax, BLOCKS_LBA_BASE   ; + base offset in combined image
     mov ebx, eax                ; EBX = LBA for ata_read_sector
@@ -2254,7 +2264,13 @@ DEFCODE "BLOCK", BLOCK, 0
     inc ebx
     call ata_read_sector
     jc .read_error
+    jmp .load_done
 
+    ; --- RAM path (memdisk PXE boot) ---
+.ram_path:
+    call ram_read_block
+
+.load_done:
     pop ebx                     ; Restore header addr
     ; Mark valid
     or dword [ebx + 4], BLK_BUF_FLAG_VALID
@@ -2429,17 +2445,28 @@ DEFCODE "LOAD", LOAD, 0
     ; Get block buffer
     call blk_find_buffer
     jnc .have_data
-    ; Need to read from disk
+    ; Need to read block data into buffer
     push eax
     push edi
     push ebx
-    mov eax, [ebx]
+    mov eax, [ebx]              ; block# from header
+
+    cmp dword [MEMDISK_BASE], 0
+    jne .load_ram
+
+    ; ATA PIO path
     shl eax, 1
-    add eax, BLOCKS_LBA_BASE   ; + base offset in combined image
+    add eax, BLOCKS_LBA_BASE
     mov ebx, eax
     call ata_read_sector
     inc ebx
     call ata_read_sector
+    jmp .load_read_done
+
+.load_ram:
+    call ram_read_block
+
+.load_read_done:
     pop ebx
     or dword [ebx + 4], BLK_BUF_FLAG_VALID
     pop edi
@@ -2486,12 +2513,22 @@ DEFCODE "-->", CHAIN, F_IMMEDIATE
     push edi
     push ebx
     mov eax, [ebx]
+
+    cmp dword [MEMDISK_BASE], 0
+    jne .chain_ram
+
     shl eax, 1
-    add eax, BLOCKS_LBA_BASE   ; + base offset in combined image
+    add eax, BLOCKS_LBA_BASE
     mov ebx, eax
     call ata_read_sector
     inc ebx
     call ata_read_sector
+    jmp .chain_read_done
+
+.chain_ram:
+    call ram_read_block
+
+.chain_read_done:
     pop ebx
     or dword [ebx + 4], BLK_BUF_FLAG_VALID
     pop edi
@@ -4475,6 +4512,33 @@ ata_read_sector:
 
     clc
 .done:
+    ret
+
+; ----------------------------------------------------------------------------
+; ram_read_block - Copy one 1024-byte block from memdisk RAM image
+; Input:  EAX = block number
+;         EDI = destination buffer (in BLK_BUF_DATA pool)
+; The combined image layout in RAM:
+;   MEMDISK_BASE + 0       = boot sector (512 bytes)
+;   MEMDISK_BASE + 512     = kernel (65536 bytes)
+;   MEMDISK_BASE + 66048   = block 0 (1024 bytes)
+;   MEMDISK_BASE + 67072   = block 1 (1024 bytes)
+;   ...
+; So block N byte offset = 66048 + N * 1024
+; Clobbers: EAX, ECX, ESI (restores ESI before return)
+; ----------------------------------------------------------------------------
+COMBINED_HEADER_SIZE equ 66048      ; boot (512) + kernel (65536)
+
+ram_read_block:
+    push esi                        ; Preserve Forth IP
+    ; Compute source address: MEMDISK_BASE + 66048 + block# * 1024
+    shl eax, 10                     ; block# * 1024
+    add eax, COMBINED_HEADER_SIZE   ; + boot+kernel prefix
+    add eax, [MEMDISK_BASE]         ; + RAM base address
+    mov esi, eax                    ; ESI = source
+    mov ecx, 256                    ; 256 dwords = 1024 bytes
+    rep movsd                       ; copy to [EDI]
+    pop esi                         ; Restore Forth IP
     ret
 
 ; ----------------------------------------------------------------------------

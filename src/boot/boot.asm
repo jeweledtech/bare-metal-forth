@@ -119,6 +119,66 @@ start:
     loop .chs_loop
 .read_ok:
 
+    ; ---- Memdisk detection ----
+    ; Detect memdisk RAM image via safe hook.
+    ; Safe hook layout (syslinux mstructs.h):
+    ;   +0  jump[3]   +3  "$INT13SF"  +11 vendor[8]
+    ;   +19 old_hook  +23 flags       +27 mbft_ptr
+    ; mBFT layout:
+    ;   +0  "mBFT" (ACPI hdr, 36 bytes total)
+    ;   +36 safe_hook_ptr  +40 mdi_hdr
+    ;   +44 diskbuf (32-bit linear address)
+    ; Access 0x28098 via segment 0x2800:0x98
+    push ds
+    mov ax, 0x2800
+    mov ds, ax
+    mov dword [0x98], 0             ; default = 0
+    pop ds
+
+    ; Read INT 13h vector from IVT
+    xor ax, ax
+    mov es, ax
+    mov bx, [es:0x4C]
+    mov ax, [es:0x4E]
+    mov es, ax                      ; ES:BX = handler
+
+    ; Signature "$INT13SF" at handler+3
+    cmp dword [es:bx+3], 0x544E4924
+    jne .no_memdisk
+    cmp dword [es:bx+7], 0x46533331
+    jne .no_memdisk
+
+    ; mBFT physical address at handler+27
+    mov eax, [es:bx+27]
+    test eax, eax
+    jz .no_memdisk
+    ; Convert physical addr to seg:off for
+    ; real-mode access (addr < 1MB guaranteed)
+    mov si, ax
+    and si, 0x000F                  ; offset = low 4 bits
+    shr eax, 4
+    mov es, ax                      ; segment = addr >> 4
+
+    ; Verify "mBFT" signature at mBFT+0
+    cmp dword [es:si], 0x5446426D
+    jne .no_memdisk
+
+    ; diskbuf at mBFT+44
+    mov eax, [es:si+44]
+    test eax, eax
+    jz .no_memdisk
+    push ds
+    push bx
+    mov bx, 0x2800
+    mov ds, bx
+    mov [0x98], eax
+    pop bx
+    pop ds
+
+.no_memdisk:
+    xor ax, ax
+    mov es, ax
+
     ; Enable A20 line
     call enable_a20
 

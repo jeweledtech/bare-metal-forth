@@ -83,13 +83,30 @@ def scan_vocabs(vocab_dir):
     return vocabs
 
 
-def build_catalog_text(vocabs, layout):
-    """Build the catalog block content."""
-    lines = ['\\ VOCAB-CATALOG']
+LINES_PER_BLOCK = 16  # 16 lines of 64 chars per block
+CATALOG_DATA_LINES = LINES_PER_BLOCK - 1  # line 0 is header
+
+
+def build_catalog_blocks(vocabs, layout):
+    """Build catalog as list of block texts (multi-block if needed)."""
+    entries = []
     for v in vocabs:
         start_block = layout[v['name']]
-        lines.append(f"{v['name']} {start_block}")
-    return '\n'.join(lines)
+        end_block = start_block + v['blocks_needed'] - 1
+        entries.append(f"{v['name']} {start_block} {end_block}")
+
+    blocks = []
+    for i in range(0, len(entries), CATALOG_DATA_LINES):
+        chunk = entries[i:i + CATALOG_DATA_LINES]
+        lines = ['\\ VOCAB-CATALOG'] + chunk
+        blocks.append('\n'.join(lines))
+    return blocks
+
+
+def build_catalog_text(vocabs, layout):
+    """Build the catalog block content (legacy single-block)."""
+    blocks = build_catalog_blocks(vocabs, layout)
+    return blocks[0] if blocks else '\\ VOCAB-CATALOG'
 
 
 def main():
@@ -133,16 +150,27 @@ def main():
               f"Fix before writing catalog.")
         sys.exit(1)
 
-    # Compute block layout starting at block 2 (block 0 = reserved, block 1 = catalog)
+    # Build catalog blocks first to know how many we need
+    # Temp layout with block 2 start — will adjust after
+    temp_layout = {}
+    temp_next = 2
+    for v in vocabs:
+        temp_layout[v['name']] = temp_next
+        temp_next += v['blocks_needed']
+    cat_blocks = build_catalog_blocks(vocabs, temp_layout)
+    num_cat_blocks = len(cat_blocks)
+
+    # Recompute layout: data starts after catalog blocks
+    # Block 0 = reserved, blocks 1..N = catalog, then data
+    data_start = 1 + num_cat_blocks
     layout = {}
-    next_block = 2
+    next_block = data_start
     for v in vocabs:
         layout[v['name']] = next_block
         next_block += v['blocks_needed']
 
-    # Build and write catalog block
-    catalog_text = build_catalog_text(vocabs, layout)
-    catalog_block = source_to_block(catalog_text)
+    # Rebuild catalog with correct block numbers
+    cat_blocks = build_catalog_blocks(vocabs, layout)
 
     image_size = os.path.getsize(disk_image)
     needed_size = next_block * BLOCK_SIZE
@@ -152,9 +180,11 @@ def main():
         sys.exit(1)
 
     with open(disk_image, 'r+b') as f:
-        # Write catalog at block 1
-        f.seek(1 * BLOCK_SIZE)
-        f.write(catalog_block)
+        # Write catalog blocks starting at block 1
+        for ci, cat_text in enumerate(cat_blocks):
+            cat_data = source_to_block(cat_text)
+            f.seek((1 + ci) * BLOCK_SIZE)
+            f.write(cat_data)
 
         # Write each vocabulary at its assigned blocks
         for v in vocabs:
@@ -167,7 +197,8 @@ def main():
     # Report
     print(f"Vocabulary Catalog written to {disk_image}")
     print(f"  Block 0: (reserved)")
-    print(f"  Block 1: VOCAB-CATALOG")
+    for ci in range(num_cat_blocks):
+        print(f"  Block {1 + ci}: VOCAB-CATALOG ({ci + 1}/{num_cat_blocks})")
     for v in vocabs:
         start = layout[v['name']]
         end = start + v['blocks_needed'] - 1

@@ -32,7 +32,8 @@ wc = SourceFileLoader('wc', os.path.join(
 )).load_module()
 vocabs = wc.scan_vocabs(os.path.join(
     '{PROJECT_DIR}', 'forth', 'dict'))
-nb = 2
+_nc = (len(vocabs) + wc.CATALOG_DATA_LINES - 1) // wc.CATALOG_DATA_LINES
+nb = 1 + _nc
 for v in vocabs:
     if v['name'] == '{vocab_name}':
         print(f"{{nb}} {{nb + v['blocks_needed'] - 1}}")

@@ -36,6 +36,7 @@ HEX
 
 \ ---- Constants ----
 1 CONSTANT CATALOG-BLK
+4 CONSTANT CAT-NBLKS
 8 CONSTANT MAX-LOADING
 40 CONSTANT MAX-NAME
 
@@ -67,6 +68,7 @@ VARIABLE 'RESOLVE-DEPS
 \ ---- Push name onto loading stack ----
 \ ( addr len -- flag )
 \ TRUE if added, FALSE if circular/full
+VARIABLE LP-EA
 : LOADING-PUSH  ( addr len -- flag )
     LOADING-DEPTH @
     MAX-LOADING >= IF
@@ -76,9 +78,8 @@ VARIABLE 'RESOLVE-DEPS
         0 DO
             LOADING-NAMES
             I MAX-NAME 1+ * +
-            DUP C@
-            SWAP 1+
-            2OVER
+            DUP 1+ SWAP C@
+            3 PICK 3 PICK
             STR= IF
                 DROP DROP FALSE
                 UNLOOP EXIT
@@ -88,12 +89,10 @@ VARIABLE 'RESOLVE-DEPS
         DROP
     THEN
     LOADING-NAMES
-    LOADING-DEPTH @
-    MAX-NAME 1+ * +
-    2DUP 1+
-    2OVER DROP SWAP CMOVE
-    OVER SWAP C!
-    DROP DROP
+    LOADING-DEPTH @ MAX-NAME 1+ * +
+    LP-EA !
+    DUP LP-EA @ C!
+    LP-EA @ 1+ SWAP CMOVE
     1 LOADING-DEPTH +!
     TRUE
 ;
@@ -111,59 +110,80 @@ VARIABLE 'RESOLVE-DEPS
 ;
 
 \ ---- Catalog lookup ----
-\ Search catalog block for a vocab name.
-\ ( addr len -- blk true | false )
-: CATALOG-FIND  ( addr len -- blk T|F )
-    CATALOG-BLK BLOCK
-    10 1 DO
-        DUP I 40 * +
-        DUP 40 + SWAP
-        BEGIN
-            DUP C@ 20 =
-            OVER 2 PICK < AND
-        WHILE 1+ REPEAT
-        DUP C@ 20 <= IF
-            DROP DROP
-        ELSE
-            DUP
-            BEGIN
-                DUP C@ 20 <>
-                OVER 5 PICK < AND
-            WHILE 1+ REPEAT
-            OVER -
-            4 PICK 4 PICK
-            3 PICK 3 PICK
-            STR= IF
-                2 PICK 2 PICK +
-                BEGIN
-                    DUP C@ 20 =
-                WHILE 1+ REPEAT
-                0 SWAP
-                BEGIN
-                    DUP C@ DUP
-                    30 >= SWAP 39 <=
-                    AND
-                WHILE
-                    SWAP A *
-                    OVER C@ 30 - +
-                    SWAP 1+
-                REPEAT
-                DROP
-                SWAP DROP
-                SWAP DROP
-                SWAP DROP
-                SWAP DROP
-                TRUE
-                UNLOOP EXIT
-            THEN
-            DROP DROP
-        THEN
-        DROP
-    LOOP
-    DROP
-    DROP DROP
+\ Variable-based: no complex stack juggling.
+VARIABLE CF-NA
+VARIABLE CF-NL
+VARIABLE CF-BUF
+VARIABLE CF-LS
+VARIABLE CF-LE
+VARIABLE CF-WS
+VARIABLE CF-WL
+VARIABLE CF-NUM
+
+\ Parse decimal number at address.
+: CF-PARSE-NUM ( addr -- addr' n )
+  0 CF-NUM !
+  BEGIN
+    DUP C@ DUP
+    30 >= SWAP 39 <= AND
+  WHILE
+    CF-NUM @ A *
+    OVER C@ 30 - + CF-NUM !
+    1+
+  REPEAT
+  CF-NUM @ ;
+
+\ Match one catalog line against name.
+\ Line at CF-LS, end at CF-LE.
+\ Catalog format: NAME START END
+\ Returns start end TRUE or FALSE.
+: CF-MATCH-LINE ( -- s e T | F )
+  CF-LS @
+  BEGIN
+    DUP C@ 20 =
+    OVER CF-LE @ < AND
+  WHILE 1+ REPEAT
+  DUP C@ 20 <= IF DROP FALSE EXIT THEN
+  DUP CF-WS !
+  BEGIN
+    DUP C@ 20 <>
+    OVER CF-LE @ < AND
+  WHILE 1+ REPEAT
+  CF-WS @ - CF-WL !
+  CF-WL @ CF-NL @ <> IF
+    FALSE EXIT
+  THEN
+  CF-WS @ CF-WL @
+  CF-NA @ CF-NL @ STR= IF
+    CF-WS @ CF-WL @ +
+    BEGIN DUP C@ 20 = WHILE
+      1+
+    REPEAT
+    CF-PARSE-NUM SWAP
+    BEGIN DUP C@ 20 = WHILE
+      1+
+    REPEAT
+    CF-PARSE-NUM
+    SWAP DROP TRUE
+  ELSE
     FALSE
-;
+  THEN ;
+
+\ Search all catalog blocks for vocab name.
+\ Returns start end TRUE or FALSE.
+: CATALOG-FIND ( a l -- s e T | F )
+  CF-NL ! CF-NA !
+  CAT-NBLKS 0 DO
+    CATALOG-BLK I + BLOCK CF-BUF !
+    10 1 DO
+      CF-BUF @ I 40 * + CF-LS !
+      CF-LS @ 40 + CF-LE !
+      CF-MATCH-LINE IF
+        TRUE UNLOOP UNLOOP EXIT
+      THEN
+    LOOP
+  LOOP
+  FALSE ;
 
 \ ---- Core vocab loading (recursive) ----
 \ Defined BEFORE RESOLVE-DEPS so it can
@@ -174,9 +194,9 @@ VARIABLE 'RESOLVE-DEPS
         DROP DROP EXIT
     THEN
     2DUP CATALOG-FIND IF
-        DUP
+        OVER
         'RESOLVE-DEPS @ EXECUTE
-        LOAD
+        THRU
     ELSE
         \ Not found -- skip
     THEN
@@ -188,10 +208,15 @@ VARIABLE 'RESOLVE-DEPS
 \ Scan block for "REQUIRES:" lines
 \ and load each dependency.
 \ ( blk# -- )
+VARIABLE RD-BLK
+VARIABLE RD-BUFP
+CREATE RD-BUF 42 ALLOT
+
 : RESOLVE-DEPS  ( blk# -- )
-    BLOCK
+    DUP RD-BLK !
+    BLOCK RD-BUFP !
     10 0 DO
-        DUP I 40 * +
+        RD-BUFP @ I 40 * +
         DUP 40 + SWAP
         FALSE
         2 PICK 40 + 2 PICK DO
@@ -204,9 +229,8 @@ VARIABLE 'RESOLVE-DEPS
             I 6 + C@ 45 = IF
             I 7 + C@ 53 = IF
             I 8 + C@ 3A = IF
-                DROP TRUE
-                I 9 +
-                LEAVE
+                DROP I 9 +
+                TRUE LEAVE
             THEN THEN THEN
             THEN THEN THEN
             THEN THEN THEN
@@ -224,25 +248,35 @@ VARIABLE 'RESOLVE-DEPS
             WHILE 1+ REPEAT
             OVER -
             DUP 0> IF
-                2DUP
+                OVER RD-BUF
+                2 PICK CMOVE
+                SWAP DROP
+                RD-BLK @ SWAP
+                RD-BUF SWAP
                 LOAD-VOCAB-INNER
-            THEN
-            DROP DROP
+                RD-BLK !
+                RD-BLK @ BLOCK
+                RD-BUFP !
+            ELSE DROP DROP THEN
         THEN
         DROP DROP
     LOOP
-    DROP
 ;
 
 \ Patch the forward reference
 ' RESOLVE-DEPS 'RESOLVE-DEPS !
 
-\ ---- Public interface ----
-\ ( addr len -- )
+\ Switch compilation to FORTH but keep
+\ CATALOG-RESOLVER searchable so the
+\ compiler resolves LOADING-RESET and
+\ LOAD-VOCAB-INNER by XT at compile time.
+FORTH DEFINITIONS
+ALSO CATALOG-RESOLVER
+
 : LOAD-VOCAB  ( addr len -- )
     LOADING-RESET
     LOAD-VOCAB-INNER
 ;
 
-FORTH DEFINITIONS
+PREVIOUS
 DECIMAL

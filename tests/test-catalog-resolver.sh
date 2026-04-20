@@ -60,7 +60,8 @@ sys.path.insert(0, '$PROJECT_DIR/tools')
 from importlib.machinery import SourceFileLoader
 wc = SourceFileLoader('wc', '$PROJECT_DIR/tools/write-catalog.py').load_module()
 vocabs = wc.scan_vocabs('$PROJECT_DIR/forth/dict/')
-nb = 2
+_nc = (len(vocabs) + wc.CATALOG_DATA_LINES - 1) // wc.CATALOG_DATA_LINES
+nb = 1 + _nc
 for v in vocabs:
     if v['name'] == 'CATALOG-RESOLVER':
         print(f\"{nb} {v['blocks_needed']}\")
