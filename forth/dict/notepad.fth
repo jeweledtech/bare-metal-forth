@@ -8,6 +8,8 @@
 \ REQUIRES: UI-PARSER
 \ REQUIRES: UI-EVENTS
 \ REQUIRES: GUI-HARVEST
+\ REQUIRES: FILE-EDITOR
+\ REQUIRES: CATALOG-RESOLVER
 \ ============================================
 \
 \ ForthOS Notepad: text file editor form.
@@ -26,34 +28,69 @@ ALSO UI-CORE
 ALSO UI-EVENTS
 ALSO UI-PARSER
 ALSO GUI-HARVEST
+ALSO FILE-EDITOR
+ALSO CATALOG-RESOLVER
 
 HEX
+
+\ ---- Region constants (HEX/DECIMAL safe) --
+DECIMAL
+8  CONSTANT NP-EDIT-Y
+14 CONSTANT NP-EDIT-H
+23 CONSTANT NP-STATUS-ROW
+HEX
+
+\ ---- State variables ---------------------
+VARIABLE NP-EDIT-MODE
+VARIABLE NP-INPUT-IDX
+
+: NP-FIND-INPUT ( -- )
+  WT-COUNT @ 0 DO
+    I WT-ESIZE * WT-BASE +
+    C@ WT-INPUT = IF
+      I NP-INPUT-IDX ! LEAVE
+    THEN
+  LOOP ;
 
 \ ---- Button handlers -------------------
 
 : NP-NEW ( -- )
-  ." New file" CR ;
+  FE-BUF MAX-FILE 0 FILL
+  0 FE-SIZE ! 0 FE-CX ! 0 FE-CY !
+  0 FE-TOP ! 0 FE-DIRTY !
+  0 FE-NLEN !
+  1 NP-EDIT-MODE ! ;
 
 : NP-OPEN ( -- )
-  ." Open file" CR ;
+  NP-INPUT-IDX @ IV-GET
+  DUP 0= IF 2DROP EXIT THEN
+  FE-OPEN
+  0 FE-CX ! 0 FE-CY !
+  0 FE-TOP !
+  1 NP-EDIT-MODE ! ;
 
 : NP-SAVE ( -- )
-  ." Save file" CR ;
+  FE-NLEN @ 0= IF EXIT THEN
+  FE-SAVE ;
 
 : NP-SAVE-AS ( -- )
-  ." Save As" CR ;
+  NP-INPUT-IDX @ IV-GET
+  DUP 0= IF 2DROP EXIT THEN
+  DUP FE-NLEN !
+  FE-NAME SWAP CMOVE
+  1 FE-DIRTY ! FE-SAVE ;
 
 : NP-CUT ( -- )
-  ." Cut" CR ;
+  ." Cut    " CR ;
 
 : NP-COPY ( -- )
-  ." Copy" CR ;
+  ." Copy   " CR ;
 
 : NP-PASTE ( -- )
-  ." Paste" CR ;
+  ." Paste  " CR ;
 
 : NP-UNDO ( -- )
-  ." Undo" CR ;
+  ." Undo   " CR ;
 
 : NP-EXIT ( -- )
   1 QUIT-FLAG ! ;
@@ -97,18 +134,50 @@ S" Exit" WT-BUTTON ' NP-EXIT
     LOOP
   ELSE DROP THEN ;
 
+\ ---- Mode switch helpers ----------------
+
+: NP-EXIT-EDIT ( -- )
+  0 NP-EDIT-MODE ! ;
+
+: NP-EDITOR-KEY ( scancode -- )
+  DUP 1 = IF
+    DROP NP-EXIT-EDIT EXIT THEN
+  DUP SC-CTRL-Q = IF
+    DROP NP-EXIT-EDIT EXIT THEN
+  FE-DISPATCH ;
+
 \ ---- Main entry point ------------------
 \ NOTEPAD-FORM: blocks 512-514.
 
-DECIMAL
+: NP-RUN ( -- )
+  INIT-KEYMAP NP-FIND-INPUT
+  NP-EDIT-Y NP-EDIT-H NP-STATUS-ROW
+  FE-SET-REGION
+  1 IRQ-UNMASK
+  0 QUIT-FLAG ! 0 NP-EDIT-MODE !
+  0 NEXT-FOCUSABLE
+  DUP 0 < IF DROP 0 THEN FOCUS-IDX !
+  BEGIN
+    NP-EDIT-MODE @ IF
+      FE-REFRESH FE-CURSOR FE-STATUS
+      FE-KEY DUP 1 = IF
+        DROP NP-EDITOR-KEY
+      ELSE 2DROP THEN
+    ELSE
+      FORM-RENDER
+      KEY HANDLE-KEY
+    THEN
+    NET-FLUSH QUIT-FLAG @
+  UNTIL VGA-CLS ;
+
 : NOTEPAD-RUN ( -- )
   ." Loading NOTEPAD..." CR
-  512 514 FORM-LOAD
-  FORM-WIRE
+  S" NOTEPAD-FORM" CATALOG-FIND
+  0= IF ." Form not found" CR EXIT THEN
+  FORM-LOAD FORM-WIRE
   ." NOTEPAD ready" CR
-  FORM-RUN
+  NP-RUN
   ." NOTEPAD closed" CR ;
-HEX
 
 ONLY FORTH DEFINITIONS
 DECIMAL
