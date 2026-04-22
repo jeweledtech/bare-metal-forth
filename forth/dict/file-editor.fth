@@ -246,8 +246,8 @@ VARIABLE SB-COL
     DUP 0= IF DROP 30 SB-EMIT EXIT THEN
     0 SWAP
     BEGIN DUP WHILE
-        DUP A MOD 30 + SWAP
-        A / SWAP 1+
+        DUP A MOD 30 + -ROT
+        A / SWAP 1+ SWAP
     REPEAT
     DROP
     0 DO SB-EMIT LOOP
