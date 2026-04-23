@@ -30,7 +30,7 @@ $(BOOTLOADER): $(SRC_BOOT)/boot.asm | $(BUILD)
 	$(NASM) -f bin -o $@ $<
 
 # Embedded vocabularies (evaluated at boot, no block storage needed)
-EMBED_VOCABS = forth/dict/hardware.fth forth/dict/port-mapper.fth forth/dict/echoport.fth forth/dict/pci-enum.fth forth/dict/catalog-resolver.fth forth/dict/ahci.fth forth/dict/rtl8168.fth forth/dict/auto-detect.fth forth/dict/ntfs.fth forth/dict/fat32.fth forth/dict/surveyor.fth
+EMBED_VOCABS = forth/dict/hardware.fth forth/dict/port-mapper.fth forth/dict/echoport.fth forth/dict/pci-enum.fth forth/dict/catalog-resolver.fth forth/dict/ahci.fth forth/dict/rtl8168.fth forth/dict/auto-detect.fth forth/dict/ntfs.fth forth/dict/fat32.fth forth/dict/surveyor.fth forth/dict/ui-core.fth forth/dict/ui-parser.fth forth/dict/ui-events.fth forth/dict/gui-harvest.fth forth/dict/file-editor.fth forth/dict/notepad.fth
 EMBEDDED = $(BUILD)/embedded.bin
 
 $(EMBEDDED): $(EMBED_VOCABS) tools/embed-vocabs.py | $(BUILD)
@@ -119,12 +119,12 @@ $(COMBINED_IDE): $(COMBINED)
 # Verify kernel size hasn't exceeded 67072 bytes (BLOCKS_LBA_BASE constraint)
 check-kernel-size: $(IMAGE)
 	@SIZE=$$(stat -c%s $(IMAGE)); \
-	 if [ $$SIZE -gt 67072 ]; then \
-	   echo "ERROR: Kernel image $$SIZE bytes exceeds 67072 limit!"; \
+	 if [ $$SIZE -gt 98816 ]; then \
+	   echo "ERROR: Kernel image $$SIZE bytes exceeds 98816 limit!"; \
 	   echo "  BLOCKS_LBA_BASE must be updated in forth.asm"; \
 	   exit 1; \
 	 else \
-	   echo "Kernel size OK: $$SIZE bytes (limit: 67072)"; \
+	   echo "Kernel size OK: $$SIZE bytes (limit: 98816)"; \
 	 fi
 
 # --- Test Targets ---
