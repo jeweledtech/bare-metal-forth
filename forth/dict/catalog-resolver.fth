@@ -109,6 +109,50 @@ VARIABLE LP-EA
     0 LOADING-DEPTH !
 ;
 
+\ ---- In-memory catalog registry ------
+\ Lets embedded vocabs register form data
+\ so CATALOG-FIND works without block disk.
+10 CONSTANT CR-MAX
+E CONSTANT CR-NLEN
+VARIABLE CR-COUNT
+0 CR-COUNT !
+CREATE CR-NAMES  CR-MAX CR-NLEN * ALLOT
+CREATE CR-LENS   CR-MAX ALLOT
+CREATE CR-ADDRS  CR-MAX 4 * ALLOT
+CREATE CR-NBLKS  CR-MAX 4 * ALLOT
+VARIABLE CATALOG-MEM
+0 CATALOG-MEM !
+
+VARIABLE CR-CA
+VARIABLE CR-LN
+
+: CATALOG-REGISTER ( addr nblks c-a len -- )
+  CR-COUNT @ CR-MAX >= IF
+    2DROP 2DROP EXIT THEN
+  CR-LN ! CR-CA !
+  CR-CA @
+  CR-COUNT @ CR-NLEN * CR-NAMES +
+  CR-LN @ CMOVE
+  CR-LN @
+  CR-COUNT @ CR-LENS + C!
+  CR-COUNT @ 4 * CR-NBLKS + !
+  CR-COUNT @ 4 * CR-ADDRS + !
+  1 CR-COUNT +! ;
+
+: CR-SEARCH ( a l -- addr nblks T | F )
+  CR-COUNT @ 0= IF 2DROP FALSE EXIT THEN
+  CR-COUNT @ 0 DO
+    2DUP
+    I CR-NLEN * CR-NAMES +
+    I CR-LENS + C@
+    STR= IF
+      I 4 * CR-ADDRS + @
+      I 4 * CR-NBLKS + @
+      2SWAP 2DROP
+      TRUE UNLOOP EXIT
+    THEN
+  LOOP 2DROP FALSE ;
+
 \ ---- Catalog lookup ----
 \ Variable-based: no complex stack juggling.
 VARIABLE CF-NA
@@ -169,9 +213,16 @@ VARIABLE CF-NUM
     FALSE
   THEN ;
 
-\ Search all catalog blocks for vocab name.
-\ Returns start end TRUE or FALSE.
-: CATALOG-FIND ( a l -- s e T | F )
+\ Search registry first, then catalog blocks.
+\ Returns v1 v2 TRUE or FALSE.
+\ Registry hit: addr nblks, CATALOG-MEM=1
+\ Block hit: start end, CATALOG-MEM=0
+: CATALOG-FIND ( a l -- v1 v2 T | F )
+  2DUP CR-SEARCH IF
+    2SWAP 2DROP
+    1 CATALOG-MEM ! TRUE EXIT
+  THEN
+  0 CATALOG-MEM !
   CF-NL ! CF-NA !
   CAT-NBLKS 0 DO
     CATALOG-BLK I + BLOCK CF-BUF !
@@ -194,9 +245,13 @@ VARIABLE CF-NUM
         DROP DROP EXIT
     THEN
     2DUP CATALOG-FIND IF
-        OVER
-        'RESOLVE-DEPS @ EXECUTE
-        THRU
+        CATALOG-MEM @ IF
+            DROP DROP
+        ELSE
+            OVER
+            'RESOLVE-DEPS @ EXECUTE
+            THRU
+        THEN
     ELSE
         \ Not found -- skip
     THEN
