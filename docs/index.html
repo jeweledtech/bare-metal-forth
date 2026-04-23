@@ -580,11 +580,11 @@ footer {
     </p>
     <div class="hero-stats">
       <div class="stat">
-        <span class="stat-val">178</span>
+        <span class="stat-val">225</span>
         <span class="stat-label">kernel words</span>
       </div>
       <div class="stat">
-        <span class="stat-val">66 KB</span>
+        <span class="stat-val">98 KB</span>
         <span class="stat-label">bootable kernel</span>
       </div>
       <div class="stat">
@@ -618,7 +618,7 @@ footer {
 <span class="out">AUTO-DETECT: AHCI    @ PCI 00:17.0  ok</span>
 <span class="out">AUTO-DETECT: xHCI    @ PCI 00:14.0  ok</span>
 <span class="out">NET console ready · UDP 10.42.0.2:6666</span>
-<span class="out">ForthOS v1.0 · 178 words · 66048 bytes</span>
+<span class="out">ForthOS v1.0 · 225 words · 98816 bytes</span>
 <span class="ok">ok</span>
 <span class="prompt">3 4 + . </span><span class="hi">7</span> <span class="ok">ok</span>
 <span class="prompt">USING I8042PRT  </span><span class="ok">ok</span>
@@ -671,13 +671,13 @@ footer {
       <a class="diagram-card" href="metacompiler_phase_tracker.html">
         <div class="dc-tag">Metacompiler · Tier 5</div>
         <div class="dc-title">Phase tracker</div>
-        <div class="dc-desc">All 6 metacompiler phases (A through B6b) complete. 151/151 tests green. Self-hosting proven. 66,048-byte bootable output.</div>
+        <div class="dc-desc">All 6 metacompiler phases (A through B6b) complete. 151/151 tests green. Self-hosting proven. 98,816-byte bootable output.</div>
         <div class="dc-arrow">open diagram →</div>
       </a>
       <a class="diagram-card" href="forth83_quick_reference.html">
         <div class="dc-tag">Reference</div>
         <div class="dc-title">Forth-83 quick reference</div>
-        <div class="dc-desc">178-word dictionary by category. Flags absent words (no 2*), known constraints, bug log. The card you hand a new contributor.</div>
+        <div class="dc-desc">225-word dictionary by category. Flags absent words (no 2*), known constraints, bug log. The card you hand a new contributor.</div>
         <div class="dc-arrow">open diagram →</div>
       </a>
     </div>
@@ -830,7 +830,7 @@ footer {
           <div class="code-block">git clone https://github.com/jeweledtech/bare-metal-forth
 cd bare-metal-forth
 make all
-<span style="color:var(--muted)"># → build/forth.img (66,048 bytes)</span></div>
+<span style="color:var(--muted)"># → build/forth.img (98,816 bytes)</span></div>
         </div>
       </div>
       <div class="step">
@@ -839,7 +839,7 @@ make all
           <div class="step-title">Run in QEMU</div>
           <div class="step-desc">Boot ForthOS in QEMU and see the Forth prompt.</div>
           <div class="code-block">make run
-<span style="color:var(--muted)"># → ForthOS boots, 178 words loaded</span>
+<span style="color:var(--muted)"># → ForthOS boots, 225 words loaded</span>
 <span style="color:var(--accent2)">3 4 + .  </span><span style="color:var(--text)">7 ok</span></div>
         </div>
       </div>
@@ -938,7 +938,7 @@ nc -u -l 6666        <span style="color:var(--muted)"># open UDP console</span>
       </div>
     </div>
     <div class="footer-bottom">
-      <div class="footer-copy">© 2026 Jolly Genius Inc. · JeweledTech · Winters, CA · MIT License (kernel)</div>
+      <div class="footer-copy">© 2026 Jolly Genius Inc. · JeweledTech · MIT License (kernel)</div>
       <div class="footer-tagline">"Build systems worthy of the void."</div>
     </div>
   </div>
