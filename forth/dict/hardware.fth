@@ -34,18 +34,25 @@ VARIABLE US-LOOPS  3E8 US-LOOPS !
 \ how many loop iterations pass in ~55ms
 \ (65536 ticks at 1.193182 MHz).
 : CALIBRATE-DELAY  ( -- )
+    61 INB
+    DUP 1 OR FE AND 61 OUTB
     B0 43 OUTB
-    FF 42 OUTB
-    FF 42 OUTB
+    FF 42 OUTB  FF 42 OUTB
     0
     BEGIN
         1+
         42 INB DROP
         42 INB
-        42 INB 8 LSHIFT OR
-        8000 <
+        42 INB 8 LSHIFT OR  8000 <
+        OVER 100000 > OR
     UNTIL
-    DUP + 37 / US-LOOPS !
+    DUP 100000 > IF
+        DROP C US-LOOPS !
+        ." PIT timeout; default" CR
+    ELSE
+        DUP + 37 / US-LOOPS !
+    THEN
+    61 OUTB
     ." Calibrated: "
     US-LOOPS @ DECIMAL . HEX
     ." loops/us" CR

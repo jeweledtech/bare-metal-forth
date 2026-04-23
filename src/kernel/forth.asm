@@ -86,7 +86,7 @@ BLOCK_SIZE          equ 1024        ; 1KB per Forth block
 ; Block storage LBA offset in combined image
 ; Block 0 starts at this LBA. Block N = BLOCKS_LBA_BASE + N*2.
 ; = (boot_sector + kernel) / 512 = (512 + 65536) / 512 = 129
-BLOCKS_LBA_BASE     equ 129
+BLOCKS_LBA_BASE     equ 131
 
 ; Block buffer data: 4 x 1024 bytes
 BLK_BUF_DATA        equ 0x28200     ; 0x28200 - 0x291FF
@@ -4989,5 +4989,5 @@ embed_size: dd (embed_end - embed_data)
 ; End of Kernel
 ; ============================================================================
 
-; Pad kernel to exactly 64KB (128 sectors) to match bootloader's KERNEL_SECTORS
-times 0x10000 - ($ - $$) db 0
+; Pad kernel to 65KB (130 sectors) to match bootloader's KERNEL_SECTORS
+times 0x10400 - ($ - $$) db 0
