@@ -97,26 +97,21 @@ VARIABLE NP-INPUT-IDX
 
 \ ---- Widget registration ---------------
 \ Register button names to handler XTs.
-\ GUI-HARVEST WIDGET-FIND uses these.
+\ NOTE: S" must run in compile mode (kernel S" interpret-mode bug
+\ leaks source bytes to console). Wrap registrations in a colon def
+\ and invoke once. Same workaround as notepad-form.fth:44.
+: NP-REGISTER-BUTTONS ( -- )
+  S" New"     WT-BUTTON ' NP-NEW     WIDGET-REGISTER
+  S" Open"    WT-BUTTON ' NP-OPEN    WIDGET-REGISTER
+  S" Save"    WT-BUTTON ' NP-SAVE    WIDGET-REGISTER
+  S" Save As" WT-BUTTON ' NP-SAVE-AS WIDGET-REGISTER
+  S" Cut"     WT-BUTTON ' NP-CUT     WIDGET-REGISTER
+  S" Copy"    WT-BUTTON ' NP-COPY    WIDGET-REGISTER
+  S" Paste"   WT-BUTTON ' NP-PASTE   WIDGET-REGISTER
+  S" Undo"    WT-BUTTON ' NP-UNDO    WIDGET-REGISTER
+  S" Exit"    WT-BUTTON ' NP-EXIT    WIDGET-REGISTER ;
 
-S" New" WT-BUTTON ' NP-NEW
-  WIDGET-REGISTER
-S" Open" WT-BUTTON ' NP-OPEN
-  WIDGET-REGISTER
-S" Save" WT-BUTTON ' NP-SAVE
-  WIDGET-REGISTER
-S" Save As" WT-BUTTON ' NP-SAVE-AS
-  WIDGET-REGISTER
-S" Cut" WT-BUTTON ' NP-CUT
-  WIDGET-REGISTER
-S" Copy" WT-BUTTON ' NP-COPY
-  WIDGET-REGISTER
-S" Paste" WT-BUTTON ' NP-PASTE
-  WIDGET-REGISTER
-S" Undo" WT-BUTTON ' NP-UNDO
-  WIDGET-REGISTER
-S" Exit" WT-BUTTON ' NP-EXIT
-  WIDGET-REGISTER
+NP-REGISTER-BUTTONS
 
 \ ---- Wire button handlers ---------------
 \ Match widget labels to registry XTs.
