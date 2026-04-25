@@ -27,6 +27,7 @@ FILE-EDITOR DEFINITIONS
 ALSO NTFS
 ALSO AHCI
 ALSO HARDWARE
+ALSO PS2-KEYBOARD
 HEX
 
 \ ============================================
@@ -98,7 +99,6 @@ VARIABLE RS-TYPE
     BEGIN
         KB-RING-COUNT @ 0=
     WHILE
-        \ idle: just loop
     REPEAT
     KB-RING-BUF KB-RING-TAIL @ + C@
     RS-CODE !
@@ -107,22 +107,18 @@ VARIABLE RS-TYPE
     KB-RING-TAIL !
     -1 KB-RING-COUNT +!
     RS-CODE @
-    DUP 80 >= IF
-        DROP 0 0 EXIT
-    THEN
+    DUP KB-UPDATE-MODS
+    DUP 80 >= IF DROP 0 0 EXIT THEN
     DUP 1D = IF DROP 0 0 EXIT THEN
-    DUP 9D = IF DROP 0 0 EXIT THEN
     DUP 2A = IF DROP 0 0 EXIT THEN
     DUP 36 = IF DROP 0 0 EXIT THEN
-    DUP AA = IF DROP 0 0 EXIT THEN
-    DUP B6 = IF DROP 0 0 EXIT THEN
+    DUP 38 = IF DROP 0 0 EXIT THEN
     1
 ;
 
 \ Translate scancode to ASCII or special
 \ Returns: ( char 0 ) for ASCII
 \          ( scancode 1 ) for special key
-VARIABLE SK-CTRL
 
 : FE-KEY ( -- code type )
     BEGIN
@@ -459,6 +455,10 @@ VARIABLE SB-COL
 
 : FE-SAVE ( -- )
     FE-DIRTY @ 0= IF EXIT THEN
+    FE-SIZE @ 1000 > IF
+        ." File too large (>4KB)" CR
+        EXIT
+    THEN
     FE-BUF FE-SIZE @
     FE-NAME FE-NLEN @
     NTFS-WRITE-FILE IF
@@ -544,11 +544,12 @@ CREATE SC-ASC 80 ALLOT
     DUP SC-PGUP  = IF DROP FE-PGUP   EXIT THEN
     DUP SC-PGDN  = IF DROP FE-PGDN   EXIT THEN
     DUP SC-DEL   = IF DROP FE-DELETE EXIT THEN
-    \ Ctrl+S = save (scancode 0x1F)
-    DUP 1F = IF DROP FE-SAVE  EXIT THEN
-    \ Ctrl+Q = quit (scancode 0x10)
-    DUP 10 = IF
+    \ Ctrl+S / Ctrl+Q (only when Ctrl held)
+    KB-MODS @ 2 AND IF
+      DUP 1F = IF DROP FE-SAVE EXIT THEN
+      DUP 10 = IF
         DROP 1 FE-QUIT ! EXIT
+      THEN
     THEN
     \ Backspace
     DUP 0E = IF
@@ -560,7 +561,10 @@ CREATE SC-ASC 80 ALLOT
     THEN
     \ Printable: translate scancode to ASCII
     DUP 80 < IF
-        SC-ASC + C@
+        KB-MODS @ 1 AND IF
+            KB-SHIFT-MAP
+        ELSE SC-ASC THEN
+        + C@
         DUP 0<> IF
             DUP 08 = IF
                 DROP FE-BACKSPACE EXIT

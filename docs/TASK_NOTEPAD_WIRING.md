@@ -1,6 +1,8 @@
 # TASK: Wire NOTEPAD into a Working Text Editor
 
-**Status:** NOT STARTED
+**Status as of 2026-04-25:** NOTEPAD form renders on HP (d95cef9).
+This task is wiring work to make it functional.
+
 **Depends on:** d95cef9 (NOTEPAD form renders on HP bare metal)
 **Goal:** Button widgets fire actions (New/Open/Save/Exit), text area
 accepts keyboard input with Shift/Ctrl, Open reads NTFS files, Save
@@ -10,12 +12,12 @@ writes them, Exit returns to the `ok` prompt.
 
 ## Bugs Blocking This Task
 
-| # | Bug | File | Lines | Impact |
+| # | Bug | File | Lines | Status |
 |---|-----|------|-------|--------|
-| B1 | RAW-SCAN discards Ctrl/Shift without tracking KB-MODS | file-editor.fth | 110-118 | Can't type 's' or 'q'; no uppercase/symbols |
-| B2 | FILE-READ clamps to 8 sectors (4 KB) | ntfs.fth | 608-609 | Files > 4 KB silently truncated on open |
-| B3 | NTFS-WRITE-FILE passes unclamped count to AHCI-WRITE | ntfs.fth | 724-727 | SEC-BUF overflow on files > 4 KB (memory corruption) |
-| B4 | No AHCI/NTFS init in NOTEPAD-RUN | notepad.fth | 172-179 | File ops fail without manual pre-init |
+| B1 | RAW-SCAN discards Ctrl/Shift without tracking KB-MODS | file-editor.fth | 110-118 | **OPEN** — blocks all keyboard testing |
+| B2 | FILE-READ clamps to 8 sectors (4 KB) | ntfs.fth | 608-609 | **DEFERRABLE** — Open works for files < 4 KB |
+| B3 | ~~NTFS-WRITE-FILE passes unclamped count to AHCI-WRITE~~ | file-editor.fth | 462 | **DONE** — FE-SAVE has 4 KB guard |
+| B4 | ~~No AHCI/NTFS init in NOTEPAD-RUN~~ | notepad.fth | 203 | **DONE** — AHCI-INIT/NTFS-INIT/NTFS-ENABLE-WRITE in NOTEPAD-RUN |
 
 ### B1 Detail — Dead Code in RAW-SCAN
 
@@ -61,80 +63,37 @@ Same format as SC-ASC — used as `KB-SHIFT-MAP scancode + C@`.
 
 ---
 
-## Steps
+## Completed Steps
 
-### Step 0 — Verify Baseline
+### ~~Step 0 — Verify Baseline~~ DONE
 
-**Change:** None.
-**Test (QEMU):**
-```
-USING NOTEPAD
-NOTEPAD-RUN
-```
-- Tab cycles focus across buttons and input field.
-- Enter on a focused button prints its stub message.
-- Pressing Escape returns to `ok` prompt.
-- Editor sub-region (rows 8-21) is blank after pressing New.
+Form renders on HP bare metal. Tab cycles focus, buttons fire
+stubs, Escape exits. Confirmed in milestone commit d95cef9.
 
-**Pass criteria:** Form renders, focus works, no crash.
+### ~~Step 3 — Add AHCI/NTFS Init to NOTEPAD-RUN~~ DONE
 
----
+Already in notepad.fth:203 — `AHCI-INIT NTFS-INIT NTFS-ENABLE-WRITE`.
+ALSO NTFS and ALSO AHCI in vocabulary header (lines 33-34).
 
-### Step 1 — UDP Probe for RAW-SCAN Before/After Evidence
+### ~~Step 6 — FE-SAVE 4 KB Guard~~ DONE
 
-**Change:** `forth/dict/file-editor.fth` — add temporary probe word.
-
-Add after INIT-KEYMAP:
-```forth
-: RAWSCAN-PROBE ( -- )
-  ." Type keys. Ctrl+Q exits." CR
-  BEGIN
-    RAW-SCAN DUP 1 = IF
-      DROP
-      ." SC=" DUP .H2
-      ."  MODS=" KB-MODS @ .H2 CR
-      DUP 10 = KB-MODS @ 2 AND AND
-      IF DROP EXIT THEN
-      DROP
-    ELSE 2DROP THEN
-  AGAIN ;
-```
-
-**Test (QEMU with net console):**
-```
-Host:  nc -u -l 6666 > /tmp/rawscan_before.txt
-QEMU:  -serial udp:127.0.0.1:6666
-
-USING FILE-EDITOR
-RAWSCAN-PROBE
-```
-
-Type these keys in order: `s`, `q`, Shift+S, Ctrl+S, Ctrl+Q.
-
-**Expected output (before fix):**
-```
-SC=1F MODS=00     <- s key, no Ctrl tracked
-SC=10 MODS=00     <- q key, no Ctrl tracked
-SC=1F MODS=00     <- Shift+S, Shift not tracked
-SC=1F MODS=00     <- Ctrl+S, Ctrl not tracked
-SC=10 MODS=00     <- Ctrl+Q exits (but MODS=00)
-```
-
-**Pass criteria:** Probe runs, captures to file. MODS column is
-always 00 (proving modifiers aren't tracked). Save file as the
-"before" baseline. This probe word stays in for Step 2; remove
-after Step 2 passes.
+file-editor.fth:462 — `FE-SIZE @ 1000 > IF` guard prevents
+SEC-BUF overflow. Chunked write (Option B) deferred.
 
 ---
 
-### Step 2 — Fix RAW-SCAN: Track Modifiers via KB-MODS
+## Remaining Steps
 
-**Change:** `forth/dict/file-editor.fth` and `forth/dict/notepad.fth`
+### Step 1 — Fix RAW-SCAN: Track Modifiers via KB-MODS
 
-**2a.** Add `ALSO PS2-KEYBOARD` to FILE-EDITOR vocabulary header
+**Fixes:** B1 (blocks ALL keyboard testing)
+**Scope:** `forth/dict/file-editor.fth`, `forth/dict/notepad.fth`
+**Commit template:** `fix(file-editor): track Shift/Ctrl in RAW-SCAN via KB-MODS`
+
+**1a.** Add `ALSO PS2-KEYBOARD` to FILE-EDITOR vocabulary header
 (after line 29, alongside ALSO NTFS / ALSO AHCI / ALSO HARDWARE).
 
-**2b.** Rewrite RAW-SCAN (lines 97-120):
+**1b.** Rewrite RAW-SCAN (lines 97-120):
 ```forth
 : RAW-SCAN ( -- scancode type )
     BEGIN
@@ -166,60 +125,59 @@ Changes from original:
   the `>= 0x80` check, but now handled by KB-UPDATE-MODS).
 - Alt make (0x38) added to modifier filter list.
 
-**2c.** Gate Ctrl+S / Ctrl+Q in FE-DISPATCH (lines 548-552):
+**1c.** Gate Ctrl+S / Ctrl+Q in FE-DISPATCH on KB-MODS bit 1:
 ```forth
-\ Old:
-DUP 1F = IF DROP FE-SAVE EXIT THEN
-DUP 10 = IF DROP 1 FE-QUIT ! EXIT THEN
-
-\ New:
 KB-MODS @ 2 AND IF
   DUP 1F = IF DROP FE-SAVE EXIT THEN
   DUP 10 = IF DROP 1 FE-QUIT ! EXIT THEN
 THEN
 ```
 
-**2d.** Add Shift-aware keymap lookup in FE-DISPATCH (lines 562-578).
+**1d.** Add Shift-aware keymap lookup in FE-DISPATCH.
 When `KB-MODS @ 1 AND` is true, use `KB-SHIFT-MAP` from
 PS2-KEYBOARD instead of `SC-ASC`:
 ```forth
-\ Old:
-DUP 80 < IF  SC-ASC + C@  ...
-
-\ New:
 DUP 80 < IF
   KB-MODS @ 1 AND IF KB-SHIFT-MAP ELSE SC-ASC THEN
   + C@  ...
 ```
 
-KB-SHIFT-MAP is a `CREATE` array in ps2-keyboard.fth (line 114),
+KB-SHIFT-MAP is a `CREATE` array in ps2-keyboard.fth,
 scancode-indexed, same format as SC-ASC. Contains uppercase
-letters and shifted symbols. Verified present.
+letters and shifted symbols.
 
-**2e.** Gate Ctrl+Q in NP-EDITOR-KEY (notepad.fth line 145):
+**1e.** Gate Ctrl+Q in NP-EDITOR-KEY (notepad.fth):
 ```forth
-\ Old:
-DUP SC-CTRL-Q = IF DROP NP-EXIT-EDIT EXIT THEN
-
-\ New:
 DUP SC-CTRL-Q = KB-MODS @ 2 AND AND IF
   DROP NP-EXIT-EDIT EXIT THEN
 ```
 
-**2f.** Delete `VARIABLE SK-CTRL` (file-editor.fth line 125) —
+**1f.** Delete `VARIABLE SK-CTRL` (file-editor.fth line 125) —
 no longer needed; KB-MODS replaces it.
 
-**Test (QEMU with net console):**
+**Verify (QEMU):**
+
+Optional before/after probe (add temporarily after INIT-KEYMAP,
+remove after verification):
+```forth
+: RAWSCAN-PROBE ( -- )
+  ." Type keys. Ctrl+Q exits." CR
+  BEGIN
+    RAW-SCAN DUP 1 = IF
+      DROP
+      ." SC=" DUP .H2
+      ."  MODS=" KB-MODS @ .H2 CR
+      DUP 10 = KB-MODS @ 2 AND AND
+      IF DROP EXIT THEN
+      DROP
+    ELSE 2DROP THEN
+  AGAIN ;
 ```
-Host:  nc -u -l 6666 > /tmp/rawscan_after.txt
 
-USING FILE-EDITOR
-RAWSCAN-PROBE
-```
+With net console (`-serial udp:127.0.0.1:6666`), type:
+`s`, `q`, Shift+S, Ctrl+S, Ctrl+Q.
 
-Type same sequence: `s`, `q`, Shift+S, Ctrl+S, Ctrl+Q.
-
-**Expected output (after fix):**
+Expected after fix:
 ```
 SC=1F MODS=00     <- s, no modifier
 SC=10 MODS=00     <- q, no modifier
@@ -228,9 +186,7 @@ SC=1F MODS=02     <- Ctrl+S, Ctrl tracked
 SC=10 MODS=02     <- Ctrl+Q exits, Ctrl tracked
 ```
 
-**Diff rawscan_before.txt vs rawscan_after.txt** = proof.
-
-Then test editing:
+Then test in NOTEPAD:
 ```
 USING NOTEPAD
 NOTEPAD-RUN
@@ -241,53 +197,24 @@ NOTEPAD-RUN
 \ Plain 'q' does NOT exit
 ```
 
-**Pass criteria:** 's' and 'q' type as characters. Shift produces
-uppercase. Only Ctrl+S saves, only Ctrl+Q exits editor. Remove
-RAWSCAN-PROBE after this step passes.
+**Pass (QEMU):** 's'/'q' type as chars. Shift = uppercase.
+Only Ctrl+S saves, only Ctrl+Q exits.
+
+**Pass (HP):** Same behavior on real keyboard. Timing-sensitive
+modifier tracking works with physical PS/2 controller.
 
 ---
 
-### Step 3 — Add AHCI/NTFS Init to NOTEPAD-RUN
+### Step 2 — Test NP-OPEN End-to-End (Small File)
 
-**Change:** `forth/dict/notepad.fth`
+**Scope:** Verification step — no code changes expected. If bugs
+surface, fix before proceeding.
+**Commit template:** (no commit unless fixes needed)
 
-**3a.** Add `ALSO NTFS` and `ALSO AHCI` to vocabulary header
-(alongside existing ALSO lines at lines 27-32).
+**Setup:** QEMU disk image with NTFS partition containing a
+test file < 4 KB. Create via host mount before QEMU launch.
 
-**3b.** Add init calls at the top of NOTEPAD-RUN:
-```forth
-: NOTEPAD-RUN ( -- )
-  ." Loading NOTEPAD..." CR
-  AHCI-INIT NTFS-INIT NTFS-ENABLE-WRITE
-  S" NOTEPAD-FORM" CATALOG-FIND
-  ...
-```
-
-AHCI-INIT and NTFS-INIT are idempotent — safe to call if already
-initialized. NTFS-ENABLE-WRITE sets the write-enable flag.
-
-**Test (QEMU):**
-```
-USING NOTEPAD
-NOTEPAD-RUN
-```
-
-**Pass criteria:** Init messages appear (AHCI port found, NTFS
-partition found, write enabled). Form renders normally after.
-No crash if AHCI/NTFS were already initialized.
-
----
-
-### Step 4 — Test NP-OPEN End-to-End (Small File)
-
-**Change:** None expected — this is a verification step. If bugs
-surface, fix them before proceeding.
-
-**Setup:** The QEMU disk image must contain an NTFS partition with
-a small test file (< 4 KB). Create one via host mount before
-QEMU launch.
-
-**Test (QEMU):**
+**Verify (QEMU):**
 ```
 USING NOTEPAD
 NOTEPAD-RUN
@@ -297,192 +224,58 @@ NOTEPAD-RUN
 \ — or press key 2 (Open is 2nd button)
 ```
 
-**Pass criteria:**
+**Pass (QEMU):**
 - File content appears in editor area (rows 8-21).
 - Status bar shows filename, Ln 1, Col 1.
 - Arrow keys move cursor within file content.
 - Typing inserts characters (visible in editor area).
 - Dirty indicator `*` appears after first edit.
 
-**If it fails:** Check that CATALOG-FIND and FORM-WIRE ran before
-NP-OPEN. Check that IV-GET returns the typed filename. Add
-`.` prints at each stage of the FE-OPEN call chain.
+**Pass (HP):** Open a known NTFS file on HP disk. Content
+displays. Cursor navigates. Save round-trips.
+
+**If it fails:** Check IV-GET returns typed filename. Add
+`.` prints at each stage of FE-OPEN call chain.
 
 ---
 
-### Step 5 — Multi-Sector Read for Files > 4 KB
+### Step 3 — Clean Mode Transitions
 
-**Fixes:** B2 (FILE-READ 4 KB clamp)
-**Change:** `forth/dict/file-editor.fth` (FE-OPEN)
+**Scope:** `forth/dict/notepad.fth` (NP-EXIT-EDIT, NP-RUN)
+**Commit template:** `fix(notepad): clean form/editor mode transitions`
 
-Replace the single-shot copy (line 451) with a chunked read loop
-that handles **multiple data runs** (fragmented files).
-
-**Key NTFS internals (ntfs.fth):**
-- `PARSE-RUN ( -- more? )` — advances PR-PTR, sets PR-LEN
-  (cluster count) and PR-OFF (signed relative cluster offset).
-  Returns -1 if run parsed, 0 if end of run list.
-- `PR-OFF` is relative to previous run. Accumulate in RUN-PREV:
-  `PR-OFF @ RUN-PREV @ +` gives the absolute cluster.
-- `SEC/CLUS @` converts clusters to sectors.
-- `PART-LBA @` is the partition's start LBA.
-- Absolute LBA = `(absolute_cluster * SEC/CLUS) + PART-LBA`.
-- `MFT-DATA-RUNS` (line 406) only parses the FIRST run —
-  do not use it. Set up PR-PTR from the $DATA attribute directly.
-
-**Sketch:**
-```forth
-: FE-OPEN ( na nl -- )
-    DUP FE-NLEN !  FE-NAME SWAP CMOVE
-    FE-BUF MAX-FILE 0 FILL  0 FE-SIZE !
-    FE-NAME FE-NLEN @
-    MFT-FIND 0= IF ." Not found" CR EXIT THEN
-    FOUND-REC !
-    FOUND-REC @ MFT-READ IF ." MFT err" CR EXIT THEN
-    \ Locate $DATA attribute, set PR-PTR
-    ATTR-DATA MFT-ATTR
-    DUP 0= IF ." No $DATA" CR EXIT THEN
-    DUP 8 + C@ 0= IF DROP ." Resident" CR EXIT THEN
-    DUP 20 + W@ + PR-PTR !
-    DROP
-    0 RUN-PREV !
-    0  ( buf-offset )
-    BEGIN
-        PARSE-RUN
-    WHILE
-        PR-OFF @ RUN-PREV @ + DUP RUN-PREV !
-        SEC/CLUS @ * PART-LBA @ +  ( lba )
-        PR-LEN @ SEC/CLUS @ *      ( lba secs )
-        \ Inner loop: read 8 sectors at a time
-        0 DO                        ( lba buf-off )
-            OVER I +                ( lba buf-off cur-lba )
-            I J - 8 MIN             ( lba buf-off cur-lba cnt )
-            AHCI-READ IF 2DROP UNLOOP EXIT THEN
-            SEC-BUF
-            OVER FE-BUF +           ( lba buf-off src dest )
-            I J - 8 MIN 200 *       ( ... bytes )
-            CMOVE
-            I J - 8 MIN +           ( lba buf-off' )
-        8 +LOOP
-        SWAP DROP                   ( buf-off )
-        DUP MAX-FILE >= IF LEAVE THEN
-    REPEAT
-    200 * MAX-FILE MIN FE-SIZE !
-    \ Scan for NUL to get actual text length
-    FE-SIZE @ 0 DO
-        FE-BUF I + C@ 0= IF
-            I FE-SIZE ! LEAVE
-        THEN
-    LOOP
-;
-```
-
-Note: the inner DO..LOOP index arithmetic needs careful testing.
-The sketch above is directional — implementation will adjust
-based on stack-depth constraints. The critical invariant is:
-**outer loop iterates PARSE-RUN; inner loop chunks each run
-into 8-sector AHCI-READ calls.**
-
-**Test (QEMU):**
-- Create or find a file > 4 KB on the NTFS partition.
-- Open it in NOTEPAD.
-- PgDn past line 60 (4 KB boundary at ~64 chars/line).
-
-**Pass criteria:** Content beyond 4 KB is visible. TOTAL-LINES
-reflects the full file. No corruption at the 4 KB boundary.
-
-**Risk:** Fragmented files on a used NTFS partition will have
-multiple data runs. Test with both contiguous and fragmented
-files if possible.
-
----
-
-### Step 6 — Fix FE-SAVE: Guard and Chunked Write
-
-**Fixes:** B3 (AHCI-WRITE SEC-BUF overflow)
-**Change:** `forth/dict/file-editor.fth` (FE-SAVE) and optionally
-`forth/dict/ntfs.fth` (NTFS-WRITE-FILE).
-
-**Option A — Guard only (v1, recommended):**
-Add a size check to FE-SAVE:
-```forth
-: FE-SAVE ( -- )
-    FE-DIRTY @ 0= IF EXIT THEN
-    FE-SIZE @ 1000 > IF
-        ." >4KB: save disabled" CR EXIT
-    THEN
-    FE-BUF FE-SIZE @
-    FE-NAME FE-NLEN @
-    NTFS-WRITE-FILE IF
-        ." Save err" CR EXIT
-    THEN
-    0 FE-DIRTY !
-    ." Saved" CR ;
-```
-
-**Option B — Chunked write (v2, deferred):**
-Same PARSE-RUN loop pattern as Step 5 but calling AHCI-WRITE in
-8-sector chunks. Requires modifying NTFS-WRITE-FILE or adding a
-parallel write word. Also need to update MFT $DATA attribute
-sizes (real_size, initialized_size) after the write — the
-existing NTFS-WRITE-FILE already does this (ntfs.fth:710-716).
-
-**Test (QEMU):**
-```
-USING NOTEPAD
-NOTEPAD-RUN
-\ Press New
-\ Type: "Hello from ForthOS"
-\ Tab to input, type: test.txt
-\ Press Save As (button 4)
-\ Observe: "Saved" message
-\ Press Ctrl+Q -> form mode
-\ Re-open test.txt (type name, press Open)
-\ Observe: "Hello from ForthOS" reappears
-```
-
-**Pass criteria:** Round-trip verified: type -> save -> reopen ->
-same content. For files > 4 KB, the guard message appears (no
-silent corruption).
-
----
-
-### Step 7 — Clean Mode Transitions
-
-**Change:** `forth/dict/notepad.fth` (NP-EXIT-EDIT, NP-RUN)
-
-Verify that form-to-editor and editor-to-form transitions are
-clean. The NP-RUN loop already calls FORM-RENDER (which does
-VGA-CLS) when NP-EDIT-MODE is 0, so the form chrome should
-redraw fully.
+The NP-RUN loop already calls FORM-RENDER when NP-EDIT-MODE
+is 0, so form chrome should redraw fully. Verify and fix if
+artifacts appear.
 
 **Check list:**
 1. New -> type text -> Esc -> form redraws with buttons visible.
-2. New -> type text -> Esc -> New again -> previous buffer visible.
+2. New -> type text -> Esc -> New again -> buffer still there.
 3. Open file -> Esc -> Open same file -> content still there.
-4. Exit button (or Escape in form mode) -> clean return to `ok`.
+4. Exit button (or Escape in form mode) -> clean `ok` return.
 5. No VGA artifacts in rows 0-7 during editor mode.
 
-**Test (QEMU):**
-Run through the check list above. If form chrome (rows 0-7)
-bleeds into editor rendering, add a row-range clear in
-NP-EXIT-EDIT.
+**Verify (QEMU):** Run check list. If form chrome (rows 0-7)
+bleeds into editor, add a row-range clear in NP-EXIT-EDIT.
 
-**Pass criteria:** All 5 checks pass. No visual artifacts.
+**Pass (QEMU):** All 5 checks pass. No visual artifacts.
+
+**Pass (HP):** Same 5 checks on real VGA output.
 
 ---
 
-### Step 8 — Status Bar and Form Polish
+### Step 4 — Status Bar and Form Polish
 
-**Change:** `forth/dict/notepad-form.fth` — update or remove the
+**Scope:** `forth/dict/notepad-form.fth` — update or remove
 `"Text area (future)"` placeholder label at row 8.
+**Commit template:** `feat(notepad): remove placeholder label, polish status bar`
 
 In editor mode, FE-STATUS renders at FE-SB-ROW (row 23). The
-form's Exit button is also at row 23. Verify they coexist:
-- Editor mode: status bar overwrites row 23 (Exit button hidden).
+form's Exit button is also at row 23. Verify coexistence:
+- Editor mode: status bar overwrites row 23 (Exit hidden).
 - Form mode: FORM-RENDER restores Exit button and status label.
 
-**Test (QEMU):**
+**Verify (QEMU):**
 ```
 NOTEPAD-RUN
 \ Press New
@@ -492,23 +285,61 @@ NOTEPAD-RUN
 \ Exit button visible at row 23
 ```
 
-**Pass criteria:** Dynamic Ln/Col in editor mode. Dirty `*`
-appears after first keystroke. Form chrome restores on exit.
+**Pass (QEMU):** Dynamic Ln/Col in editor. Dirty `*` after
+first keystroke. Form chrome restores on exit.
+
+**Pass (HP):** Same behavior on real VGA.
 
 ---
 
-### Step 9 — HP Bare-Metal Validation
+### Step 5 — Multi-Sector Read for Files > 4 KB (DEFERRABLE)
 
-**Change:** None. Flash USB, boot HP 15-bs0xx.
+**Fixes:** B2 (FILE-READ 4 KB clamp)
+**Scope:** `forth/dict/file-editor.fth` (FE-OPEN)
+**Commit template:** `feat(file-editor): chunked NTFS read for files > 4 KB`
+
+**This step is NOT required for a working editor.** NP-OPEN
+works for files < 4 KB without any changes. Defer until the
+basic editor workflow (Steps 1-4) is solid.
+
+Replace the single-shot copy (line 451) with a chunked read
+loop using PARSE-RUN for multiple data runs (fragmented files).
+
+**Key NTFS internals (ntfs.fth):**
+- `PARSE-RUN ( -- more? )` — advances PR-PTR, sets PR-LEN
+  (cluster count) and PR-OFF (relative cluster offset).
+- Absolute cluster = `PR-OFF @ RUN-PREV @ +`.
+- Absolute LBA = `(abs_cluster * SEC/CLUS) + PART-LBA`.
+- Outer loop iterates PARSE-RUN; inner loop chunks each run
+  into 8-sector AHCI-READ calls.
+
+**Verify (QEMU):**
+- Open a file > 4 KB in NOTEPAD.
+- PgDn past line 60 (4 KB boundary at ~64 chars/line).
+
+**Pass (QEMU):** Content beyond 4 KB visible. TOTAL-LINES
+reflects full file. No corruption at 4 KB boundary.
+
+**Pass (HP):** Same with real NTFS partition files.
+
+---
+
+### Step 6 — HP Bare-Metal Validation
+
+**Scope:** None. Flash USB, boot HP 15-bs0xx.
+**Commit template:** (no commit — validation only)
 
 **Procedure:**
 1. Verify PXE image matches current build.
 2. Boot to `ok` prompt.
 3. `USING NOTEPAD` / `NOTEPAD-RUN`
-4. Tab through buttons. Open a known NTFS file on the HP disk.
+4. Tab through buttons. Open a known NTFS file on HP disk.
 5. Type text (lowercase, uppercase, symbols).
 6. Save. Reopen. Verify round-trip.
 7. Exit cleanly.
+
+**Pass (HP):** All Steps 1-4 behaviors reproduce on real
+hardware. Keyboard timing, AHCI DMA, and VGA output match.
 
 **Pass criteria:** All of Step 0-8 behaviors reproduce on real
 hardware. Keyboard timing, AHCI DMA, and VGA output match QEMU.
