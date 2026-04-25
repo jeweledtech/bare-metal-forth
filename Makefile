@@ -294,6 +294,12 @@ test-pipeline:
 	@echo "Running pipeline integration test..."
 	@python3 tests/test_pipeline_integration.py
 
+# UBT LLM validation (single-binary, requires NVIDIA_API_KEY)
+ubt-llm-validate:
+	@echo "Running UBT LLM validation on i8042prt.sys..."
+	@cd tools/ubt-llm && python3 ubt_llm_validate.py \
+		--binary $(CURDIR)/tests/hp_i3/i8042prt.sys
+
 # Run all tests (lint first, then functional tests)
 test: lint test-smoke test-loops test-vocabs test-gui test-integration
 	@echo "All tests passed!"

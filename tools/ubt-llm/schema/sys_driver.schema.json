@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SysDriverClassification",
+  "description": "Classification of a single function from a Windows kernel-mode driver",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "class": {
+      "type": "string",
+      "enum": [
+        "HARDWARE_IO",
+        "DPC_SCHEDULING",
+        "IRQ_HANDLER",
+        "MEMORY_MANAGEMENT",
+        "REGISTRY_ACCESS",
+        "IPC",
+        "IRP_DISPATCH",
+        "DRIVER_ENTRY",
+        "UNLOAD",
+        "OTHER"
+      ]
+    },
+    "io": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["PORT", "MMIO", "NONE"]
+        },
+        "port_or_mmio": {
+          "type": ["string", "null"]
+        },
+        "mechanism": {
+          "type": "string",
+          "enum": ["HAL_IMPORT", "X64_INTRINSIC", "NONE"]
+        },
+        "evidence": {
+          "type": "string"
+        }
+      },
+      "required": ["kind", "port_or_mmio", "mechanism", "evidence"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["name", "class", "io"],
+  "additionalProperties": false
+}
