@@ -86,3 +86,69 @@ stripping needed. Schema validation caught zero violations. This means
 the pattern is suitable for the other seven prompt classes (.dll, .exe,
 .com, .NET, .mui, .inf) without structural changes — only the system
 prompt and schema need to swap per file class.
+
+
+## Prefilter Implementation — 2026-04-26
+
+Commit a610734 adds a deterministic heuristic prefilter
+(`tools/ubt-llm/prefilter.py`) that inspects each function's
+disassembly for hardware-I/O signals before calling the LLM.
+Functions with no signal are auto-classified as OTHER at zero token
+cost.
+
+### Validation results on i8042prt.sys (`--prefilter --max-functions 50`)
+
+- **9 functions sent to LLM, 41 prefiltered** (82% reduction)
+- **Token spend: 26,589** vs 143,298 unfiltered (~5.4x reduction,
+  under the 30K target)
+- **All 3 HARDWARE_IO functions caught with zero false negatives**
+- 100% JSON parse rate and schema-valid rate on the 9 LLM-sent
+  functions
+
+### Rules that fired
+
+| Rule | Hits | Functions |
+|------|------|-----------|
+| 1+2: `direct_io` | 2 | func_1c0001260 (`in al,dx` thunk), func_1c0001280 (`out dx,al` thunk) |
+| 3: `cr_msr_access` | 1 | func_1c00048c4 (reads a control register — false positive, but conservative) |
+| 4: `hal_import` | 2 | func_1c0004c28, func_1c0004e90 (both call KeStallExecutionProcessor at IAT 0x1c0011000) |
+| 6: `port_load_call_pattern` | 4 | func_1c0002b38 (HARDWARE_IO), func_1c0001880 (IRP_DISPATCH), func_1c0001b80 (OTHER), func_1c000228c (OTHER) |
+| 5: `short_io_thunk` | 0 | Redundant with rules 1-2 at current MIN_INSTRUCTIONS=3; included as safety net |
+
+Rule 5 (MMIO BAR mapping) is deferred per spec.
+
+### Key observations
+
+**Rule 4 (hal_import) correctly retained KeStallExecution callers.**
+i8042prt.sys imports only one HAL function: `KeStallExecutionProcessor`.
+Two functions call it through the IAT.  These are hardware-adjacent
+(busy-wait timing loops used alongside port I/O) and correctly sent to
+the LLM for judgment rather than auto-classified.
+
+**Rule 6 (port_load_call_pattern) is the critical PE32+ heuristic.**
+func_1c0002b38 contains no inline `in`/`out` instructions — it calls
+an intermediate dispatch wrapper (`0x1c000501c`) that routes to the
+actual I/O thunks through unresolvable indirect function pointers.
+Call-graph analysis cannot catch this statically.  The `mov dl,0xNN`
+before `call` pattern catches the x64 ABI signature for passing a
+port/command byte to `__outbyte` wrappers.  Verified at 6.4% false
+positive rate on the 47 non-HARDWARE_IO functions (3/47 false
+positives: func_1c0001880, func_1c0001b80, func_1c000228c).
+
+**IAT parsing uses pefile, not objdump regex.**  `pefile.PE` gives
+rebased IAT thunk addresses directly (e.g. `0x1c0011000`).  These
+match the `# 0x...` address comments in objdump disassembly output
+via string-contains on the full function text.
+
+### Operational notes
+
+- **Default is prefilter OFF.**  Opt-in via `--prefilter`.
+  `--no-prefilter` explicitly disables for A/B testing.  Per spec,
+  the default will flip to ON after further validation on additional
+  binaries.
+- **Module-level state caveat:** `prefilter.init()` stores IAT data
+  in module-level variables.  Not safe for parallel-binary processing
+  in the same process.  If corpus fanout needs concurrent binary
+  analysis, refactor the state into a context object.
+- **Makefile target:** `make ubt-llm-validate-prefilter` runs the
+  harness with `--prefilter` against `tests/hp_i3/i8042prt.sys`.
