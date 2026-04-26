@@ -585,6 +585,9 @@ CREATE SC-ASC 80 ALLOT
     DROP
 ;
 
+\ Ctrl modifier query for external vocabs
+: FE-CTRL? ( -- flag ) KB-MODS @ 2 AND ;
+
 \ ============================================
 \ Main loop
 \ ============================================
