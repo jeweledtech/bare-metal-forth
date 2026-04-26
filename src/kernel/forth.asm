@@ -256,12 +256,14 @@ kernel_start:
     ; i8042 output buffer. If not drained before IRQ1
     ; is unmasked, the ISR feeds them into kb_ring_buf
     ; and INTERPRET consumes them as garbage commands.
+    mov ecx, 16                     ; Max 16 reads (sanity bound)
 .drain_ps2:
     in al, 0x64                     ; Read i8042 status
     test al, 0x01                   ; Bit 0 = output buffer full?
     jz .drain_done
     in al, 0x60                     ; Read and discard scancode
-    jmp .drain_ps2
+    dec ecx
+    jnz .drain_ps2
 .drain_done:
 
     ; Unmask IRQ0 (timer) + IRQ1 (keyboard)
@@ -280,12 +282,14 @@ kernel_start:
     ; kbd_init_8042 sends commands that may leave response
     ; bytes in the output buffer; IRQ1 may have already
     ; pushed them into kb_ring_buf.
+    mov ecx, 16
 .drain_ps2_post:
     in al, 0x64
     test al, 0x01
     jz .drain_post_done
     in al, 0x60
-    jmp .drain_ps2_post
+    dec ecx
+    jnz .drain_ps2_post
 .drain_post_done:
     mov dword [kb_ring_count], 0
     mov eax, [kb_ring_head]
