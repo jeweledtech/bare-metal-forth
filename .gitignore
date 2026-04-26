@@ -121,3 +121,4 @@ docs/plans/2026-02-21-driver-extraction-pipeline-design.md
 docs/plans/2026-02-21-driver-extraction-pipeline-impl.md
 docs/plans/2026-02-23-ghidra-validation-framework-design.md
 docs/plans/2026-02-23-ghidra-validation-impl.md
+driver-report-*.txt
