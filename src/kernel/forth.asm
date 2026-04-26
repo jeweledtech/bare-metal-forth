@@ -251,6 +251,19 @@ kernel_start:
     call init_idt                   ; Build IDT, load IDTR
     sti                             ; Enable interrupts (all IRQs still masked)
 
+    ; Drain stale scancodes from PS/2 hardware buffer.
+    ; The BIOS boot menu (F9) leaves scancodes in the
+    ; i8042 output buffer. If not drained before IRQ1
+    ; is unmasked, the ISR feeds them into kb_ring_buf
+    ; and INTERPRET consumes them as garbage commands.
+.drain_ps2:
+    in al, 0x64                     ; Read i8042 status
+    test al, 0x01                   ; Bit 0 = output buffer full?
+    jz .drain_done
+    in al, 0x60                     ; Read and discard scancode
+    jmp .drain_ps2
+.drain_done:
+
     ; Unmask IRQ0 (timer) + IRQ1 (keyboard)
     ; Timer needed so hlt in read_key wakes periodically for serial polling
     in al, PIC1_DATA
@@ -263,7 +276,17 @@ kernel_start:
     ; Initialize 8042 keyboard controller (needed on real hardware)
     call kbd_init_8042
 
-    ; Drain any scancodes captured during init
+    ; Drain hardware + software buffers after 8042 init.
+    ; kbd_init_8042 sends commands that may leave response
+    ; bytes in the output buffer; IRQ1 may have already
+    ; pushed them into kb_ring_buf.
+.drain_ps2_post:
+    in al, 0x64
+    test al, 0x01
+    jz .drain_post_done
+    in al, 0x60
+    jmp .drain_ps2_post
+.drain_post_done:
     mov dword [kb_ring_count], 0
     mov eax, [kb_ring_head]
     mov [kb_ring_tail], eax
