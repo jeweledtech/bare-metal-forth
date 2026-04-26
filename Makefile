@@ -300,6 +300,11 @@ ubt-llm-validate:
 	@cd tools/ubt-llm && python3 ubt_llm_validate.py \
 		--binary $(CURDIR)/tests/hp_i3/i8042prt.sys
 
+ubt-llm-validate-prefilter:
+	@echo "Running UBT LLM validation with prefilter on i8042prt.sys..."
+	@cd tools/ubt-llm && python3 ubt_llm_validate.py \
+		--binary $(CURDIR)/tests/hp_i3/i8042prt.sys --prefilter
+
 # Run all tests (lint first, then functional tests)
 test: lint test-smoke test-loops test-vocabs test-gui test-integration
 	@echo "All tests passed!"

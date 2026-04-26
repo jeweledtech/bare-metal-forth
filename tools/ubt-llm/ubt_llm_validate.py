@@ -27,6 +27,8 @@ import jsonschema
 from openai import OpenAI
 from tabulate import tabulate
 
+import prefilter
+
 SCRIPT_DIR = Path(__file__).resolve().parent
 SCHEMA_PATH = SCRIPT_DIR / "schema" / "sys_driver.schema.json"
 SYSTEM_PROMPT_PATH = SCRIPT_DIR / "prompts" / "sys_driver.system.md"
@@ -55,6 +57,19 @@ def parse_args():
         type=int,
         default=50,
         help="Maximum number of functions to analyze (cost control)",
+    )
+    filter_group = p.add_mutually_exclusive_group()
+    filter_group.add_argument(
+        "--prefilter",
+        action="store_true",
+        default=False,
+        help="Enable heuristic prefilter to skip non-hardware functions",
+    )
+    filter_group.add_argument(
+        "--no-prefilter",
+        action="store_true",
+        default=False,
+        help="Explicitly disable prefilter (default behavior)",
     )
     return p.parse_args()
 
@@ -348,22 +363,26 @@ def write_diff_report(
     parse_err = sum(1 for r in results if r["status"] == "parse_error")
     schema_err = sum(1 for r in results if r["status"] == "schema_error")
     api_err = sum(1 for r in results if r["status"] == "api_error")
+    pf_count = sum(1 for r in results if r["status"] == "prefiltered")
     total = len(results)
-    parse_rate = (ok_count + schema_err) / total * 100 if total else 0
-    valid_rate = ok_count / total * 100 if total else 0
+    llm_total = total - pf_count
+    parse_rate = (ok_count + schema_err) / llm_total * 100 if llm_total else 0
+    valid_rate = ok_count / llm_total * 100 if llm_total else 0
 
     lines = [
         f"# LLM Classification Report: {basename}",
         "",
         "## Run Summary",
         "",
-        f"- **Total functions analyzed:** {total}",
+        f"- **Total functions:** {total}",
+        f"- **Prefiltered (no LLM call):** {pf_count}",
+        f"- **Sent to LLM:** {llm_total}",
         f"- **Successful classifications:** {ok_count}",
         f"- **Parse errors:** {parse_err}",
         f"- **Schema validation errors:** {schema_err}",
         f"- **API errors:** {api_err}",
-        f"- **JSON parse rate:** {parse_rate:.1f}%",
-        f"- **Schema-valid rate:** {valid_rate:.1f}%",
+        f"- **JSON parse rate (LLM only):** {parse_rate:.1f}%",
+        f"- **Schema-valid rate (LLM only):** {valid_rate:.1f}%",
         "",
         "## Per-Function Classifications",
         "",
@@ -467,11 +486,17 @@ def main():
     pe_type = verify_binary(args.binary)
     basename = args.binary.name
 
+    use_prefilter = args.prefilter and not args.no_prefilter
+
     print(f"UBT LLM Validation Harness")
     print(f"  Binary: {args.binary} ({pe_type})")
     print(f"  Model:  deepseek-ai/deepseek-v4-pro (NVIDIA NIM)")
     print(f"  Max functions: {args.max_functions}")
+    print(f"  Prefilter: {'ON' if use_prefilter else 'OFF'}")
     print()
+
+    if use_prefilter:
+        prefilter.init(args.binary, pe_type)
 
     # Ensure output dir
     args.out.mkdir(parents=True, exist_ok=True)
@@ -508,6 +533,8 @@ def main():
     total_in_tokens = 0
     total_out_tokens = 0
 
+    prefiltered_count = 0
+
     for i, func in enumerate(functions):
         sha = hashlib.sha256(func["text"].encode()).hexdigest()
         print(
@@ -516,6 +543,30 @@ def main():
             end="",
             flush=True,
         )
+
+        # Prefilter gate: skip LLM call for functions with no I/O signal
+        if use_prefilter:
+            send, reason = prefilter.should_call_llm(func["text"], pe_type)
+            if not send:
+                prefiltered_count += 1
+                print(f"[prefiltered: {reason}]")
+                results.append(
+                    {
+                        "function_name": func["name"],
+                        "classification": {
+                            "name": "",
+                            "class": "OTHER",
+                            "io": {
+                                "kind": "NONE",
+                                "port_or_mmio": None,
+                                "mechanism": "NONE",
+                                "evidence": f"prefiltered: {reason}",
+                            },
+                        },
+                        "status": "prefiltered",
+                    }
+                )
+                continue
 
         # Check cache (only reuse successes, retry errors)
         cached = cache_lookup(conn, sha)
@@ -580,13 +631,17 @@ def main():
 
     # Summary
     ok = sum(1 for r in results if r["status"] == "ok")
+    pf = sum(1 for r in results if r["status"] == "prefiltered")
     total = len(results)
+    llm_sent = total - pf
     total_tokens = total_in_tokens + total_out_tokens
-    print(f"\n  Summary: {ok}/{total} classified, {total_tokens:,} total tokens")
+    print(f"\n  Summary: {ok}/{llm_sent} classified via LLM, "
+          f"{pf} prefiltered, {total_tokens:,} total tokens")
 
-    if total and (ok / total) < 0.95:
+    # Parse rate check excludes prefiltered functions
+    if llm_sent and (ok / llm_sent) < 0.95:
         print(
-            f"  WARNING: Parse rate {ok/total*100:.1f}% is below 95% target",
+            f"  WARNING: Parse rate {ok/llm_sent*100:.1f}% is below 95% target",
             file=sys.stderr,
         )
         sys.exit(1)
