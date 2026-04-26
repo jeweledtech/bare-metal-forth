@@ -295,6 +295,21 @@ kernel_start:
     mov eax, [kb_ring_head]
     mov [kb_ring_tail], eax
 
+    ; Drain serial receive buffer (COM1 may have BIOS junk)
+    cmp byte [serial_present], 0
+    je .no_serial_drain
+    mov ecx, 64                     ; Max 64 bytes
+.drain_serial:
+    mov dx, COM1_PORT + 5
+    in al, dx
+    test al, 1                      ; Data ready?
+    jz .no_serial_drain
+    mov dx, COM1_PORT
+    in al, dx                       ; Read and discard
+    dec ecx
+    jnz .drain_serial
+.no_serial_drain:
+
     ; Print welcome message
     mov esi, msg_welcome
     call print_string
