@@ -152,3 +152,63 @@ via string-contains on the full function text.
   analysis, refactor the state into a context object.
 - **Makefile target:** `make ubt-llm-validate-prefilter` runs the
   harness with `--prefilter` against `tests/hp_i3/i8042prt.sys`.
+
+
+## Format Router Implementation — 2026-04-28
+
+Commit adds `tools/ubt-llm/router.py`: a deterministic magic-byte
+router that classifies binaries by format and maps to prompt classes.
+No LLM calls.  Uses `pefile` (fast_load) for PE parsing and raw byte
+reads for NE/LE/LX/MZ-only/COM/INF detection.
+
+### Distribution check on existing fixtures
+
+```
+$ find tools/translator/tests/data tests/hp_i3 tests/fixtures -type f \
+    \! -name "*.json" \! -name "*.md" \! -name "*.c" \! -name ".gitignore" | \
+    xargs python3 tools/ubt-llm/router.py | \
+    python3 -c "import json,sys; from collections import Counter; \
+    results=[json.loads(l) for l in sys.stdin]; \
+    [print(f'  {f:12s}  {c}') for f,c in sorted(Counter(r['format'] for r in results).items(), key=lambda x:-x[1])]"
+
+  PE32_PLUS     8
+  PE32          6
+  DOTNET        1
+  COM           1
+```
+
+Prompt class distribution:
+
+```
+  sys_driver    13
+  unknown       1
+  dotnet        1
+  com_dos       1
+```
+
+### Observations
+
+- **All 8 HP i3 drivers** (Win10 x64) correctly route to PE32_PLUS /
+  sys_driver.
+- **All 5 translator test drivers** (ReactOS 32-bit) route to PE32 /
+  sys_driver.  `serial16550_synth.sys` routes to PE32 / unknown because
+  its synthetic headers have Subsystem=0 (intentionally minimal).
+- **test_dotnet.dll** correctly detected via COR20 directory → dotnet.
+- **test_port_access.com** (7 bytes, no MZ magic, .com extension) →
+  COM / com_dos.
+- **No PARSE_ERROR** on any real fixture.  The router handles all
+  existing test binaries cleanly.
+- **MUI false-positive averted**: Win10 drivers have MUI localization
+  resources but also have executable `.text`/`PAGE`/`INIT` sections.
+  The router requires BOTH the MUI resource AND no executable sections
+  to classify as MUI.
+
+### Test coverage (19/19)
+
+Tests cover: PE32+, PE32, .NET, .COM, INF (synthetic), MZ-only
+(synthetic), NE/LE/LX (synthetic), PARSE_ERROR, SHA256 determinism,
+NATIVE-subsystem exe routing, negative MUI, and non-binary text files.
+
+**Untested:** Real .mui file detection (positive case) — no fixture
+available.  Negative test confirms regular drivers no longer
+false-positive.  Re-validate when a real .mui binary becomes available.
