@@ -83,10 +83,18 @@ BLK_BUF_FLAG_VALID  equ 1
 BLK_BUF_FLAG_DIRTY  equ 2
 BLOCK_SIZE          equ 1024        ; 1KB per Forth block
 
-; Block storage LBA offset in combined image
+; Kernel image size — single source of truth.
+; Must match boot.asm KERNEL_SECTORS * 512 and the padding directive
+; at end of this file.
+KERNEL_PADDED_SIZE   equ 0x18000     ; 96KB (192 sectors)
+BOOT_SECTOR_SIZE     equ 512
+
+; Combined image header = boot sector + kernel, used by ram_read_block
+COMBINED_HEADER_SIZE equ (BOOT_SECTOR_SIZE + KERNEL_PADDED_SIZE)
+
+; Block storage LBA offset in combined image.
 ; Block 0 starts at this LBA. Block N = BLOCKS_LBA_BASE + N*2.
-; = (boot_sector + kernel) / 512 = (512 + 65536) / 512 = 129
-BLOCKS_LBA_BASE     equ 193
+BLOCKS_LBA_BASE      equ COMBINED_HEADER_SIZE / BOOT_SECTOR_SIZE
 
 ; Block buffer data: 4 x 1024 bytes
 BLK_BUF_DATA        equ 0x28200     ; 0x28200 - 0x291FF
@@ -4569,7 +4577,7 @@ ata_read_sector:
 ; So block N byte offset = 66048 + N * 1024
 ; Clobbers: EAX, ECX, ESI (restores ESI before return)
 ; ----------------------------------------------------------------------------
-COMBINED_HEADER_SIZE equ 66048      ; boot (512) + kernel (65536)
+; COMBINED_HEADER_SIZE defined near top of file (derived from KERNEL_PADDED_SIZE)
 
 ram_read_block:
     push esi                        ; Preserve Forth IP
@@ -5031,5 +5039,5 @@ embed_size: dd (embed_end - embed_data)
 ; End of Kernel
 ; ============================================================================
 
-; Pad kernel to 96KB (192 sectors) to match bootloader's KERNEL_SECTORS
-times 0x18000 - ($ - $$) db 0
+; Pad kernel to match bootloader's KERNEL_SECTORS (KERNEL_PADDED_SIZE bytes)
+times KERNEL_PADDED_SIZE - ($ - $$) db 0
