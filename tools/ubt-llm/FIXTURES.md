@@ -43,15 +43,22 @@ with HP-sourced equivalents before corpus fanout.
 
 ### System.DirectoryServices.dll — .NET assembly
 
-- **Path:** `/home/bbrown/projects/LDAPmonitor/csharp/packages/System.DirectoryServices.5.0.0/lib/netstandard2.0/System.DirectoryServices.dll`
+- **Path:** `tests/fixtures/System.DirectoryServices.dll` (copied from LDAPmonitor NuGet cache)
 - **SHA256:** `dbdac85280f6736c4720ec7f0aaeaa12bf3382bd5f4d43a24e0acb17a514a8b3`
 - **Size:** 126,344 bytes
 - **Type:** PE32 executable (DLL) (console) Intel 80386 Mono/.Net assembly, for MS Windows, 3 sections
 - **Source:** NuGet package (System.DirectoryServices 5.0.0)
 - **Prompt class:** `dotnet` (COR20 directory present)
-- **Caveat:** NuGet reference assembly, not from a Windows installation.
-  Should have PINVOKE surface (LDAP native interop) but this has not
-  been verified.
+- **Dual purpose:**
+  - Router: validates COR20 format detection (alongside `test_dotnet.dll` synthetic stub)
+  - Metadata extractor: validates real .NET metadata parsing (assembly identity,
+    141 public types, 5 assembly refs, escape-surface detection via TypeRef)
+- **Verified metadata (2026-04-28):** Assembly `System.DirectoryServices` v4.0.0.0,
+  strong-named (token `b03f5f7f11d50a3a`), targets netstandard 2.0.0.0.
+  No P/Invoke surface (reference assembly strips ImplMap table). TypeRef to
+  `System.Runtime.InteropServices.COMException` triggers escape-surface flag.
+- **Previous caveat corrected:** The reference assembly does NOT have P/Invoke
+  surface (ImplMap table absent). The implementation assembly (from GAC) would.
 
 ### kernel.com — DOS COM executable
 

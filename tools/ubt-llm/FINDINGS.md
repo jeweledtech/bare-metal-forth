@@ -212,3 +212,100 @@ NATIVE-subsystem exe routing, negative MUI, and non-binary text files.
 **Untested:** Real .mui file detection (positive case) — no fixture
 available.  Negative test confirms regular drivers no longer
 false-positive.  Re-validate when a real .mui binary becomes available.
+
+
+## Deterministic Extractors Implementation — 2026-04-28
+
+Three extractors added for formats where parsing is fully
+deterministic (no LLM judgment needed):
+
+- `extractors/inf.py` — Windows INF driver installation files
+- `extractors/dotnet_meta.py` — .NET assembly metadata via `dnfile`
+- `extractors/mui.py` — stub (NotImplementedError, no fixture)
+
+### Validation against System.DirectoryServices.dll
+
+Real .NET assembly (NuGet reference package, 126KB).  Ground-truth
+numbers confirmed by manual inspection of dnfile table dumps:
+
+| Field | Value |
+|-------|-------|
+| Assembly name | System.DirectoryServices |
+| Version | 4.0.0.0 |
+| Public key token | b03f5f7f11d50a3a |
+| Referenced assemblies | 5 (netstandard 2.0, Security.AccessControl 5.0, Security.Principal.Windows 5.0, IO.FileSystem.AccessControl 5.0, Security.Permissions 5.0) |
+| Public types | 141 (all in System.DirectoryServices namespace) |
+| P/Invoke surface | 0 (reference assembly — ImplMap table absent) |
+| Resource streams | 2 (FxResources...SR.resources, ILLink.Substitutions.xml) |
+| has_escape_surface | **true** |
+
+### Escape-surface detection mechanism
+
+`has_escape_surface` is derived from **two independent sources**:
+
+1. **AssemblyRef names** — if any referenced assembly's name starts
+   with `System.Runtime.InteropServices`, `System.Reflection.Emit`,
+   or `System.Diagnostics.Process`.
+2. **TypeRef namespaces** — if any type reference's namespace starts
+   with one of those same prefixes.
+
+For System.DirectoryServices.dll: all 5 AssemblyRef `escape_surface`
+flags are False (none of the referenced assemblies match), but
+TypeRef scanning finds `System.Runtime.InteropServices.COMException`
+which independently triggers the top-level flag.  This demonstrates
+why both sources are needed — checking only AssemblyRefs produces a
+false negative here.
+
+### dnfile API quirks (documented in code, summarized here)
+
+These are non-obvious patterns discovered during development that
+affect anyone maintaining or extending the .NET extractor:
+
+- **HeapItemString coercion**: Name fields are `HeapItemString`
+  objects, not Python str.  Must call `str()` explicitly.
+- **TypeNamespace (not Namespace)**: TypeDef/TypeRef attribute for
+  namespace is `.TypeNamespace`.  `.Namespace` raises AttributeError
+  with a "Did you mean?" hint — unusual for pefile-family libraries.
+- **Flags.tdPublic**: TypeDef visibility is checked via bool attributes
+  on `ClrTypeAttr` (e.g. `row.Flags.tdPublic`), not via bitmasking
+  an integer.
+- **PublicKey (not PublicKeyOrToken)**: Despite ECMA-335 naming the
+  AssemblyRef column "PublicKeyOrToken", dnfile exposes it as
+  `.PublicKey` with a `.value` attribute (bytes).
+- **ImplMap/ModuleRef can be None**: When the metadata table doesn't
+  exist in the assembly, `pe.net.mdtables.ImplMap` is None (not an
+  empty table object).  Must check `is None` before iterating.
+- **Public key token derivation**: .NET stores full public keys
+  (128+ bytes) in the Assembly table.  Token = last 8 bytes of
+  SHA-1(full_key), byte-reversed.  This matches GAC paths and
+  `[InternalsVisibleTo]` attributes.
+
+### MUI extractor — deferred
+
+Stub raises `NotImplementedError` with a message directing to
+`schema/mui.schema.json`.  The schema documents the expected output
+shape (mui_signature, resource_inventory, string_table, message_table,
+parent_binary) so the contract is clear for future implementation.
+
+The router classifies MUI binaries correctly (MUI resource + no
+executable sections), but calling the extractor will fail fast with
+an informative error until a real `.mui` fixture is available for
+validation.
+
+### Test coverage (17/17 extractors + 19/19 router = 36/36 total)
+
+| Suite | Tests | Fixture |
+|-------|-------|---------|
+| INF basic + schema | 2 | Synthetic Realtek-style tempfile |
+| INF UTF-16LE encoding | 1 | Synthetic BOM tempfile |
+| INF malformed/duplicate | 1 | Synthetic with duplicate keys |
+| .NET assembly identity | 3 | System.DirectoryServices.dll |
+| .NET assembly refs | 3 | System.DirectoryServices.dll |
+| .NET public types | 2 | System.DirectoryServices.dll |
+| .NET P/Invoke empty | 1 | System.DirectoryServices.dll |
+| .NET escape surface | 1 | System.DirectoryServices.dll |
+| .NET resources | 1 | System.DirectoryServices.dll |
+| .NET schema validation | 1 | System.DirectoryServices.dll |
+| MUI stub | 1 | (any path — verifies NotImplementedError) |
+
+Router tests (19) documented in the "Format Router" section above.

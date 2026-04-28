@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DotNetMetadataExtraction",
+  "description": "Structured metadata extracted from a .NET assembly via dnfile",
+  "type": "object",
+  "properties": {
+    "assembly_identity": {
+      "type": "object",
+      "properties": {
+        "name": { "type": ["string", "null"] },
+        "version": { "type": ["string", "null"], "description": "Major.Minor.Build.Revision" },
+        "culture": { "type": ["string", "null"], "description": "null means neutral/invariant culture" },
+        "public_key_token": { "type": ["string", "null"], "description": "8-byte token as 16-char hex string, derived via SHA-1 of full public key (last 8 bytes reversed)" },
+        "target_framework": { "type": ["string", "null"], "description": "null means 'not extracted' (CustomAttribute blob parsing deferred), NOT 'absent'" }
+      },
+      "required": ["name", "version", "culture", "public_key_token", "target_framework"]
+    },
+    "referenced_assemblies": {
+      "type": "array",
+      "description": "Assemblies referenced via the AssemblyRef metadata table",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "version": { "type": "string" },
+          "public_key_token": { "type": ["string", "null"] },
+          "escape_surface": { "type": "boolean", "description": "True if assembly name matches an escape-marker prefix (InteropServices, Reflection.Emit, Diagnostics.Process). NOTE: this per-ref flag alone does NOT determine the top-level has_escape_surface flag." }
+        },
+        "required": ["name", "version", "public_key_token", "escape_surface"]
+      }
+    },
+    "public_type_surface": {
+      "type": "array",
+      "description": "Public types (classes, interfaces) defined in the assembly",
+      "items": {
+        "type": "object",
+        "properties": {
+          "namespace": { "type": "string" },
+          "name": { "type": "string" },
+          "kind": { "type": "string", "enum": ["class", "interface"] },
+          "method_count": { "type": "integer", "minimum": 0 }
+        },
+        "required": ["namespace", "name", "kind", "method_count"]
+      }
+    },
+    "pinvoke_surface": {
+      "type": "array",
+      "description": "P/Invoke declarations bridging managed code to native DLLs",
+      "items": {
+        "type": "object",
+        "properties": {
+          "managed_method": { "type": ["string", "null"] },
+          "native_dll": { "type": ["string", "null"] },
+          "entry_point": { "type": ["string", "null"] }
+        },
+        "required": ["managed_method", "native_dll", "entry_point"]
+      }
+    },
+    "resource_streams": {
+      "type": "array",
+      "description": "Names of manifest resources embedded in the assembly",
+      "items": { "type": "string" }
+    },
+    "has_escape_surface": {
+      "type": "boolean",
+      "description": "True if the assembly can escape the CLR sandbox. Derived from TWO sources: (1) AssemblyRef names matching escape-marker prefixes, (2) TypeRef namespaces matching escape-marker prefixes. Either source being True sets this True. A False on all per-AssemblyRef escape_surface flags does NOT guarantee this is False — TypeRef namespaces can independently trigger it."
+    }
+  },
+  "required": ["assembly_identity", "referenced_assemblies", "public_type_surface", "pinvoke_surface", "resource_streams", "has_escape_surface"],
+  "additionalProperties": false
+}

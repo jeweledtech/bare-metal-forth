@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MuiExtraction",
+  "description": "Structured metadata extracted from a Windows MUI (Multilingual User Interface) PE file. EXTRACTOR NOT YET IMPLEMENTED — this schema documents the expected output shape for future implementation.",
+  "type": "object",
+  "properties": {
+    "mui_signature": {
+      "type": "object",
+      "description": "Data from the MUI signature resource",
+      "properties": {
+        "language_id": { "type": "integer", "description": "LCID of the language this MUI file provides (e.g. 1033 for en-US)" },
+        "fallback_language": { "type": "integer", "description": "LCID of the fallback language" },
+        "service_checksum": { "type": ["string", "null"], "description": "Hex-encoded service checksum from MUI resource" },
+        "checksum": { "type": ["string", "null"], "description": "Hex-encoded checksum from MUI resource" }
+      },
+      "required": ["language_id", "fallback_language", "service_checksum", "checksum"]
+    },
+    "resource_inventory": {
+      "type": "object",
+      "description": "Count of each resource type present in the MUI file",
+      "additionalProperties": { "type": "integer" }
+    },
+    "string_table": {
+      "type": "array",
+      "description": "Extracted string resources",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "value": { "type": "string" },
+          "language": { "type": "integer" }
+        },
+        "required": ["id", "value", "language"]
+      }
+    },
+    "message_table": {
+      "type": "array",
+      "description": "Extracted message table entries",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "text": { "type": "string" }
+        },
+        "required": ["id", "text"]
+      }
+    },
+    "parent_binary": {
+      "type": ["string", "null"],
+      "description": "Filename of the parent binary (derived by stripping .mui extension and language directory from filename)"
+    }
+  },
+  "required": ["mui_signature", "resource_inventory", "string_table", "message_table", "parent_binary"],
+  "additionalProperties": false
+}

@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "InfExtraction",
+  "description": "Structured metadata extracted from a Windows INF (driver installation) file",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "object",
+      "description": "Key-value pairs from the [Version] section (Class, ClassGuid, Provider, DriverVer, etc.)",
+      "additionalProperties": { "type": "string" }
+    },
+    "models": {
+      "type": "array",
+      "description": "Hardware models declared in the INF with PnP hardware IDs",
+      "items": {
+        "type": "object",
+        "properties": {
+          "hardware_id": { "type": "string", "description": "PCI/USB/ACPI hardware ID (the join key for device-to-driver mapping)" },
+          "install_section": { "type": "string", "description": "DDInstall section name for this device" },
+          "description": { "type": "string", "description": "Human-readable device description" }
+        },
+        "required": ["hardware_id", "install_section", "description"]
+      }
+    },
+    "ddinstall": {
+      "type": "array",
+      "description": "Service installation details per DDInstall section",
+      "items": {
+        "type": "object",
+        "properties": {
+          "section": { "type": "string" },
+          "service_binary": { "type": ["string", "null"], "description": "Driver binary filename from ServiceBinary directive" },
+          "start_type": { "type": ["integer", "null"], "description": "Service start type (0=Boot, 1=System, 2=Auto, 3=Demand, 4=Disabled)" },
+          "registry_adds": { "type": "array", "items": { "type": "string" } }
+        },
+        "required": ["section", "service_binary", "start_type", "registry_adds"]
+      }
+    },
+    "source_disks_files": {
+      "type": "array",
+      "description": "All filenames listed in [SourceDisksFiles] sections",
+      "items": { "type": "string" }
+    },
+    "encoding_uncertain": {
+      "type": "boolean",
+      "description": "True if the file could only be decoded via latin-1 fallback (encoding detection inconclusive)"
+    }
+  },
+  "required": ["version", "models", "ddinstall", "source_disks_files", "encoding_uncertain"],
+  "additionalProperties": false
+}
