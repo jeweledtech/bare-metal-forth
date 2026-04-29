@@ -238,20 +238,27 @@ then call PARSE-RUN to advance PR-PTR and get PR-LEN.
 
 ## Implementation gates (pre-flight checklist)
 
-These seven gates map to bugs that have already bitten this
-codebase. Every one is a hard requirement, not a suggestion.
+These ten gates map to bugs and constraints that have already
+bitten this codebase. Every one is a hard requirement.
+
+### Codebase-proven gates (1-7)
 
 1. **HEX/DECIMAL Constraint 6.** All hex literals (FBLK-MAGIC,
    CRC32-POLY, CRC32-MASK, ATTR-DATA offsets) defined as named
    CONSTANTs outside colon definitions. No raw hex inside `: ;`.
-2. **`DUP +` not `2*`.** Kernel lacks `2*`. CRC-32 right-shift
-   is `1 RSHIFT`. Any left-shift is `DUP +`. Audit CRC32-INIT.
+2. **`1 RSHIFT` / `DUP +` not `2*`.** Kernel has RSHIFT and
+   LSHIFT (forth.asm:885-893, verified). Use `8 RSHIFT` in
+   CRC-32 and `8 LSHIFT` in BE!. Never use `2*` (not in kernel).
 3. **`VARIABLE 'FILE-SINK` not `DEFER`.** Kernel has no DEFER/IS.
    The deferred-word pattern is `VARIABLE` + `@ EXECUTE`.
 4. **`ONLY FORTH DEFINITIONS DECIMAL`** at end of vocab file.
    No exceptions. Prevents search-order pollution.
 5. **REQUIRES: headers with word lists.** Parenthetical lists per
-   apt-model convention. One line per dependency group.
+   apt-model convention. One line per dependency group. The 4
+   repeated NTFS keys are safe: RESOLVE-DEPS calls LOAD-VOCAB
+   per line, second+ calls find NTFS already loaded and return
+   immediately. All 6 REQUIRES lines verified <= 64 chars
+   (longest: 51 chars).
 6. **Sparse peek is read-only.** `PR-PTR @ C@` then check high
    nibble. Does NOT advance PR-PTR. PARSE-RUN called after peek
    to advance state and set PR-LEN. Both operations read the
@@ -259,6 +266,40 @@ codebase. Every one is a hard requirement, not a suggestion.
 7. **64-char line limit on all code.** BE!, BUILD-HDR, and
    NET-CHUNK-SINK are highest risk for blowout. Split across
    continuation lines. Lint before commit.
+
+### Pre-implementation gates (8-10)
+
+8. **BE! / BE-W! unit tests before use.** The big-endian store
+   helpers involve fiddly stack shuffling. Write a test word
+   that stores known values and reads back individual bytes
+   BEFORE any framing code calls them. Example:
+   ```
+   : TEST-BE! ( -- )
+     CREATE TB 4 ALLOT
+     12345678 TB BE!
+     TB     C@ 12 <> IF ." FAIL" CR THEN
+     TB 1 + C@ 34 <> IF ." FAIL" CR THEN
+     TB 2 + C@ 56 <> IF ." FAIL" CR THEN
+     TB 3 + C@ 78 <> IF ." FAIL" CR THEN
+     ." BE! OK" CR ;
+   ```
+   These tests run at load time on the HP and print pass/fail
+   before FILE-STREAM becomes available. If they fail, nothing
+   downstream works — fail fast, fail loud.
+
+9. **RSHIFT / LSHIFT exist in kernel.** VERIFIED: both present
+   at forth.asm:885-893. RSHIFT = `shr [esp], cl`,
+   LSHIFT = `shl [esp], cl`. Stack: `( x count -- x' )`.
+   CRC-32 uses `8 RSHIFT`. BE! uses `8 LSHIFT` (or
+   `24 RSHIFT` / `16 RSHIFT` for byte extraction — either
+   works, pick whichever reads clearer under 64 chars).
+
+10. **Repeated REQUIRES: keys accepted.** VERIFIED: catalog-
+    resolver's RESOLVE-DEPS (line 270) scans each block line
+    independently. 4 lines with `\ REQUIRES: NTFS (...)` each
+    trigger LOAD-VOCAB-INNER for "NTFS"; second+ calls find it
+    already loaded and return immediately. write-catalog.py and
+    lint-forth.py do not parse REQUIRES at all. No action needed.
 
 ## Dependencies on NTFS internals
 
