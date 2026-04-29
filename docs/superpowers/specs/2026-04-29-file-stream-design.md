@@ -51,7 +51,12 @@ comments for future extraction.
 \ CATEGORY: substrate
 \ PLATFORM: x86
 \ SOURCE: hand-written
-\ REQUIRES: NTFS AHCI RTL8168
+\ REQUIRES: NTFS ( MFT-FIND MFT-READ MFT-BUF )
+\ REQUIRES: NTFS ( MFT-ATTR ATTR-DATA PARSE-RUN )
+\ REQUIRES: NTFS ( PR-PTR PR-LEN PR-OFF RUN-PREV )
+\ REQUIRES: NTFS ( SEC/CLUS PART-LBA FOUND-REC )
+\ REQUIRES: AHCI ( AHCI-READ SEC-BUF )
+\ REQUIRES: RTL8168 ( UDP-SEND TX-PAYLOAD TX-PLEN )
 \ CONFIDENCE: medium
 ```
 
@@ -62,13 +67,30 @@ Closes with `ONLY FORTH DEFINITIONS DECIMAL`.
 
 Table-driven CRC-32 with polynomial 0xEDB88320 (reflected).
 
+**HEX/DECIMAL discipline (Constraint 6):** All hex constants
+defined as named CONSTANTs outside colon definitions:
+
 ```
-CREATE CRC32-TABLE  400 ALLOT
+HEX
+EDB88320 CONSTANT CRC32-POLY
+FFFFFFFF CONSTANT CRC32-MASK
+DECIMAL
 ```
 
+Table allocation:
+
+```
+CREATE CRC32-TABLE  1024 ALLOT
+```
+
+(Note: `400` is hex for 1024. Use DECIMAL `1024` since we're in
+DECIMAL context after the constant block above.)
+
 The 256-entry table (1 KB) is built at load time by a compile-time
-loop. Each entry: `crc = crc XOR poly` when low bit set, else
-`crc >> 1`, iterated 8 times per byte value.
+loop. Each entry: `crc = crc XOR CRC32-POLY` when low bit set,
+else `crc 1 RSHIFT` (NOT `2*` — kernel lacks `2*`, use
+`1 RSHIFT` for right-shift, `DUP +` for left-shift), iterated
+8 times per byte value.
 
 Words:
 
@@ -78,32 +100,66 @@ Words:
 | `CRC32-INIT` | `( -- )` | Build table at load time |
 | `CRC32` | `( addr len -- crc )` | Standard CRC-32 |
 
-CRC32 implementation: start with `FFFFFFFF`, for each byte XOR into
-low byte of CRC, look up `CRC32-TABLE + (low-byte * 4)`, XOR with
-`CRC >> 8`. Final XOR with `FFFFFFFF`.
+CRC32 implementation: start with `CRC32-MASK`, for each byte XOR
+into low byte of CRC, look up `CRC32-TABLE + (low-byte * 4)`,
+XOR with `CRC 8 RSHIFT`. Final XOR with `CRC32-MASK`.
 
 ### Section 2: FBLK framing (~30 lines)
+
+**HEX/DECIMAL discipline (Constraint 6):** Hex constants as named
+CONSTANTs outside colon definitions:
+
+```
+HEX
+46424C4B CONSTANT FBLK-MAGIC
+DECIMAL
+20 CONSTANT FBLK-HDR-SZ
+256 CONSTANT FBLK-NAME-SZ
+4096 CONSTANT FBLK-CHUNK-SZ
+1 CONSTANT F-EOF
+2 CONSTANT F-SPARSE
+```
 
 State variables:
 
 | Word | Type | Description |
 |------|------|-------------|
-| `CHUNK-HDR` | CREATE 14 ALLOT | 20-byte header buffer |
-| `CHUNK-NAME` | CREATE 100 ALLOT | 256-byte filename buffer |
+| `CHUNK-HDR` | CREATE 20 ALLOT | 20-byte header buffer |
+| `CHUNK-NAME` | CREATE 256 ALLOT | 256-byte filename buffer |
 | `CHUNK#` | VARIABLE | Current chunk index |
 | `STREAM-SID` | VARIABLE | Session ID (CRC-32) |
 | `STREAM-SIZE` | VARIABLE | Total file size |
 | `STREAM-SENT` | VARIABLE | Bytes sent so far |
 
+(Note: ALLOT sizes in DECIMAL since constants are defined above
+in DECIMAL context. No raw hex in ALLOT calls.)
+
 Header builder:
 
-`BUILD-HDR ( payload-len flags -- )` fills CHUNK-HDR with big-endian
-fields: magic 0x46424C4B, session ID, total size, chunk index,
-payload length, flags. Uses manual byte stores (C!) for big-endian
+`BUILD-HDR ( payload-len flags -- )` fills CHUNK-HDR with
+big-endian fields: FBLK-MAGIC, STREAM-SID, STREAM-SIZE, CHUNK#,
+payload length, flags. Uses BE! and BE-W! helpers for big-endian
 encoding on little-endian x86.
 
-Big-endian store helper: `BE! ( val addr -- )` stores a 32-bit value
-in big-endian byte order. `BE-W! ( val addr -- )` stores 16-bit.
+Big-endian store helpers (defined outside colon defs where
+possible, each line <= 64 chars):
+
+```
+: BE-W! ( val addr -- )
+  OVER 8 RSHIFT OVER C!
+  1+ SWAP FF AND SWAP C! ;
+: BE! ( val addr -- )
+  OVER 24 RSHIFT OVER C!
+  1+ OVER 16 RSHIFT FF AND
+  OVER C! 1+ OVER 8 RSHIFT
+  FF AND OVER C! 1+ SWAP
+  FF AND SWAP C! ;
+```
+
+**64-char line discipline:** The BE! definition above is split
+across multiple lines, each <= 64 chars. During implementation,
+every line must be verified with `lint-forth.py` or manual check
+before committing.
 
 ### Section 3: Sink infrastructure (~10 lines)
 
@@ -173,11 +229,36 @@ then call PARSE-RUN to advance PR-PTR and get PR-LEN.
 
 ## Key constraints
 
-- **All lines <= 64 chars.** Block-loadable format.
+- **All lines <= 64 chars.** Block-loadable format. Verify every
+  line before committing. BE! and BUILD-HDR are the highest risk.
 - **No modification to NTFS, AHCI, or RTL8168 vocabs.**
 - **No SHA-256 in Forth.** Receiver handles integrity.
 - **No retry/ACK.** One-way emitter. Re-run on failure.
 - **No large buffers.** Everything flows through SEC-BUF (4 KB).
+
+## Implementation gates (pre-flight checklist)
+
+These seven gates map to bugs that have already bitten this
+codebase. Every one is a hard requirement, not a suggestion.
+
+1. **HEX/DECIMAL Constraint 6.** All hex literals (FBLK-MAGIC,
+   CRC32-POLY, CRC32-MASK, ATTR-DATA offsets) defined as named
+   CONSTANTs outside colon definitions. No raw hex inside `: ;`.
+2. **`DUP +` not `2*`.** Kernel lacks `2*`. CRC-32 right-shift
+   is `1 RSHIFT`. Any left-shift is `DUP +`. Audit CRC32-INIT.
+3. **`VARIABLE 'FILE-SINK` not `DEFER`.** Kernel has no DEFER/IS.
+   The deferred-word pattern is `VARIABLE` + `@ EXECUTE`.
+4. **`ONLY FORTH DEFINITIONS DECIMAL`** at end of vocab file.
+   No exceptions. Prevents search-order pollution.
+5. **REQUIRES: headers with word lists.** Parenthetical lists per
+   apt-model convention. One line per dependency group.
+6. **Sparse peek is read-only.** `PR-PTR @ C@` then check high
+   nibble. Does NOT advance PR-PTR. PARSE-RUN called after peek
+   to advance state and set PR-LEN. Both operations read the
+   same byte; neither disturbs the other.
+7. **64-char line limit on all code.** BE!, BUILD-HDR, and
+   NET-CHUNK-SINK are highest risk for blowout. Split across
+   continuation lines. Lint before commit.
 
 ## Dependencies on NTFS internals
 
