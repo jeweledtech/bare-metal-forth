@@ -57,7 +57,7 @@ CREATE CRC32-TABLE 1024 ALLOT
 CRC32-INIT
 
 : CRC32 ( addr len -- crc )
-    CRC32-MASK -ROT
+    CRC32-MASK SWAP
     0 DO
         OVER I + C@
         OVER XOR 255 AND 4 *
@@ -78,6 +78,7 @@ DECIMAL
 256 CONSTANT FBLK-NAME-SZ
 4096 CONSTANT FBLK-CHUNK-SZ
 1434 CONSTANT MAX-PAYLOAD
+1178 CONSTANT MAX-PL-C0
 1 CONSTANT F-EOF
 2 CONSTANT F-SPARSE
 
@@ -130,21 +131,22 @@ VARIABLE 'FILE-SINK
 \ Copies CHUNK-HDR + data into SEND-BUF,
 \ then calls UDP-SEND.
 : SEND-CHUNK ( data-addr data-len -- )
+    DUP >R
     CHUNK-HDR SEND-BUF
     FBLK-HDR-SZ CMOVE
     CHUNK# @ 0= IF
-        \ Chunk 0: hdr + name + data
         CHUNK-NAME SEND-BUF FBLK-HDR-SZ +
         FBLK-NAME-SZ CMOVE
         SEND-BUF FBLK-HDR-SZ +
         FBLK-NAME-SZ + SWAP CMOVE
-        SEND-BUF SWAP
-        FBLK-HDR-SZ + FBLK-NAME-SZ +
+        SEND-BUF
+        R> FBLK-HDR-SZ +
+        FBLK-NAME-SZ +
     ELSE
-        \ Chunks 1+: hdr + data
         SEND-BUF FBLK-HDR-SZ + SWAP
         CMOVE
-        SEND-BUF SWAP FBLK-HDR-SZ +
+        SEND-BUF
+        R> FBLK-HDR-SZ +
     THEN
     UDP-SEND
     1 CHUNK# +!
@@ -153,9 +155,13 @@ VARIABLE 'FILE-SINK
 \ Default sink: chunk into UDP packets
 : NET-CHUNK-SINK ( buf len -- )
     BEGIN DUP 0> WHILE
-        DUP MAX-PAYLOAD MIN
-        2DUP 0 BUILD-HDR
-        2 PICK SWAP SEND-CHUNK
+        DUP
+        CHUNK# @ 0= IF
+            MAX-PL-C0
+        ELSE MAX-PAYLOAD THEN
+        MIN
+        DUP 0 BUILD-HDR
+        2 PICK OVER SEND-CHUNK
         DUP STREAM-SENT +!
         ROT OVER + -ROT -
     REPEAT
@@ -276,13 +282,13 @@ VARIABLE FS-SPARSE
         \ Check if file fully sent
         STREAM-SENT @
         STREAM-SIZE @ >= IF
-            PR-PTR @ C@ DROP 0
+            0 PR-PTR @ C!
         THEN
     REPEAT
     DROP
     STREAM-DONE
     ." Streamed "
-    STREAM-SENT @ DECIMAL . HEX
+    STREAM-SENT @ .
     ." bytes" CR
 ;
 
