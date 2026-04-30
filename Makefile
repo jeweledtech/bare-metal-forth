@@ -72,11 +72,22 @@ run-serial: $(IMAGE)
 
 # --- Block Storage Targets ---
 
+# All vocabulary sources — anything that should land in the catalog
+VOCAB_SOURCES := $(wildcard forth/dict/*.fth) \
+                 $(wildcard ../forthos-vocabularies/forth/dict/*.fth)
+
 # Create blank 2MB blocks disk (2048 x 1K blocks)
 $(BLOCKS): | $(BUILD)
 	dd if=/dev/zero of=$(BLOCKS) bs=1024 count=2048
 	@echo "Block disk created: $(BLOCKS) (2MB, 2048 blocks)"
 blocks: $(BLOCKS)
+
+# Stamp file proves the catalog has been written into $(BLOCKS)
+# for the current set of vocab sources.  If write-catalog fails,
+# the stamp is not created and the next build retries.
+$(BUILD)/.catalog.stamp: $(BLOCKS) $(VOCAB_SOURCES) tools/write-catalog.py
+	@echo "Populating catalog into $(BLOCKS)..."
+	$(MAKE) write-catalog && touch $@
 
 # Run with block storage attached (combined image)
 run-blocks: $(COMBINED) $(COMBINED_IDE)
@@ -103,7 +114,8 @@ write-catalog: $(BLOCKS)
 
 # Combined image: kernel + blocks concatenated
 # Block N is at LBA 129 + N*2 within this image
-$(COMBINED): $(IMAGE) $(BLOCKS)
+# Depends on .catalog.stamp so vocab sources are always in the disk.
+$(COMBINED): $(IMAGE) $(BUILD)/.catalog.stamp
 	cat $(IMAGE) $(BLOCKS) > $(COMBINED)
 	@echo "Combined image: $(COMBINED)"
 	@echo "  Kernel: $$(stat -c%s $(IMAGE)) bytes (LBA 0-128)"
@@ -153,8 +165,7 @@ test-loops: $(IMAGE)
 		STATUS=$$?; pkill -9 -f "[q]emu.*$$(($(TEST_PORT_BASE)+1))" 2>/dev/null; exit $$STATUS
 
 # Run all vocabulary tests (need block storage)
-test-vocabs: $(IMAGE) $(BLOCKS) write-catalog
-	@cat $(IMAGE) $(BLOCKS) > $(COMBINED)
+test-vocabs: $(COMBINED)
 	@cp $(COMBINED) $(COMBINED_IDE)
 	@echo "Running vocabulary tests..."
 	@PORT_BASE=$$(($(TEST_PORT_BASE)+10)); \
@@ -173,8 +184,7 @@ test-vocabs: $(IMAGE) $(BLOCKS) write-catalog
 	done
 
 # Run GUI vocabulary tests (paid tier — skipped if files absent)
-test-gui: $(IMAGE) $(BLOCKS) write-catalog
-	@cat $(IMAGE) $(BLOCKS) > $(COMBINED)
+test-gui: $(COMBINED)
 	@cp $(COMBINED) $(COMBINED_IDE)
 	@PORT_BASE=$$(($(TEST_PORT_BASE)+30)); \
 	for test in test_stub_dispatch test_ui_core test_gui_harvest test_ui_parser test_ui_events; do \
@@ -192,8 +202,7 @@ test-gui: $(IMAGE) $(BLOCKS) write-catalog
 	done
 
 # Run full integration test
-test-integration: $(IMAGE) $(BLOCKS) write-catalog
-	@cat $(IMAGE) $(BLOCKS) > $(COMBINED)
+test-integration: $(COMBINED)
 	@cp $(COMBINED) $(COMBINED_IDE)
 	@echo "Running full integration test..."
 	@PORT=$$(($(TEST_PORT_BASE)+20)); \
@@ -206,8 +215,7 @@ test-integration: $(IMAGE) $(BLOCKS) write-catalog
 	STATUS=$$?; pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null; exit $$STATUS
 
 # Run NE2000 network test (two QEMU instances)
-test-network: $(IMAGE) $(BLOCKS) write-catalog
-	@cat $(IMAGE) $(BLOCKS) > $(COMBINED)
+test-network: $(COMBINED)
 	@cp $(COMBINED) $(COMBINED_IDE)
 	@echo "Running NE2000 network test..."
 	@python3 tests/test_ne2000_network.py $$(($(TEST_PORT_BASE)+40))
@@ -226,7 +234,7 @@ $(DEBUG_IMAGE): $(BOOTLOADER) $(DEBUG_KERNEL)
 DEBUG_COMBINED = $(BUILD)/combined-debug.img
 DEBUG_COMBINED_IDE = $(BUILD)/combined-debug-ide.img
 
-test-flush: $(DEBUG_IMAGE) $(BLOCKS)
+test-flush: $(DEBUG_IMAGE) $(BUILD)/.catalog.stamp
 	@cat $(DEBUG_IMAGE) $(BLOCKS) > $(DEBUG_COMBINED)
 	@cp $(DEBUG_COMBINED) $(DEBUG_COMBINED_IDE)
 	@echo "Running flush stress test..."
@@ -246,8 +254,7 @@ lint:
 	@python3 tools/lint-forth.py --asm $(SRC_KERNEL)/forth.asm
 
 # Run ARM64 boot test (cross-compile + QEMU raspi3b)
-test-arm64-boot: $(IMAGE) $(BLOCKS) write-catalog
-	@cat $(IMAGE) $(BLOCKS) > $(COMBINED)
+test-arm64-boot: $(COMBINED)
 	@cp $(COMBINED) $(COMBINED_IDE)
 	@echo "Running ARM64 boot test..."
 	@python3 tests/test_arm64_boot.py $$(($(TEST_PORT_BASE)+50)); \
@@ -257,8 +264,7 @@ test-arm64-boot: $(IMAGE) $(BLOCKS) write-catalog
 		exit $$STATUS
 
 # Run Cortex-M33 boot test (cross-compile + QEMU mps2-an505)
-test-cortexm: $(IMAGE) $(BLOCKS) write-catalog
-	@cat $(IMAGE) $(BLOCKS) > $(COMBINED)
+test-cortexm: $(COMBINED)
 	@cp $(COMBINED) $(COMBINED_IDE)
 	@echo "Running Cortex-M33 boot test..."
 	@python3 tests/test_cortexm_boot.py $$(($(TEST_PORT_BASE)+60)); \
@@ -272,8 +278,7 @@ AHCI_SCRATCH = $(BUILD)/ahci-scratch.img
 $(AHCI_SCRATCH): | $(BUILD)
 	dd if=/dev/zero of=$(AHCI_SCRATCH) bs=512 count=2048 2>/dev/null
 
-test-ahci-write: $(IMAGE) $(BLOCKS) write-catalog $(AHCI_SCRATCH)
-	@cat $(IMAGE) $(BLOCKS) > $(COMBINED)
+test-ahci-write: $(COMBINED) $(AHCI_SCRATCH)
 	@cp $(COMBINED) $(COMBINED_IDE)
 	@echo "Running AHCI write test..."
 	@PORT=$$(($(TEST_PORT_BASE)+75)); \

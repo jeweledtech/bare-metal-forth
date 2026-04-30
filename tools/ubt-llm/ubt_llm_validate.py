@@ -53,10 +53,21 @@ def parse_args():
         help="Output directory for results",
     )
     p.add_argument(
+        "--model",
+        default="deepseek-ai/deepseek-v4-pro",
+        help="Model ID on NVIDIA NIM (default: deepseek-v4-pro, free tier)",
+    )
+    p.add_argument(
         "--max-functions",
         type=int,
         default=50,
         help="Maximum number of functions to analyze (cost control)",
+    )
+    p.add_argument(
+        "--dry-run",
+        action="store_true",
+        default=False,
+        help="Print prompts to stdout without making API calls",
     )
     filter_group = p.add_mutually_exclusive_group()
     filter_group.add_argument(
@@ -281,11 +292,12 @@ INITIAL_BACKOFF = 3  # seconds
 
 def call_llm(
     client: OpenAI,
+    model: str,
     system_prompt: str,
     function_text: str,
     pe_type: str,
 ) -> tuple[dict | None, int, int, str]:
-    """Call DeepSeek V4 Pro for one function. Returns (result, in_tok, out_tok, status).
+    """Call DeepSeek V4 for one function. Returns (result, in_tok, out_tok, status).
 
     Retries on 429 (rate limit) with exponential backoff.
     """
@@ -294,13 +306,19 @@ def call_llm(
     for attempt in range(MAX_RETRIES):
         try:
             response = client.chat.completions.create(
-                model="deepseek-ai/deepseek-v4-pro",
+                model=model,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_msg},
                 ],
                 temperature=0,
                 max_tokens=1024,
+                extra_body={
+                    "chat_template_kwargs": {
+                        "enable_thinking": True,
+                        "thinking": True,
+                    }
+                },
             )
             break
         except Exception as e:
@@ -340,12 +358,28 @@ def validate_schema(obj: dict, schema: dict) -> bool:
         return False
 
 
-def load_translator_extracted(project_root: Path) -> list[str] | None:
-    """Load the translator's extracted hardware words for comparison, if available."""
-    path = project_root / "translator" / "i8042prt-extracted.txt"
-    if path.exists():
-        return [l.strip() for l in path.read_text().splitlines() if l.strip()]
-    return None
+def load_translator_report(project_root: Path, binary: Path) -> list[dict] | None:
+    """Run the deterministic translator's semantic report on the same binary.
+
+    Returns a list of hardware function dicts, or None if the translator
+    binary isn't available.
+    """
+    translator_bin = project_root / "tools" / "translator" / "bin" / "translator"
+    if not translator_bin.exists():
+        return None
+    try:
+        result = subprocess.run(
+            [str(translator_bin), "-t", "semantic-report", str(binary)],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if result.returncode != 0:
+            return None
+        report = json.loads(result.stdout)
+        return report.get("hardware_functions", [])
+    except (subprocess.TimeoutExpired, json.JSONDecodeError):
+        return None
 
 
 def write_diff_report(
@@ -354,9 +388,10 @@ def write_diff_report(
     results: list[dict],
     total_in_tokens: int,
     total_out_tokens: int,
-    translator_words: list[str] | None,
+    translator_hw: list[dict] | None,
+    model_used: str,
 ):
-    """Write the markdown diff report."""
+    """Write the markdown diff report with translator comparison."""
     path = out_dir / f"{basename}.diff.md"
 
     ok_count = sum(1 for r in results if r["status"] == "ok")
@@ -371,6 +406,8 @@ def write_diff_report(
 
     lines = [
         f"# LLM Classification Report: {basename}",
+        "",
+        f"**Model:** `{model_used}`",
         "",
         "## Run Summary",
         "",
@@ -416,7 +453,7 @@ def write_diff_report(
         if r["status"] == "ok"
         and r["classification"].get("class") == "HARDWARE_IO"
     ]
-    lines.append("## Hardware I/O Functions Found")
+    lines.append("## Hardware I/O Functions Found by LLM")
     lines.append("")
     if hw_funcs:
         for r in hw_funcs:
@@ -432,32 +469,104 @@ def write_diff_report(
         lines.append("*No HARDWARE_IO functions detected.*")
     lines.append("")
 
-    # Translator comparison
+    # Translator comparison — the core deliverable
     lines.append("## Translator Comparison")
     lines.append("")
-    if translator_words:
+
+    if translator_hw is not None:
+        # Normalize addresses to lowercase for matching
+        translator_addrs = {}
+        for f in translator_hw:
+            addr = f.get("address", "").lower().replace("0x", "")
+            translator_addrs[addr] = f
+
+        llm_addrs = {}
+        for r in hw_funcs:
+            # func_1c0001260 -> 1c0001260
+            addr = r["function_name"].replace("func_", "")
+            llm_addrs[addr] = r
+
+        all_addrs = sorted(set(translator_addrs) | set(llm_addrs))
+
         lines.append(
-            "Existing translator extracted the following hardware words:"
+            f"Deterministic translator found **{len(translator_hw)}** "
+            f"hardware functions. LLM found **{len(hw_funcs)}** HARDWARE_IO."
         )
         lines.append("")
-        for w in translator_words:
-            lines.append(f"- `{w}`")
+
+        # Side-by-side comparison table
+        cmp_rows = []
+        agree = 0
+        llm_only = 0
+        translator_only = 0
+        for addr in all_addrs:
+            t = translator_addrs.get(addr)
+            l = llm_addrs.get(addr)
+            t_name = t["name"] if t else ""
+            t_class = t["classification"] if t else ""
+            l_name = l["function_name"] if l else ""
+            l_class = ""
+            l_port = ""
+            if l:
+                c = l["classification"]
+                l_class = c.get("class", "")
+                l_port = c.get("io", {}).get("port_or_mmio", "") or ""
+            if t and l:
+                marker = "AGREE"
+                agree += 1
+            elif l and not t:
+                marker = "LLM-only"
+                llm_only += 1
+            else:
+                marker = "Translator-only"
+                translator_only += 1
+            cmp_rows.append(
+                [f"0x{addr}", t_class, l_class, l_port, marker]
+            )
+
+        cmp_headers = ["Address", "Translator", "LLM", "Port", "Verdict"]
+        lines.append(tabulate(cmp_rows, headers=cmp_headers, tablefmt="github"))
         lines.append("")
         lines.append(
-            "Compare the HARDWARE_IO functions above against this list. "
-            "Agreements and disagreements should be noted in a manual review."
+            f"**Summary:** {agree} agree, "
+            f"{llm_only} LLM-only, "
+            f"{translator_only} translator-only"
         )
+        lines.append("")
+
+        # Qualitative analysis
+        if llm_only > 0:
+            lines.append(
+                "### LLM-only findings"
+            )
+            lines.append("")
+            lines.append(
+                "These functions were classified HARDWARE_IO by the LLM but "
+                "not detected by the deterministic translator's static analysis. "
+                "This typically means indirect port I/O through wrapper calls "
+                "that the translator cannot trace statically."
+            )
+            lines.append("")
+            for addr in all_addrs:
+                if addr in llm_addrs and addr not in translator_addrs:
+                    r = llm_addrs[addr]
+                    c = r["classification"]
+                    io = c.get("io", {})
+                    lines.append(
+                        f"- **func_{addr}**: port={io.get('port_or_mmio')} "
+                        f"mechanism={io.get('mechanism')} "
+                        f"— {io.get('evidence', '')}"
+                    )
+            lines.append("")
     else:
         lines.append(
-            "No translator output available for diff "
-            "(i8042prt-extracted.txt not found) — manual review only."
+            "Translator binary not found at `tools/translator/bin/translator` "
+            "— run `make -C tools/translator` to build, then re-run."
         )
     lines.append("")
 
     # Token spend
     total_tokens = total_in_tokens + total_out_tokens
-    # NVIDIA trial pricing estimate (rough)
-    est_cost = total_tokens * 0.0  # trial tier = free
     lines.append("## Token Spend")
     lines.append("")
     lines.append(f"- **Input tokens:** {total_in_tokens:,}")
@@ -482,7 +591,6 @@ def write_diff_report(
 
 def main():
     args = parse_args()
-    api_key = verify_environment()
     pe_type = verify_binary(args.binary)
     basename = args.binary.name
 
@@ -490,10 +598,16 @@ def main():
 
     print(f"UBT LLM Validation Harness")
     print(f"  Binary: {args.binary} ({pe_type})")
-    print(f"  Model:  deepseek-ai/deepseek-v4-pro (NVIDIA NIM)")
+    print(f"  Model:  {args.model} (NVIDIA NIM)")
     print(f"  Max functions: {args.max_functions}")
     print(f"  Prefilter: {'ON' if use_prefilter else 'OFF'}")
+    print(f"  Dry run: {'YES' if args.dry_run else 'no'}")
     print()
+
+    if not args.dry_run:
+        api_key = verify_environment()
+    else:
+        api_key = None
 
     if use_prefilter:
         prefilter.init(args.binary, pe_type)
@@ -523,10 +637,13 @@ def main():
 
     # Step 4: Process functions
     print("[4/5] Classifying functions")
-    client = OpenAI(
-        base_url="https://integrate.api.nvidia.com/v1",
-        api_key=api_key,
-    )
+    client = None
+    if not args.dry_run:
+        client = OpenAI(
+            base_url="https://integrate.api.nvidia.com/v1",
+            api_key=api_key,
+            timeout=60,
+        )
     conn = open_cache(args.out, basename)
 
     results = []
@@ -568,6 +685,23 @@ def main():
                 )
                 continue
 
+        # Dry-run mode: print prompt and skip API call
+        if args.dry_run:
+            user_msg = f"Binary type: {pe_type}\n\n{func['text']}"
+            print("[dry-run]")
+            print(f"--- SYSTEM PROMPT ---\n{system_prompt[:200]}...")
+            print(f"--- USER MESSAGE ({len(user_msg)} chars) ---")
+            print(user_msg[:300] + "..." if len(user_msg) > 300 else user_msg)
+            print("---")
+            results.append(
+                {
+                    "function_name": func["name"],
+                    "classification": None,
+                    "status": "dry_run",
+                }
+            )
+            continue
+
         # Check cache (only reuse successes, retry errors)
         cached = cache_lookup(conn, sha)
         if cached is not None:
@@ -580,7 +714,7 @@ def main():
 
         if cached is None:
             obj, in_tok, out_tok, status = call_llm(
-                client, system_prompt, func["text"], pe_type
+                client, args.model, system_prompt, func["text"], pe_type
             )
 
             # Schema validation
@@ -603,6 +737,7 @@ def main():
                 "function_name": func["name"],
                 "classification": obj if status == "ok" else None,
                 "status": status,
+                "_from_cache": cached is not None,
             }
         )
 
@@ -617,16 +752,31 @@ def main():
     json_path.write_text(json.dumps(results, indent=2))
     print(f"  JSON results: {json_path}")
 
-    # Diff report
+    # Diff report — compare LLM against deterministic translator
     project_root = SCRIPT_DIR.parent.parent
-    translator_words = load_translator_extracted(project_root)
+    translator_hw = load_translator_report(project_root, args.binary)
+    if translator_hw is not None:
+        print(f"  Translator found {len(translator_hw)} hardware functions")
+    else:
+        print("  Translator binary not available — skipping comparison")
+
+    # Track which model produced the cached data. If all results are
+    # cached, the model flag may differ from what actually ran. Read
+    # the model from the cache DB if available, otherwise use the flag.
+    model_used = args.model
+    cached_count = sum(1 for r in results if r.get("_from_cache"))
+    if cached_count == len([r for r in results if r["status"] == "ok"]):
+        # All LLM results came from cache — note this in the report
+        model_used = f"{args.model} (results from cache)"
+
     write_diff_report(
         args.out,
         basename,
         results,
         total_in_tokens,
         total_out_tokens,
-        translator_words,
+        translator_hw,
+        model_used,
     )
 
     # Summary
