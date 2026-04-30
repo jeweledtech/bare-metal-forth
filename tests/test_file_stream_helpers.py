@@ -79,10 +79,10 @@ send('VARIABLE TB2', 0.5)
 # Test 1: BE-W! with 0x1234
 send('1234 TB1 BE-W!', 0.5)
 r = send('TB1 C@ .', 0.5)
-check('BE-W! high byte 0x12', r, '18')
+check('BE-W! high byte 0x12', r, '12')
 
 r = send('TB1 1+ C@ .', 0.5)
-check('BE-W! low byte 0x34', r, '52')
+check('BE-W! low byte 0x34', r, '34')
 
 # Test 2: BE-W! with 0x0001
 send('1 TB1 BE-W!', 0.5)
@@ -97,30 +97,30 @@ check('BE-W! 0x0001 low=1', r, '1')
 # Test 3: BE! with 0x12345678
 send('12345678 TB1 BE!', 0.5)
 r = send('TB1 C@ .', 0.5)
-check('BE! byte0=0x12', r, '18')
+check('BE! byte0=0x12', r, '12')
 
 r = send('TB1 1+ C@ .', 0.5)
-check('BE! byte1=0x34', r, '52')
+check('BE! byte1=0x34', r, '34')
 
 r = send('TB1 2 + C@ .', 0.5)
-check('BE! byte2=0x56', r, '86')
+check('BE! byte2=0x56', r, '56')
 
 r = send('TB1 3 + C@ .', 0.5)
-check('BE! byte3=0x78', r, '120')
+check('BE! byte3=0x78', r, '78')
 
 # Test 4: BE! with 0xDEADBEEF
 send('DEADBEEF TB1 BE!', 0.5)
 r = send('TB1 C@ .', 0.5)
-check('BE! 0xDE=222', r, '222')
+check('BE! 0xDE', r, 'DE')
 
 r = send('TB1 1+ C@ .', 0.5)
-check('BE! 0xAD=173', r, '173')
+check('BE! 0xAD', r, 'AD')
 
 r = send('TB1 2 + C@ .', 0.5)
-check('BE! 0xBE=190', r, '190')
+check('BE! 0xBE', r, 'BE')
 
 r = send('TB1 3 + C@ .', 0.5)
-check('BE! 0xEF=239', r, '239')
+check('BE! 0xEF', r, 'EF')
 
 # ================================================
 # Define CRC-32 interactively
@@ -140,7 +140,7 @@ send('LOOP CRC32-TABLE I 4 * + !', 0.5)
 send('LOOP ;', 1.0)
 
 # CRC32: compute CRC-32 of (addr len)
-send(': CRC32 CRC32-MASK -ROT', 0.5)
+send(': CRC32 CRC32-MASK SWAP', 0.5)
 send('0 DO OVER I + C@', 0.5)
 send('OVER XOR 255 AND 4 *', 0.5)
 send('CRC32-TABLE + @', 0.5)
@@ -165,8 +165,8 @@ check('CRC32-TABLE[0]=0', r, '0')
 # Test 7: CRC-32 table entry 1
 # Byte 1: shift right 1, XOR poly = EDB88320
 r = send('CRC32-TABLE 4 + @ .', 0.5)
-check('CRC32-TABLE[1]=EDB88320',
-      r, 'EDB88320')
+check('CRC32-TABLE[1]=77073096',
+      r, '77073096')
 
 # Test 8: CRC-32 of "123456789"
 # Standard test vector: CRC32 = 0xCBF43926
@@ -184,8 +184,8 @@ send('56 TVEC 7 + C!', 0.3)   # '8'
 send('57 TVEC 8 + C!', 0.3)   # '9'
 send('HEX', 0.3)
 r = send('TVEC 9 CRC32 .', 1.0)
-check('CRC32 "123456789"=CBF43926',
-      r, 'CBF43926')
+check('CRC32 "123456789"',
+      r, '-340BC6DA')
 
 # ================================================
 # Summary
