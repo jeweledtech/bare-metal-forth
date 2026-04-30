@@ -305,8 +305,23 @@ ubt-llm-validate-prefilter:
 	@cd tools/ubt-llm && python3 ubt_llm_validate.py \
 		--binary $(CURDIR)/tests/hp_i3/i8042prt.sys --prefilter
 
+test-file-stream: $(IMAGE)
+	@PORT=$$(($(TEST_PORT_BASE)+55)); \
+	echo "=== FILE-STREAM helpers (port $$PORT) ==="; \
+	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null || true; \
+	sleep 0.5; \
+	qemu-system-i386 \
+		-drive file=build/bmforth.img,format=raw,if=floppy \
+		-serial tcp::$$PORT,server=on,wait=off \
+		-display none -daemonize; \
+	sleep 2; \
+	python3 tests/test_file_stream_helpers.py $$PORT; \
+	RESULT=$$?; \
+	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null || true; \
+	exit $$RESULT
+
 # Run all tests (lint first, then functional tests)
-test: lint test-smoke test-loops test-vocabs test-gui test-integration
+test: lint test-smoke test-loops test-vocabs test-gui test-integration test-file-stream
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)
@@ -373,4 +388,4 @@ pxe-push: $(COMBINED) check-kernel-size
 pxe-status:
 	@bash tools/pxe/test-pxe.sh
 
-.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined check-kernel-size test test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write pxe-setup pxe-push pxe-status
+.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined check-kernel-size test test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream pxe-setup pxe-push pxe-status
