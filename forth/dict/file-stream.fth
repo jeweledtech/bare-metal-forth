@@ -66,3 +66,52 @@ CRC32-INIT
     LOOP
     NIP CRC32-MASK XOR
 ;
+
+\ ============================================
+\ Section 2: FBLK framing
+\ ============================================
+
+HEX
+46424C4B CONSTANT FBLK-MAGIC
+DECIMAL
+20 CONSTANT FBLK-HDR-SZ
+256 CONSTANT FBLK-NAME-SZ
+4096 CONSTANT FBLK-CHUNK-SZ
+1434 CONSTANT MAX-PAYLOAD
+1 CONSTANT F-EOF
+2 CONSTANT F-SPARSE
+
+CREATE CHUNK-HDR  20 ALLOT
+CREATE CHUNK-NAME 256 ALLOT
+CREATE SEND-BUF   1500 ALLOT
+VARIABLE CHUNK#
+VARIABLE STREAM-SID
+VARIABLE STREAM-SIZE
+VARIABLE STREAM-SENT
+
+\ Big-endian 16-bit store
+: BE-W! ( val addr -- )
+    OVER 8 RSHIFT OVER C!
+    1+ SWAP 255 AND SWAP C!
+;
+
+\ Big-endian 32-bit store
+: BE! ( val addr -- )
+    OVER 24 RSHIFT OVER C!
+    1+ OVER 16 RSHIFT 255 AND
+    OVER C! 1+
+    OVER 8 RSHIFT 255 AND
+    OVER C! 1+
+    SWAP 255 AND SWAP C!
+;
+
+\ Build 20-byte FBLK header in CHUNK-HDR
+: BUILD-HDR ( payload-len flags -- )
+    SWAP
+    FBLK-MAGIC CHUNK-HDR BE!
+    STREAM-SID @ CHUNK-HDR 4 + BE!
+    STREAM-SIZE @ CHUNK-HDR 8 + BE!
+    CHUNK# @ CHUNK-HDR 12 + BE!
+    CHUNK-HDR 16 + BE-W!
+    CHUNK-HDR 18 + BE-W!
+;
