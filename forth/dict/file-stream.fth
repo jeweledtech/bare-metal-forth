@@ -169,3 +169,125 @@ VARIABLE 'FILE-SINK
     FBLK-HDR-SZ CMOVE
     SEND-BUF FBLK-HDR-SZ UDP-SEND
 ;
+
+\ ============================================
+\ Section 4: FILE-STREAM
+\ ============================================
+
+HEX
+20 CONSTANT ATTR-RUNOFF
+30 CONSTANT ATTR-RSIZE
+DECIMAL
+
+VARIABLE FS-ATTR
+VARIABLE FS-LBA
+VARIABLE FS-RSECS
+VARIABLE FS-SPARSE
+
+\ Zero-fill SEC-BUF for sparse runs
+: ZERO-SEC-BUF ( -- )
+    SEC-BUF FBLK-CHUNK-SZ 0 FILL
+;
+
+\ Compute bytes to send for this batch.
+\ Caps at remaining file size.
+: BATCH-LEN ( secs -- bytes )
+    512 *
+    STREAM-SIZE @ STREAM-SENT @ -
+    MIN
+;
+
+\ Send one run's data through sink.
+\ FS-LBA = starting LBA of run.
+\ FS-RSECS = total sectors in run.
+: SEND-RUN ( -- )
+    BEGIN FS-RSECS @ 0> WHILE
+        FS-SPARSE @ IF
+            ZERO-SEC-BUF
+        ELSE
+            FS-LBA @ 8 FS-RSECS @ MIN
+            AHCI-READ DROP
+        THEN
+        8 FS-RSECS @ MIN BATCH-LEN
+        DUP 0> IF
+            SEC-BUF SWAP DO-SINK
+        ELSE
+            DROP
+        THEN
+        8 FS-LBA +!
+        -8 FS-RSECS +!
+    REPEAT
+;
+
+\ Stream a named file over the sink.
+: FILE-STREAM ( addr len -- )
+    \ Save filename into CHUNK-NAME
+    CHUNK-NAME FBLK-NAME-SZ 0 FILL
+    2DUP CHUNK-NAME SWAP CMOVE
+    \ Compute session ID
+    2DUP CRC32 STREAM-SID !
+    \ Find file in MFT
+    MFT-FIND 0= IF
+        ." Not found" CR EXIT
+    THEN
+    FOUND-REC !
+    FOUND-REC @ MFT-READ IF
+        ." MFT read err" CR EXIT
+    THEN
+    \ Locate $DATA attribute
+    ATTR-DATA MFT-ATTR
+    DUP 0= IF
+        DROP ." No DATA" CR EXIT
+    THEN
+    DUP 8 + C@ 0= IF
+        DROP ." Resident" CR EXIT
+    THEN
+    FS-ATTR !
+    \ Extract file size (+30h)
+    FS-ATTR @ ATTR-RSIZE + @
+    STREAM-SIZE !
+    \ Initialize state
+    0 CHUNK# !
+    0 STREAM-SENT !
+    0 RUN-PREV !
+    \ Set run-list pointer
+    FS-ATTR @ DUP ATTR-RUNOFF + W@ +
+    PR-PTR !
+    \ Walk all data runs
+    BEGIN
+        PR-PTR @ C@ DUP 0<> WHILE
+        \ Peek high nibble for sparse
+        4 RSHIFT 0= IF
+            -1 FS-SPARSE !
+        ELSE
+            0 FS-SPARSE !
+        THEN
+        PARSE-RUN DROP
+        \ Accumulate absolute cluster
+        FS-SPARSE @ 0= IF
+            PR-OFF @ RUN-PREV +!
+        THEN
+        \ Convert clusters to LBA
+        RUN-PREV @ SEC/CLUS @ *
+        PART-LBA @ + FS-LBA !
+        PR-LEN @ SEC/CLUS @ *
+        FS-RSECS !
+        SEND-RUN
+        \ Check if file fully sent
+        STREAM-SENT @
+        STREAM-SIZE @ >= IF
+            PR-PTR @ C@ DROP 0
+        THEN
+    REPEAT
+    DROP
+    STREAM-DONE
+    ." Streamed "
+    STREAM-SENT @ DECIMAL . HEX
+    ." bytes" CR
+;
+
+\ Set default sink
+' NET-CHUNK-SINK 'FILE-SINK !
+
+ONLY FORTH DEFINITIONS
+DECIMAL
