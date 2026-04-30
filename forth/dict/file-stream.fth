@@ -115,3 +115,57 @@ VARIABLE STREAM-SENT
     CHUNK-HDR 16 + BE-W!
     CHUNK-HDR 18 + BE-W!
 ;
+
+\ ============================================
+\ Section 3: Sink infrastructure
+\ ============================================
+
+VARIABLE 'FILE-SINK
+
+: DO-SINK ( buf len -- )
+    'FILE-SINK @ EXECUTE
+;
+
+\ Send one UDP packet from SEND-BUF.
+\ Copies CHUNK-HDR + data into SEND-BUF,
+\ then calls UDP-SEND.
+: SEND-CHUNK ( data-addr data-len -- )
+    CHUNK-HDR SEND-BUF
+    FBLK-HDR-SZ CMOVE
+    CHUNK# @ 0= IF
+        \ Chunk 0: hdr + name + data
+        CHUNK-NAME SEND-BUF FBLK-HDR-SZ +
+        FBLK-NAME-SZ CMOVE
+        SEND-BUF FBLK-HDR-SZ +
+        FBLK-NAME-SZ + SWAP CMOVE
+        SEND-BUF SWAP
+        FBLK-HDR-SZ + FBLK-NAME-SZ +
+    ELSE
+        \ Chunks 1+: hdr + data
+        SEND-BUF FBLK-HDR-SZ + SWAP
+        CMOVE
+        SEND-BUF SWAP FBLK-HDR-SZ +
+    THEN
+    UDP-SEND
+    1 CHUNK# +!
+;
+
+\ Default sink: chunk into UDP packets
+: NET-CHUNK-SINK ( buf len -- )
+    BEGIN DUP 0> WHILE
+        DUP MAX-PAYLOAD MIN
+        2DUP 0 BUILD-HDR
+        2 PICK SWAP SEND-CHUNK
+        DUP STREAM-SENT +!
+        ROT OVER + -ROT -
+    REPEAT
+    2DROP
+;
+
+\ Send EOF marker (zero-payload packet)
+: STREAM-DONE ( -- )
+    0 F-EOF BUILD-HDR
+    CHUNK-HDR SEND-BUF
+    FBLK-HDR-SZ CMOVE
+    SEND-BUF FBLK-HDR-SZ UDP-SEND
+;
