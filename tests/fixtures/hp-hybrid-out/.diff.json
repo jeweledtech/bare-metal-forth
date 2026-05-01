@@ -1,0 +1,58 @@
+{
+  "driver": "i8042prt.sys",
+  "size_bytes": 118272,
+  "format": "PE32+",
+  "deterministic": {
+    "exit_code": 0,
+    "hw_function_count": 2,
+    "functions": [
+      {
+        "address": "0x1C0001260",
+        "name": "func_1C0001260",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C0001280",
+        "name": "func_1C0001280",
+        "classification": "port_io"
+      }
+    ]
+  },
+  "llm": {
+    "exit_code": 0,
+    "tokens_used": 589,
+    "api_calls": 9,
+    "cache_hits": 9,
+    "prefilter_savings_pct": 82,
+    "hw_function_count": 3
+  },
+  "diff": {
+    "agree_count": 2,
+    "deterministic_only_count": 0,
+    "llm_only_count": 1,
+    "agree": [
+      {
+        "address": "0x1c0001260",
+        "det_class": "port_io",
+        "llm_class": "HARDWARE_IO",
+        "llm_port": "DX (from CX)"
+      },
+      {
+        "address": "0x1c0001280",
+        "det_class": "port_io",
+        "llm_class": "HARDWARE_IO",
+        "llm_port": "DX"
+      }
+    ],
+    "deterministic_only": [],
+    "llm_only": [
+      {
+        "address": "0x1c0002b38",
+        "llm_class": "HARDWARE_IO",
+        "port": "0xd4",
+        "mechanism": "X64_INTRINSIC",
+        "evidence": "mov dl,0xd4; mov cl,0x1; call 0x1c000501c (likely __outbyte wrapper)"
+      }
+    ]
+  }
+}

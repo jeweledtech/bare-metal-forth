@@ -1,0 +1,37 @@
+{
+  "driver": "disk.sys",
+  "size_bytes": 98624,
+  "format": "PE32+",
+  "deterministic": {
+    "exit_code": 0,
+    "hw_function_count": 1,
+    "functions": [
+      {
+        "address": "0x1C00045F0",
+        "name": "func_1C00045F0",
+        "classification": "port_io"
+      }
+    ]
+  },
+  "llm": {
+    "exit_code": 1,
+    "tokens_used": 0,
+    "api_calls": 0,
+    "cache_hits": 0,
+    "prefilter_savings_pct": 98,
+    "hw_function_count": 0
+  },
+  "diff": {
+    "agree_count": 0,
+    "deterministic_only_count": 1,
+    "llm_only_count": 0,
+    "agree": [],
+    "deterministic_only": [
+      {
+        "address": "0x1c00045f0",
+        "det_class": "port_io"
+      }
+    ],
+    "llm_only": []
+  }
+}
