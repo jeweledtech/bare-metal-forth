@@ -187,7 +187,7 @@ test-vocabs: $(COMBINED)
 test-gui: $(COMBINED)
 	@cp $(COMBINED) $(COMBINED_IDE)
 	@PORT_BASE=$$(($(TEST_PORT_BASE)+30)); \
-	for test in test_stub_dispatch test_ui_core test_gui_harvest test_ui_parser test_ui_events; do \
+	for test in test_stub_dispatch test_ui_core test_gui_harvest test_ui_parser test_ui_events test_fe_strip_cr; do \
 		if [ ! -f tests/$$test.py ]; then continue; fi; \
 		PORT=$$PORT_BASE; PORT_BASE=$$((PORT_BASE+1)); \
 		echo "  $$test (port $$PORT)..."; \

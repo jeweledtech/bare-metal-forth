@@ -434,6 +434,31 @@ VARIABLE SB-COL
 \ File I/O
 \ ============================================
 
+\ Strip CR bytes when followed by LF (CRLF->LF)
+VARIABLE CR-I
+: FE-STRIP-CR ( -- )
+    0 CR-I !
+    BEGIN
+        CR-I @ FE-SIZE @ 1- <
+    WHILE
+        FE-BUF CR-I @ + DUP C@
+        D = IF
+            DUP 1+ C@ A = IF
+                DUP DUP 1+
+                SWAP
+                FE-SIZE @
+                CR-I @ - 1-
+                CMOVE
+                DROP
+                -1 FE-SIZE +!
+            ELSE
+                DROP 1 CR-I +!
+            THEN
+        ELSE
+            DROP 1 CR-I +!
+        THEN
+    REPEAT ;
+
 : FE-OPEN ( na nl -- )
     DUP FE-NLEN !
     FE-NAME SWAP CMOVE
@@ -445,12 +470,19 @@ VARIABLE SB-COL
     THEN
     \ Count actual bytes (find NUL)
     SEC-BUF FE-BUF 1000 CMOVE
+    \ NOTE: LEAVE does not skip the rest of
+    \ the loop body in this Forth-83 kernel
+    \ — it sets I=LIMIT and execution
+    \ continues to LOOP. The IF/ELSE ensures
+    \ only one FE-SIZE write per iteration.
     1000 0 DO
         FE-BUF I + C@ 0= IF
             I FE-SIZE ! LEAVE
+        ELSE
+            I 1+ FE-SIZE !
         THEN
-        I 1+ FE-SIZE !
     LOOP
+    FE-STRIP-CR
 ;
 
 : FE-SAVE ( -- )
@@ -585,7 +617,8 @@ CREATE SC-ASC 80 ALLOT
     DROP
 ;
 
-\ Ctrl modifier query for external vocabs
+\ Exposes Ctrl-held state to NOTEPAD without
+\ forcing PS2-KEYBOARD onto its search order
 : FE-CTRL? ( -- flag ) KB-MODS @ 2 AND ;
 
 \ ============================================
