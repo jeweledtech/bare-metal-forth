@@ -1,0 +1,217 @@
+{
+  "driver": "ACPI.sys",
+  "size_bytes": 809288,
+  "format": "PE32+",
+  "deterministic": {
+    "exit_code": 0,
+    "hw_function_count": 21,
+    "functions": [
+      {
+        "address": "0x1C0001970",
+        "name": "func_1C0001970",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C0004A10",
+        "name": "func_1C0004A10",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C000FB4C",
+        "name": "func_1C000FB4C",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C00272D8",
+        "name": "func_1C00272D8",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C002EA90",
+        "name": "func_1C002EA90",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C0032AF8",
+        "name": "func_1C0032AF8",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C003DA3A",
+        "name": "func_1C003DA3A",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C0043C7A",
+        "name": "func_1C0043C7A",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C00495D0",
+        "name": "func_1C00495D0",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C004970C",
+        "name": "func_1C004970C",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C0049EE4",
+        "name": "func_1C0049EE4",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C0054314",
+        "name": "func_1C0054314",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C0054920",
+        "name": "func_1C0054920",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C005A288",
+        "name": "func_1C005A288",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C005A360",
+        "name": "func_1C005A360",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C005A660",
+        "name": "func_1C005A660",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C0062AB0",
+        "name": "func_1C0062AB0",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C0067E7C",
+        "name": "func_1C0067E7C",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C0092268",
+        "name": "func_1C0092268",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C00AD3B0",
+        "name": "func_1C00AD3B0",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C00BFEBE",
+        "name": "func_1C00BFEBE",
+        "classification": "port_io"
+      }
+    ]
+  },
+  "llm": {
+    "exit_code": 1,
+    "tokens_used": 39,
+    "api_calls": 2,
+    "cache_hits": 0,
+    "prefilter_savings_pct": 90,
+    "hw_function_count": 0
+  },
+  "diff": {
+    "agree_count": 0,
+    "deterministic_only_count": 21,
+    "llm_only_count": 0,
+    "agree": [],
+    "deterministic_only": [
+      {
+        "address": "0x1c0001970",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c0004a10",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c000fb4c",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c00272d8",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c002ea90",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c0032af8",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c003da3a",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c0043c7a",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c00495d0",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c004970c",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c0049ee4",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c0054314",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c0054920",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c005a288",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c005a360",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c005a660",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c0062ab0",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c0067e7c",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c0092268",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c00ad3b0",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c00bfebe",
+        "det_class": "port_io"
+      }
+    ],
+    "llm_only": []
+  }
+}

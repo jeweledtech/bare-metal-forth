@@ -1,0 +1,54 @@
+{
+  "driver": "pci.sys",
+  "size_bytes": 474928,
+  "format": "PE32+",
+  "deterministic": {
+    "exit_code": 0,
+    "hw_function_count": 2,
+    "functions": [
+      {
+        "address": "0x1C001A2DC",
+        "name": "func_1C001A2DC",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C005BD3C",
+        "name": "func_1C005BD3C",
+        "classification": "port_io"
+      }
+    ]
+  },
+  "llm": {
+    "exit_code": 1,
+    "tokens_used": 349,
+    "api_calls": 7,
+    "cache_hits": 0,
+    "prefilter_savings_pct": 70,
+    "hw_function_count": 1
+  },
+  "diff": {
+    "agree_count": 0,
+    "deterministic_only_count": 2,
+    "llm_only_count": 1,
+    "agree": [],
+    "deterministic_only": [
+      {
+        "address": "0x1c001a2dc",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c005bd3c",
+        "det_class": "port_io"
+      }
+    ],
+    "llm_only": [
+      {
+        "address": "0x1c0001700",
+        "llm_class": "HARDWARE_IO",
+        "port": null,
+        "mechanism": "X64_INTRINSIC",
+        "evidence": "mov r12,cr8 at 0x1c000178a"
+      }
+    ]
+  }
+}

@@ -69,6 +69,12 @@ def parse_args():
         default=False,
         help="Print prompts to stdout without making API calls",
     )
+    p.add_argument(
+        "--timeout",
+        type=int,
+        default=120,
+        help="API call timeout in seconds (default: 120)",
+    )
     filter_group = p.add_mutually_exclusive_group()
     filter_group.add_argument(
         "--prefilter",
@@ -290,6 +296,23 @@ MAX_RETRIES = 5
 INITIAL_BACKOFF = 3  # seconds
 
 
+def _is_retryable(e: Exception) -> bool:
+    """Check if an API error is transient and worth retrying."""
+    err_str = str(e)
+    if "429" in err_str:
+        return True
+    # OpenAI SDK wraps httpx errors as APITimeoutError / APIConnectionError
+    type_name = type(e).__name__
+    if type_name in ("APITimeoutError", "APIConnectionError", "Timeout",
+                      "ConnectError", "ReadTimeout", "RemoteProtocolError"):
+        return True
+    # Connection reset / broken pipe from underlying socket
+    if any(s in err_str for s in ("timed out", "Connection reset",
+                                   "RemoteDisconnected", "ECONNRESET")):
+        return True
+    return False
+
+
 def call_llm(
     client: OpenAI,
     model: str,
@@ -299,7 +322,7 @@ def call_llm(
 ) -> tuple[dict | None, int, int, str]:
     """Call DeepSeek V4 for one function. Returns (result, in_tok, out_tok, status).
 
-    Retries on 429 (rate limit) with exponential backoff.
+    Retries on transient errors (429, timeout, connection) with exponential backoff.
     """
     user_msg = f"Binary type: {pe_type}\n\n{function_text}"
 
@@ -322,10 +345,10 @@ def call_llm(
             )
             break
         except Exception as e:
-            err_str = str(e)
-            if "429" in err_str and attempt < MAX_RETRIES - 1:
+            if _is_retryable(e) and attempt < MAX_RETRIES - 1:
                 wait = INITIAL_BACKOFF * (2 ** attempt)
-                print(f"[429, retry in {wait}s] ", end="", flush=True)
+                label = "429" if "429" in str(e) else type(e).__name__
+                print(f"[{label}, retry in {wait}s] ", end="", flush=True)
                 time.sleep(wait)
                 continue
             print(f"    API error: {e}", file=sys.stderr)
@@ -642,7 +665,7 @@ def main():
         client = OpenAI(
             base_url="https://integrate.api.nvidia.com/v1",
             api_key=api_key,
-            timeout=60,
+            timeout=args.timeout,
         )
     conn = open_cache(args.out, basename)
 

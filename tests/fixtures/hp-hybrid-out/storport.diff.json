@@ -1,0 +1,343 @@
+{
+  "driver": "storport.sys",
+  "size_bytes": 714576,
+  "format": "PE32+",
+  "deterministic": {
+    "exit_code": 0,
+    "hw_function_count": 35,
+    "functions": [
+      {
+        "address": "0x1C0002B30",
+        "name": "func_1C0002B30",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C0006376",
+        "name": "func_1C0006376",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C0007E30",
+        "name": "func_1C0007E30",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C000CDC0",
+        "name": "func_1C000CDC0",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C001935C",
+        "name": "func_1C001935C",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C001D876",
+        "name": "func_1C001D876",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C001E94B",
+        "name": "func_1C001E94B",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C00215B8",
+        "name": "func_1C00215B8",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C002509C",
+        "name": "func_1C002509C",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C002F4A0",
+        "name": "func_1C002F4A0",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C0038800",
+        "name": "StorPortReadPortBufferUchar",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C0038820",
+        "name": "StorPortReadPortBufferUlong",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C0038840",
+        "name": "StorPortReadPortBufferUshort",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C0038860",
+        "name": "StorPortReadPortUchar",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C0038870",
+        "name": "StorPortReadPortUlong",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C0038880",
+        "name": "StorPortReadPortUshort",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C0038F90",
+        "name": "StorPortWritePortBufferUchar",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C0038FB0",
+        "name": "StorPortWritePortBufferUlong",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C0038FD0",
+        "name": "StorPortWritePortBufferUshort",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C0038FF0",
+        "name": "StorPortWritePortUchar",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C0039000",
+        "name": "StorPortWritePortUlong",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C0039010",
+        "name": "StorPortWritePortUshort",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C003B498",
+        "name": "func_1C003B498",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C003DC98",
+        "name": "func_1C003DC98",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C003F2C0",
+        "name": "func_1C003F2C0",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C003F660",
+        "name": "func_1C003F660",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C003FCF0",
+        "name": "func_1C003FCF0",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C00403B0",
+        "name": "func_1C00403B0",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C00406D0",
+        "name": "func_1C00406D0",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C0040FE0",
+        "name": "func_1C0040FE0",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C004CD00",
+        "name": "func_1C004CD00",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C0050688",
+        "name": "func_1C0050688",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C0050AD4",
+        "name": "func_1C0050AD4",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C0053620",
+        "name": "func_1C0053620",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C0053CD4",
+        "name": "func_1C0053CD4",
+        "classification": "port_io"
+      }
+    ]
+  },
+  "llm": {
+    "exit_code": 1,
+    "tokens_used": 513,
+    "api_calls": 2,
+    "cache_hits": 0,
+    "prefilter_savings_pct": 92,
+    "hw_function_count": 0
+  },
+  "diff": {
+    "agree_count": 0,
+    "deterministic_only_count": 35,
+    "llm_only_count": 0,
+    "agree": [],
+    "deterministic_only": [
+      {
+        "address": "0x1c0002b30",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c0006376",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c0007e30",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c000cdc0",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c001935c",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c001d876",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c001e94b",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c00215b8",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c002509c",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c002f4a0",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c0038800",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c0038820",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c0038840",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c0038860",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c0038870",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c0038880",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c0038f90",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c0038fb0",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c0038fd0",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c0038ff0",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c0039000",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c0039010",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c003b498",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c003dc98",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c003f2c0",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c003f660",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c003fcf0",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c00403b0",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c00406d0",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c0040fe0",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c004cd00",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c0050688",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c0050ad4",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c0053620",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c0053cd4",
+        "det_class": "port_io"
+      }
+    ],
+    "llm_only": []
+  }
+}

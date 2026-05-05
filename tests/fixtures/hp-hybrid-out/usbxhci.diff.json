@@ -1,0 +1,165 @@
+{
+  "driver": "usbxhci.sys",
+  "size_bytes": 608568,
+  "format": "PE32+",
+  "deterministic": {
+    "exit_code": 0,
+    "hw_function_count": 12,
+    "functions": [
+      {
+        "address": "0x1C000114A",
+        "name": "func_1C000114A",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C0001B8A",
+        "name": "func_1C0001B8A",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C0002D30",
+        "name": "func_1C0002D30",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C001289D",
+        "name": "func_1C001289D",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C0014330",
+        "name": "func_1C0014330",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C001CBDC",
+        "name": "func_1C001CBDC",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C002871E",
+        "name": "func_1C002871E",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C0031084",
+        "name": "func_1C0031084",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C00313AC",
+        "name": "func_1C00313AC",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C0031F44",
+        "name": "func_1C0031F44",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C004BDAC",
+        "name": "func_1C004BDAC",
+        "classification": "port_io"
+      },
+      {
+        "address": "0x1C0051438",
+        "name": "func_1C0051438",
+        "classification": "port_io"
+      }
+    ]
+  },
+  "llm": {
+    "exit_code": 1,
+    "tokens_used": 506,
+    "api_calls": 8,
+    "cache_hits": 1,
+    "prefilter_savings_pct": 72,
+    "hw_function_count": 4
+  },
+  "diff": {
+    "agree_count": 0,
+    "deterministic_only_count": 12,
+    "llm_only_count": 4,
+    "agree": [],
+    "deterministic_only": [
+      {
+        "address": "0x1c000114a",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c0001b8a",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c0002d30",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c001289d",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c0014330",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c001cbdc",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c002871e",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c0031084",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c00313ac",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c0031f44",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c004bdac",
+        "det_class": "port_io"
+      },
+      {
+        "address": "0x1c0051438",
+        "det_class": "port_io"
+      }
+    ],
+    "llm_only": [
+      {
+        "address": "0x1c0001c90",
+        "llm_class": "HARDWARE_IO",
+        "port": null,
+        "mechanism": "X64_INTRINSIC",
+        "evidence": "mov rax,cr8 at 0x1c0001ca0"
+      },
+      {
+        "address": "0x1c0003d90",
+        "llm_class": "HARDWARE_IO",
+        "port": null,
+        "mechanism": "X64_INTRINSIC",
+        "evidence": "mov rax,cr8 at 0x1c0003de6"
+      },
+      {
+        "address": "0x1c0005358",
+        "llm_class": "HARDWARE_IO",
+        "port": null,
+        "mechanism": "X64_INTRINSIC",
+        "evidence": "mov rax, cr8 at 0x1c0005372"
+      },
+      {
+        "address": "0x1c00053f0",
+        "llm_class": "HARDWARE_IO",
+        "port": "CR8",
+        "mechanism": "X64_INTRINSIC",
+        "evidence": "mov rax,cr8 at 0x1c000544c"
+      }
+    ]
+  }
+}
