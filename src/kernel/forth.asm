@@ -1045,6 +1045,28 @@ DEFCODE "SPACE", SPACE, 0
     call print_char
     NEXT
 
+DEFCODE "PAGE", PAGE, 0     ; ( -- ) Clear screen, cursor to 0,0
+    mov edi, VGA_TEXT
+    mov ecx, VGA_WIDTH * VGA_HEIGHT
+    mov ax, (VGA_ATTR << 8) | ' '
+    rep stosw
+    mov dword [cursor_x], 0
+    mov dword [cursor_y], 0
+    ; Set hardware cursor to position 0
+    mov dx, 0x3D4
+    mov al, 0x0F
+    out dx, al
+    inc dx
+    xor al, al
+    out dx, al
+    dec dx
+    mov al, 0x0E
+    out dx, al
+    inc dx
+    xor al, al
+    out dx, al
+    NEXT
+
 DEFCODE "TYPE", TYPE, 0     ; ( addr len -- )
     pop ecx                 ; Length
     PUSHRSP esi             ; Save Forth IP

@@ -34,7 +34,7 @@ HEX
 \ Constants
 \ ============================================
 
-B8000 CONSTANT VGA
+B8000 CONSTANT FE-VGA
 50 CONSTANT VCOLS
 18 CONSTANT VROWS
 10000 CONSTANT MAX-FILE
@@ -154,17 +154,17 @@ VARIABLE LS-OFF
     LS-OFF @
 ;
 
-: LINE-LEN ( line# -- n )
-    LINE-START
+: FE-LINE-LEN ( line# -- n )
+    LINE-START DROP
     0
     BEGIN
-        OVER FE-SIZE @ >= IF
-            NIP EXIT
+        LS-OFF @ FE-SIZE @ >= IF
+            EXIT
         THEN
-        FE-BUF OVER + C@ LF-CHAR = IF
-            NIP EXIT
-        THEN
-        SWAP 1+ SWAP 1+
+        FE-BUF LS-OFF @ + C@
+        LF-CHAR = IF EXIT THEN
+        1 LS-OFF +!
+        1+
     AGAIN
 ;
 
@@ -183,7 +183,7 @@ VARIABLE LS-OFF
 \ ============================================
 
 : VGA-AT ( col row -- addr )
-    VCOLS * + 2 * VGA +
+    VCOLS * + 2 * FE-VGA +
 ;
 
 : VGA-PUTC ( ch attr col row -- )
@@ -206,7 +206,7 @@ VARIABLE LS-OFF
         FE-RGN-Y @ +           \ rr -> abs-row
         07 SWAP VGA-CLR-ROW EXIT
     THEN
-    DUP LINE-START SWAP LINE-LEN
+    DUP LINE-START SWAP FE-LINE-LEN
     ROT FE-RGN-Y @ +           \ rr -> abs-row
     07 OVER VGA-CLR-ROW
     OVER VCOLS MIN 0 DO
@@ -284,13 +284,13 @@ VARIABLE SB-COL
     FE-CY @ FE-TOP @ +
 ;
 
-: CUR-LINE-LEN ( -- n )
-    FE-LINE# LINE-LEN
+: CUR-FE-LINE-LEN ( -- n )
+    FE-LINE# FE-LINE-LEN
 ;
 
 : FE-CLAMP-X ( -- )
-    FE-CX @ CUR-LINE-LEN >= IF
-        CUR-LINE-LEN
+    FE-CX @ CUR-FE-LINE-LEN >= IF
+        CUR-FE-LINE-LEN
         DUP 0> IF 1- THEN
         FE-CX !
     THEN
@@ -322,7 +322,7 @@ VARIABLE SB-COL
 ;
 
 : FE-RIGHT ( -- )
-    FE-CX @ CUR-LINE-LEN 1- < IF
+    FE-CX @ CUR-FE-LINE-LEN 1- < IF
         1 FE-CX +!
     THEN
 ;
@@ -330,7 +330,7 @@ VARIABLE SB-COL
 : FE-HOME ( -- ) 0 FE-CX ! ;
 
 : FE-EEND ( -- )
-    CUR-LINE-LEN
+    CUR-FE-LINE-LEN
     DUP 0> IF 1- THEN
     FE-CX !
 ;
@@ -381,17 +381,18 @@ VARIABLE SB-COL
 \ Delete byte at offset, shift left
 : BUF-DEL ( offset -- )
     FE-SIZE @ 0= IF DROP EXIT THEN
-    DUP FE-SIZE @ 1- >= IF
+    DUP FE-SIZE @ >= IF
         DROP EXIT
     THEN
     DUP FE-BUF + 1+
     OVER FE-BUF +
-    FE-SIZE @ OVER FE-BUF - 1- -
+    FE-SIZE @ OVER FE-BUF - 1+ -
     DUP 0> IF
         CMOVE
     ELSE
-        DROP 2DROP DROP EXIT
+        DROP 2DROP
     THEN
+    DROP
     -1 FE-SIZE +!
     1 FE-DIRTY !
 ;
@@ -468,20 +469,8 @@ VARIABLE CR-I
     FILE-READ IF
         ." Open err" CR EXIT
     THEN
-    \ Count actual bytes (find NUL)
     SEC-BUF FE-BUF 1000 CMOVE
-    \ NOTE: LEAVE does not skip the rest of
-    \ the loop body in this Forth-83 kernel
-    \ — it sets I=LIMIT and execution
-    \ continues to LOOP. The IF/ELSE ensures
-    \ only one FE-SIZE write per iteration.
-    1000 0 DO
-        FE-BUF I + C@ 0= IF
-            I FE-SIZE ! LEAVE
-        ELSE
-            I 1+ FE-SIZE !
-        THEN
-    LOOP
+    FILE-SZ @ 1000 MIN FE-SIZE !
     FE-STRIP-CR
 ;
 
@@ -643,6 +632,10 @@ CREATE SC-ASC 80 ALLOT
 \ Entry point
 \ ============================================
 
+: FE-CLEANUP ( -- )
+    PAGE
+;
+
 : FILE-EDIT ( na nl -- )
     FE-INIT-FULL INIT-KEYMAP
     2DUP FE-OPEN
@@ -650,6 +643,7 @@ CREATE SC-ASC 80 ALLOT
     0 FE-TOP ! 0 FE-DIRTY !
     FE-REFRESH
     FE-LOOP
+    FE-CLEANUP
 ;
 
 ONLY FORTH DEFINITIONS
