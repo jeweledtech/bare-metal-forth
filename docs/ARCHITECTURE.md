@@ -35,9 +35,9 @@ Address Range           Size        Purpose
 0x00000 - 0x004FF       1.25 KB     IVT + BIOS Data Area
 0x00500 - 0x07BFF       ~30 KB      Data stack (grows DOWN from 0x7C00)
 0x07C00 - 0x07DFF       512 B       Boot sector
-0x07E00 - 0x17DFF       64 KB       Kernel code (4,879 lines of x86 asm)
-0x17E00 - 0x1FFFF       ~33 KB      Embedded vocabulary blob (NUL-terminated)
-0x20000                              Return stack top (grows DOWN)
+0x07E00 - 0x0C0B3       ~17 KB      Kernel code
+0x0C0B4 - 0x21DFF       ~83 KB      Embedded vocabulary blob (NUL-terminated)
+0x21E00 - 0x27FFF       24.5 KB     Return stack (dedicated region, grows DOWN from 0x28000)
 0x28000 - 0x2804F       80 B        System variables
 0x28060 - 0x28097       56 B        Block buffer headers (4 x 12 bytes)
 0x28100 - 0x281FF       256 B       Terminal Input Buffer (TIB)

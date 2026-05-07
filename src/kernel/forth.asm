@@ -45,7 +45,7 @@
 
 ; Stack locations
 DATA_STACK_TOP      equ 0x7C00      ; Below kernel, in free conventional memory
-RETURN_STACK_TOP    equ 0x20000
+RETURN_STACK_TOP    equ 0x28000     ; Dedicated region: 0x21E00-0x28000
 
 ; Dictionary
 DICT_START          equ 0x30000
@@ -86,7 +86,7 @@ BLOCK_SIZE          equ 1024        ; 1KB per Forth block
 ; Kernel image size — single source of truth.
 ; Must match boot.asm KERNEL_SECTORS * 512 and the padding directive
 ; at end of this file.
-KERNEL_PADDED_SIZE   equ 0x20000     ; 128KB (256 sectors)
+KERNEL_PADDED_SIZE   equ 0x1A000     ; 104KB (208 sectors)
 BOOT_SECTOR_SIZE     equ 512
 
 ; Combined image header = boot sector + kernel, used by ram_read_block
