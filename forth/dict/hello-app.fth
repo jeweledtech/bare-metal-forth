@@ -1,0 +1,98 @@
+\ ============================================
+\ CATALOG: HELLO-APP
+\ CATEGORY: app
+\ PLATFORM: x86
+\ SOURCE: hand-written
+\ CONFIDENCE: high
+\ REQUIRES: UI-CORE
+\ REQUIRES: UI-PARSER
+\ REQUIRES: UI-EVENTS
+\ REQUIRES: GUI-HARVEST
+\ REQUIRES: CATALOG-RESOLVER
+\ ============================================
+\
+\ Minimal app proving form engine generalizes.
+\ Uses FORM-LOAD/FORM-WIRE/FORM-RUN with zero
+\ NOTEPAD-specific code.
+\
+\ Usage:
+\   USING HELLO-APP
+\   HELLO-RUN
+\
+\ ============================================
+
+VOCABULARY HELLO-APP
+HELLO-APP DEFINITIONS
+ALSO UI-CORE
+ALSO UI-EVENTS
+ALSO UI-PARSER
+ALSO GUI-HARVEST
+ALSO CATALOG-RESOLVER
+
+HEX
+
+VARIABLE HA-INPUT
+VARIABLE HA-STATUS
+
+: HA-FIND-WIDGETS ( -- )
+  WT-COUNT @ DUP 0 > IF
+    0 DO
+      I WT-ESIZE * WT-BASE +
+      W-ADDR !
+      W-TYPE@ WT-INPUT = IF
+        I HA-INPUT ! LEAVE
+      THEN
+    LOOP
+  ELSE DROP THEN
+  WT-COUNT @ DUP 0 > IF
+    0 DO
+      I WT-ESIZE * WT-BASE +
+      W-ADDR !
+      W-TYPE@ WT-LABEL = IF
+        I HA-STATUS !
+      THEN
+    LOOP
+  ELSE DROP THEN ;
+
+VARIABLE HA-SL
+VARIABLE HA-SO
+
+: HA-GO ( -- )
+  HA-INPUT @ IV-GET DUP 0= IF
+    2DROP EXIT THEN
+  HA-SL !
+  HA-STATUS @ WT-ESIZE * WT-BASE +
+  W-ADDR !
+  POOL-POS @ HA-SO !
+  HA-SO @ W-LOFF!
+  POOL-BASE HA-SO @ +
+  HA-SL @ CMOVE
+  HA-SL @ W-LLEN!
+  HA-SL @ POOL-POS +! ;
+
+CREATE HA-LBL-GO 2 C,
+  CHAR G C, CHAR o C,
+
+: HA-COUNT ( a -- a+1 len )
+  DUP 1+ SWAP C@ ;
+
+: HA-REGISTER-BUTTONS ( -- )
+  HA-LBL-GO HA-COUNT WT-BUTTON
+  ['] HA-GO WIDGET-REGISTER ;
+
+HA-REGISTER-BUTTONS
+
+: HELLO-RUN ( -- )
+  ." Loading HELLO-FORM..." CR
+  S" HELLO-FORM" CATALOG-FIND
+  0= IF
+    ." Form not found" CR EXIT
+  THEN
+  FORM-LOAD FORM-WIRE
+  HA-FIND-WIDGETS
+  ." HELLO ready" CR
+  FORM-RUN
+  ." HELLO closed" CR ;
+
+ONLY FORTH DEFINITIONS
+DECIMAL

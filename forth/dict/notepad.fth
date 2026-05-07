@@ -145,22 +145,6 @@ CREATE NP-LBL-EXIT 4 C, CHAR E C,
 
 NP-REGISTER-BUTTONS
 
-\ ---- Wire button handlers ---------------
-\ Match widget labels to registry XTs.
-: FORM-WIRE ( -- )
-  WT-COUNT @ DUP 0 > IF
-    0 DO
-      I WT-ESIZE * WT-BASE +
-      W-ADDR !
-      W-TYPE@ WT-BUTTON = IF
-        W-LOFF@ W-LLEN@ POOL-STR
-        WIDGET-FIND
-        DUP IF W-XT!
-        ELSE DROP THEN
-      THEN
-    LOOP
-  ELSE DROP THEN ;
-
 \ ---- Mode switch helpers ----------------
 
 : NP-EXIT-EDIT ( -- )
