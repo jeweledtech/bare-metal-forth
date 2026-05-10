@@ -79,15 +79,41 @@ VARIABLE WR-NL
     ." Registry full" CR
   THEN ;
 
+\ ---- Case-insensitive comparison ------
+\ CHAR uses the outer interpreter which
+\ uppercases input, but S" preserves case.
+\ WIDGET-FIND needs case-insensitive match
+\ so form labels ("Go") match registry
+\ names ("GO") built via CHAR.
+DECIMAL
+: UPCASE-CHAR ( c -- C )
+  DUP 97 < IF EXIT THEN
+  DUP 122 > IF EXIT THEN
+  32 - ;
+
+: STR=CI ( a1 u1 a2 u2 -- flag )
+  ROT OVER <> IF
+    DROP DROP DROP FALSE EXIT
+  THEN
+  0 DO
+    OVER I + C@ UPCASE-CHAR
+    OVER I + C@ UPCASE-CHAR
+    <> IF
+      DROP DROP FALSE UNLOOP EXIT
+    THEN
+  LOOP
+  DROP DROP TRUE ;
+HEX
+
 \ WIDGET-FIND ( na nl -- xt | 0 )
-\ Search registry by name using STR=.
+\ Search registry by name (case-insensitive).
 : WIDGET-FIND ( na nl -- xt | 0 )
   REG-COUNT @ DUP 0 > IF
     0 DO
       2DUP
       I REG-NAME DUP C@
       SWAP 1 + SWAP
-      STR= IF
+      STR=CI IF
         DROP DROP
         I REG-XT @
         UNLOOP EXIT
