@@ -17,6 +17,7 @@ IMAGE = $(BUILD)/bmforth.img
 BLOCKS = $(BUILD)/blocks.img
 COMBINED = $(BUILD)/combined.img
 COMBINED_IDE = $(BUILD)/combined-ide.img
+NTFS_TEST = test-data/ntfs-test.img
 
 # Default target
 all: $(IMAGE)
@@ -340,6 +341,12 @@ check: lint
 	$(NASM) -f bin -o /dev/null $(SRC_BOOT)/boot.asm
 	$(NASM) -f bin -o /dev/null $(SRC_KERNEL)/forth.asm
 	@echo "Syntax check passed."
+
+# NTFS test image (lives outside build/ to survive make clean)
+$(NTFS_TEST): tools/make-ntfs-test-image.sh
+	mkdir -p test-data
+	sudo bash $< $@
+	sudo chown $$USER $@
 
 # Clean build artifacts
 clean:

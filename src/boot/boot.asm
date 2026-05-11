@@ -31,7 +31,7 @@
 ; ============================================================================
 
 KERNEL_OFFSET       equ 0x7E00      ; Where we load the kernel
-KERNEL_SECTORS      equ 208          ; 208 sectors = 104KB (matches kernel padding)
+KERNEL_SECTORS      equ 224          ; 224 sectors = 112KB (matches kernel padding)
 STACK_TOP           equ 0x7C00      ; Stack below bootloader (grows down)
 
 ; ============================================================================

@@ -86,7 +86,7 @@ BLOCK_SIZE          equ 1024        ; 1KB per Forth block
 ; Kernel image size — single source of truth.
 ; Must match boot.asm KERNEL_SECTORS * 512 and the padding directive
 ; at end of this file.
-KERNEL_PADDED_SIZE   equ 0x1A000     ; 104KB (208 sectors)
+KERNEL_PADDED_SIZE   equ 0x1C000     ; 112KB (224 sectors)
 BOOT_SECTOR_SIZE     equ 512
 
 ; Combined image header = boot sector + kernel, used by ram_read_block

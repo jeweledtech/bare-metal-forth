@@ -304,5 +304,154 @@ DECIMAL
   -1 FB-MOUNTED !
   -1 ;
 
+\ ============================================
+\ Phase 2: Tree-populate + render
+\ ============================================
+
+HEX
+70 CONSTANT ATTR-INV
+DECIMAL
+
+VARIABLE FB-DIRIDX
+VARIABLE FB-ROW-TMP
+VARIABLE FB-ATTR-TMP
+
+\ Set up display state for FB-CWD.
+: TREE-POPULATE ( -- )
+  FB-CWD @ DIR-INDEX
+  DUP -1 = IF
+    DROP 0 FB-NCHILDREN ! EXIT
+  THEN
+  FB-DIRIDX !
+  FB-DIRIDX @ 4 * DIR-COUNT + @
+  FB-NCHILDREN !
+  0 FB-TOP ! 0 FB-CURSOR ! ;
+
+\ ---- Navigation helpers ----
+
+: FB-UP ( -- )
+  FB-CURSOR @ 0> IF
+    -1 FB-CURSOR +!
+  ELSE
+    FB-TOP @ 0> IF
+      -1 FB-TOP +!
+    THEN
+  THEN ;
+
+: FB-DOWN ( -- )
+  FB-NCHILDREN @ 0= IF EXIT THEN
+  FB-CURSOR @ FB-TOP @ + 1+
+  FB-NCHILDREN @ >= IF EXIT THEN
+  FB-CURSOR @ FB-ROWS 1- < IF
+    1 FB-CURSOR +!
+  ELSE
+    1 FB-TOP +!
+  THEN ;
+
+: FB-HOME ( -- )
+  0 FB-TOP ! 0 FB-CURSOR ! ;
+
+: FB-END ( -- )
+  FB-NCHILDREN @ FB-ROWS -
+  DUP 0> IF
+    FB-TOP !
+    FB-ROWS 1- FB-CURSOR !
+  ELSE
+    DROP 0 FB-TOP !
+    FB-NCHILDREN @ 1-
+    DUP 0< IF DROP 0 THEN
+    FB-CURSOR !
+  THEN ;
+
+: FB-ENTER ( -- )
+  FB-CURSOR @ FB-ISDIR + C@ 0= IF
+    EXIT
+  THEN
+  FB-CURSOR @ 4 * FB-VIEW + @
+  FB-CWD ! TREE-POPULATE ;
+
+: FB-BACK ( -- )
+  FB-CWD @ NTFS-ROOT = IF EXIT THEN
+  FB-CWD @ 4 * PARENT-OF + @
+  DUP -1 = IF DROP EXIT THEN
+  FB-CWD ! TREE-POPULATE ;
+
+: FB-ESC ( -- )
+  0 FB-TREE-MODE ! ;
+
+\ ---- Key dispatch ----
+
+HEX
+
+: TREE-KEY ( code type -- )
+  IF
+    DUP SC-UP = IF
+      DROP FB-UP EXIT
+    THEN
+    DUP SC-DOWN = IF
+      DROP FB-DOWN EXIT
+    THEN
+    DUP SC-HOME = IF
+      DROP FB-HOME EXIT
+    THEN
+    DUP SC-END = IF
+      DROP FB-END EXIT
+    THEN
+    DROP
+  ELSE
+    DUP KEY-ENTER = IF
+      DROP FB-ENTER EXIT
+    THEN
+    DUP KEY-ESC = IF
+      DROP FB-ESC EXIT
+    THEN
+    DUP 8 = IF
+      DROP FB-BACK EXIT
+    THEN
+    DROP
+  THEN ;
+
+DECIMAL
+
+\ ---- Row rendering ----
+\ Render one visible row of the tree.
+\ Uses VGA-CLR-ROW + DRAW-AT for display.
+
+: FB-RENDER-ROW ( row -- )
+  DUP FB-ROW-TMP !
+  FB-CURSOR @ =
+  IF ATTR-INV ELSE ATTR-NORM THEN
+  FB-ATTR-TMP !
+  FB-ATTR-TMP @
+  FB-ROW-TMP @ FB-CONTENT-Y +
+  VGA-CLR-ROW
+  FB-ROW-TMP @ FB-TOP @ +
+  DUP FB-NCHILDREN @ >= IF
+    DROP EXIT
+  THEN
+  FB-DIRIDX @ 4 * DIR-START + @ +
+  4 * SORTED + @
+  DUP FB-ROW-TMP @ 4 * FB-VIEW + !
+  MFT-READ DROP
+  FB-IS-DIR? IF 1 ELSE 0 THEN
+  DUP FB-ROW-TMP @ FB-ISDIR + C!
+  IF
+    S" [DIR] " 1
+    FB-ROW-TMP @ FB-CONTENT-Y +
+    FB-ATTR-TMP @ DRAW-AT
+  THEN
+  MFT-FILENAME
+  DUP 0= IF 2DROP EXIT THEN
+  73 MIN
+  7 FB-ROW-TMP @ FB-CONTENT-Y +
+  FB-ATTR-TMP @ DRAW-AT ;
+
+\ ---- Full tree render ----
+
+: TREE-RENDER ( -- )
+  FB-ROWS 0 DO
+    I FB-RENDER-ROW
+  LOOP ;
+
 ONLY FORTH DEFINITIONS
 DECIMAL
