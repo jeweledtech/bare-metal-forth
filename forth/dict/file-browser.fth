@@ -366,13 +366,18 @@ VARIABLE FB-ATTR-TMP
 : FB-CURSOR-REC ( -- rec# )
   FB-CURSOR @ 4 * FB-VIEW + @ ;
 
+\ Show message on VGA status row (row 23).
+: FB-STATUS ( addr len -- )
+  ATTR-NORM FB-STATUS-ROW VGA-CLR-ROW
+  0 FB-STATUS-ROW ATTR-NORM DRAW-AT ;
+
 \ Load resident file into FE-BUF for editing.
 \ NTFS-READ-RESIDENT fills NTFS-SEC-BUF + FILE-SZ.
 \ MAX-FILE (64KB) >> SEC-BUF (4KB), always fits.
 : FB-OPEN-FILE ( rec# -- )
   MFT-READ DROP
   NTFS-READ-RESIDENT IF
-    ." Non-resident file" CR EXIT
+    S" Non-resident file" FB-STATUS EXIT
   THEN
   FILE-SZ @ MAX-FILE MIN
   NTFS-SEC-BUF FE-BUF ROT CMOVE
@@ -416,19 +421,18 @@ HEX
     DUP SC-END = IF
       DROP FB-END EXIT
     THEN
-    DROP
-  ELSE
-    DUP KEY-ENTER = IF
+    \ HEX: 1C=Enter, 1=Esc, 0E=BS scancodes
+    DUP 1C = IF
       DROP FB-ENTER EXIT
     THEN
-    DUP KEY-ESC = IF
+    DUP 1 = IF
       DROP FB-ESC EXIT
     THEN
-    DUP 8 = IF
+    DUP 0E = IF
       DROP FB-BACK EXIT
     THEN
     DROP
-  THEN ;
+  ELSE DROP THEN ;
 
 DECIMAL
 
@@ -510,10 +514,16 @@ DECIMAL
   TREE-RENDER
   FE-KEY TREE-KEY ;
 
-\ Form mode: serial KEY for chrome buttons.
+\ Form mode: FE-KEY for PS/2 on bare metal.
+\ type=0: ASCII char passed to HANDLE-KEY.
+\ type=1: scancode (Esc=1 exits, rest ignored).
 : FB-LOOP-FORM ( -- )
   FORM-RENDER
-  KEY HANDLE-KEY ;
+  FE-KEY IF
+    1 = IF 1 QUIT-FLAG ! THEN
+  ELSE
+    HANDLE-KEY
+  THEN ;
 
 \ ---- Main loop ----
 
