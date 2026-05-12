@@ -22,7 +22,10 @@ PROJECT_DIR = os.path.dirname(os.path.dirname(
 COMBINED = os.path.join(PROJECT_DIR, 'build', 'combined.img')
 COMBINED_IDE = os.path.join(PROJECT_DIR, 'build', 'combined-ide.img')
 QEMU = 'qemu-system-i386'
-BLOCKS_LBA_BASE = 129  # Block 0 starts at this LBA in combined image
+# Derived from forth.asm: (BOOT_SECTOR_SIZE + KERNEL_PADDED_SIZE) / 512
+# Must be updated when KERNEL_PADDED_SIZE changes in forth.asm
+# TODO: read this from the build artifact instead of hardcoding
+BLOCKS_LBA_BASE = 225  # Block 0 starts at this LBA in combined image
 BLOCK_BYTE_OFFSET = BLOCKS_LBA_BASE * 512  # Byte offset of block 0
 
 

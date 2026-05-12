@@ -129,15 +129,16 @@ combined: $(COMBINED)
 $(COMBINED_IDE): $(COMBINED)
 	cp $(COMBINED) $(COMBINED_IDE)
 
-# Verify kernel size hasn't exceeded 67072 bytes (BLOCKS_LBA_BASE constraint)
+# Verify kernel size hasn't exceeded KERNEL_PADDED_SIZE + boot sector (BLOCKS_LBA_BASE constraint)
+# Current: KERNEL_PADDED_SIZE = 0x1C000 (114688) + 512 boot sector = 115200
 check-kernel-size: $(IMAGE)
 	@SIZE=$$(stat -c%s $(IMAGE)); \
-	 if [ $$SIZE -gt 98816 ]; then \
-	   echo "ERROR: Kernel image $$SIZE bytes exceeds 98816 limit!"; \
-	   echo "  BLOCKS_LBA_BASE must be updated in forth.asm"; \
+	 if [ $$SIZE -gt 115200 ]; then \
+	   echo "ERROR: Kernel image $$SIZE bytes exceeds 115200 limit!"; \
+	   echo "  KERNEL_PADDED_SIZE must be bumped in forth.asm"; \
 	   exit 1; \
 	 else \
-	   echo "Kernel size OK: $$SIZE bytes (limit: 98816)"; \
+	   echo "Kernel size OK: $$SIZE bytes (limit: 115200)"; \
 	 fi
 
 # --- Test Targets ---
