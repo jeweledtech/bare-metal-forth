@@ -363,12 +363,31 @@ VARIABLE FB-ATTR-TMP
     FB-CURSOR !
   THEN ;
 
-: FB-ENTER ( -- )
-  FB-CURSOR @ FB-ISDIR + C@ 0= IF
-    EXIT
+: FB-CURSOR-REC ( -- rec# )
+  FB-CURSOR @ 4 * FB-VIEW + @ ;
+
+\ Load resident file into FE-BUF for editing.
+\ NTFS-READ-RESIDENT fills NTFS-SEC-BUF + FILE-SZ.
+\ MAX-FILE (64KB) >> SEC-BUF (4KB), always fits.
+: FB-OPEN-FILE ( rec# -- )
+  MFT-READ DROP
+  NTFS-READ-RESIDENT IF
+    ." Non-resident file" CR EXIT
   THEN
-  FB-CURSOR @ 4 * FB-VIEW + @
-  FB-CWD ! TREE-POPULATE ;
+  FILE-SZ @ MAX-FILE MIN
+  NTFS-SEC-BUF FE-BUF ROT CMOVE
+  FILE-SZ @ MAX-FILE MIN FE-SIZE !
+  0 FE-TOP ! 0 FE-CX ! 0 FE-CY !
+  1 FB-EDIT-MODE !
+  0 FB-TREE-MODE ! ;
+
+: FB-ENTER ( -- )
+  FB-CURSOR @ FB-ISDIR + C@ IF
+    FB-CURSOR-REC
+    FB-CWD ! TREE-POPULATE
+  ELSE
+    FB-CURSOR-REC FB-OPEN-FILE
+  THEN ;
 
 : FB-BACK ( -- )
   FB-CWD @ NTFS-ROOT = IF EXIT THEN
@@ -452,6 +471,84 @@ DECIMAL
   FB-ROWS 0 DO
     I FB-RENDER-ROW
   LOOP ;
+
+\ ============================================
+\ Phase 3: Edit mode + main loop
+\ ============================================
+
+\ Exit edit mode, return to tree view.
+: FB-EXIT-EDIT ( -- )
+  0 FB-EDIT-MODE !
+  1 FB-TREE-MODE ! ;
+
+\ Edit-mode key handler. ESC (scancode 1)
+\ returns to tree mode. All other scancodes
+\ go to the file-editor dispatcher.
+: FB-EDITOR-KEY ( scancode -- )
+  DUP 1 = IF
+    DROP FB-EXIT-EDIT EXIT
+  THEN
+  FE-DISPATCH ;
+
+\ ---- One iteration per mode ----
+\ Factored out of the main loop to avoid
+\ nested ELSE...IF...THEN THEN chains.
+
+\ FE-KEY returns ( code type ).
+\ type=1: scancode. type=0: ASCII char.
+\ Edit mode: pass scancode to FB-EDITOR-KEY.
+\ ASCII keys are silently consumed (2DROP).
+: FB-LOOP-EDIT ( -- )
+  FE-REFRESH FE-CURSOR FE-STATUS
+  FE-KEY DUP 1 = IF
+    DROP FB-EDITOR-KEY
+  ELSE 2DROP THEN ;
+
+\ Tree mode: pass both code+type to TREE-KEY
+\ which handles scancodes and ASCII internally.
+: FB-LOOP-TREE ( -- )
+  TREE-RENDER
+  FE-KEY TREE-KEY ;
+
+\ Form mode: serial KEY for chrome buttons.
+: FB-LOOP-FORM ( -- )
+  FORM-RENDER
+  KEY HANDLE-KEY ;
+
+\ ---- Main loop ----
+
+: FB-RUN ( -- )
+  INIT-KEYMAP
+  FB-CONTENT-Y FB-ROWS FB-STATUS-ROW
+  FE-SET-REGION
+  0 QUIT-FLAG !
+  0 FB-EDIT-MODE ! 1 FB-TREE-MODE !
+  NTFS-ROOT FB-CWD !
+  TREE-POPULATE
+  0 NEXT-FOCUSABLE
+  DUP 0< IF DROP 0 THEN FOCUS-IDX !
+  BEGIN
+    FB-EDIT-MODE @ IF FB-LOOP-EDIT
+    ELSE FB-TREE-MODE @ IF FB-LOOP-TREE
+    ELSE FB-LOOP-FORM
+    THEN THEN
+    NET-FLUSH QUIT-FLAG @
+  UNTIL VGA-CLS ;
+
+\ ---- Entry point ----
+
+: FILE-BROWSER-RUN ( -- )
+  ." Loading File Browser..." CR
+  S" FILE-BROWSER-FORM" CATALOG-FIND
+  0= IF ." Form not found" CR EXIT THEN
+  FORM-LOAD FORM-WIRE
+  ." Mounting NTFS..." CR
+  FB-MOUNT 0= IF
+    ." Mount failed" CR EXIT
+  THEN
+  ." Ready" CR
+  FB-RUN
+  ." File Browser closed" CR ;
 
 ONLY FORTH DEFINITIONS
 DECIMAL
