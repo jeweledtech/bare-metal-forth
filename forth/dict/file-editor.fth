@@ -460,6 +460,27 @@ VARIABLE CR-I
         THEN
     REPEAT ;
 
+\ Strip ALL CR (0x0D) bytes from FE-BUF.
+\ Unlike FE-STRIP-CR which only removes CR+LF
+\ pairs, this removes every CR regardless of
+\ context. Handles stray CRs, double-CR+LF,
+\ and Mac-style CR-only line endings.
+: FE-STRIP-ALL-CR ( -- )
+    0 CR-I !
+    BEGIN
+        CR-I @ FE-SIZE @ <
+    WHILE
+        FE-BUF CR-I @ + C@ D = IF
+            FE-BUF CR-I @ + DUP 1+
+            SWAP
+            FE-SIZE @ CR-I @ - 1-
+            CMOVE
+            -1 FE-SIZE +!
+        ELSE
+            1 CR-I +!
+        THEN
+    REPEAT ;
+
 : FE-OPEN ( na nl -- )
     DUP FE-NLEN !
     FE-NAME SWAP CMOVE
