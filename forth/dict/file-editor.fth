@@ -189,7 +189,7 @@ VARIABLE LS-OFF
 : VGA-PUTC ( ch attr col row -- )
     VGA-AT
     ROT OVER C!
-    SWAP 1+ C!
+    1+ C!
 ;
 
 : VGA-CLR-ROW ( attr row -- )
