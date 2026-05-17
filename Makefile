@@ -82,6 +82,9 @@ $(IMAGE_FREE): $(BOOTLOADER) $(KERNEL_FREE)
 
 free: $(IMAGE_FREE)
 
+run-free: $(IMAGE_FREE)
+	$(QEMU) -drive file=$(IMAGE_FREE),format=raw,if=floppy -nographic
+
 # --- Sync check (paid files vs private repo) ---
 PRIVATE_REPO = ../forthos-vocabularies
 PAID_VOCABS = ahci rtl8168 ntfs auto-detect fat32 surveyor file-editor-disk
@@ -428,6 +431,7 @@ help:
 	@echo "  check          - Syntax check only"
 	@echo "  iso            - Create bootable ISO"
 	@echo "  free           - Build free-tier image (public vocabs only)"
+	@echo "  run-free       - Run free-tier image in QEMU (text mode)"
 	@echo "  check-sync     - Verify paid files match private repo"
 	@echo "  clean          - Remove build artifacts"
 	@echo "  help           - Show this help"
@@ -460,4 +464,4 @@ pxe-push: $(COMBINED) check-kernel-size
 pxe-status:
 	@bash tools/pxe/test-pxe.sh
 
-.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined check-kernel-size test test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream pxe-setup pxe-push pxe-status free check-sync
+.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined check-kernel-size test test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream pxe-setup pxe-push pxe-status free run-free check-sync

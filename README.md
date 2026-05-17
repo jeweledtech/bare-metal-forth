@@ -1,182 +1,112 @@
-# ForthOS — Bare-Metal Forth-83 OS
+# ForthOS
 
-A complete Forth-83 operating system that boots directly on x86 hardware. No Linux. No Windows. No HAL. Direct from BIOS to a live Forth interpreter in 66KB.
+No Linux. No Windows. No HAL. No story. Just the machine.
 
----
+ForthOS is a bare-metal Forth-83 operating system written from BIOS entry
+in x86 NASM and Forth. It boots in under a second on a USB stick, talks
+to your hardware directly, and gives you a REPL on the bare metal of
+a real computer — the way programmers worked before vendors decided
+you weren't allowed to anymore.
 
-## If You Just Want the Forth
+This repo contains the kernel and the free vocabulary set. Paid
+vocabulary packs (hardware drivers, binary translation tools, the
+metacompiler) live in a separate repository and are available at
+[shop.jollygeniusinc.com](https://shop.jollygeniusinc.com).
 
-That's the right instinct. Here's all it takes:
+## What you get for free
 
-**3 files:**
-```
-src/boot/boot.asm      — 512-byte bootloader (real → protected mode, A20, GDT)
-src/kernel/forth.asm   — the entire Forth-83 kernel
-Makefile               — nasm + cat, essentially
-```
+The kernel and the public vocabularies build into two images:
 
-**2 commands:**
+- **`bmforth.img`** — full developer build (requires paid vocabs on disk)
+- **`bmforth-free.img`** — free-tier build, kernel plus 16 public vocabularies
+
+The free image gives you:
+
+- A Forth-83 REPL on bare metal, ~115 KB total
+- **PORT-MAPPER**: enumerate and probe I/O ports live
+- **ECHOPORT**: trace port activity during code execution
+- **PCI-ENUM**: walk the PCI bus, identify devices
+- **PS2-KEYBOARD**: keyboard input on real hardware
+- **GUI substrate**: form engine with widgets, focus, dispatch (`HELLO-APP` runs)
+- **NOTEPAD**: text editor with buffer + cursor + dispatch, runs in RAM
+
+What the free tier does *not* include: disk I/O, networking, audio,
+video, the metacompiler, the binary translation toolchain. Those are
+paid packs because that's where the months of driver work live.
+
+## What the paid tier adds
+
+| Pack | Adds capability |
+|------|-----------------|
+| Disk Stack | AHCI (real SATA), NTFS read, FAT32 read — open files from your Windows partition without Windows |
+| Gigabit Ethernet | RTL8168 driver, network console |
+| Input Devices | Full i8042prt + PS/2 mouse |
+| UBT Pipeline | Universal Binary Translation: extract a Windows `.sys` driver, decompile it, re-emit as Forth |
+| HP Win11 Driver Library | 18+ pre-translated drivers from a real laptop disk |
+
+Subscription tiers bundle these plus the metacompiler (build ForthOS
+for ARM64, RISC-V, Cortex-M33) and ARM/RISC-V/embedded targets.
+
+## Building
+
+You need NASM, GNU Make, Python 3, and QEMU (for testing).
+
 ```bash
-make        # assembles and combines
-make run    # boots in QEMU
+git clone https://github.com/jeweledtech/bare-metal-forth.git
+cd bare-metal-forth
+make free          # builds bmforth-free.img from public sources alone
+make run-free      # boots it in QEMU
 ```
 
-**1 tool dependency:** [NASM](https://www.nasm.us/) — a single-binary assembler, available on every platform.
+If you also have the paid vocabulary repo checked out as
+`../forthos-vocabularies/`, `make` builds the full image with all
+drivers integrated.
 
-```bash
-# Ubuntu/Debian
-sudo apt-get install nasm qemu-system-x86
+## What ForthOS isn't
 
-# macOS
-brew install nasm qemu
+It isn't a hobby project. It isn't a teaching kernel. It isn't a
+toy. It's the operating system that the open-vendor world should
+have had — direct hardware access, live recompilation against running
+code, no protected-mode coffin around the programmer.
 
-# Arch
-sudo pacman -S nasm qemu
-```
+It also isn't going to replace your daily driver. Today it boots,
+reads disks, runs a GUI demo, and disassembles itself live. Audio
+playback, video, USB, modern filesystems — those are roadmap items.
+What's here works on real metal: validated against an HP 15-bs0xx
+laptop, boots from USB, reads the NTFS partition that Windows wrote.
 
-Output is a 66KB bootable image. Boot it in QEMU or `dd` it to a USB stick and boot on real hardware.
+## Project lineage
 
----
+ForthOS descends from Laboratory Microsystems Inc. (LMI) Forth-83,
+the same toolchain NASA JPL used. Architectural mentorship comes
+from Padma Gonpo Rinpoche, who worked on UR-FORTH. The guiding
+principle is the five-plane model of digital systems (physical map,
+timing, address, data, code) and "simplicity is king."
 
-## What You Get
+## Status
 
-178-word dictionary. Direct Threaded Code interpreter (ESI = IP, EBP = return stack). Full Forth-83 semantics including floored division.
+| Metric | Value |
+|--------|-------|
+| Kernel size | 115,200 bytes (boot + kernel) |
+| Dictionary words | 222 |
+| Embedded vocabularies (full build) | 25 |
+| Embedded vocabularies (free build) | 16 |
+| Forth OS test checks | 200+ across 14 scripts |
+| UBT translator tests | 270 across 22 suites |
 
-**Kernel words (built into the binary):**
-- Stack: `DROP DUP SWAP OVER ROT ?DUP 2DUP 2DROP PICK ROLL DEPTH`
-- Arithmetic: `+ - * / MOD /MOD NEGATE ABS MIN MAX 1+ 1-`
-- Floored division: `-7 3 /` → `-3` (correct Forth-83 behavior, not symmetric)
-- Comparison: `= <> < > <= >= 0= 0< U<`
-- Logic: `AND OR XOR INVERT`
-- Memory: `@ ! C@ C! +! FILL MOVE CMOVE`
-- Return stack: `>R R> R@`
-- I/O: `KEY EMIT CR SPACE TYPE`
-- Compiler: `: ; IMMEDIATE [ ] LITERAL ' EXECUTE`
-- Control: `IF ELSE THEN BEGIN UNTIL WHILE REPEAT DO LOOP +LOOP I J LEAVE`
-- Defining: `VARIABLE CONSTANT CREATE DOES> ALLOT ,`
-- Strings: `." S" COUNT`
-- Utility: `WORDS SEE . .S HEX DECIMAL DUMP`
-- Block storage: `BLOCK BUFFER UPDATE SAVE-BUFFERS FLUSH LOAD THRU LIST`
-- Vocabulary: `VOCABULARY ALSO PREVIOUS ONLY DEFINITIONS USING`
-- Port I/O: `INB INW INL OUTB OUTW OUTL` (direct hardware, no HAL)
-- Disassembler: `DIS DECOMP` (in-system x86 disassembler)
+All numbers traceable to commit hashes in repo history.
 
-Everything else in the repo — the translator, the Python block packer, the test suites — is cross-development tooling that runs on your host machine. The target never sees any of it. Ignore it if you want. Take the three files and go.
+## More
 
----
-
-## Try It
-
-```forth
-2 3 + .             \ 5
-: SQUARE DUP * ;
-7 SQUARE .          \ 49
--7 3 / .            \ -3  (floored, correct Forth-83)
-HEX FF00 .          \ FF00
-100 0 DO I . LOOP   \ 0 1 2 3 ... 99
-```
-
-Direct hardware access (on real iron, not QEMU):
-```forth
-HEX
-3F8 INB .           \ read COM1 line status register
-41 3F8 OUTB         \ write 'A' to COM1
-```
+- [Architecture](docs/ARCHITECTURE.md) — kernel layout, vocabulary system
+- [Hybrid validation report](docs/REPORT_HYBRID_HP_VALIDATION.md) —
+  UBT + LLM cross-validation against real Windows drivers
+- [Open-core boundary](docs/open-core-audit-2026-05-16.md) — what's
+  free, what's paid, why
+- [Buy paid packs](https://shop.jollygeniusinc.com)
 
 ---
 
-## What Makes This Different
-
-Most Forth implementations today run on top of Linux, Windows, or some OS. They inherit the HAL problem — the OS mediates every hardware access. If you want to talk to a serial port or a NIC directly, the OS gets in the way.
-
-This doesn't do that. It talks to hardware the way Forth always did: `INB`, `OUTB`, direct memory writes, direct interrupt vectors. If you know the port address, you own the device.
-
-The vocabulary system works the same way it always did:
-```forth
-USING RTL8168        \ load NIC driver
-USING AHCI           \ load disk driver
-USING NTFS           \ load filesystem
-```
-
-Each vocabulary is a Forth source file loaded from block storage. Load what you need. Nothing more arrives unless you ask for it.
-
----
-
-## Self-Hosting
-
-The metacompiler is complete. ForthOS can now rebuild itself from its own source, running inside the live system. No NASM required on the target. The full self-hosting loop:
-
-1. Boot the kernel (NASM-assembled, 66KB)
-2. Load the metacompiler vocabulary (`USING META`)
-3. Point it at the kernel source blocks
-4. The running system assembles and writes a new bootable image
-
-Editor, assembler, block filesystem, compiler — all inside. This is the traditional Forth way. We're there.
-
----
-
-## The Bigger Project
-
-Beyond the kernel, there's a Universal Binary Translator (UBT) pipeline. It takes Windows driver binaries (`.sys` files, PE32/PE32+), extracts the hardware protocol — the actual port reads and writes — and emits them as Forth vocabulary source files.
-
-Result: you can run `USING I8042PRT` and the keyboard controller behavior extracted from the real Windows driver becomes a loadable Forth vocabulary. Tested against 18 real-world binaries: serial, storport, usbxhci, HDAudBus, pci, i8042, and more.
-
-This is the `chat_gpt_produced.docx` vision made real. Map the DLL, strip the security theater, call it like a regular code module.
-
----
-
-## Repository Layout
-
-```
-bare-metal-forth/           ← public repo (this one)
-├── src/
-│   ├── boot/boot.asm       — 512-byte bootloader
-│   └── kernel/forth.asm    — 178-word Forth-83 kernel
-├── forth/dict/             — loadable vocabulary source files
-│   ├── hardware.fth        — IRQ, DPC, timing primitives
-│   ├── disasm.fth          — in-system x86 disassembler
-│   ├── ps2-mouse.fth       — PS/2 mouse driver
-│   └── ...
-├── Makefile
-└── docs/
-```
-
-The paid vocabulary tier (AHCI, NTFS, RTL8168, NIC drivers, UBT pipeline, metacompiler) lives in a separate private repo. The kernel and the free vocabularies are all you need to get running.
-
----
-
-## Current Status
-
-- **Kernel**: 178 words, 66KB bootable image, boots on real x86 hardware (HP 15-bs0xx validated)
-- **Tests**: 151/151 kernel unit tests, 145/145 translator tests, 8/8 end-to-end pipeline tests
-- **Self-hosting**: metacompiler complete (Phases B3–B6b), kernel rebuilds itself from blocks
-- **UBT pipeline**: 258 tests / 22 suites, 18 real-world Windows binaries validated
-- **Network console**: UDP port 6666, 100% reliable on real hardware
-- **Block storage**: 1KB blocks, ATA PIO + AHCI, GPT + NTFS + FAT32 support
-
----
-
-## Who This Is For
-
-- People who've written Forth before and miss having direct hardware access
-- Embedded / firmware engineers who want a real-time Forth without an OS layer
-- x86 bootloader developers who want a working base to extend
-- Anyone who remembers when you could poke a memory address and it *worked*
-
-If you've never touched a Forth before, the [Starting Forth](https://www.forth.com/starting-forth/) resource is the classic intro. Come back when you're comfortable with the stack.
-
----
-
-## Contributing
-
-Every vocabulary has a test suite. Regressions block commits.
-
-If you want to discuss the project, find us in the Forth Facebook groups or open an issue.
-
----
-
-## License
-
-MIT License. Build it. Modify it. Boot it on real hardware. See [LICENSE](LICENSE).
-
-*"The best way to predict the future is to implement it in Forth."*
+ForthOS is built by [Brenden Brown](https://github.com/jeweledtech)
+at JeweledTech / Jolly Genius Inc. Licensed MIT for the kernel and
+free vocabularies. Paid vocabulary packs are licensed separately.
