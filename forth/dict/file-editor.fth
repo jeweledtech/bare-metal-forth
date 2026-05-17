@@ -194,7 +194,7 @@ VARIABLE LS-OFF
 
 : VGA-CLR-ROW ( attr row -- )
     VCOLS 0 DO
-        SPC-CHAR OVER I 3 PICK VGA-PUTC
+        SPC-CHAR 2 PICK I 3 PICK VGA-PUTC
     LOOP
     2DROP
 ;
