@@ -3,15 +3,22 @@
 \ CATEGORY: system
 \ PLATFORM: x86
 \ SOURCE: hand-written
-\ REQUIRES: NTFS AHCI HARDWARE
+\ REQUIRES: HARDWARE PS2-KEYBOARD
 \ CONFIDENCE: medium
 \ ============================================
 \
-\ Text file editor for NTFS files.
-\ Reads file into 64KB buffer, edits with
-\ VGA direct writes, saves back via AHCI.
+\ FILE-EDITOR core: in-RAM buffer + display
+\ + cursor. Disk I/O is in file-editor-disk
+\ (paid). Together they form the full
+\ FILE-EDITOR vocab; core alone works for
+\ RAM-only editing (free tier).
 \
-\ Usage:
+\ Usage (standalone):
+\   USING FILE-EDITOR
+\   FE-INIT-FULL INIT-KEYMAP
+\   FE-REFRESH FE-LOOP
+\
+\ Usage (with disk):
 \   USING FILE-EDITOR
 \   NTFS-ENABLE-WRITE
 \   S" hello.txt" FILE-EDIT
@@ -24,8 +31,6 @@
 
 VOCABULARY FILE-EDITOR
 FILE-EDITOR DEFINITIONS
-ALSO NTFS
-ALSO AHCI
 ALSO HARDWARE
 ALSO PS2-KEYBOARD
 HEX
@@ -71,11 +76,11 @@ CREATE FE-NAME 100 ALLOT
 VARIABLE FE-NLEN
 
 \ ---- Sub-region support -------------------
-\ Allows editor to render in a screen sub-area
-\ (e.g. rows 8-21 inside NOTEPAD form).
-VARIABLE FE-RGN-Y    \ first screen row
-VARIABLE FE-RGN-H    \ visible row count
-VARIABLE FE-SB-ROW   \ status bar screen row
+\ Allows editor to render in a screen
+\ sub-area (e.g. rows 8-21 inside NOTEPAD).
+VARIABLE FE-RGN-Y
+VARIABLE FE-RGN-H
+VARIABLE FE-SB-ROW
 
 : FE-SET-REGION ( y h sb-row -- )
   FE-SB-ROW ! FE-RGN-H ! FE-RGN-Y ! ;
@@ -84,6 +89,24 @@ VARIABLE FE-SB-ROW   \ status bar screen row
   0 VROWS VROWS FE-SET-REGION ;
 
 FE-INIT-FULL
+
+\ ============================================
+\ Vectored disk I/O
+\ ============================================
+\ FE-SAVE and FE-OPEN use vectored execution
+\ so file-editor-disk can wire in the real
+\ NTFS/AHCI implementations after loading.
+\ Without disk layer, these are no-ops.
+
+VARIABLE FE-SAVE-XT
+VARIABLE FE-OPEN-XT
+
+: FE-SAVE ( -- )
+  FE-SAVE-XT @ ?DUP IF EXECUTE THEN ;
+
+: FE-OPEN ( na nl -- )
+  FE-OPEN-XT @ ?DUP IF EXECUTE
+  ELSE 2DROP THEN ;
 
 \ ============================================
 \ Raw keyboard input
@@ -202,16 +225,16 @@ VARIABLE LS-OFF
 : FE-SHOW-LINE ( rel-row -- )
     DUP FE-TOP @ +
     DUP TOTAL-LINES >= IF
-        DROP                    \ ( rr )
-        FE-RGN-Y @ +           \ rr -> abs-row
+        DROP
+        FE-RGN-Y @ +
         07 SWAP VGA-CLR-ROW EXIT
     THEN
     DUP LINE-START SWAP FE-LINE-LEN
-    ROT FE-RGN-Y @ +           \ rr -> abs-row
+    ROT FE-RGN-Y @ +
     07 OVER VGA-CLR-ROW
     OVER VCOLS MIN 0 DO
         FE-BUF 3 PICK I + + C@
-        07 I 3 PICK VGA-PUTC   \ 3 PICK = ar
+        07 I 3 PICK VGA-PUTC
     LOOP
     DROP 2DROP
 ;
@@ -269,7 +292,8 @@ VARIABLE SB-COL
 
 \ ---- Hardware cursor ----
 : FE-CURSOR ( -- )
-    FE-CY @ FE-RGN-Y @ + VCOLS * FE-CX @ +
+    FE-CY @ FE-RGN-Y @ + VCOLS *
+    FE-CX @ +
     DUP FF AND
     0F 3D4 OUTB 3D5 OUTB
     8 RSHIFT
@@ -345,7 +369,8 @@ VARIABLE SB-COL
 ;
 
 : FE-PGDN ( -- )
-    FE-TOP @ FE-RGN-H @ + TOTAL-LINES < IF
+    FE-TOP @ FE-RGN-H @ +
+    TOTAL-LINES < IF
         FE-RGN-H @ FE-TOP +!
         FE-CLAMP-X FE-REFRESH
     THEN
@@ -432,10 +457,10 @@ VARIABLE SB-COL
 ;
 
 \ ============================================
-\ File I/O
+\ CR stripping
 \ ============================================
 
-\ Strip CR bytes when followed by LF (CRLF->LF)
+\ Strip CR bytes when followed by LF
 VARIABLE CR-I
 : FE-STRIP-CR ( -- )
     0 CR-I !
@@ -461,10 +486,6 @@ VARIABLE CR-I
     REPEAT ;
 
 \ Strip ALL CR (0x0D) bytes from FE-BUF.
-\ Unlike FE-STRIP-CR which only removes CR+LF
-\ pairs, this removes every CR regardless of
-\ context. Handles stray CRs, double-CR+LF,
-\ and Mac-style CR-only line endings.
 : FE-STRIP-ALL-CR ( -- )
     0 CR-I !
     BEGIN
@@ -481,35 +502,6 @@ VARIABLE CR-I
         THEN
     REPEAT ;
 
-: FE-OPEN ( na nl -- )
-    DUP FE-NLEN !
-    FE-NAME SWAP CMOVE
-    FE-BUF MAX-FILE 0 FILL
-    0 FE-SIZE !
-    FE-NAME FE-NLEN @
-    FILE-READ IF
-        ." Open err" CR EXIT
-    THEN
-    SEC-BUF FE-BUF 1000 CMOVE
-    FILE-SZ @ 1000 MIN FE-SIZE !
-    FE-STRIP-CR
-;
-
-: FE-SAVE ( -- )
-    FE-DIRTY @ 0= IF EXIT THEN
-    FE-SIZE @ 1000 > IF
-        ." File too large (>4KB)" CR
-        EXIT
-    THEN
-    FE-BUF FE-SIZE @
-    FE-NAME FE-NLEN @
-    NTFS-WRITE-FILE IF
-        ." Save err" CR EXIT
-    THEN
-    0 FE-DIRTY !
-    ." Saved" CR
-;
-
 \ ============================================
 \ Key dispatch
 \ ============================================
@@ -518,7 +510,7 @@ VARIABLE CR-I
 CREATE SC-ASC 80 ALLOT
 : INIT-KEYMAP ( -- )
     SC-ASC 80 0 FILL
-    \ Row 0: Esc=1B, 1-9,0,-,=, BS=08, Tab
+    \ Row 0: Esc=1B, 1-9,0,-,=, BS=08
     1B 1 SC-ASC + C!
     31 2 SC-ASC + C!
     32 3 SC-ASC + C!
@@ -577,15 +569,16 @@ CREATE SC-ASC 80 ALLOT
 ;
 
 : FE-DISPATCH ( scancode -- )
-    DUP SC-UP    = IF DROP FE-UP     EXIT THEN
-    DUP SC-DOWN  = IF DROP FE-DOWN   EXIT THEN
-    DUP SC-LEFT  = IF DROP FE-LEFT   EXIT THEN
-    DUP SC-RIGHT = IF DROP FE-RIGHT  EXIT THEN
-    DUP SC-HOME  = IF DROP FE-HOME   EXIT THEN
-    DUP SC-END   = IF DROP FE-EEND   EXIT THEN
-    DUP SC-PGUP  = IF DROP FE-PGUP   EXIT THEN
-    DUP SC-PGDN  = IF DROP FE-PGDN   EXIT THEN
-    DUP SC-DEL   = IF DROP FE-DELETE EXIT THEN
+    DUP SC-UP    = IF DROP FE-UP    EXIT THEN
+    DUP SC-DOWN  = IF DROP FE-DOWN  EXIT THEN
+    DUP SC-LEFT  = IF DROP FE-LEFT  EXIT THEN
+    DUP SC-RIGHT = IF DROP FE-RIGHT EXIT THEN
+    DUP SC-HOME  = IF DROP FE-HOME  EXIT THEN
+    DUP SC-END   = IF DROP FE-EEND  EXIT THEN
+    DUP SC-PGUP  = IF DROP FE-PGUP  EXIT THEN
+    DUP SC-PGDN  = IF DROP FE-PGDN  EXIT THEN
+    DUP SC-DEL   = IF DROP FE-DELETE
+    EXIT THEN
     \ Ctrl+S / Ctrl+Q (only when Ctrl held)
     KB-MODS @ 2 AND IF
       DUP 1F = IF DROP FE-SAVE EXIT THEN
@@ -627,8 +620,7 @@ CREATE SC-ASC 80 ALLOT
     DROP
 ;
 
-\ Exposes Ctrl-held state to NOTEPAD without
-\ forcing PS2-KEYBOARD onto its search order
+\ Exposes Ctrl-held state to NOTEPAD
 : FE-CTRL? ( -- flag ) KB-MODS @ 2 AND ;
 
 \ ============================================

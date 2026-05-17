@@ -5051,8 +5051,12 @@ trace_buf:          times (TRACE_BUF_SIZE * TRACE_ENTRY_SZ) db 0
 ; Contains comment-stripped Forth source as a NUL-terminated token stream.
 ; The kernel evaluates this at boot before entering the interactive prompt.
 
+%ifndef EMBED_FILE
+  %define EMBED_FILE "build/embedded.bin"
+%endif
+
 embed_data:
-    incbin "build/embedded.bin"
+    incbin EMBED_FILE
 embed_end:
 
 embed_size: dd (embed_end - embed_data)

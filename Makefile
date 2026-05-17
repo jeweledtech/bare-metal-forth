@@ -31,8 +31,22 @@ $(BOOTLOADER): $(SRC_BOOT)/boot.asm | $(BUILD)
 	$(NASM) -f bin -o $@ $<
 
 # Embedded vocabularies (evaluated at boot, no block storage needed)
-EMBED_VOCABS = forth/dict/hardware.fth forth/dict/port-mapper.fth forth/dict/echoport.fth forth/dict/pci-enum.fth forth/dict/catalog-resolver.fth forth/dict/ahci.fth forth/dict/rtl8168.fth forth/dict/ntfs.fth forth/dict/auto-detect.fth forth/dict/fat32.fth forth/dict/surveyor.fth forth/dict/ui-core.fth forth/dict/ui-parser.fth forth/dict/ui-events.fth forth/dict/gui-harvest.fth forth/dict/ps2-keyboard.fth forth/dict/file-editor.fth forth/dict/notepad-form.fth forth/dict/notepad.fth forth/dict/hello-form.fth forth/dict/hello-app.fth forth/dict/file-stream.fth forth/dict/file-browser-form.fth forth/dict/file-browser.fth
+EMBED_VOCABS = forth/dict/hardware.fth forth/dict/port-mapper.fth forth/dict/echoport.fth forth/dict/pci-enum.fth forth/dict/catalog-resolver.fth forth/dict/ahci.fth forth/dict/rtl8168.fth forth/dict/ntfs.fth forth/dict/auto-detect.fth forth/dict/fat32.fth forth/dict/surveyor.fth forth/dict/ui-core.fth forth/dict/ui-parser.fth forth/dict/ui-events.fth forth/dict/gui-harvest.fth forth/dict/ps2-keyboard.fth forth/dict/file-editor-core.fth forth/dict/file-editor-disk.fth forth/dict/notepad-form.fth forth/dict/notepad.fth forth/dict/hello-form.fth forth/dict/hello-app.fth forth/dict/file-stream.fth forth/dict/file-browser-form.fth forth/dict/file-browser.fth
 EMBEDDED = $(BUILD)/embedded.bin
+
+# Free-tier vocabularies (public-tracked only, no paid/gitignored content)
+# Excludes: file-editor-disk (NTFS/AHCI), file-stream (NTFS/AHCI/RTL8168),
+#   file-browser (NTFS). NOTEPAD works RAM-only via file-editor-core vectors.
+EMBED_VOCABS_FREE = forth/dict/hardware.fth forth/dict/port-mapper.fth forth/dict/echoport.fth \
+    forth/dict/pci-enum.fth forth/dict/catalog-resolver.fth forth/dict/ps2-keyboard.fth \
+    forth/dict/ui-core.fth forth/dict/ui-parser.fth forth/dict/ui-events.fth \
+    forth/dict/gui-harvest.fth forth/dict/file-editor-core.fth forth/dict/notepad-form.fth \
+    forth/dict/notepad.fth forth/dict/hello-form.fth forth/dict/hello-app.fth \
+    forth/dict/file-browser-form.fth
+
+EMBEDDED_FREE = $(BUILD)/embedded-free.bin
+KERNEL_FREE = $(BUILD)/kernel-free.bin
+IMAGE_FREE = $(BUILD)/bmforth-free.img
 
 $(EMBEDDED): $(EMBED_VOCABS) tools/embed-vocabs.py | $(BUILD)
 	python3 tools/embed-vocabs.py $@ $(EMBED_VOCABS)
@@ -52,6 +66,49 @@ $(IMAGE): $(BOOTLOADER) $(KERNEL)
 	@echo "  Bootloader: $$(stat -c%s $(BOOTLOADER)) bytes"
 	@echo "  Kernel: $$(stat -c%s $(KERNEL)) bytes"
 	@echo "  Total: $$(stat -c%s $@) bytes"
+
+# --- Free-tier build (public vocabularies only) ---
+
+$(EMBEDDED_FREE): $(EMBED_VOCABS_FREE) tools/embed-vocabs.py | $(BUILD)
+	python3 tools/embed-vocabs.py $@ $(EMBED_VOCABS_FREE)
+
+$(KERNEL_FREE): $(SRC_KERNEL)/forth.asm $(EMBEDDED_FREE) | $(BUILD)
+	$(NASM) -f bin -dEMBED_FILE='"build/embedded-free.bin"' -o $@ $<
+
+$(IMAGE_FREE): $(BOOTLOADER) $(KERNEL_FREE)
+	@echo "Creating free-tier disk image..."
+	cat $(BOOTLOADER) $(KERNEL_FREE) > $@
+	@echo "Free-tier image: $@ ($$(stat -c%s $@) bytes)"
+
+free: $(IMAGE_FREE)
+
+# --- Sync check (paid files vs private repo) ---
+PRIVATE_REPO = ../forthos-vocabularies
+PAID_VOCABS = ahci rtl8168 ntfs auto-detect fat32 surveyor file-editor-disk
+
+check-sync:
+	@if [ ! -d "$(PRIVATE_REPO)/forth/dict" ]; then \
+		echo "Private vocab repo not present at $(PRIVATE_REPO) — skipping sync check"; \
+		exit 0; \
+	fi; \
+	FAIL=0; \
+	for v in $(PAID_VOCABS); do \
+		LOCAL="forth/dict/$$v.fth"; \
+		REMOTE="$(PRIVATE_REPO)/forth/dict/$$v.fth"; \
+		if [ ! -f "$$LOCAL" ]; then continue; fi; \
+		if [ ! -f "$$REMOTE" ]; then \
+			echo "MISSING in private repo: $$REMOTE"; FAIL=1; continue; \
+		fi; \
+		if ! diff -q "$$LOCAL" "$$REMOTE" >/dev/null 2>&1; then \
+			echo "DIVERGED: $$v.fth"; \
+			FAIL=1; \
+		fi; \
+	done; \
+	if [ $$FAIL -ne 0 ]; then \
+		echo "check-sync FAILED: paid files have diverged"; \
+		exit 1; \
+	fi; \
+	echo "check-sync OK: all paid files in sync"
 
 # Run in QEMU (text mode, no graphics)
 run: $(IMAGE)
@@ -370,6 +427,8 @@ help:
 	@echo "  write-block    - Write source file into a block (BLK=n SRC=file)"
 	@echo "  check          - Syntax check only"
 	@echo "  iso            - Create bootable ISO"
+	@echo "  free           - Build free-tier image (public vocabs only)"
+	@echo "  check-sync     - Verify paid files match private repo"
 	@echo "  clean          - Remove build artifacts"
 	@echo "  help           - Show this help"
 	@echo ""
@@ -401,4 +460,4 @@ pxe-push: $(COMBINED) check-kernel-size
 pxe-status:
 	@bash tools/pxe/test-pxe.sh
 
-.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined check-kernel-size test test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream pxe-setup pxe-push pxe-status
+.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined check-kernel-size test test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream pxe-setup pxe-push pxe-status free check-sync

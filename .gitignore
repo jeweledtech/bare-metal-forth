@@ -51,10 +51,7 @@ forth/dict/msi-reader.fth
 forth/dict/surveyor-deep.fth
 forth/dict/surveyor-detail.fth
 forth/dict/stub-dispatch.fth
-forth/dict/ui-core.fth
-forth/dict/gui-harvest.fth
-forth/dict/ui-parser.fth
-forth/dict/ui-events.fth
+forth/dict/file-editor-disk.fth
 forth/dict/disk-survey-form.fth
 forth/dict/port-monitor.fth
 forth/dict/port-monitor-form.fth
