@@ -11,7 +11,7 @@ Bare-Metal Forth is a direct-threaded Forth-83 system that boots from bare metal
 1. BIOS loads boot sector (512 bytes) to `0x7C00`
 2. Bootloader initializes segment registers
 3. Enables A20 gate
-4. Loads kernel (128 sectors = 64KB) from disk to `0x7E00`
+4. Loads kernel (224 sectors = 112KB) from disk to `0x7E00`
 5. Sets up GDT (flat model: code and data segments spanning full 4GB)
 6. Switches to protected mode (CR0 bit 0, no paging)
 7. Far jumps to kernel entry point
@@ -19,12 +19,12 @@ Bare-Metal Forth is a direct-threaded Forth-83 system that boots from bare metal
 ### Stage 2: Kernel Initialization
 
 1. Set up data stack at `0x7C00` (grows down into conventional memory)
-2. Set up return stack at `0x20000` (grows down)
+2. Set up return stack at `0x28000` (grows down)
 3. Initialize dictionary pointer at `0x30000`
 4. Set up IDT at `0x29400` (256 entries) and remap PIC (IRQs 0x20-0x2F)
 5. Install ISR stubs for timer (IRQ0), keyboard (IRQ1), mouse (IRQ12)
 6. Initialize VGA text mode and serial port (COM1)
-7. Evaluate embedded vocabulary blob (6 vocabularies compiled into kernel)
+7. Evaluate embedded vocabulary blob (25 vocabularies compiled into kernel)
 8. Enter outer interpreter (cold_start: INTERPRET, BRANCH, -8)
 
 ## Memory Map
