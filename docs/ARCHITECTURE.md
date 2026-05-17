@@ -2,7 +2,7 @@
 
 ## Overview
 
-Bare-Metal Forth is a direct-threaded Forth-83 system that boots from bare metal on x86 hardware. The entire kernel is one assembly file (4,879 lines). It runs in 32-bit protected mode with no paging, giving identity-mapped physical memory access suitable for DMA.
+Bare-Metal Forth is a direct-threaded Forth-83 system that boots from bare metal on x86 hardware. The entire kernel is one assembly file (5,069 lines). It runs in 32-bit protected mode with no paging, giving identity-mapped physical memory access suitable for DMA.
 
 ## Boot Process
 
@@ -145,9 +145,9 @@ DOCOL:                          EXIT:
 
 ## Embedded Vocabularies
 
-Six vocabularies are compiled directly into the kernel binary by `tools/embed-vocabs.py`. The tool strips comments, collapses whitespace, and produces a NUL-terminated ASCII blob. At boot, the kernel evaluates this blob through INTERPRET before entering the interactive REPL.
+25 vocabularies are compiled directly into the kernel binary by `tools/embed-vocabs.py`. The tool strips comments, collapses whitespace, and produces a NUL-terminated ASCII blob. At boot, the kernel evaluates this blob through INTERPRET before entering the interactive REPL.
 
-Embedded vocabs: HARDWARE, PORT-MAPPER, ECHOPORT, PCI-ENUM, RTL8168, AHCI.
+Embedded vocabs (full build): HARDWARE, PORT-MAPPER, ECHOPORT, PCI-ENUM, CATALOG-RESOLVER, AHCI, RTL8168, NTFS, AUTO-DETECT, FAT32, SURVEYOR, UI-CORE, UI-PARSER, UI-EVENTS, GUI-HARVEST, PS2-KEYBOARD, FILE-EDITOR-CORE, FILE-EDITOR-DISK, NOTEPAD-FORM, NOTEPAD, HELLO-FORM, HELLO-APP, FILE-STREAM, FILE-BROWSER-FORM, FILE-BROWSER.
 
 ## Block Storage
 
