@@ -8,7 +8,7 @@ The kernel is real and running on real hardware. Everything below marked ✅ is 
 
 ### Kernel & Interpreter ✅
 
-- 178-word dictionary, 66KB bootable image
+- 222-word dictionary, 112KB bootable image (5,069 lines of assembly)
 - Direct Threaded Code: ESI = instruction pointer, EBP = return stack pointer
 - Forth-83 floored division (`-7 3 /` → `-3`, not `-2`)
 - Full compiler: `:`, `;`, `IMMEDIATE`, `[`, `]`, `LITERAL`
@@ -25,11 +25,12 @@ The kernel is real and running on real hardware. Everything below marked ✅ is 
 The metacompiler is complete. ForthOS rebuilds itself from its own blocks running inside the live system.
 
 - Phase A: target memory, compilation state, forward refs, defining words, control flow
-- Phase B3: `T-BINARY,` — copies 66KB kernel byte-for-byte, 64 spot-checks pass
+- Phase B3: `T-BINARY,` — copies kernel byte-for-byte, 64 spot-checks pass
 - Phase B4: metacompiled kernel boots in QEMU, `3 4 + .` → `7`
 - Phase B5: `CALL-ABS,` pattern — CODE words calling kernel helpers, 103 symbols
 - Phase B6: full `INTERPRET` with control flow + colon defs + error handling
-- Phase B6b: standalone bootable metacompiled kernel, 66KB, full regression green
+- Phase B6b: standalone bootable metacompiled kernel, full regression green
+- ARM64 cross-compile: boots on QEMU raspi3b, 8,028 bytes — metacompiler proven on two architectures
 
 This closes the traditional Forth self-hosting loop. NASM is no longer required on the target.
 
@@ -37,38 +38,46 @@ This closes the traditional Forth self-hosting loop. NASM is no longer required 
 
 End-to-end pipeline: `.sys` binary → translator → block image → `THRU` → `USING I8042PRT` → real hardware reads.
 
-- 258 tests / 22 suites
+- 270 tests / 22 suites
 - 18 real-world Windows binaries validated: PE32, PE32+, ELF64, COM
 - HP Win10/11 x64 driver results: serial=17 HW accesses, storport=65, usbxhci=51, HDAudBus=10, pci=13, i8042=2
 - Key finding: Win10/11 x64 drivers use compiler intrinsics (`__inbyte`/`__outbyte`), not HAL imports — instruction-level detection required for 64-bit analysis
 
 ### Completed Vocabularies ✅
 
-| Vocabulary | Blocks | Status |
+25 vocabularies embedded at boot (full build), 16 in the free tier.
+
+| Category | Vocabularies | Notes |
 |---|---|---|
-| HARDWARE | 50–60 | IRQ, DPC, timing (`US-DELAY` via PIT Channel 2) |
-| DISASM | 58–109 | LMI-style in-system x86 disassembler |
-| PS/2 Mouse | — | Complete |
-| AHCI | — | Working on HP hardware |
-| NTFS | — | MFT walker, fragmented MFT, 9-run support, 1.2M records |
-| FAT32 | — | EFI System Partition, GPT GUID auto-detect |
-| AUTO-DETECT | — | PXE boot zero-config: RTL8168, AHCI, HD Graphics 620, xHCI |
-| Network console | — | 100% reliable, UDP port 6666 |
-| DISK-SURVEY | — | Partition map, driver inventory, PE/ELF detection |
-| I8042PRT | 100–104 | Extracted from real Windows driver via UBT |
+| Core utilities | HARDWARE, CATALOG-RESOLVER | IRQ, DPC, timing, dependency resolver |
+| Discovery | PORT-MAPPER, ECHOPORT, PCI-ENUM | Port tracing, device enumeration |
+| Diagnostics | DISASM, DISK-SURVEY | x86 disassembler, partition/driver inventory |
+| Input | PS2-KEYBOARD, PS/2 Mouse | Keyboard + mouse with IRQ dispatch |
+| Storage | AHCI, NTFS, FAT32 | SATA, MFT walker (1.2M records), EFI/GPT |
+| Network | RTL8168, Network console | Gigabit NIC, UDP port 6666 |
+| Boot config | AUTO-DETECT | PXE zero-config: RTL8168, AHCI, xHCI |
+| Form engine | UI-CORE, UI-PARSER, UI-EVENTS, GUI-HARVEST | 9 widgets, `.def` parser, event loop, name registry |
+| Content | FILE-EDITOR-CORE, FILE-STREAM | Editor engine (vectored I/O), NTFS streaming |
+| Applications | NOTEPAD, HELLO-APP, FILE-BROWSER | Panel apps driven by form engine |
+| UBT extract | I8042PRT | Extracted from real Windows driver via UBT |
+
+### Form Engine ✅
+
+Three milestones complete. Generalized form engine loads applications from `.def` panel definitions via FORM-LOAD / FORM-WIRE / FORM-RUN. D-word widget attributes (visible/enabled bit flags). File-browser panel renders NTFS directory contents as a navigable tree. See `docs/architecture/FORM_ENGINE_ARCHITECTURE.md` for the eight-milestone roadmap.
+
+### Open-Core Split ✅
+
+As of 2026-05-17, ForthOS ships as two images: `bmforth-free.img` (kernel + 16 public vocabularies) and `bmforth.img` (full build, 25 embedded vocabularies). The free tier includes the form engine, input, discovery, and three application panels. Paid packs add storage drivers, networking, and the file-streaming pipeline. See `docs/open-core-audit-2026-05-16.md` (boundary audit), `docs/finding-2026-05-17-free-tier-also-deps.md` (architectural finding), and the README for tier details.
 
 ---
 
 ## In Progress
 
-### ACPI.sys Investigation
-The large ACPI binary causes a SIGSEGV in the translator. Known open item from the binary campaign. Needs large-binary handling in the PE loader.
-
 ### FAT32 LFN Fix
-Long filename entries show garbled output. The 0x0F attribute filter may not be catching all LFN chain cases. Low priority — NTFS is the primary filesystem.
+Long filename entries show garbled output. The LFN attribute filter and chain assembly need tightening. Low priority — NTFS is the primary filesystem.
 
-### DISK-SURVEY FAT32 Crash on HP
-`DISK-SURVEY` crashes when walking the EFI partition directory tree on real hardware. Workaround: use `PARTITION-MAP` alone, then `HEX 8A800 NTFS-PROBE .` for the NTFS path. Root cause not yet isolated.
+### Milestone 4: Settings-Dialog Panel
+Next form engine milestone per `FORM_ENGINE_ARCHITECTURE.md` Section 8. Proof: a settings panel that persists user preferences across reboots.
 
 ---
 
@@ -76,9 +85,9 @@ Long filename entries show garbled output. The 0x0F attribute filter may not be 
 
 The metacompiler is target-agnostic. Each new CPU needs roughly a 150-line `target-<arch>.fth` file.
 
-**Tier 1** (primary targets):
-- ARM64 — Raspberry Pi 3B/4/5
+**Tier 1** (next targets):
 - RISC-V — QEMU first, then hardware
+- ARM64 on real metal — Raspberry Pi 4/5 (QEMU boot proven, see Metacompiler section)
 - x86 self-rebuild — already working
 
 **Tier 2:**
@@ -134,16 +143,18 @@ Roadmap only — not started yet.
 ## Memory Map (x86 Protected Mode)
 
 ```
-0x00000000 - 0x00000FFF : Reserved (Real Mode IVT)
-0x00007C00 - 0x00007DFF : Bootloader (512 bytes)  ← DATA_STACK_TOP
-0x00007E00 - 0x0000FDFF : Forth Kernel (~66KB)
-0x00010000 - 0x0001FFFF : Parameter Stack (64KB)
-0x00020000 - 0x0002FFFF : Return Stack (64KB)
-0x00029C00              : ISR_HOOK_TABLE (16 slots)
-0x00030000 - 0x000BFFFF : Dictionary Space
-0x000B8000 - 0x000BFFFF : VGA Text Buffer
-0x000C0000 - 0x000FFFFF : ROM / Reserved
-0x00100000+             : Extended Memory
+0x00000 - 0x004FF       IVT + BIOS Data Area
+0x00500 - 0x07BFF       Data stack (grows DOWN from 0x7C00)
+0x07C00 - 0x07DFF       Boot sector (512 bytes)
+0x07E00 - 0x23DFF       Kernel code + embedded vocab blob (~112KB)
+0x21E00 - 0x27FFF       Return stack (24.5KB, grows DOWN from 0x28000)
+0x28000 - 0x2804F       System variables
+0x28100 - 0x291FF       TIB + block buffers
+0x29400 - 0x29BFF       IDT (256 entries)
+0x29C00 - 0x29C3F       ISR hook table (16 IRQ slots)
+0x30000 - 0x7FFFF       Dictionary space (320KB)
+0xB8000 - 0xB8F9F       VGA text buffer
+0x100000+               Physical allocation pool (DMA buffers)
 ```
 
 ---
