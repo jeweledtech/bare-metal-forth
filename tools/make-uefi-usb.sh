@@ -1,6 +1,6 @@
 #!/bin/bash
 # make-uefi-usb.sh — Create dual-mode (UEFI + Legacy/CSM) bootable USB for ForthOS
-# Usage: sudo bash tools/make-uefi-usb.sh /dev/sdX
+# Usage: sudo bash tools/make-uefi-usb.sh /dev/sdX [image-path]
 #
 # Creates a USB that boots ForthOS via syslinux memdisk:
 #   - Legacy/CSM mode: GRUB BIOS → linux16 memdisk → ForthOS in real mode
@@ -9,12 +9,12 @@
 set -euo pipefail
 
 DEVICE="${1:-}"
-IMGPATH="/home/bbrown/projects/forthos/build/bmforth.img"
+IMGPATH="${2:-/home/bbrown/projects/forthos/build/bmforth.img}"
 MEMDISK="/usr/lib/syslinux/memdisk"
 MOUNTPOINT="/mnt/forthusb"
 
 if [ -z "$DEVICE" ]; then
-    echo "Usage: sudo bash $0 /dev/sdX"
+    echo "Usage: sudo bash $0 /dev/sdX [image-path]"
     exit 1
 fi
 
