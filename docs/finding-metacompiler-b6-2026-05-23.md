@@ -83,11 +83,41 @@ the test" harden into an assumption. Prove which one first.
 
 ---
 
+## Resolution — 2026-05-24
+
+**Root cause: BLOCKS_LBA_BASE offset applied to standalone blocks.img.**
+
+The kernel hardcodes `BLOCKS_LBA_BASE = COMBINED_HEADER_SIZE / 512 = 225`
+sectors. Every block read adds 225 to the LBA. This is correct for the
+`combined.img` layout (boot + kernel + blocks on one disk — block 0 sits at
+sector 225). But `test_meta_b6.py` was the only test using standalone
+`blocks.img` on a separate IDE drive, where block 0 is at LBA 0. The +225
+offset read 112.5 KB past the start every time, landing in the PCI-ENUM
+region. All blocks returned identical wrong content, vocab definitions never
+executed, and `USING TARGET-X86 → TARGET-X86 ?`.
+
+**Evidence chain:**
+1. Live `LIST` of blocks 0, 1, 501, 1217 from b6's image combo all returned
+   PCI-ENUM code (SCAN-KNOWN, DEVICE-KNOWN?) — same content regardless of
+   block number.
+2. `BLOCKS_LBA_BASE` traced to `forth.asm` line 97:
+   `BLOCKS_LBA_BASE equ COMBINED_HEADER_SIZE / BOOT_SECTOR_SIZE` = 225.
+3. Every `ata_read_sector` call adds this base (lines 2330, 2453, 2531, 2593,
+   4848).
+
+**Fix:** Changed `test_meta_b6.py` to use `combined.img` + `combined-ide.img`
+(matching the other 4 meta tests). Result: **15/15**, full suite **89/89**.
+
+The underlying metacompiler was never broken. The 3 failures were a
+test-harness image-layout inconsistency. The fix is local (test files are
+gitignored per the open-core split, commit 4bbf6a2).
+
+**Fork resolution:** Not a search-order bug. Not a metacompiler-code bug. A
+block-addressing path mismatch specific to the standalone-blocks-on-IDE layout
+that only b6 used. The metacompiler's actual state is 89/89 from a trusted
+suite.
+
 ## Sequencing consequence
 
-DOES> work (`TASK_METACOMPILER_DOES.md`) is gated behind this. Both land in
-`target-x86.fth` and add to this same test suite; DOES> should not be built on a
-suite that is 3-red for an unexplained reason, especially when the unexplained
-reason *might* be a vocabulary-visibility gap that DOES> itself would lean on.
-Order: settle the b6 fork → clear or fully understand b6 → then DOES> Phase 0
-starts from a trusted suite.
+~~DOES> is gated behind this.~~ Resolved. DOES> Phase 0 can start from a
+89/89 suite. The metacompiler's vocab handling is not implicated.
