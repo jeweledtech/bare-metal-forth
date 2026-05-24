@@ -388,6 +388,58 @@ test-file-stream: $(IMAGE)
 	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null || true; \
 	exit $$RESULT
 
+# Run metacompiler tests (5 files, x86 self-hosting verification)
+# NOT included in 'make test' — slow, boots multiple QEMU instances.
+test-meta: $(COMBINED)
+	@cp $(COMBINED) $(COMBINED_IDE)
+	@echo "Running metacompiler tests..."
+	@set -e; \
+	PORT=$$(($(TEST_PORT_BASE)+80)); \
+	echo "  test_metacompiler (port $$PORT)..."; \
+	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null || true; \
+	sleep 0.5; \
+	$(QEMU) -drive file=$(COMBINED),format=raw,if=floppy \
+		-drive file=$(COMBINED_IDE),format=raw,if=ide,index=1 \
+		-serial tcp::$$PORT,server=on,wait=off \
+		-display none -daemonize; \
+	sleep 2; \
+	python3 tests/test_metacompiler.py $$PORT; \
+	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null || true; sleep 1; \
+	PORT=$$(($(TEST_PORT_BASE)+81)); \
+	echo "  test_meta_compile (port $$PORT)..."; \
+	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null || true; \
+	sleep 0.5; \
+	python3 tests/test_meta_compile.py $$PORT; \
+	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null || true; sleep 1; \
+	PORT=$$(($(TEST_PORT_BASE)+82)); \
+	echo "  test_meta_b6 (port $$PORT)..."; \
+	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null || true; \
+	sleep 0.5; \
+	python3 tests/test_meta_b6.py $$PORT; \
+	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null || true; sleep 1; \
+	PORT=$$(($(TEST_PORT_BASE)+83)); \
+	echo "  test_meta_boot (port $$PORT)..."; \
+	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null || true; \
+	pkill -9 -f "[q]emu.*$$((PORT+1))" 2>/dev/null || true; \
+	pkill -9 -f "[q]emu.*$$((PORT+2))" 2>/dev/null || true; \
+	sleep 0.5; \
+	python3 tests/test_meta_boot.py $$PORT; \
+	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null || true; \
+	pkill -9 -f "[q]emu.*$$((PORT+1))" 2>/dev/null || true; \
+	pkill -9 -f "[q]emu.*$$((PORT+2))" 2>/dev/null || true; \
+	sleep 1; \
+	PORT=$$(($(TEST_PORT_BASE)+86)); \
+	echo "  test_meta_b6b (port $$PORT)..."; \
+	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null || true; \
+	pkill -9 -f "[q]emu.*$$((PORT+1))" 2>/dev/null || true; \
+	pkill -9 -f "[q]emu.*$$((PORT+2))" 2>/dev/null || true; \
+	sleep 0.5; \
+	python3 tests/test_meta_b6b.py $$PORT; \
+	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null || true; \
+	pkill -9 -f "[q]emu.*$$((PORT+1))" 2>/dev/null || true; \
+	pkill -9 -f "[q]emu.*$$((PORT+2))" 2>/dev/null || true
+	@echo "Metacompiler tests complete!"
+
 # Run all tests (lint first, then functional tests)
 test: lint test-smoke test-loops test-vocabs test-gui test-integration test-file-stream
 	@echo "All tests passed!"
