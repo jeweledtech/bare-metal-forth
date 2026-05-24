@@ -19,7 +19,9 @@ audit; Forth-side reimplementation audit) plus the file-currency check.
 
 ---
 
-## ⚠️ Active blocker — reconcile before anything else
+## ~~⚠️ Active blocker~~ — Resolved 2026-05-24
+
+Settings moved to EMBED_VOCABS_FREE only (4d62781). Both tiers build green at 0x1C000.
 
 `make test` is **currently failing**: `TIMES value -1314 is negative` at
 `forth.asm:5069` — kernel over its KERNEL_PADDED_SIZE boundary. Claude Code
