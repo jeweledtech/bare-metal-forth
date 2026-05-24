@@ -42,6 +42,7 @@ EMBED_VOCABS_FREE = forth/dict/hardware.fth forth/dict/port-mapper.fth forth/dic
     forth/dict/ui-core.fth forth/dict/ui-parser.fth forth/dict/ui-events.fth \
     forth/dict/gui-harvest.fth forth/dict/file-editor-core.fth forth/dict/notepad-form.fth \
     forth/dict/notepad.fth forth/dict/hello-form.fth forth/dict/hello-app.fth \
+    forth/dict/settings-form.fth forth/dict/settings.fth \
     forth/dict/file-browser-form.fth
 
 EMBEDDED_FREE = $(BUILD)/embedded-free.bin
