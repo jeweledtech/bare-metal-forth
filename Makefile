@@ -437,6 +437,17 @@ test-meta: $(COMBINED)
 	python3 tests/test_meta_b6b.py $$PORT; \
 	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null || true; \
 	pkill -9 -f "[q]emu.*$$((PORT+1))" 2>/dev/null || true; \
+	pkill -9 -f "[q]emu.*$$((PORT+2))" 2>/dev/null || true; \
+	sleep 1; \
+	PORT=$$(($(TEST_PORT_BASE)+90)); \
+	echo "  test_meta_does (port $$PORT)..."; \
+	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null || true; \
+	pkill -9 -f "[q]emu.*$$((PORT+1))" 2>/dev/null || true; \
+	pkill -9 -f "[q]emu.*$$((PORT+2))" 2>/dev/null || true; \
+	sleep 0.5; \
+	python3 tests/test_meta_does.py $$PORT; \
+	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null || true; \
+	pkill -9 -f "[q]emu.*$$((PORT+1))" 2>/dev/null || true; \
 	pkill -9 -f "[q]emu.*$$((PORT+2))" 2>/dev/null || true
 	@echo "Metacompiler tests complete!"
 

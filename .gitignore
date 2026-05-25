@@ -96,6 +96,7 @@ tests/test_meta_compile.py
 tests/test_meta_b6.py
 tests/test_meta_b6b.py
 tests/test_meta_boot.py
+tests/test_meta_does.py
 tests/test_arm64_asm.py
 tests/test_arm64_target.py
 tests/test_target_x86.py
