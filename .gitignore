@@ -137,7 +137,10 @@ docs/*touchbase*
 docs/*Touchbase*
 docs/ForthOS_Whitepaper*
 
-# Internal planning docs — see git history before this line for previous public versions
+# Internal planning/governance docs
+docs/incidents/
+docs/superpowers/
+docs/open-core-audit-*
 docs/TASK_PANEL_ARCHITECTURE_VALIDATION.md
 docs/2026-04-30_-_Mentor_Touchbase
 docs/MENTOR_SESSION_REFERENCE.docx
