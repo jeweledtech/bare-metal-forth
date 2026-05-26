@@ -38,6 +38,7 @@ forth/dict/auto-detect.fth
 
 # Tier 2: Network Pack
 forth/dict/rtl8168.fth
+forth/dict/file-stream.fth
 
 # Tier 3: Full Hardware Pack (additional)
 forth/dict/surveyor.fth
