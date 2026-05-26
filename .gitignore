@@ -62,6 +62,7 @@ tests/test_ui_parser.py
 tests/test_ui_events.py
 
 # Tier 4: UBT Pipeline
+tools/ubt-llm/
 tools/translator/
 tools/driver-extract/
 tools/floored-division/
