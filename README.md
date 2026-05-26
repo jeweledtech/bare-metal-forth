@@ -44,8 +44,9 @@ paid packs because that's where the months of driver work live.
 | UBT Pipeline | Universal Binary Translation: extract a Windows `.sys` driver, decompile it, re-emit as Forth |
 | HP Win11 Driver Library | 18+ pre-translated drivers from a real laptop disk |
 
-Subscription tiers bundle these plus the metacompiler (build ForthOS
-for ARM64, RISC-V, Cortex-M33) and ARM/RISC-V/embedded targets.
+Subscription tiers bundle these plus the metacompiler, which self-hosts
+on x86 and cross-compiles a complete bootable kernel. ARM64, Cortex-M,
+and RISC-V targets are on the roadmap.
 
 ## Building
 
