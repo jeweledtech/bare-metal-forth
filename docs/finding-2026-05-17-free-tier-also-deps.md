@@ -81,11 +81,11 @@ can't be free without those.
    - file-editor-disk.fth (PRIVATE): FE-OPEN-IMPL/FE-SAVE-IMPL with
      real NTFS/AHCI I/O, wires vectors via `' word XT !`.
 
-3. Free build (make free) includes 16 vocabs:
+3. Free build (make free) includes 18 vocabs:
    hardware, port-mapper, echoport, pci-enum, catalog-resolver,
    ps2-keyboard, ui-core, ui-parser, ui-events, gui-harvest,
    file-editor-core, notepad-form, notepad, hello-form, hello-app,
-   file-browser-form.
+   settings-form, settings, file-browser-form.
 
 4. Still excluded from free: file-editor-disk (NTFS/AHCI),
    file-stream (NTFS/AHCI/RTL8168), file-browser (NTFS).

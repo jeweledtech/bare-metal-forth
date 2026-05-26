@@ -45,7 +45,7 @@ It is *not* the production source for ForthOS drivers in the reduction posture.
 
 ### The protocol validator's design changes shape
 
-The 2026-03-21 design doc at `docs/TASK_PROTOCOL_VALIDATOR.md` presupposes the validator validates *translated drivers* against datasheets. In the reduction posture, the validator validates *protocol invariants* against datasheets — regardless of whether the implementation came from translation or from hand-authoring. The DSL stays useful; the input shifts.
+The original protocol-validator design presupposes the validator validates *translated drivers* against datasheets. In the reduction posture, the validator validates *protocol invariants* against datasheets — regardless of whether the implementation came from translation or from hand-authoring. The DSL stays useful; the input shifts.
 
 The validator is **paused as a near-term deliverable** until the reduction-posture form engine work establishes what hand-written driver vocabularies look like in practice. The validator will come back, but later, and with a wider scope (validates any implementation, not just translated ones).
 

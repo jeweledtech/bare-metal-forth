@@ -67,7 +67,7 @@ Three milestones complete. Generalized form engine loads applications from `.def
 
 ### Open-Core Split ✅
 
-As of 2026-05-17, ForthOS ships as two images: `bmforth-free.img` (kernel + 16 public vocabularies) and `bmforth.img` (full build, 25 embedded vocabularies). The free tier includes the form engine, input, discovery, and three application panels. Paid packs add storage drivers, networking, and the file-streaming pipeline. See `docs/open-core-audit-2026-05-16.md` (boundary audit), `docs/finding-2026-05-17-free-tier-also-deps.md` (architectural finding), and the README for tier details.
+As of 2026-05-17, ForthOS ships as two images: `bmforth-free.img` (kernel + 18 public vocabularies) and `bmforth.img` (full build, 25 embedded vocabularies). The free tier includes the form engine, input, discovery, and three application panels. Paid packs add storage drivers, networking, and the file-streaming pipeline. See `docs/finding-2026-05-17-free-tier-also-deps.md` (architectural finding) and the README for tier details.
 
 ---
 

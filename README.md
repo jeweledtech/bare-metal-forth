@@ -13,12 +13,17 @@ vocabulary packs (hardware drivers, binary translation tools, the
 metacompiler) live in a separate repository and are available at
 [shop.jollygeniusinc.com](https://shop.jollygeniusinc.com).
 
+This project is in active development. Features may change, and some
+things might break. If you run into a problem or have an idea,
+[open an issue](https://github.com/jeweledtech/bare-metal-forth/issues).
+Contributions are welcome!
+
 ## What you get for free
 
 The kernel and the public vocabularies build into two images:
 
 - **`bmforth.img`** — full developer build (requires paid vocabs on disk)
-- **`bmforth-free.img`** — free-tier build, kernel plus 16 public vocabularies
+- **`bmforth-free.img`** — free-tier build, kernel plus 18 public vocabularies
 
 The free image gives you:
 
@@ -91,7 +96,7 @@ timing, address, data, code) and "simplicity is king."
 | Kernel size | 115,200 bytes (boot + kernel) |
 | Dictionary words | 222 |
 | Embedded vocabularies (full build) | 25 |
-| Embedded vocabularies (free build) | 16 |
+| Embedded vocabularies (free build) | 18 |
 | Forth OS test checks | 200+ across 14 scripts |
 | UBT translator tests | 270 across 22 suites |
 
@@ -102,9 +107,13 @@ All numbers traceable to commit hashes in repo history.
 - [Architecture](docs/ARCHITECTURE.md) — kernel layout, vocabulary system
 - [Hybrid validation report](docs/REPORT_HYBRID_HP_VALIDATION.md) —
   UBT + LLM cross-validation against real Windows drivers
-- [Open-core boundary](docs/open-core-audit-2026-05-16.md) — what's
-  free, what's paid, why
-- [Buy paid packs](https://shop.jollygeniusinc.com)
+- [Pipeline overview](https://jeweledtech.github.io/bare-metal-forth/ubt_pipeline_visualizer.html) — UBT stages from binary to Forth vocabulary
+- [Semantic report viewer](https://jeweledtech.github.io/bare-metal-forth/binary_semantic_report.html) — per-driver hardware word extraction results
+- [Driver catalog](https://jeweledtech.github.io/bare-metal-forth/driver_vocabulary_catalog.html) — 18 analyzed Windows drivers
+- [Metacompiler tracker](https://jeweledtech.github.io/bare-metal-forth/metacompiler_phase_tracker.html) — phase completion and test status
+- [Forth-83 reference](https://jeweledtech.github.io/bare-metal-forth/forth83_quick_reference.html) — kernel dictionary
+- [Memory map](https://jeweledtech.github.io/bare-metal-forth/forthos_memory_map.html) — address layout
+- [Buy paid packs](https://jeweledtech.github.io/bare-metal-forth/#tiers)
 
 ---
 

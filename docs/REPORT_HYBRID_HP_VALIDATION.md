@@ -204,8 +204,7 @@ I/O), not a judgment call on how privileged the instruction is.
 **The fix.** Add CR8, CR0, CR3, and CR4 as explicit negative examples in
 the system prompt, with a note that CPU control register accesses are
 synchronization/memory-management operations, not device I/O. This is a
-prompt-engineering change, not a model limitation. Scoped as a follow-up
-task (TASK_LLM_PROMPT_REFINEMENT.md).
+prompt-engineering change, not a model limitation.
 
 ### 3.4 Agreement evidence: serial.sys
 
@@ -308,22 +307,10 @@ refinement will address.
 
 ---
 
-## 7. Data files
+## 7. Follow-up tasks
 
-| File | Contents |
-|------|----------|
-| `tests/fixtures/hp-hybrid-out/*.diff.json` | Per-driver comparison results (8 files) |
-| `tools/ubt-llm/results/i8042prt.sys.json` | Original i8042prt.sys LLM run (canonical, 143K tokens) |
-| `tools/ubt-llm/results/i8042prt.sys.diff.md` | Original i8042prt.sys classification report |
-| `tools/ubt-llm/results/*.cache.sqlite` | Per-driver LLM response caches |
-
----
-
-## 8. Follow-up tasks
-
-- **TASK_LLM_PROMPT_REFINEMENT.md**: Add CR8/CR0/CR3/CR4 negative examples
-  to system prompt; add CPU_CONTROL class to taxonomy. Re-run HP corpus as
-  v2 validation. (~30 min implementation + re-run time.)
+- Add CR8/CR0/CR3/CR4 as explicit negative examples in the system prompt;
+  add CPU_CONTROL class to taxonomy. Re-run HP corpus as v2 validation.
 - **Whitepaper section 4.4**: Incorporate this report's four-point structure
   and corrected counts.
 - **Expanded corpus**: Validate on Linux kernel modules (parport_pc.ko as
