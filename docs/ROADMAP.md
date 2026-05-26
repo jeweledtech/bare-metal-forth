@@ -45,7 +45,7 @@ End-to-end pipeline: `.sys` binary → translator → block image → `THRU` →
 
 ### Completed Vocabularies ✅
 
-25 vocabularies embedded at boot (full build), 16 in the free tier.
+25 vocabularies embedded at boot (full build), 18 in the free tier.
 
 | Category | Vocabularies | Notes |
 |---|---|---|
