@@ -74,6 +74,26 @@ TCP/IP stack is downstream of this decision — moot without RX.
 
 ---
 
+## Gap #7 gated on HP foundation boot (May 2026)
+
+**Decision:** Gap #7 (VOCABULARY-in-target) is gated on first
+validating the current metacompiled kernel boots and runs
+CREATE...DOES> on HP bare metal. The two are sequenced, not
+combined -- foundation on metal first, then VOCABULARY on confirmed
+ground.
+
+**Rationale:** The metacompiler is QEMU-only to date (open gap #3 in
+metacompiler_open_gaps.md). ATA block reads and memory map are the
+historical QEMU/HP divergence points (Bug #24 stack-collision lineage,
+AHCI PRDT DBAU, VGA-CLR-ROW masking). VOCABULARY emission may lean
+on the same DOES> machinery, so designing it on the unconfirmed
+assumption that DOES> works on HP would braid two risks. If the
+foundation boot surfaces a hardware divergence, that changes the
+VOCABULARY design; if it boots clean, Gap #7 proceeds on confirmed
+ground.
+
+---
+
 **Distinguish UBT exposure from metacompiler exposure:** When marketing or
 product claims are reconciled against reality, treat these two differently.
 UBT (the C translator) was marketed against the maximalist vision, so its

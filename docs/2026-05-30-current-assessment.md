@@ -126,9 +126,11 @@ system. The metacompiler is target-agnostic: each new CPU needs a
 - **ARM64:** boots on QEMU raspi3b, 8,028 bytes, `ok` prompt proven
 
 114 of 114 tests passing across 6 suites (verified by live
-`make test-meta` run, 2026-05-30). One gap remains: VOCABULARY target
-word (Gap #7) -- the metacompiled kernel cannot yet load vocabularies
-from blocks. Gap #6 (S"/." target compilation) closed 2026-05-29.
+`make test-meta` run, 2026-05-30). Gap #6 (S"/." target compilation)
+closed 2026-05-29. Gap #7 (VOCABULARY + search-order suite) closed
+2026-05-30 -- validated on HP bare metal. The metacompiled kernel can
+now define and switch vocabularies. Remaining: loading vocab source
+from blocks (next gate, inherits LOAD-VOCAB hang finding).
 
 ### Universal Binary Translator
 
@@ -201,7 +203,7 @@ ForthOS ships as two images:
 
 | Gap | Status | Tracked In |
 |---|---|---|
-| Metacompiler Gap #7 (VOCABULARY target) | Unblocked (Gap #6 closed 2026-05-29); not yet started | Implicit |
+| Vocab block-source-loading | Next gate; inherits LOAD-VOCAB hang (bug_load_vocab_metacompiler_hang.md) | Not yet scoped |
 | FAT32 LFN display | Garbled long filenames, cosmetic | ROADMAP.md |
 | Milestone 4: Settings-dialog panel | Next form engine milestone | ROADMAP.md |
 
@@ -234,11 +236,11 @@ ForthOS ships as two images:
 
 ## Current Development Fronts
 
-1. **Metacompiler Gap #7** -- VOCABULARY word in the target image.
-   The metacompiled kernel currently zeros embed_size to sidestep
-   vocab loading. Until VOCABULARY is emitted, the metacompiled
-   kernel cannot load vocabularies from blocks and cannot replace
-   the NASM-assembled kernel as a full self-host.
+1. **Vocab block-source-loading** -- The metacompiled kernel can
+   now define and switch vocabularies (Gap #7 closed 2026-05-30),
+   but embed_size is still zeroed and vocabs are not loaded from
+   blocks. The next gate is loading vocab source from blocks into
+   the vocabulary system. This inherits the LOAD-VOCAB hang finding.
 
 2. **Milestone 4: Settings-dialog panel** -- Next form engine milestone
    per FORM_ENGINE_ARCHITECTURE.md Section 8. Proof: a settings panel
