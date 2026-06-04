@@ -18,9 +18,19 @@ BLOCKS = $(BUILD)/blocks.img
 COMBINED = $(BUILD)/combined.img
 COMBINED_IDE = $(BUILD)/combined-ide.img
 NTFS_TEST = test-data/ntfs-test.img
+IMAGE_FREE = $(BUILD)/bmforth-free.img
 
-# Default target
-all: $(IMAGE)
+# Auto-detect build tier: full (paid vocabs present) or free (public only)
+ifneq ($(wildcard forth/dict/ahci.fth),)
+  BUILD_TIER = full
+  ACTIVE_IMAGE = $(IMAGE)
+else
+  BUILD_TIER = free
+  ACTIVE_IMAGE = $(IMAGE_FREE)
+endif
+
+# Default target — builds whichever tier the working tree supports
+all: $(ACTIVE_IMAGE)
 
 # Create build directory
 $(BUILD):
@@ -47,7 +57,6 @@ EMBED_VOCABS_FREE = forth/dict/hardware.fth forth/dict/port-mapper.fth forth/dic
 
 EMBEDDED_FREE = $(BUILD)/embedded-free.bin
 KERNEL_FREE = $(BUILD)/kernel-free.bin
-IMAGE_FREE = $(BUILD)/bmforth-free.img
 
 $(EMBEDDED): $(EMBED_VOCABS) tools/embed-vocabs.py | $(BUILD)
 	python3 tools/embed-vocabs.py $@ $(EMBED_VOCABS)
@@ -115,22 +124,22 @@ check-sync:
 	echo "check-sync OK: all paid files in sync"
 
 # Run in QEMU (text mode, no graphics)
-run: $(IMAGE)
-	$(QEMU) -drive format=raw,file=$(IMAGE) -nographic
+run: $(ACTIVE_IMAGE)
+	$(QEMU) -drive format=raw,file=$(ACTIVE_IMAGE) -nographic
 
 # Run in QEMU with graphics
-run-gui: $(IMAGE)
-	$(QEMU) -drive format=raw,file=$(IMAGE)
+run-gui: $(ACTIVE_IMAGE)
+	$(QEMU) -drive format=raw,file=$(ACTIVE_IMAGE)
 
 # Run with debugging enabled (GDB server on port 1234)
-debug: $(IMAGE)
-	$(QEMU) -drive format=raw,file=$(IMAGE) -s -S -nographic &
+debug: $(ACTIVE_IMAGE)
+	$(QEMU) -drive format=raw,file=$(ACTIVE_IMAGE) -s -S -nographic &
 	@echo "QEMU started with GDB server on localhost:1234"
 	@echo "Connect with: gdb -ex 'target remote localhost:1234'"
 
 # Run with serial output to terminal
-run-serial: $(IMAGE)
-	$(QEMU) -drive format=raw,file=$(IMAGE) -serial mon:stdio -nographic
+run-serial: $(ACTIVE_IMAGE)
+	$(QEMU) -drive format=raw,file=$(ACTIVE_IMAGE) -serial mon:stdio -nographic
 
 # --- Block Storage Targets ---
 
@@ -208,9 +217,9 @@ check-kernel-size: $(IMAGE)
 TEST_PORT_BASE ?= 4500
 
 # Run smoke test (no block storage needed)
-test-smoke: $(IMAGE)
+test-smoke: $(ACTIVE_IMAGE)
 	@echo "Running smoke test..."
-	@$(QEMU) -drive file=$(IMAGE),format=raw,if=floppy \
+	@$(QEMU) -drive file=$(ACTIVE_IMAGE),format=raw,if=floppy \
 		-serial tcp::$(TEST_PORT_BASE),server=on,wait=off \
 		-display none -daemonize
 	@sleep 2
@@ -218,9 +227,9 @@ test-smoke: $(IMAGE)
 		STATUS=$$?; pkill -9 -f "[q]emu.*$(TEST_PORT_BASE)" 2>/dev/null; exit $$STATUS
 
 # Run BEGIN/WHILE/REPEAT test (no block storage needed)
-test-loops: $(IMAGE)
+test-loops: $(ACTIVE_IMAGE)
 	@echo "Running loop control flow test..."
-	@$(QEMU) -drive file=$(IMAGE),format=raw,if=floppy \
+	@$(QEMU) -drive file=$(ACTIVE_IMAGE),format=raw,if=floppy \
 		-serial tcp::$$(($(TEST_PORT_BASE)+1)),server=on,wait=off \
 		-display none -daemonize
 	@sleep 2
@@ -456,9 +465,9 @@ test: lint test-smoke test-loops test-vocabs test-gui test-integration test-file
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)
-iso: $(IMAGE)
+iso: $(ACTIVE_IMAGE)
 	mkdir -p $(BUILD)/iso
-	cp $(IMAGE) $(BUILD)/iso/
+	cp $(ACTIVE_IMAGE) $(BUILD)/iso/bmforth.img
 	xorriso -as mkisofs -b bmforth.img -no-emul-boot -o $(BUILD)/bmforth.iso $(BUILD)/iso/
 
 # Check syntax only (no output)

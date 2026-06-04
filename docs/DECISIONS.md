@@ -103,3 +103,28 @@ is in packaging/docs for a customer to invoke it, not in the capability. The
 correct direction is: lower UBT's claims to match engineering; raise the
 metacompiler's productization to match the capability that already exists.
 Neither case is a backlog of features to build.
+
+---
+
+## Test targets remain full-tier-only by design (June 2026)
+
+**Decision:** `test-vocabs`, `test-gui`, `test-integration`, `test-flush`,
+and `test-file-stream` chain through `$(COMBINED)` → `$(IMAGE)` →
+`$(EMBED_VOCABS)`, which includes paid vocabularies. These targets are
+not part of the public build surface and will fail on a public-only clone.
+This is deliberate.
+
+**Context:** The Makefile auto-detects the build tier via
+`$(wildcard forth/dict/ahci.fth)`. User-facing targets (`all`, `iso`,
+`run`, `run-gui`, `run-serial`, `debug`, `test-smoke`, `test-loops`)
+route through `$(ACTIVE_IMAGE)` and work on both full and free clones.
+The combined-image test targets require paid vocabs by nature (they test
+AHCI, NTFS, RTL8168 functionality) and cannot meaningfully run without
+them.
+
+**Residual leak:** The `EMBED_VOCABS` variable on Makefile line 44 still
+names all paid vocabulary filenames in the public source. This is a
+build-graph information leak (a reader can see `ahci.fth`, `ntfs.fth`,
+etc.). A future refactor could move the full-tier block into a separate
+`Makefile.paid` that only exists in the private repo. Low priority —
+the filenames are not secret, just the content.
