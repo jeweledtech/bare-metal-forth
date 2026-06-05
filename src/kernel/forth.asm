@@ -1931,6 +1931,99 @@ DEFCODE "SEE", SEE, 0
     POPRSP esi                 ; Restore Forth IP
     NEXT
 
+; DUMP - ( addr len -- ) Hex dump memory region
+DEFCODE "DUMP", DUMP, 0
+    pop ebx                     ; EBX = len
+    pop edi                     ; EDI = addr
+    PUSHRSP esi                 ; save Forth IP
+
+    test ebx, ebx
+    jz .dump_done               ; len=0: no output
+
+.dump_line:
+    ; --- Address column: 8 hex digits + ": " ---
+    mov eax, edi
+    call print_hex              ; preserves EBX, ECX, EDX, EDI
+    mov al, ':'
+    call print_char
+    mov al, ' '
+    call print_char
+
+    ; --- Bytes this line: min(16, EBX) ---
+    mov ecx, 16
+    cmp ebx, 16
+    jge .dump_full
+    mov ecx, ebx
+.dump_full:
+
+    ; --- Hex column ---
+    xor edx, edx
+.dump_hex:
+    cmp edx, ecx
+    jge .dump_hex_pad
+    movzx eax, byte [edi + edx]
+    call print_hex_byte         ; preserves EAX, ECX
+    mov al, ' '
+    call print_char             ; preserves EBX, ECX, EDX, EDI
+    inc edx
+    jmp .dump_hex
+
+.dump_hex_pad:
+    cmp edx, 16
+    jge .dump_hex_done
+    mov al, ' '
+    call print_char
+    call print_char
+    call print_char
+    inc edx
+    jmp .dump_hex_pad
+
+.dump_hex_done:
+    ; Gutter: one extra space (trailing space from last hex byte + this = 2)
+    mov al, ' '
+    call print_char
+
+    ; --- ASCII column ---
+    xor edx, edx
+.dump_ascii:
+    cmp edx, ecx
+    jge .dump_ascii_pad
+    movzx eax, byte [edi + edx]
+    cmp al, 0x20
+    jl .dump_dot
+    cmp al, 0x7E
+    jg .dump_dot
+    jmp .dump_emit
+.dump_dot:
+    mov al, '.'
+.dump_emit:
+    call print_char
+    inc edx
+    jmp .dump_ascii
+
+.dump_ascii_pad:
+    cmp edx, 16
+    jge .dump_newline
+    mov al, ' '
+    call print_char
+    inc edx
+    jmp .dump_ascii_pad
+
+.dump_newline:
+    mov al, 13
+    call print_char
+    mov al, 10
+    call print_char
+
+    ; Advance to next line
+    add edi, ecx                ; addr += bytes_this_line
+    sub ebx, ecx                ; remaining -= bytes_this_line
+    jnz .dump_line
+
+.dump_done:
+    POPRSP esi                  ; restore Forth IP
+    NEXT
+
 ; HERE - ( -- addr ) Return dictionary pointer
 DEFCODE "HERE@", HEREADDR, 0
     push dword [VAR_HERE]
