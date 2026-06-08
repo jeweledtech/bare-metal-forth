@@ -1823,12 +1823,16 @@ DEFCODE "RECURSE", RECURSE, F_IMMEDIATE
 ; ============================================================================
 
 ; WORDS - List all words in dictionary
+; Walks VAR_LATEST chain, then VAR_FORTH_LATEST chain (kernel words).
+; Without the second pass, kernel words (DUP, DROP, DUMP, etc.) are
+; invisible after embedded vocab loading because VAR_LATEST's chain
+; dead-ends in the topmost vocab.
 DEFCODE "WORDS", WORDS, 0
     PUSHRSP esi                ; Save Forth IP
     mov eax, [VAR_LATEST]
 .loop:
     test eax, eax
-    jz .done
+    jz .forth_pass
     push eax                   ; Save link on data stack (temp)
     ; Print word name
     movzx ecx, byte [eax + 4]  ; flags+len
@@ -1850,6 +1854,34 @@ DEFCODE "WORDS", WORDS, 0
     pop eax
     mov eax, [eax]             ; Follow link
     jmp .loop
+.forth_pass:
+    ; Walk the FORTH vocabulary chain (kernel built-in words)
+    mov eax, [VAR_FORTH_LATEST]
+.loop2:
+    test eax, eax
+    jz .done
+    cmp dword [eax], 0         ; Link field = 0? Chain sentinel, not a real word
+    je .done
+    push eax
+    movzx ecx, byte [eax + 4]
+    test cl, F_HIDDEN
+    jnz .skip2
+    and ecx, F_LENMASK
+    lea esi, [eax + 5]
+.print2:
+    test ecx, ecx
+    jz .space2
+    lodsb
+    call print_char
+    dec ecx
+    jmp .print2
+.space2:
+    mov al, ' '
+    call print_char
+.skip2:
+    pop eax
+    mov eax, [eax]
+    jmp .loop2
 .done:
     mov al, 13
     call print_char
