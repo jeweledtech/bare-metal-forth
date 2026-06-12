@@ -128,3 +128,32 @@ build-graph information leak (a reader can see `ahci.fth`, `ntfs.fth`,
 etc.). A future refactor could move the full-tier block into a separate
 `Makefile.paid` that only exists in the private repo. Low priority —
 the filenames are not secret, just the content.
+
+---
+
+## Kernel size ceiling clarification (June 2026)
+
+**Correction:** Prior commit messages and session handoffs stated "kernel
+is at the 0x1C000 ceiling, can't add words." This was a misreading that
+conflated two distinct constraints and steered decisions since 2026-05-24.
+
+**What's actually true:** `KERNEL_PADDED_SIZE` = 0x1C000 (114,688 bytes)
+is the padded image size. Code+data ends at ~111,172 bytes (measured
+2026-06-11), leaving **~3,500 bytes of slack** within the current limit.
+Adding small kernel words (e.g., 64 bytes for two DEFCODE words) fits
+trivially with no padded-size bump and no memory-map check.
+
+**The real constraint:** Bumping `KERNEL_PADDED_SIZE` itself (not adding
+words within it) requires a memory-map collision check against the
+return-stack region at 0x1C000+ (Bug #24/#26 territory). As long as
+code+data stays under 114,688 bytes, no bump is needed.
+
+**How this propagated:** Commit `4d62781` said "Not added to full-tier
+EMBED_VOCABS — kernel is at 0x1C000 ceiling." Session handoffs repeated
+it as a hard constraint. The settings-form vocab was kept out of
+`EMBED_VOCABS` on this basis. The actual measurement (3,500 bytes free)
+shows the constraint was not binding.
+
+**Going forward:** Before claiming "no room in the kernel," measure:
+build, then check `(padded_size - last_nonzero_byte)` in kernel.bin.
+The padded-size ceiling is real but the headroom within it is nonzero.

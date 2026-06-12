@@ -2995,6 +2995,11 @@ DEFCODE "MORE-OFF", MORE_OFF, 0
 ; MORE-LINES - ( -- addr ) Variable: current line count
 DEFVAR "MORE-LINES", MORE_LINES_VAR, more_lines
 
+; MORE-ENABLED - ( -- addr ) Address of more_enabled flag byte (0=off, 1=on)
+DEFCODE "MORE-ENABLED", MORE_ENABLED_W, 0
+    push more_enabled
+    NEXT
+
 ; NET-CON-ON - ( -- ) Enable net console output mirroring
 DEFCODE "NET-CON-ON", NET_CON_ON, 0
     mov byte [net_console_enabled], 1
@@ -3004,6 +3009,11 @@ DEFCODE "NET-CON-ON", NET_CON_ON, 0
 DEFCODE "NET-CON-OFF", NET_CON_OFF, 0
     mov byte [net_console_enabled], 0
     mov dword [net_buf_pos], 0
+    NEXT
+
+; NET-CON-ENABLED - ( -- addr ) Address of net_console_enabled flag byte (0=off, 1=on)
+DEFCODE "NET-CON-ENABLED", NET_CON_ENABLED_W, 0
+    push net_console_enabled
     NEXT
 
 ; NET-FLUSH - ( -- ) Flush any partial net console buffer as UDP packet
