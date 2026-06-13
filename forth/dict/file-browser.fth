@@ -111,6 +111,9 @@ HEX
   MFT-BUF 14 + W@
   MFT-BUF + >R
   BEGIN
+    R@ MFT-BUF - MFT-REC-SZ >= IF
+      R> DROP -1 EXIT
+    THEN
     R@ @
     DUP ATTR-END = IF
       DROP R> DROP -1 EXIT
