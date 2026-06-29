@@ -15,7 +15,9 @@
 
 VOCABULARY ASM-VOCAB
 ASM-VOCAB DEFINITIONS
-HEX
+HEX  \ BASE=16 for entire vocab body.
+\ Every literal below is hex until DECIMAL
+\ on the last line. Audited 2026-06-29.
 
 \ ---- Emit to HERE (not T-HERE) ----------
 \ C, and , are kernel words (use VAR_HERE
@@ -261,4 +263,8 @@ HEX
 \   []ABS-MOV, MOV-ABS[]
 
 FORTH DEFINITIONS
+\ Restore caller's base. Code added BELOW
+\ this line parses in DECIMAL, not HEX.
+\ To add new assembler words, insert ABOVE
+\ this point (or set HEX explicitly).
 DECIMAL
