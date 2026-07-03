@@ -105,6 +105,110 @@ CREATE SC-SBUF 40 ALLOT
 VARIABLE SC-SLEN
 HEX
 
+\ ---- Block persistence --------------------
+DECIMAL
+199 CONSTANT SET-BLK
+VARIABLE SET-BUF
+VARIABLE SET-I
+VARIABLE SET-ACC
+VARIABLE SET-POS
+VARIABLE SET-MAX
+CREATE NBUF 8 ALLOT
+
+: SET-LINE ( n -- a )
+  64 * SET-BUF @ + ;
+
+: SET-MAGIC? ( -- f )
+  0 SET-LINE
+  DUP C@ 70 =
+  OVER 1 + C@ 83 = AND
+  OVER 2 + C@ 69 = AND
+  OVER 3 + C@ 84 = AND
+  SWAP 4 + C@ 49 = AND ;
+
+: >VALUE ( a -- a' )
+  0 SET-I !
+  BEGIN
+    DUP C@ 61 <>
+    SET-I @ 63 < AND
+  WHILE
+    1 +  1 SET-I +!
+  REPEAT  1 + ;
+
+: DIGITS>N ( a -- n )
+  0 SET-ACC !
+  BEGIN
+    DUP C@ 48 -
+    DUP 0 >= OVER 10 < AND
+  WHILE
+    SET-ACC @ 10 * +
+    SET-ACC !  1 +
+  REPEAT
+  2DROP  SET-ACC @ ;
+
+: N>TEXT ( n a -- )
+  SWAP  8 SET-POS !
+  BEGIN
+    10 /MOD SWAP 48 +
+    -1 SET-POS +!
+    NBUF SET-POS @ + C!
+    DUP 0=
+  UNTIL DROP
+  NBUF SET-POS @ +
+  SWAP
+  8 SET-POS @ - CMOVE ;
+
+\ line-bounded: last non-space+1 within
+\ SET-MAX bytes from a
+: TEXT-LEN ( a -- len )
+  0 SET-I !  0 SET-ACC !
+  BEGIN SET-I @ SET-MAX @ <
+  WHILE
+    DUP SET-I @ + C@ 32 <> IF
+      SET-I @ 1 + SET-ACC !
+    THEN
+    1 SET-I +!
+  REPEAT
+  DROP  SET-ACC @ ;
+
+: SET-DEFAULTS ( -- )
+  0 SC-COLOR !  0 SC-SCAN ! ;
+
+: SET-LOAD ( blk -- )
+  BLOCK SET-BUF !
+  SET-MAGIC? 0= IF
+    SET-DEFAULTS EXIT
+  THEN
+  1 SET-LINE >VALUE
+  DIGITS>N SC-COLOR !
+  2 SET-LINE >VALUE
+  DIGITS>N SC-SCAN !
+  59 SET-MAX !
+  3 SET-LINE >VALUE
+  DUP TEXT-LEN
+  SC-INP-WI @ IV-SET ;
+
+: SET-PUT ( a len n -- )
+  SET-LINE SWAP CMOVE ;
+
+: SET-SAVE ( blk -- )
+  BUFFER SET-BUF !
+  SET-BUF @ 1024 32 FILL
+  S" FSET1"  0 SET-PUT
+  S" COLOR=" 1 SET-PUT
+  SC-COLOR @
+  1 SET-LINE 6 + N>TEXT
+  S" SCAN="  2 SET-PUT
+  SC-SCAN @
+  2 SET-LINE 5 + N>TEXT
+  S" OPER="  3 SET-PUT
+  SC-INP-WI @ IV-GET
+  3 SET-LINE 5 +
+  SWAP CMOVE
+  UPDATE SAVE-BUFFERS ;
+
+HEX
+
 \ ---- Button labels (counted strings) ------
 CREATE SC-LBL-CYC 5 C,
   CHAR C C, CHAR y C, CHAR c C,
@@ -222,7 +326,8 @@ VARIABLE SC-TNL
   SC-TNL @ SC-SLEN +!
   SC-SBUF SC-SLEN @
   SC-STAT-WI @ SC-SET-LABEL
-  SC-COLOR-ATTR SC-ATTR ! ;
+  SC-COLOR-ATTR SC-ATTR !
+  SET-BLK SET-SAVE ;
 
 \ ---- Cancel handler ----------------------
 : SC-CANCEL ( -- )
@@ -265,8 +370,12 @@ SC-REGISTER
   THEN
   FORM-LOAD FORM-WIRE
   SC-FIND-WIDGETS
-  0 SC-COLOR ! 0 SC-SCAN !
+  SET-BLK SET-LOAD
   0 SC-ATTR !
+  SC-COLOR-NAME
+  SC-CLR-WI @ SC-SET-LABEL
+  SC-SCAN-NAME
+  SC-SL-WI @ SC-SET-LABEL
   ." SETTINGS ready" CR
   FORM-RUN
   SC-ATTR @ IF
