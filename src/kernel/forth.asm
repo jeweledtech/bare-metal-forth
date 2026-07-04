@@ -77,6 +77,7 @@ BLK_BUF_HEADERS     equ 0x28060     ; 4 headers x 12 bytes = 48 bytes
 BLK_BUF_CUR         equ 0x28090     ; Index of current buffer (for UPDATE)
 BLK_BUF_CLOCK        equ 0x28094    ; LRU age counter
 MEMDISK_BASE         equ 0x28098    ; Physical base of memdisk RAM image (0 = not memdisk)
+BLK_WRITE_VEC        equ 0x2809C    ; XT of active block writer ( buf-addr blk# -- ior )
 BLK_NUM_BUFFERS     equ 4
 BLK_HEADER_SIZE     equ 12
 BLK_BUF_FLAG_VALID  equ 1
@@ -236,6 +237,14 @@ kernel_start:
     mov dword [BLK_BUF_CLOCK], 0
     ; MEMDISK_BASE is set by bootloader if memdisk detected; default 0
     ; (bootloader writes it before PM switch, kernel just reads it)
+    ; Block write vector: default = ATA PIO writer. On memdisk boot there
+    ; is no write path, so install the loud-fail stub — a write that goes
+    ; nowhere must say so instead of 'ok'.
+    mov dword [BLK_WRITE_VEC], BLKWRITEATA
+    cmp dword [MEMDISK_BASE], 0
+    je .write_vec_done
+    mov dword [BLK_WRITE_VEC], BLKWRITENONE
+.write_vec_done:
     ; Clear all 4 buffer headers (block#=-1, flags=0, age=0)
     mov edi, BLK_BUF_HEADERS
     mov ecx, BLK_NUM_BUFFERS
@@ -2504,7 +2513,7 @@ DEFCODE "UPDATE", UPDATE, 0
 
 ; SAVE-BUFFERS - ( -- ) Write all dirty buffers to disk
 DEFCODE "SAVE-BUFFERS", SAVEBUFFERS, 0
-    PUSHRSP esi                 ; Save Forth IP (blk_flush_one uses ESI)
+    PUSHRSP esi                 ; Defensive save (blk_flush_one preserves ESI)
 %ifdef DEBUG_FLUSH
     push eax
     mov al, '['
@@ -2557,6 +2566,60 @@ DEFWORD "FLUSH", FLUSH, 0
     dd SAVEBUFFERS
     dd EMPTYBUFFERS
     dd EXIT
+
+; ============================================================================
+; Block Write Vector — pluggable writer backend
+; ============================================================================
+; BLK_WRITE_VEC holds the XT of the active block writer.
+; Writer contract: ( buf-addr blk# -- ior )  ior 0 = success, nonzero = fail.
+; A writer may be a DEFCODE primitive or a Forth colon definition —
+; blk_flush_one invokes it via execute_xt, which threads through EXECUTE
+; so DOCOL words work (never `call` a CFA from asm; T-ALIAS lesson).
+; Writers MUST NOT call block-layer words (BLOCK/BUFFER/SAVE-BUFFERS):
+; blk_flush_one is not re-entrant.
+; Boot default: (BLK-WRITE-ATA). Memdisk boot: (BLK-WRITE-NONE).
+
+; (BLK-WRITE-ATA) - ( buf-addr blk# -- ior ) Default ATA PIO block writer.
+; LBA = blk# * 2 + BLOCKS_LBA_BASE, two 512-byte sectors per block.
+DEFCODE "(BLK-WRITE-ATA)", BLKWRITEATA, 0
+    PUSHRSP esi                 ; ata_write_sector uses ESI as data source
+    pop eax                     ; blk#
+    pop esi                     ; buf-addr (source for rep outsw)
+    shl eax, 1                  ; LBA = blk# * 2
+    add eax, BLOCKS_LBA_BASE
+    mov ebx, eax
+    call ata_write_sector       ; clobbers EAX/ECX/EDX, advances ESI by 512
+    jc .fail
+    inc ebx                     ; second sector (EBX preserved across call)
+    call ata_write_sector
+    jc .fail
+    POPRSP esi
+    push dword 0                ; ior = 0: success
+    NEXT
+.fail:
+    POPRSP esi
+    push dword 1                ; ior = 1: ATA timeout/error (CF was set)
+    NEXT
+
+; (BLK-WRITE-NONE) - ( buf-addr blk# -- ior ) Always-fail stub.
+; Installed at boot when MEMDISK_BASE is set: PXE/memdisk boot has no
+; block write path until a vocabulary installs one (e.g. AHCI).
+DEFCODE "(BLK-WRITE-NONE)", BLKWRITENONE, 0
+    pop eax
+    pop eax
+    push dword 1                ; ior = 1: no writer for this boot environment
+    NEXT
+
+; BLK-WRITER! - ( xt -- ) Install a block writer (e.g. from the AHCI vocab)
+DEFCODE "BLK-WRITER!", BLKWRITERSTORE, 0
+    pop eax
+    mov [BLK_WRITE_VEC], eax
+    NEXT
+
+; BLK-WRITER@ - ( -- xt ) Inspect the active block writer
+DEFCODE "BLK-WRITER@", BLKWRITERFETCH, 0
+    push dword [BLK_WRITE_VEC]
+    NEXT
 
 ; ============================================================================
 ; Block Source Loading Words
@@ -4930,9 +4993,52 @@ blk_find_buffer:
     ret
 
 ; ----------------------------------------------------------------------------
-; blk_flush_one - Write a dirty buffer back to disk
-; Input:  EBX = header address (must point to a valid dirty buffer)
-; Preserves ESI (Forth IP). Clobbers: EAX, ECX, EDX, EDI
+; execute_xt - Invoke a Forth XT from assembly context
+; Input:  EAX = XT (CFA address); data stack holds the word's arguments
+; Output: data stack holds the word's results
+; Preserves: ESI (Forth IP); EBP is net-zero (2 cells pushed, 2 popped).
+; Clobbers: EAX, ECX, EDX plus whatever the executed word clobbers.
+; Mechanism: parks the asm return address and ESI on the return stack,
+; points ESI at a static 2-cell thread [EXECUTE, exec_xt_resume], NEXT.
+; EXECUTE pops the XT and jumps through its code field:
+;   - DEFCODE word: its trailing NEXT fetches exec_xt_resume directly.
+;   - Colon word: DOCOL pushes our thread IP; EXIT pops it back; its
+;     NEXT then fetches exec_xt_resume.
+; exec_xt_resume is a headerless CFA whose code restores ESI and jumps
+; back to the asm caller. This kernel's NEXT is `lodsd; jmp [eax]` —
+; dispatch is INDIRECT through the code field, so thread cells hold CFAs
+; and exec_xt_resume must be a cell pointing at its code, not the code
+; itself. Never `call` a CFA from asm (Bug #30 / T-ALIAS lesson).
+; ----------------------------------------------------------------------------
+execute_xt:
+    pop edx                     ; asm return address (was on data stack)
+    PUSHRSP edx                 ; park it on the return stack
+    PUSHRSP esi                 ; save Forth IP
+    push eax                    ; XT for EXECUTE to pop
+    mov esi, exec_xt_thread
+    NEXT
+
+align 4
+exec_xt_thread:
+    dd EXECUTE                  ; pops XT, jumps into the word
+    dd exec_xt_resume           ; regains control afterward
+
+align 4
+exec_xt_resume:
+    dd exec_xt_resume_code      ; CFA: code field -> resume code
+exec_xt_resume_code:
+    POPRSP esi                  ; restore Forth IP
+    POPRSP edx                  ; asm return address
+    jmp edx
+
+; ----------------------------------------------------------------------------
+; blk_flush_one - Write a dirty buffer back through the block-write vector
+; Input:  EBX = header address (must point to a valid buffer)
+; Success: writer ior = 0 -> clear dirty flag.
+; Failure: prints "BLOCK WRITE FAIL <blk#>", leaves the buffer DIRTY.
+;   (The eviction path will still reuse the buffer — there is nowhere to
+;   put the data — but the loss is now announced, never silent.)
+; Preserves EBX, EDI, ESI (Forth IP). Clobbers: EAX, ECX, EDX
 ; ----------------------------------------------------------------------------
 blk_flush_one:
     test dword [ebx + 4], BLK_BUF_FLAG_DIRTY
@@ -4940,7 +5046,6 @@ blk_flush_one:
 
     push ebx
     push edi
-    PUSHRSP esi                 ; Save Forth IP BEFORE overwriting ESI
 
     ; Calculate buffer data address from header address
     mov eax, ebx
@@ -4978,68 +5083,41 @@ blk_flush_one:
 %endif
 
     imul eax, BLOCK_SIZE
-    lea esi, [BLK_BUF_DATA + eax]  ; ESI = buffer data (source for write)
+    add eax, BLK_BUF_DATA       ; EAX = buffer data address
 
-    ; Block# -> LBA: each block is 2 sectors (1024 bytes / 512)
-    mov eax, [ebx]              ; block#
-    shl eax, 1                  ; LBA = block# * 2
-    add eax, BLOCKS_LBA_BASE   ; + base offset in combined image
-    mov ecx, eax                ; Save first LBA
-
-%ifdef DEBUG_FLUSH
-    ; Trace write start: W<LBA_hex> <ESI_hex>
-    push eax
-    mov al, 'W'
-    call serial_putchar
-    mov eax, ecx                ; LBA
-    call serial_print_hex
-    mov al, ' '
-    call serial_putchar
-    mov eax, esi                ; buffer data address
-    call serial_print_hex
-    mov al, 13
-    call serial_putchar
-    mov al, 10
-    call serial_putchar
-    pop eax
-%endif
-
-    ; Write first sector (512 bytes)
-    mov ebx, ecx                ; LBA
-    call ata_write_sector
-    ; rep outsw already advanced ESI by 512
-
-    ; Write second sector (ESI now points to buffer + 512)
-    inc ebx                     ; Next LBA
-    call ata_write_sector
-
-%ifdef DEBUG_FLUSH
-    ; Trace write done: D<ATA_status_hex>
-    push eax
-    push edx
-    mov al, 'D'
-    call serial_putchar
-    mov dx, 0x1F7               ; ATA status register
-    in al, dx
-    movzx eax, al
-    call serial_print_hex
-    mov al, 13
-    call serial_putchar
-    mov al, 10
-    call serial_putchar
-    pop edx
-    pop eax
-%endif
-
-    POPRSP esi                  ; Restore Forth IP
+    ; Invoke active writer through the vector: ( buf-addr blk# -- ior )
+    push eax                    ; buf-addr (under)
+    push dword [ebx]            ; blk# (top)
+    mov eax, [BLK_WRITE_VEC]
+    call execute_xt             ; preserves ESI; clobbers EAX/ECX/EDX
+    pop eax                     ; ior (0 = success)
 
     pop edi
     pop ebx
+
+    test eax, eax
+    jnz .write_fail
 
     ; Clear dirty flag (keep valid)
     and dword [ebx + 4], ~BLK_BUF_FLAG_DIRTY
 
 .not_dirty:
+    ret
+
+.write_fail:
+    ; Loud failure: announce the loss, leave buffer DIRTY.
+    ; (EBX/EDI already restored — both exit paths pop what entry pushed.)
+    push dword [ebx]            ; blk# — print calls below clobber registers
+    push esi
+    mov esi, msg_blk_write_fail
+    call print_string
+    pop esi
+    pop eax
+    call print_unsigned         ; blk# in current BASE
+    mov al, 13
+    call print_char
+    mov al, 10
+    call print_char
     ret
 
 %ifdef DEBUG_FLUSH
@@ -5106,6 +5184,7 @@ msg_welcome:    db 'Bare-Metal Forth v0.1 - Ship Builders System', 13, 10
                 db 'Type WORDS to see available commands', 13, 10, 0
 msg_stack:      db '<', 0
 msg_undefined:  db ' ? ', 13, 10, 0
+msg_blk_write_fail: db 'BLOCK WRITE FAIL ', 0
 msg_break:      db 'BREAK', 13, 10, 0
 msg_more:       db '-- more --', 0
 see_msg:        db 'SEE: ', 0
