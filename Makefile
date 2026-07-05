@@ -184,13 +184,15 @@ write-catalog: $(BLOCKS)
 # --- Combined Image ---
 
 # Combined image: kernel + blocks concatenated
-# Block N is at LBA 129 + N*2 within this image
+# Block N is at LBA BLOCKS_LBA_BASE + N*2, where BLOCKS_LBA_BASE =
+# image size / 512 (see forth.asm COMBINED_HEADER_SIZE; currently 225).
 # Depends on .catalog.stamp so vocab sources are always in the disk.
 $(COMBINED): $(IMAGE) $(BUILD)/.catalog.stamp
 	cat $(IMAGE) $(BLOCKS) > $(COMBINED)
 	@echo "Combined image: $(COMBINED)"
-	@echo "  Kernel: $$(stat -c%s $(IMAGE)) bytes (LBA 0-128)"
-	@echo "  Blocks: $$(stat -c%s $(BLOCKS)) bytes (LBA 129+)"
+	@SECT=$$(( $$(stat -c%s $(IMAGE)) / 512 )); \
+	echo "  Kernel: $$(stat -c%s $(IMAGE)) bytes (LBA 0-$$((SECT - 1)))"; \
+	echo "  Blocks: $$(stat -c%s $(BLOCKS)) bytes (LBA $$SECT+)"
 	@echo "  Total:  $$(stat -c%s $(COMBINED)) bytes"
 
 combined: $(COMBINED)

@@ -26,9 +26,9 @@ make                    # builds build/bmforth.img in <1 second
 
 Output:
 - `build/boot.bin` — bootloader (512 bytes)
-- `build/embedded.bin` — compiled vocabularies (~18KB)
-- `build/kernel.bin` — Forth kernel (64KB, includes embedded vocabs)
-- `build/bmforth.img` — combined bootable image (~66KB)
+- `build/embedded.bin` — compiled vocabularies (~92KB)
+- `build/kernel.bin` — Forth kernel (112KB padded, includes embedded vocabs)
+- `build/bmforth.img` — combined bootable image (~113KB)
 
 ## Run
 
@@ -130,10 +130,10 @@ Expected build output:
 | File | Size | Notes |
 |------|------|-------|
 | `boot.bin` | 512 bytes | exactly 1 sector, ends with 0xAA55 |
-| `embedded.bin` | ~18 KB | 6 vocabularies, NUL-terminated |
-| `kernel.bin` | 64 KB | padded, includes embedded blob |
-| `bmforth.img` | ~66 KB | boot + kernel |
-| `blocks.img` | 1 MB | 1024 blocks x 1KB each |
+| `embedded.bin` | ~92 KB | 25 vocabularies (full build), NUL-terminated |
+| `kernel.bin` | 112 KB | padded, includes embedded blob |
+| `bmforth.img` | ~113 KB | boot + kernel |
+| `blocks.img` | 2 MB | 2048 blocks x 1KB each |
 
 ## Troubleshooting
 

@@ -4793,18 +4793,17 @@ ata_read_sector:
 ;         EDI = destination buffer (in BLK_BUF_DATA pool)
 ; The combined image layout in RAM:
 ;   MEMDISK_BASE + 0       = boot sector (512 bytes)
-;   MEMDISK_BASE + 512     = kernel (65536 bytes)
-;   MEMDISK_BASE + 66048   = block 0 (1024 bytes)
-;   MEMDISK_BASE + 67072   = block 1 (1024 bytes)
+;   MEMDISK_BASE + 512     = kernel (KERNEL_PADDED_SIZE bytes)
+;   MEMDISK_BASE + COMBINED_HEADER_SIZE = block 0 (1024 bytes)
 ;   ...
-; So block N byte offset = 66048 + N * 1024
+; So block N byte offset = COMBINED_HEADER_SIZE + N * 1024
 ; Clobbers: EAX, ECX, ESI (restores ESI before return)
 ; ----------------------------------------------------------------------------
 ; COMBINED_HEADER_SIZE defined near top of file (derived from KERNEL_PADDED_SIZE)
 
 ram_read_block:
     push esi                        ; Preserve Forth IP
-    ; Compute source address: MEMDISK_BASE + 66048 + block# * 1024
+    ; Source address: MEMDISK_BASE + COMBINED_HEADER_SIZE + block# * 1024
     shl eax, 10                     ; block# * 1024
     add eax, COMBINED_HEADER_SIZE   ; + boot+kernel prefix
     add eax, [MEMDISK_BASE]         ; + RAM base address
