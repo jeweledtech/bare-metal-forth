@@ -109,6 +109,7 @@ HEX
 DECIMAL
 199 CONSTANT SET-BLK
 VARIABLE SET-BUF
+CREATE SET-PBUF 1024 ALLOT
 VARIABLE SET-I
 VARIABLE SET-ACC
 VARIABLE SET-POS
@@ -174,9 +175,23 @@ CREATE NBUF 8 ALLOT
 : SET-DEFAULTS ( -- )
   0 SC-COLOR !  0 SC-SCAN ! ;
 
+\ Read through the persistent-read vector (PBLK-READ), never
+\ kernel BLOCK: on memdisk boots BLOCK returns the RAM code
+\ store, which is stale by definition for the data store.
+\ COHERENCY INVARIANT: SET-PBUF bypasses the block cache, so a
+\ DIRTY cached copy of SET-BLK would make this read stale. That
+\ cannot happen: SET-SAVE is the only writer of SET-BLK and it
+\ ends in SAVE-BUFFERS, so the block is clean (flushed) on any
+\ successful save. Any new settings word that UPDATEs SET-BLK
+\ MUST also SAVE-BUFFERS before SET-LOAD can run.
 : SET-LOAD ( blk -- )
-  BLOCK SET-BUF !
+  SET-PBUF SWAP PBLK-READ IF
+    ." SETTINGS: no store, using defaults" CR
+    SET-DEFAULTS EXIT
+  THEN
+  SET-PBUF SET-BUF !
   SET-MAGIC? 0= IF
+    ." SETTINGS: fresh block, using defaults" CR
     SET-DEFAULTS EXIT
   THEN
   1 SET-LINE >VALUE
