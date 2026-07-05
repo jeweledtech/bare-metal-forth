@@ -78,6 +78,7 @@ BLK_BUF_CUR         equ 0x28090     ; Index of current buffer (for UPDATE)
 BLK_BUF_CLOCK        equ 0x28094    ; LRU age counter
 MEMDISK_BASE         equ 0x28098    ; Physical base of memdisk RAM image (0 = not memdisk)
 BLK_WRITE_VEC        equ 0x2809C    ; XT of active block writer ( buf-addr blk# -- ior )
+BLK_READ_VEC         equ 0x280A0    ; XT of active persistent reader ( buf-addr blk# -- ior )
 BLK_NUM_BUFFERS     equ 4
 BLK_HEADER_SIZE     equ 12
 BLK_BUF_FLAG_VALID  equ 1
@@ -245,6 +246,15 @@ kernel_start:
     je .write_vec_done
     mov dword [BLK_WRITE_VEC], BLKWRITENONE
 .write_vec_done:
+    ; Block read vector: persistent reads (PBLK-READ) mirror the write
+    ; vector. Disk boot: ATA reader. Memdisk boot: loud-fail stub — a
+    ; persistent read must NOT fall back to the RAM copy (silent-stale
+    ; is the exact bug the vector pair exists to kill).
+    mov dword [BLK_READ_VEC], BLKREADATA
+    cmp dword [MEMDISK_BASE], 0
+    je .read_vec_done
+    mov dword [BLK_READ_VEC], BLKREADNONE
+.read_vec_done:
     ; Clear all 4 buffer headers (block#=-1, flags=0, age=0)
     mov edi, BLK_BUF_HEADERS
     mov ecx, BLK_NUM_BUFFERS
@@ -2619,6 +2629,85 @@ DEFCODE "BLK-WRITER!", BLKWRITERSTORE, 0
 ; BLK-WRITER@ - ( -- xt ) Inspect the active block writer
 DEFCODE "BLK-WRITER@", BLKWRITERFETCH, 0
     push dword [BLK_WRITE_VEC]
+    NEXT
+
+; ============================================================================
+; Block Read Vector — pluggable persistent-read backend (M4c)
+; ============================================================================
+; BLK_READ_VEC holds the XT of the active persistent reader.
+; Reader contract: ( buf-addr blk# -- ior )  ior 0 = success, nonzero = fail.
+; Two-store model: RAM memdisk = immutable code store (kernel BLOCK, LOAD —
+; untouched); disk gap = mutable data store, reached ONLY through this
+; vector pair. On memdisk boot the default reader fails loudly rather than
+; falling back to the RAM copy — silent-stale reads are the bug this kills.
+
+; (BLK-READ-ATA) - ( buf-addr blk# -- ior ) Default ATA PIO persistent reader.
+; LBA = blk# * 2 + BLOCKS_LBA_BASE, two 512-byte sectors per block.
+; ata_read_sector: EBX = LBA, EDI = dest; does NOT clobber ESI (rep insw),
+; advances EDI by 512, preserves EBX — no IP save/restore needed here.
+DEFCODE "(BLK-READ-ATA)", BLKREADATA, 0
+    pop eax                     ; blk#
+    pop edi                     ; buf-addr (dest for rep insw)
+    shl eax, 1                  ; LBA = blk# * 2
+    add eax, BLOCKS_LBA_BASE
+    mov ebx, eax
+    call ata_read_sector        ; clobbers EAX/ECX/EDX, advances EDI by 512
+    jc .fail
+    inc ebx                     ; second sector (EBX preserved across call)
+    call ata_read_sector
+    jc .fail
+    push dword 0                ; ior = 0: success
+    NEXT
+.fail:
+    push dword 1                ; ior = 1: ATA timeout/error (CF was set)
+    NEXT
+
+; (BLK-READ-NONE) - ( buf-addr blk# -- ior ) Loud-fail stub.
+; Installed at boot when MEMDISK_BASE is set: PXE/memdisk boot has no
+; persistent read path until a vocabulary installs one (e.g. AHCI).
+; Announces itself: a persistent read with no medium behind it must say
+; so — it must NEVER quietly serve the RAM copy instead.
+DEFCODE "(BLK-READ-NONE)", BLKREADNONE, 0
+    pop eax                     ; blk#
+    pop edx                     ; buf-addr, discarded
+    push eax                    ; keep blk# for the announcement
+    push esi
+    mov esi, msg_blk_read_fail
+    call print_string
+    pop esi
+    pop eax
+    call print_unsigned         ; blk# in current BASE
+    mov al, 13
+    call print_char
+    mov al, 10
+    call print_char
+    push dword 1                ; ior = 1: no reader for this boot environment
+    NEXT
+
+; BLK-READER! - ( xt -- ) Install a persistent reader (e.g. from AHCI vocab)
+DEFCODE "BLK-READER!", BLKREADERSTORE, 0
+    pop eax
+    mov [BLK_READ_VEC], eax
+    NEXT
+
+; BLK-READER@ - ( -- xt ) Inspect the active persistent reader
+DEFCODE "BLK-READER@", BLKREADERFETCH, 0
+    push dword [BLK_READ_VEC]
+    NEXT
+
+; PBLK-READ - ( buf-addr blk# -- ior ) Persistent block read via the vector.
+; The Forth-callable entry: dispatches BLK_READ_VEC through execute_xt so
+; the installed reader may be a DEFCODE or a colon definition (second
+; customer of the trampoline, after blk_flush_one).
+; COHERENCY INVARIANT: a persistent read must observe all prior persistent
+; writes in the same session. SET-SAVE stages via BUFFER and ends with
+; UPDATE SAVE-BUFFERS — it always leaves the target block clean on success,
+; so PBLK-READ after SET-SAVE is coherent by construction. Any OTHER caller
+; that dirties the target block through the cache must SAVE-BUFFERS before
+; PBLK-READ. Readers MUST NOT call block-layer words (BLOCK/BUFFER).
+DEFCODE "PBLK-READ", PBLKREAD, 0
+    mov eax, [BLK_READ_VEC]
+    call execute_xt             ; preserves ESI; args/result on data stack
     NEXT
 
 ; ============================================================================
@@ -5184,6 +5273,7 @@ msg_welcome:    db 'Bare-Metal Forth v0.1 - Ship Builders System', 13, 10
 msg_stack:      db '<', 0
 msg_undefined:  db ' ? ', 13, 10, 0
 msg_blk_write_fail: db 'BLOCK WRITE FAIL ', 0
+msg_blk_read_fail:  db 'BLOCK READ FAIL ', 0
 msg_break:      db 'BREAK', 13, 10, 0
 msg_more:       db '-- more --', 0
 see_msg:        db 'SEE: ', 0
