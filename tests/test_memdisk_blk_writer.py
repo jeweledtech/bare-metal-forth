@@ -169,13 +169,27 @@ def main():
         out.write('  (booted via pxelinux -> memdisk)\n')
         cmd(s, 'DECIMAL')
 
-        # Scenario B: memdisk default is the loud stub
+        # Scenario B: memdisk defaults are the loud stubs
         r = cmd(s, "BLK-WRITER@ ' (BLK-WRITE-NONE) = .")
         chk('memdisk default = (BLK-WRITE-NONE)', r, '-1 ')
+        r = cmd(s, "BLK-READER@ ' (BLK-READ-NONE) = .")
+        chk('memdisk default = (BLK-READ-NONE)', r, '-1 ')
         r = cmd(s, '1 BLOCK C@ . ', 2)
         chk('RAM-backed BLOCK read works', r, 'ok',
             unwanted='?')
-        cmd(s, '199 BUFFER 1024 42 FILL UPDATE')
+        # Loud read refusal: the stub must NEVER fall back to
+        # the RAM copy — that silent fallback is the stale-
+        # settings bug the read vector exists to kill.
+        cmd(s, 'CREATE RBUF 1024 ALLOT')
+        r = cmd(s, 'RBUF 199 PBLK-READ .', 2)
+        chk('PBLK-READ refused loudly on memdisk', r,
+            'BLOCK READ FAIL 199')
+        chk('loud reader returns ior=1', r, '1 ')
+        # Sentinel 77 at byte 900: second sector, and past a
+        # DECIMAL-400 truncation — proves full 1024-byte copy
+        # when read back through the vector below.
+        cmd(s, '199 BUFFER DUP 1024 42 FILL '
+               '900 + 77 SWAP C! UPDATE')
         r = cmd(s, 'SAVE-BUFFERS', 3)
         chk('SAVE-BUFFERS fails loudly on memdisk', r,
             'BLOCK WRITE FAIL 199')
@@ -195,6 +209,10 @@ def main():
             r = cmd(s, 'AHCI-RW')
             chk('AHCI-RW installs writer', r,
                 'AHCI writer installed')
+            chk('AHCI-RW installs reader', r,
+                'AHCI reader installed')
+            r = cmd(s, 'BLK-READER@ AHCI-READER-XT = .')
+            chk('BLK-READER@ = AHCI-READER-XT', r, '-1 ')
             r = cmd(s, 'SAVE-BUFFERS', 3)
             chk('dirty buffer flushes via AHCI', r, 'ok',
                 unwanted='BLOCK WRITE FAIL')
@@ -203,6 +221,17 @@ def main():
             chk('AHCI-READ LBA 623 ok', r, '0 ')
             r = cmd(s, 'SEC-BUF C@ .')
             chk('persisted pattern 42 on AHCI disk', r, '42 ')
+            # Vectored read-back: zero RBUF first so the
+            # sentinel can only have come from the disk.
+            cmd(s, 'RBUF 1024 0 FILL')
+            r = cmd(s, 'RBUF 199 PBLK-READ .', 3)
+            chk('PBLK-READ via AHCI ior=0', r, '0 ',
+                unwanted='BLOCK READ FAIL')
+            r = cmd(s, 'RBUF C@ .')
+            chk('vectored read returns pattern 42', r, '42 ')
+            r = cmd(s, 'RBUF 900 + C@ .')
+            chk('sentinel at byte 900 survives (full '
+                '1024-byte copy)', r, '77 ')
             r = cmd(s, 'DEPTH .')
             chk('final stack balance', r, '0 ')
         else:
