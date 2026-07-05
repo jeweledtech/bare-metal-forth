@@ -86,6 +86,53 @@ def scan_vocabs(vocab_dir):
 LINES_PER_BLOCK = 16  # 16 lines of 64 chars per block
 CATALOG_DATA_LINES = LINES_PER_BLOCK - 1  # line 0 is header
 
+# Two-store model (TASK M4c): catalog-packed blocks are the CODE store;
+# the reserved range below is the mutable DATA store (settings), written
+# at runtime through the kernel block-write vector. The packer must never
+# place vocabulary source inside it — on disk-boot topologies a settings
+# save would otherwise clobber packed source (blocks share one medium).
+SETTINGS_RESERVED = range(192, 208)   # 16 blocks: settings + headroom
+SET_BLK = 199                         # settings.fth SET-BLK constant
+HP_WRITE_CEILING = 910                # blocks 0-910 writable on HP (LBA < 2048)
+
+
+def place_vocab(next_block, num_blocks):
+    """Start block for a vocab, skipping the reserved settings range.
+
+    A vocab may not start inside, end inside, or span the range."""
+    start = next_block
+    end = start + num_blocks - 1
+    if start < SETTINGS_RESERVED.stop and end >= SETTINGS_RESERVED.start:
+        start = SETTINGS_RESERVED.stop
+    return start
+
+
+def check_reservation(vocabs, layout):
+    """Build-failing invariants for the two-store layout.
+
+    (1) No vocab occupies the reserved settings range (code store keeps
+        out of the data store). NOTE: this is NOT 'packing stays below
+        the HP write ceiling' — vocab sources above block 910 are legal
+        code-store blocks, read from the RAM memdisk.
+    (2) SET_BLK lies inside the reserved range AND at or below the HP
+        write ceiling (the data store is reachable through the guard).
+    """
+    for v in vocabs:
+        s = layout[v['name']]
+        e = s + v['blocks_needed'] - 1
+        if s < SETTINGS_RESERVED.stop and e >= SETTINGS_RESERVED.start:
+            print(f"ERROR: {v['name']} (blocks {s}-{e}) overlaps reserved "
+                  f"settings range {SETTINGS_RESERVED.start}-"
+                  f"{SETTINGS_RESERVED.stop - 1}. Widen the reservation "
+                  f"deliberately — never silently.", file=sys.stderr)
+            sys.exit(1)
+    if SET_BLK not in SETTINGS_RESERVED or SET_BLK > HP_WRITE_CEILING:
+        print(f"ERROR: SET_BLK={SET_BLK} outside reserved range "
+              f"{SETTINGS_RESERVED.start}-{SETTINGS_RESERVED.stop - 1} "
+              f"or above write ceiling {HP_WRITE_CEILING}.",
+              file=sys.stderr)
+        sys.exit(1)
+
 
 def build_catalog_blocks(vocabs, layout):
     """Build catalog as list of block texts (multi-block if needed)."""
@@ -155,8 +202,9 @@ def main():
     temp_layout = {}
     temp_next = 2
     for v in vocabs:
-        temp_layout[v['name']] = temp_next
-        temp_next += v['blocks_needed']
+        start = place_vocab(temp_next, v['blocks_needed'])
+        temp_layout[v['name']] = start
+        temp_next = start + v['blocks_needed']
     cat_blocks = build_catalog_blocks(vocabs, temp_layout)
     num_cat_blocks = len(cat_blocks)
 
@@ -166,11 +214,15 @@ def main():
     layout = {}
     next_block = data_start
     for v in vocabs:
-        layout[v['name']] = next_block
-        next_block += v['blocks_needed']
+        start = place_vocab(next_block, v['blocks_needed'])
+        layout[v['name']] = start
+        next_block = start + v['blocks_needed']
 
     # Rebuild catalog with correct block numbers
     cat_blocks = build_catalog_blocks(vocabs, layout)
+
+    # Two-store invariants — fail the BUILD, not the bench
+    check_reservation(vocabs, layout)
 
     image_size = os.path.getsize(disk_image)
     needed_size = next_block * BLOCK_SIZE
@@ -199,14 +251,24 @@ def main():
     print(f"  Block 0: (reserved)")
     for ci in range(num_cat_blocks):
         print(f"  Block {1 + ci}: VOCAB-CATALOG ({ci + 1}/{num_cat_blocks})")
+    reservation_printed = False
     for v in vocabs:
         start = layout[v['name']]
         end = start + v['blocks_needed'] - 1
+        if not reservation_printed and start >= SETTINGS_RESERVED.stop:
+            print(f"  Blocks {SETTINGS_RESERVED.start}-"
+                  f"{SETTINGS_RESERVED.stop - 1}: (reserved: settings, "
+                  f"SET-BLK={SET_BLK})")
+            reservation_printed = True
         if start == end:
             print(f"  Block {start}: {v['name']} ({v['filename']})")
         else:
             print(f"  Blocks {start}-{end}: {v['name']} ({v['filename']}, "
                   f"{v['blocks_needed']} blocks)")
+    if not reservation_printed:
+        print(f"  Blocks {SETTINGS_RESERVED.start}-"
+              f"{SETTINGS_RESERVED.stop - 1}: (reserved: settings, "
+              f"SET-BLK={SET_BLK})")
     print(f"  Total: {next_block} blocks used")
 
 

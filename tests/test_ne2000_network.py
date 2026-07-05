@@ -44,6 +44,7 @@ vocabs = wc.scan_vocabs(os.path.join(
 _nc = (len(vocabs) + wc.CATALOG_DATA_LINES - 1) // wc.CATALOG_DATA_LINES
 nb = 1 + _nc
 for v in vocabs:
+    nb = wc.place_vocab(nb, v['blocks_needed'])
     if v['name'] == '{vocab_name}':
         print(f"{{nb}} {{nb + v['blocks_needed'] - 1}}")
         break
