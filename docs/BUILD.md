@@ -59,7 +59,11 @@ make test-vocabs        # all block-loadable vocabularies (35+ tests)
 make test-network       # NE2000 two-instance transfer (52 tests, separate)
 ```
 
-### Translator Tests
+### Translator Tests (commercial tier)
+
+The Universal Binary Translator (`tools/translator/`) is part of the
+commercial tier and is not included in this repository. If you have
+the commercial distribution:
 
 ```bash
 cd tools/translator
