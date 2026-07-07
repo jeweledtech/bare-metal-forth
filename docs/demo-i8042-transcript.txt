@@ -1,0 +1,93 @@
+============================================================
+ UBT sanitizer demo: i8042prt.sys (ReactOS PS/2 driver)
+============================================================
+
+corpus: /home/bbrown/projects/forthos/tools/translator/tests/data/i8042prt.sys
+031ba298a2ded32a6d664afa46e8be2919d28b83bc1badf14d0e17aeddb16515  /home/bbrown/projects/forthos/tools/translator/tests/data/i8042prt.sys
+
+== Step 1: build translator and ForthOS combined image ==
+ok
+
+== Step 2: translator -t forth (legible strip) ==
+--- strip summary (verbatim from generated vocabulary) ---
+\ STRIP: 50 total -> 9 kept / 33 scaffolding / 8 unclass
+\ DROPPED (reason):
+\   func_11000 (IRP+DIAGNOSTIC)
+\   func_1105F (IRP+DIAGNOSTIC)
+\   func_110BE (IRP+DIAGNOSTIC)
+\   func_11120 (WMI+REGISTRY+MEMORY)
+\   func_1154C (PNP+MEMORY+SYNC+DIAGNOSTIC)
+\   func_11726 (DIAGNOSTIC)
+\   func_117D2 (POWER+DIAGNOSTIC)
+\   func_11846 (IRP+DIAGNOSTIC)
+\   func_11A17 (IRP+DIAGNOSTIC)
+\   func_11A95 (DIAGNOSTIC)
+\   func_11B19 (IRP+PNP+MEMORY+SYNC+DIAGNOSTIC)
+\   func_11F3E (IRP+SYNC+DIAGNOSTIC)
+\   func_120DD (MEMORY+DIAGNOSTIC)
+\   func_1235C (IRP+PNP+DIAGNOSTIC)
+\   func_1252A (IRP+SYNC+DIAGNOSTIC)
+\   func_12825 (DIAGNOSTIC)
+\   func_129E8 (IRP+DIAGNOSTIC)
+\   func_12CBB (IRP+MEMORY+SYNC+DIAGNOSTIC)
+\   func_138F4 (IRP+DIAGNOSTIC)
+\   func_13984 (MEMORY)
+\   func_13B00 (DIAGNOSTIC)
+\   func_14577 (SYNC+DIAGNOSTIC)
+\   func_145F7 (SYNC+DIAGNOSTIC)
+\   func_147E0 (DIAGNOSTIC)
+\   func_14895 (DIAGNOSTIC)
+\   func_14A8F (DIAGNOSTIC)
+\   func_14BD5 (IRP+MEMORY+SYNC+DIAGNOSTIC)
+\   func_154D0 (DIAGNOSTIC)
+\   func_163DE (IRP+PNP+MEMORY+SYNC+DIAGNOSTIC)
+\   func_16DFC (DIAGNOSTIC)
+\   func_170B5 (DIAGNOSTIC)
+\   func_17357 (DIAGNOSTIC)
+\   func_17520 (REGISTRY+STRING+DIAGNOSTIC)
+\ UNCLASSIFIED (kept out, unproven):
+\   func_117B3
+\   func_11E2B
+\   func_127F5
+\   func_12C70
+\   func_14486
+\   func_171DE
+\   func_1730A
+\   func_17DA1
+
+== Step 3: two renderings, one truth ==
+counts agree: 50 total -> 9 kept / 33 scaffolding / 8 unclassified  (sum check: 9+33+8=50)
+longest generated line: 62 chars (block budget 64): '\\   ( US-DELAY INB OUTB IRQ-CONNECT IRQ-DISCONNECT DPC-QUEUE )'
+
+== Step 4: write-block.py into demo blocks image ==
+Wrote blocks 1600-1606 (7 blocks) to /home/bbrown/projects/forthos/build/demo_blocks.img
+  Source: 112 lines, 2543 bytes
+  Block offset: 1638400 (0x190000)
+vocab written at blocks 1600-1606
+
+== Step 5: boot ForthOS in QEMU (headless, serial tcp :4590) ==
+listening on :4590
+
+== Step 6: live serial session ==
+Sanitizer demo: kept word runs, dropped word is absent
+======================================================
+  PASS: kernel alive
+  (HARDWARE from catalog: blocks 521-532)
+  PASS: HARDWARE loads
+  (I8042PRT freshly translated: blocks 1600-1606)
+  PASS: I8042PRT loads with zero ? errors
+  PASS: USING I8042PRT
+
+-- KEPT half: extracted hardware word executes real port I/O --
+  PASS: PORT-FN-16FCC present in vocabulary
+  PASS: PORT-FN-16FCC reads port 0x3FD -> 0x60
+
+-- DROPPED half (adversarial): the strip is a real removal --
+   target: func_11B19, reason IRP+PNP+MEMORY+SYNC+DIAGNOSTIC
+  PASS: FUNC_11B19 absent from WORDS
+  PASS: FUNC_11B19 lookup fails at the interpreter
+
+Passed: 8/8
+
+DEMO COMPLETE: kept word ran on live port I/O;
+dropped function verified absent from the vocabulary.
