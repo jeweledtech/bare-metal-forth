@@ -32,7 +32,7 @@ def start_qemu():
     proc = subprocess.Popen([
         'qemu-system-i386',
         '-drive', 'file=build/combined.img,format=raw,if=floppy',
-        '-drive', 'file=build/blocks.img,format=raw,if=ide,index=1',
+        '-drive', 'file=build/combined-ide.img,format=raw,if=ide,index=1',
         '-serial', f'tcp::{PORT},server=on,wait=off',
         '-display', 'none',
     ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -102,8 +102,10 @@ def main():
     s = connect()
 
     total += 1
-    r = cmd(s, 'USING SHUTDOWN', 2)
-    if chk('USING SHUTDOWN', r, 'ok', unwanted='?'):
+    r = cmd(s, 'S" SHUTDOWN" LOAD-VOCAB', 8)
+    r2 = cmd(s, 'USING SHUTDOWN', 2)
+    if chk('LOAD-VOCAB+USING SHUTDOWN', r2, 'ok',
+           unwanted='?'):
         passed += 1
     else:
         failed += 1
@@ -125,8 +127,10 @@ def main():
     s = connect()
 
     total += 1
-    r = cmd(s, 'USING SHUTDOWN', 2)
-    if chk('USING SHUTDOWN (2)', r, 'ok', unwanted='?'):
+    r = cmd(s, 'S" SHUTDOWN" LOAD-VOCAB', 15)
+    r2 = cmd(s, 'USING SHUTDOWN', 2)
+    if chk('LOAD-VOCAB+USING SHUTDOWN (2)', r2, 'ok',
+           unwanted='?'):
         passed += 1
     else:
         failed += 1
@@ -156,8 +160,10 @@ def main():
     s = connect()
 
     total += 1
-    r = cmd(s, 'USING SHUTDOWN', 2)
-    if chk('USING SHUTDOWN (3)', r, 'ok', unwanted='?'):
+    r = cmd(s, 'S" SHUTDOWN" LOAD-VOCAB', 15)
+    r2 = cmd(s, 'USING SHUTDOWN', 2)
+    if chk('LOAD-VOCAB+USING SHUTDOWN (3)', r2, 'ok',
+           unwanted='?'):
         passed += 1
     else:
         failed += 1

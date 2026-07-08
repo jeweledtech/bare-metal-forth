@@ -50,11 +50,20 @@ QEMU exits immediately. No ACPI table walk needed.
   QEMU; may fail silently on hardware)
 - Wrong SLP_TYP: machine stays on (safe failure)
 
+## Usage
+
+Block-load only (NOT embedded — embedding crossed a
+memory boundary that broke META-COMPILER THRU loading):
+
+    S" SHUTDOWN" LOAD-VOCAB
+    USING SHUTDOWN
+    SHUTDOWN
+
 ## Files
 
 - `forth/dict/shutdown.fth` — SHUTDOWN vocabulary
 - `tests/test_shutdown.py` — QEMU process exit test
-- Makefile — added to EMBED_VOCABS + EMBED_VOCABS_FREE
+- Catalog blocks 914–925 (auto-packed by write-catalog)
 
 ## QEMU Observations (2026-07-07)
 
@@ -82,7 +91,8 @@ QEMU exits immediately. No ACPI table walk needed.
 SHUTDOWN — if the machine powers off, the console
 evidence dies with it.**
 
-- [ ] PXE boot with shutdown.fth embedded
+- [ ] PXE boot, then block-load SHUTDOWN:
+      `S" SHUTDOWN" LOAD-VOCAB`
 - [ ] `USING SHUTDOWN`
 - [ ] `HEX SCAN-RSDP .` — verify non-zero
 - [ ] `FIND-S5 .` — record actual SLP_TYPa

@@ -41,7 +41,7 @@ $(BOOTLOADER): $(SRC_BOOT)/boot.asm | $(BUILD)
 	$(NASM) -f bin -o $@ $<
 
 # Embedded vocabularies (evaluated at boot, no block storage needed)
-EMBED_VOCABS = forth/dict/hardware.fth forth/dict/port-mapper.fth forth/dict/echoport.fth forth/dict/pci-enum.fth forth/dict/catalog-resolver.fth forth/dict/ahci.fth forth/dict/rtl8168.fth forth/dict/ntfs.fth forth/dict/auto-detect.fth forth/dict/fat32.fth forth/dict/surveyor.fth forth/dict/ui-core.fth forth/dict/ui-parser.fth forth/dict/ui-events.fth forth/dict/gui-harvest.fth forth/dict/ps2-keyboard.fth forth/dict/file-editor-core.fth forth/dict/file-editor-disk.fth forth/dict/notepad-form.fth forth/dict/notepad.fth forth/dict/hello-form.fth forth/dict/hello-app.fth forth/dict/file-stream.fth forth/dict/file-browser-form.fth forth/dict/file-browser.fth forth/dict/shutdown.fth
+EMBED_VOCABS = forth/dict/hardware.fth forth/dict/port-mapper.fth forth/dict/echoport.fth forth/dict/pci-enum.fth forth/dict/catalog-resolver.fth forth/dict/ahci.fth forth/dict/rtl8168.fth forth/dict/ntfs.fth forth/dict/auto-detect.fth forth/dict/fat32.fth forth/dict/surveyor.fth forth/dict/ui-core.fth forth/dict/ui-parser.fth forth/dict/ui-events.fth forth/dict/gui-harvest.fth forth/dict/ps2-keyboard.fth forth/dict/file-editor-core.fth forth/dict/file-editor-disk.fth forth/dict/notepad-form.fth forth/dict/notepad.fth forth/dict/hello-form.fth forth/dict/hello-app.fth forth/dict/file-stream.fth forth/dict/file-browser-form.fth forth/dict/file-browser.fth
 EMBEDDED = $(BUILD)/embedded.bin
 
 # Free-tier vocabularies (public-tracked only, no paid/gitignored content)
@@ -53,7 +53,7 @@ EMBED_VOCABS_FREE = forth/dict/hardware.fth forth/dict/port-mapper.fth forth/dic
     forth/dict/gui-harvest.fth forth/dict/file-editor-core.fth forth/dict/notepad-form.fth \
     forth/dict/notepad.fth forth/dict/hello-form.fth forth/dict/hello-app.fth \
     forth/dict/settings-form.fth forth/dict/settings.fth \
-    forth/dict/file-browser-form.fth forth/dict/shutdown.fth
+    forth/dict/file-browser-form.fth
 
 EMBEDDED_FREE = $(BUILD)/embedded-free.bin
 KERNEL_FREE = $(BUILD)/kernel-free.bin
@@ -195,7 +195,7 @@ $(COMBINED): $(IMAGE) $(BUILD)/.catalog.stamp
 	echo "  Blocks: $$(stat -c%s $(BLOCKS)) bytes (LBA $$SECT+)"
 	@echo "  Total:  $$(stat -c%s $(COMBINED)) bytes"
 
-combined: $(COMBINED)
+combined: $(COMBINED) $(COMBINED_IDE)
 
 # QEMU IDE copy: avoids file lock conflict when same data is both floppy and IDE
 $(COMBINED_IDE): $(COMBINED)
