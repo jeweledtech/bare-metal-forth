@@ -328,16 +328,98 @@ a missing SP-advance (EMIT-PUSH or equivalent)
 before or after the store. Compare with the
 FIND-success path that was fixed for #33b.
 
+## WIP: deeper investigation — 2026-07-10
+
+### Finding: INTERPRET stack leak identified
+
+Source inspection of MC-INTERPRET-ARM64's NUMBER
+path found the exact leak site. After FIND fails
+(line 1851), it returns `(addr len FALSE)`,
+preserving its input. The `2DUP` at line 1850 made
+a copy for FIND; FIND preserved it on failure. After
+`DROP` at line 1881 (removes FALSE), two copies of
+`(addr len)` remain. The subsequent `2DUP` + NUMBER
++ `-ROT 2DROP` cleans only one copy — the other
+leaks.
+
+**Candidate fix:** Add `S" 2DROP" T-COMPILE-NAME`
+between lines 1881 and 1882. Verified by stack trace
+through both success and failure NUMBER paths.
+
+**Retrodiction confirmed:** stale cell = 1 IS the
+`len` field from the leaked `(WORD-BUF len)` pair —
+all test inputs are single-digit words (len=1).
+
+### Finding #33d: colon defs don't execute
+
+`: T7 7 EMIT ; T7` → empty output. Interactive
+colon definitions compile (no `?` error) but produce
+no output when called. First-class Phase 4 gate
+failure — separate from comparisons and stack leak.
+
+### Finding: ALL comparison words inverted
+
+Runtime probing (not source analysis) established:
+
+| Test | Expected | Got |
+|------|----------|-----|
+| `5 0= EMIT` | FALSE(0) | 0x00 ✓ |
+| `0 0= EMIT` | TRUE(-1) | **0x00** ✗ |
+| `5 0< EMIT` | FALSE(0) | **0xFF** ✗ |
+| `0 0< EMIT` | FALSE(0) | **0xFF** ✗ |
+| `5 0> EMIT` | TRUE(-1) | **0x00** ✗ |
+| `0 0> EMIT` | FALSE(0) | 0x00 ✓ |
+| `5 NEGATE 0< EMIT` | TRUE(-1) | **0x00** ✗ |
+| `5 NEG NEG 0< EMIT` | FALSE(0) | **0xFF** ✗ |
+
+Every non-trivial comparison returns the opposite
+of expected. DOT's `-31` for input 5 is explained:
+DOT's `0<` returns TRUE for positive input, causing
+NEGATE(5)=-5, then (DOTR) on the unsigned magnitude
+produces `31`.
+
+### CRITICAL: provenance gap discovered
+
+Two contradictions expose a stale-artifact problem:
+
+**C1 — ?DUP: source buggy, runtime correct.**
+Source at line 355 reads `W0 W0 A64-CMP,` (compares
+W0 with itself — always EQUAL, ?DUP should never
+push). But runtime: `5 ?DUP EMIT` → 0x05 (correct),
+`0 ?DUP EMIT` → 0x00 (correct). If the source being
+read built the binary being run, ?DUP would be
+broken. It isn't.
+
+**C2 — 0<: binary correct, runtime wrong.**
+Binary at +0x08D8 decodes field-by-field to correct
+CSINC W0, WZR, WZR, GE (= CSET W0, LT). QEMU
+monitor confirms memory matches. But runtime 0<
+returns inverted results for all inputs.
+
+**One hypothesis explains both:** the running binary
+was NOT built from the source tree being read.
+`/tmp/forthos-arm64.bin` is a loose file with no
+provenance chain — no hash, no build timestamp,
+no verification that this session's `pmemsave`
+produced the file being analyzed.
+
+### Lesson: observation beat reasoning
+
+Every hour went into static analysis of source and
+binary. The two facts that broke the case (?DUP
+works despite buggy source; comparisons inverted
+despite correct encoding) both came from cheap
+runtime probes. The ?DUP contradiction sat in the
+transcript for the entire session; it was noticed,
+rationalized ("maybe I misread"), and moved past.
+Static analysis cannot resolve provenance questions.
+
 ## Phase C.1 gate status: PARTIALLY MET
 
-INTERPRET, EMIT, KEY, and colon definitions work.
-#33a and #33b are closed. #33c is now characterized:
-INTERPRET's number-push path does not advance SP,
-causing consecutive literals to overwrite each
-other. Arithmetic primitives are internally correct.
-Multi-digit NUMBER parse failure is a separate bug.
-Interactive Forth on ARM64 virt is proven for I/O
-but not for computation.
+INTERPRET, EMIT, KEY work. #33a and #33b closed.
+#33c characterized (stack leak + comparison
+inversion) but blocked on provenance verification.
+#33d (colon def execution) is a new gate failure.
 
 ## DTB collision (fixed earlier, 2026-07-07)
 
@@ -346,15 +428,27 @@ Initial A64-ORG=0x40000000 caused ROM overlap error.
 Fixed: A64-ORG=0x40100000 clears the DTB. Committed
 to private repo as fbd17fa.
 
-## Queued follow-ups
+## Queued follow-ups (sequencing matters)
 
-1. Fix INTERPRET number-push path — inspect
-   MC-INTERPRET-ARM64 in target-arm64.fth, find
-   the missing SP-advance after NUMBER succeeds
-2. Fix multi-digit NUMBER parse (separate bug)
-3. VBAR_EL1 crash-reporting stub
-4. Embed boundary assertion (oldest debt)
-5. Floored-division semantics (ARM64 SDIV truncates;
-   /MOD has correction code but untested)
-~~6. Fix test_arm64_boot.py assertions~~ Done
+1. **Provenance reset** — clean rebuild, sha256
+   source tree + image, boot by hash, re-run the
+   six-probe comparison table. No analysis until
+   source↔binary lineage is proven.
+2. If mystery persists: **marker-patch** on 0< body
+   (MOV W0,#0x2A / PUSH / NEXT). 0x2A output →
+   that code IS what runs (check analysis scripts
+   for host/target address mixing). 0xFF still →
+   execution never reaches that code (hunt second
+   emitter or T-ALIAS path).
+3. **Full-body runtime dump** of 0< (all 5 insns
+   after boot) compared word-for-word against image.
+4. Fix stack leak (add 2DROP) — but NOT until
+   provenance is clean.
+5. Do NOT fix ?DUP until step 1 explains why
+   runtime ?DUP currently works despite buggy source.
+6. Fix multi-digit NUMBER (separate bug)
+7. Investigate #33d (colon def execution failure)
+8. VBAR_EL1 crash-reporting stub
+9. Embed boundary assertion (oldest debt)
+~~10. Fix test_arm64_boot.py assertions~~ Done
    2026-07-10: anchored regex matching
