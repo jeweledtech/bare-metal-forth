@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
-"""Test ARM64 Phase C: boot ForthOS on QEMU raspi3b.
+"""Test ARM64 Phase C: boot ForthOS on QEMU virt.
 
 Builds an ARM64 kernel image via metacompiler on x86,
 extracts via QEMU monitor, boots on qemu-system-aarch64
-raspi3b, and verifies the Forth interpreter works.
+virt machine, and verifies interactive Forth works.
+
+The virt machine's PL011 UART has reliable TCP serial,
+unlike raspi3b which had RX delivery problems.
 
 Usage:
     python3 tests/test_arm64_boot.py [PORT]
@@ -13,6 +16,7 @@ import time
 import sys
 import subprocess
 import os
+import re
 import shutil
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 4590
@@ -197,14 +201,14 @@ cmd = [
     f'file={COMBINED_IDE},format=raw,if=ide,index=1',
     '-serial', f'tcp::{PORT},server=on,wait=off',
     '-monitor', f'tcp::{MON_PORT},server=on,wait=off',
-    '-display', 'none', '-daemonize',
+    '-display', 'none',
 ]
-result = subprocess.run(cmd, capture_output=True, text=True)
-if result.returncode != 0:
-    print(f"FAIL: x86 QEMU launch: {result.stderr.strip()}")
-    sys.exit(1)
+builder_proc = subprocess.Popen(
+    cmd,
+    stdout=subprocess.DEVNULL,
+    stderr=subprocess.DEVNULL)
 
-time.sleep(2)
+time.sleep(4)
 
 s = connect(PORT)
 if not s:
@@ -219,7 +223,7 @@ print("\nLoading vocabularies...")
 r = send(s, f'{ASM_S} {ASM_E} THRU', 15)
 check('X86-ASM loaded', '?' not in r, r.strip()[-60:])
 
-r = send(s, f'{MC_S} {MC_E} THRU', 15)
+r = send(s, f'{MC_S} {MC_E} THRU', 30)
 check('META-COMPILER loaded', '?' not in r,
       r.strip()[-60:])
 
@@ -235,11 +239,11 @@ send(s, 'USING TARGET-ARM64', 2)
 send(s, 'ALSO META-COMPILER', 2)
 send(s, 'ALSO ARM64-ASM', 2)
 
-# Run META-COMPILE-ARM64-BOOT
-print("\nRunning META-COMPILE-ARM64-BOOT...")
-r = send(s, 'META-COMPILE-ARM64-BOOT', 60)
+# Run BUILD-ARM64-VIRT (sets virt config then compiles)
+print("\nRunning BUILD-ARM64-VIRT...")
+r = send(s, 'BUILD-ARM64-VIRT', 60)
 print(f"  Output: {r.strip()!r}")
-check('META-COMPILE-ARM64-BOOT completes',
+check('BUILD-ARM64-VIRT completes',
       'ARM64 boot:' in r,
       r.strip()[:120])
 
@@ -262,9 +266,11 @@ r = send(s, 'META-STATUS', 2)
 check('META-STATUS OK', 'OK' in r, r.strip()[:80])
 
 # Check META-CHECK (no unresolved)
+# "Unresolved: " with nothing on that line = success
 r = send(s, 'META-CHECK', 2)
+unresolved = re.findall(r'Unresolved:[ \t]*(\S+)', r)
 check('No unresolved refs',
-      'Unresolved' not in r, r.strip()[:80])
+      len(unresolved) == 0, r.strip()[:80])
 
 # ============================================================
 # Phase 2: Extract ARM64 image via QEMU monitor
@@ -339,34 +345,72 @@ if not extracted_ok:
 # Quick sanity: first 4 bytes should be a valid ARM64
 # instruction (not all zeros)
 with open(ARM64_KERNEL, 'rb') as f:
-    first_word = int.from_bytes(f.read(4), 'little')
+    img_data = f.read(512)
+first_word = int.from_bytes(img_data[:4], 'little')
 check(f'First instruction non-zero (0x{first_word:08X})',
       first_word != 0)
+
+# DUMP-verify: scan for MOV32 immediates that should
+# encode 0x4xxxxxxx addresses (virt-config values).
+# ARM64 MOV32 is MOVZ Wd,#lo16 + MOVK Wd,#hi16,hw=1.
+# MOVK hw=1 has bits [22:21]=01 (shift=16).
+# Check the image contains at least one 0x40xx MOVK
+# (PSP=0x40040000, RSP=0x40050000, UART=0x09000000).
+print("\n  Image header (first 32 bytes):")
+for off in range(0, min(32, len(img_data)), 4):
+    w = int.from_bytes(img_data[off:off+4], 'little')
+    print(f"    +{off:02X}: 0x{w:08X}")
+
+# Look for MOVK with hi16 containing virt-config
+# addresses (must match VIRT-CONFIG in target-arm64.fth:
+# ORG=0x40100000, PSP=0x40140000, RSP=0x40150000,
+# SYSVARS=0x40120000, UART=0x09000000)
+found_virt_addr = False
+for off in range(0, len(img_data) - 3, 4):
+    w = int.from_bytes(img_data[off:off+4], 'little')
+    # MOVK Wd,#imm16,LSL#16: opc=11 hw=01
+    if (w & 0xFFE00000) == 0x72A00000:
+        imm16 = (w >> 5) & 0xFFFF
+        if imm16 in (0x4014, 0x4015, 0x0900,
+                      0x4012, 0x4010):
+            found_virt_addr = True
+            rd = w & 0x1F
+            print(f"    MOVK W{rd},#0x{imm16:04X},"
+                  f"LSL#16 at +{off:02X}")
+check('Image contains virt-config addresses',
+      found_virt_addr)
 
 s.close()
 mon.close()
 
 # ============================================================
-# Phase 3: Boot on QEMU raspi3b
+# Phase 3: ARM64 Boot (virt)
 # ============================================================
 
-print("\n=== Phase 3: ARM64 Boot ===")
+print("\n=== Phase 3: ARM64 Boot (virt) ===")
 
 kill_qemu(str(PORT))
 time.sleep(1)
 
+# Must match A64-ORG in VIRT-CONFIG (target-arm64.fth).
+# 0x40100000 clears virt machine's DTB at 0x40000000-
+# 0x40100000. Generic loader forces exact address,
+# avoiding -kernel header detection heuristics.
+LOAD_ADDR = '0x40100000'
+
 boot_cmd = [
     QEMU_ARM64,
-    '-M', 'raspi3b',
-    '-kernel', ARM64_KERNEL,
+    '-M', 'virt', '-cpu', 'cortex-a57',
+    '-m', '256M',
+    '-device', f'loader,file={ARM64_KERNEL},'
+               f'addr={LOAD_ADDR}',
+    '-device', f'loader,addr={LOAD_ADDR},cpu-num=0',
     '-serial',
     f'tcp::{BOOT_PORT},server=on,wait=on,nodelay=on',
     '-display', 'none',
 ]
 print(f"  CMD: {' '.join(boot_cmd)}")
 
-# Use Popen (wait=on means QEMU blocks until client
-# connects, so -daemonize won't work)
 qemu_proc = subprocess.Popen(
     boot_cmd,
     stdout=subprocess.DEVNULL,
@@ -385,114 +429,91 @@ if bs is None:
     sys.exit(1)
 
 # With wait=on, ForthOS starts AFTER we connect.
-# Wait for "ok " prompt.
 time.sleep(3)
 drain(bs, wait=2)
 
-# Send CR to get a fresh prompt (first one may be
-# partially consumed by drain)
 r = send(bs, '', 5)
 print(f"  Boot output: {r.strip()[:120]!r}")
 
-# If no prompt yet, try again
 if 'ok' not in r.lower():
     r = send(bs, '', 5)
     print(f"  Retry: {r.strip()[:120]!r}")
 
-# Also verify via file output (more reliable
-# than TCP on raspi3b)
-try:
-    qemu_proc.kill()
-    qemu_proc.wait(timeout=5)
-except Exception:
-    pass
-time.sleep(1)
-
-FILE_OUT = '/tmp/forthos-arm64-verify.txt'
-if os.path.exists(FILE_OUT):
-    os.unlink(FILE_OUT)
-file_proc = subprocess.Popen([
-    QEMU_ARM64, '-M', 'raspi3b',
-    '-kernel', ARM64_KERNEL,
-    '-serial', f'file:{FILE_OUT}',
-    '-display', 'none', '-daemonize'
-], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-time.sleep(5)
-file_data = b''
-if os.path.exists(FILE_OUT):
-    file_data = open(FILE_OUT, 'rb').read()
-print(f"  File output: {file_data[:40]!r}")
-check('ok prompt (file verify)',
-      b'ok' in file_data,
-      file_data[:40].decode('ascii', errors='replace'))
-kill_qemu('raspi')
-time.sleep(1)
-
-tcp_ok = 'ok' in r.lower()
-check('ok prompt (TCP)', tcp_ok or b'ok' in file_data,
-      r.strip()[:80])
+check('ok prompt', 'ok' in r.lower(), r.strip()[:80])
 
 # ============================================================
 # Phase 4: Functional verification
 # ============================================================
 
 print("\n=== Phase 4: Verify ===")
-print("  NOTE: TCP RX on QEMU raspi3b may not "
-      "deliver input. Tests may fail due to this "
-      "QEMU limitation, not ARM64 code bugs.")
 
-# Relaunch with wait=on for interactive tests
-qemu_proc = subprocess.Popen([
-    QEMU_ARM64, '-M', 'raspi3b',
-    '-kernel', ARM64_KERNEL,
-    '-serial',
-    f'tcp::{BOOT_PORT},server=on,wait=on,nodelay=on',
-    '-display', 'none',
-], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-time.sleep(1)
-bs = connect(BOOT_PORT, timeout=10, retries=30)
-if bs is None:
-    print("  SKIP: Cannot reconnect for Phase 4")
-    print()
-    print(f'Passed: {PASS}/{PASS + FAIL}')
-    qemu_proc.kill()
-    sys.exit(0 if FAIL == 0 else 1)
-
-time.sleep(3)
-drain(bs, wait=2)
+# Continue using the same session from Phase 3
+# (virt PL011 has reliable TCP serial)
 send(bs, 'DECIMAL', 2)
 
-# Basic arithmetic
+
+def resp_after_echo(full, cmd):
+    """Extract response text after the echoed command."""
+    i = full.find(cmd)
+    if i >= 0:
+        return full[i + len(cmd):]
+    return full
+
+
+def has_word(text, word):
+    """Word-boundary match — '7' must not match '-37'.
+
+    Uses \\b anchors so substring false positives
+    (e.g. '7' in '-37') are eliminated.  See bug #33
+    verification lesson: the Phase 4 '7 in r' check
+    matched DOT's broken '-37' output, manufacturing
+    a false-positive green.
+    """
+    return bool(re.search(r'\b' + re.escape(word)
+                          + r'\b', text))
+
+
+# ---- Arithmetic (bug #33c: DOT output broken) ----
+# These checks use has_word() for anchored matching.
+# Until #33c is fixed, DOT-dependent checks will FAIL.
 r = send(bs, '3 4 + .', 3)
-check('3 4 + . = 7', '7' in r, r.strip()[:60])
+check('3 4 + . = 7', has_word(r, '7'),
+      r.strip()[:60])
 
 r = send(bs, '10 1 - .', 3)
-check('10 1 - . = 9', '9' in r, r.strip()[:60])
+check('10 1 - . = 9', has_word(r, '9'),
+      r.strip()[:60])
 
 r = send(bs, '6 7 * .', 3)
-check('6 7 * . = 42', '42' in r, r.strip()[:60])
+check('6 7 * . = 42', has_word(r, '42'),
+      r.strip()[:60])
 
 # Floored division
 r = send(bs, '-7 3 / .', 3)
-check('-7 3 / . = -3 (floored)', '-3' in r,
+check('-7 3 / . = -3 (floored)',
+      has_word(r, '-3'),
       r.strip()[:60])
 
 # Colon definition
 r = send(bs, ': SQ DUP * ;', 3)
 r = send(bs, '7 SQ .', 3)
-check(': SQ DUP * ; 7 SQ . = 49', '49' in r,
+check(': SQ DUP * ; 7 SQ . = 49',
+      has_word(r, '49'),
       r.strip()[:60])
 
 # IF/ELSE/THEN
 r = send(bs, '1 IF 42 ELSE 99 THEN .', 3)
-check('IF true = 42', '42' in r, r.strip()[:60])
+check('IF true = 42', has_word(r, '42'),
+      r.strip()[:60])
 
 r = send(bs, '0 IF 42 ELSE 99 THEN .', 3)
-check('IF false = 99', '99' in r, r.strip()[:60])
+check('IF false = 99', has_word(r, '99'),
+      r.strip()[:60])
 
 # DO/LOOP
 r = send(bs, '5 0 DO I . LOOP', 3)
-check('DO/LOOP', '0' in r and '4' in r,
+check('DO/LOOP',
+      has_word(r, '0') and has_word(r, '4'),
       r.strip()[:60])
 
 # Undefined word
@@ -502,7 +523,8 @@ check('Undefined word -> ?', '?' in r,
 
 # HEX mode
 r = send(bs, 'HEX FF DECIMAL .', 3)
-check('HEX FF = 255', '255' in r, r.strip()[:60])
+check('HEX FF = 255', has_word(r, '255'),
+      r.strip()[:60])
 
 # ============================================================
 # Cleanup

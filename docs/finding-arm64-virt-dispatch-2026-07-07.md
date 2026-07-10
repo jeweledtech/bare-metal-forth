@@ -200,13 +200,144 @@ These three lessons apply directly to C.3 (Cortex-M)
 first contact — each claim of "X works" must specify
 which code path was actually executed.
 
-## Phase C.1 gate status: NOT MET
+## Verification of #33a/#33b — 2026-07-10
 
-The earlier green was the false positive. Interactive
-Forth on ARM64 virt is not yet proven — EXECUTE works
-(INTERPRET fix), EMIT/KEY work (backward-branch fix),
-but no verified correct output from any dictionary
-word due to DOT/NUMBER bug #33c.
+**Provenance:** All three ARM64 source files
+(`target-arm64.fth`, `arm64-asm.fth`,
+`thumb2-asm.fth`) are PRIVATE-OWNED and gitignored
+in the public repo (`.gitignore:82-84`). Bug #33a
+was introduced in the private copy; fix landed at
+private repo fa36980; the public working-tree copies
+carry the fix via sync.
+
+**Static verification:** Fresh build via
+BUILD-ARM64-VIRT (8032 bytes, 147 symbols, zero
+unresolved). All three B.NE backward branches
+decoded from the binary:
+
+| Offset | Instruction | imm19 | Word |
+|--------|-------------|-------|------|
+| +0x0DAC | 0x54FFFFC1 | -2 | KEY |
+| +0x0DF0 | 0x54FFFFC1 | -2 | EMIT |
+| +0x1120 | 0x54FFFF61 | -5 | CMOVE |
+
+All small negative offsets. No 648KB wild jumps.
+
+**Dynamic verification:** ARM64 virt boots to `ok`
+prompt over PL011 TCP serial. INTERPRET runs (colon
+defs accepted). EMIT/KEY poll loops work (interactive
+I/O functional). #33a and #33b are closed.
+
+**Grep audit:** Zero instances of T-ADDR flowing
+into any backward-branch emitter. `thumb2-asm.fth`
+`T2W-B-BACK,` has zero callers and carries the
+bug #33 warning comment.
+
+**Test assertions fixed:** `test_arm64_boot.py`
+Phase 4 checks now use `has_word()` with `\b`
+anchors instead of bare `in` — eliminates the
+`'7' in '-37'` false-positive pattern.
+
+## EMIT-bypass experiment results — 2026-07-10
+
+### Round 1: arithmetic via EMIT
+
+**Single-digit NUMBER:** Correct. `0` through `9`
+each push the expected integer (verified via EMIT:
+`0 EMIT` → 0x00, `9 EMIT` → 0x09).
+
+**Multi-digit NUMBER:** Completely broken. All
+two-digit literals (`10`, `48`, `65`) fail to parse
+(`?` error). This is separate from the stack bug.
+
+**Arithmetic via EMIT (bypasses DOT entirely):**
+
+| Expression | Expected | Got | Hex |
+|-----------|----------|-----|-----|
+| 1 1 + | 2 | 2 | 0x02 |
+| 2 3 + | 5 | 4 | 0x04 |
+| 5 3 - | 2 | -2 | 0xFE |
+| 3 2 * | 6 | 2 | 0x02 |
+| 8 DUP + | 16 | 16 | 0x10 |
+| 8 8 + 8 + 8 + 8 + 8 + | 48 | 9 | 0x09 |
+
+**Discriminating pair:** `2 3 +`=4 (fails) vs
+`8 DUP +`=16 (works). Both execute `+` on two
+cells. The only difference: in the failing case
+both operands were pushed by INTERPRET's number
+path; in the working case the second came from
+DUP. If `+` were broken, `DUP +` would fail too.
+
+### Round 2: TOS-overwrite discriminator
+
+Hypothesis: INTERPRET's number-push path stores
+at TOS without advancing SP. Consecutive literals
+overwrite each other; primitives then read a stale
+cell below SP.
+
+| Test | Got | Healthy | Overwrite (stale=1) |
+|------|-----|---------|---------------------|
+| `2 3 DROP EMIT` | **0x01** | 0x02 | 0x01 ✓ |
+| `7 DROP EMIT` | **0x01** | — | 0x01 ✓ |
+| `5 DROP EMIT` | **0x01** | — | 0x01 ✓ |
+| `9 DROP EMIT` | **0x01** | — | 0x01 ✓ |
+| `2 3 SWAP DROP EMIT` | **0x03** | 0x03 | 0x03 ✓ |
+| `2 3 OVER EMIT` | **0x01** | 0x02 | 0x01 ✓ |
+
+Every row matches the overwrite theory. The stale
+cell is consistently 1 across all tests.
+
+**Confirmed: interpret-mode number pushes net zero
+cells** — consecutive literals overwrite one slot
+while primitive-pushed cells (DUP, OVER) occupy
+their own. Leading mechanism: missing SP-advance
+in MC-INTERPRET-ARM64's NUMBER-success path (#33b's
+sibling branch); source inspection will confirm.
+
+### Retrodiction of all earlier data
+
+All six Round 1 results now have a single explanation:
+
+- `2 3 +`=4: only one cell (3) pushed; `+` reads
+  3 and stale(1) → 3+1=4 ✓
+- `5 3 -`=0xFE: only one cell (3); `-` reads 3
+  and stale(1) → 1-3=-2 ✓ (order preserved,
+  NOS=stale is first operand)
+- `3 2 *`=2: only one cell (2); `*` reads 2
+  and stale(1) → 1*2=2 ✓
+- `1 1 +`=2: stale(1) coincidentally equals the
+  intended first operand ✓
+- `8 DUP +`=16: DUP copies TOS without going
+  through INTERPRET's number path — SP advances
+  correctly, giving two real cells ✓
+- Chain `8 8 + ...`=9: first `+` gets 8+stale(1)=9;
+  then `8` overwrites 9 with 8; next `+` gets
+  8+stale(1)=9 again; repeats ✓
+
+The DOT constraint table is a consequence: DOT's
+digit-extraction code is probably correct, but it
+receives wrong input because the number it's
+printing was computed via broken stack state.
+
+### Next step
+
+Inspect MC-INTERPRET-ARM64's number-success path
+in target-arm64.fth — the sequence between NUMBER
+returning and INTERPRET looping. The fix is likely
+a missing SP-advance (EMIT-PUSH or equivalent)
+before or after the store. Compare with the
+FIND-success path that was fixed for #33b.
+
+## Phase C.1 gate status: PARTIALLY MET
+
+INTERPRET, EMIT, KEY, and colon definitions work.
+#33a and #33b are closed. #33c is now characterized:
+INTERPRET's number-push path does not advance SP,
+causing consecutive literals to overwrite each
+other. Arithmetic primitives are internally correct.
+Multi-digit NUMBER parse failure is a separate bug.
+Interactive Forth on ARM64 virt is proven for I/O
+but not for computation.
 
 ## DTB collision (fixed earlier, 2026-07-07)
 
@@ -217,10 +348,13 @@ to private repo as fbd17fa.
 
 ## Queued follow-ups
 
-1. Fix DOT/NUMBER (next session, start with EMIT-
-   bypass experiment)
-2. Fix test_arm64_boot.py assertions before committing
+1. Fix INTERPRET number-push path — inspect
+   MC-INTERPRET-ARM64 in target-arm64.fth, find
+   the missing SP-advance after NUMBER succeeds
+2. Fix multi-digit NUMBER parse (separate bug)
 3. VBAR_EL1 crash-reporting stub
 4. Embed boundary assertion (oldest debt)
 5. Floored-division semantics (ARM64 SDIV truncates;
    /MOD has correction code but untested)
+~~6. Fix test_arm64_boot.py assertions~~ Done
+   2026-07-10: anchored regex matching
