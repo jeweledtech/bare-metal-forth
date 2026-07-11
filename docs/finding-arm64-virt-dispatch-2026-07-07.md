@@ -539,3 +539,143 @@ to private repo as fbd17fa.
 9. Embed boundary assertion (oldest debt)
 ~~10. Fix test_arm64_boot.py assertions~~ Done
    2026-07-10: anchored regex matching
+
+## Resolution: Bug #33c — CLOSED (2026-07-11)
+
+**Fix:** Private commit `133e211` adds a `2DROP`
+in MC-INTERPRET-ARM64 between the FIND-failure
+DROP and the NUMBER 2DUP, removing the preserved
+`(addr len)` pair that leaked one data-stack cell
+per interpreted number. Same failure class as
+the #33b FIND-success fix (stack cleanup after
+the 2DUP'd token copy), different idiom.
+
+**Hypothesis correction:** The pre-fix working
+hypothesis was a missing SP-advance in emitted
+ARM64 code. Inspection located the defect at the
+Forth source level instead — a missing `2DROP`
+stack cleanup. The SP-advance narrative was
+reasoned and wrong in detail; the `2DROP`
+mechanism is what the source and the probes show.
+Recorded per observed-vs-reasoned discipline.
+
+**Verification (2026-07-11):** Two independent
+QEMU runs on kernel SHA256 `695abda725b363...`,
+built from source byte-verified against `133e211`.
+Probes 1–6 pass in both runs:
+
+| # | Input | Expected | Observed | Establishes |
+|---|-------|----------|----------|-------------|
+| 1 | `7 EMIT` | 0x07 | 0x07 | single literal reaches stack |
+| 2 | `5 7 EMIT EMIT` | 0x07 0x05 | 0x07 0x05 | distinct cells (core symptom) |
+| 3 | `8 DUP + EMIT` | 0x10 | 0x10 | mixed primitive+literal |
+| 4 | `2 3 DROP EMIT` | 0x02 | 0x02 | stale-cell question answered |
+| 5 | `2 3 + EMIT` | 0x05 | 0x05 | continuity (133e211) |
+| 6 | `5 3 - EMIT` | 0x02 | 0x02 | continuity (133e211) |
+
+**Stale-cell question: answered.** The pre-fix
+constant-1 was the leaked `len` field of the
+`(addr len)` pair — all test inputs are single-
+digit words (len=1). Post-fix, probe 4 observes
+0x02. Confirmed from this session's observation,
+not the commit message.
+
+**Compile-mode LITERAL verdict: INCONCLUSIVE.**
+Blocked by #33d — definition step produces no
+`ok` and no `?`; execution of the defined word
+is never reached. LITERAL itself is not tested
+until #33d is resolved.
+
+**Gates at close:** ARM64 interactive Phases 1–3,
+14/14; x86 suite 192/192 across 16 suites
+(baseline corrected from "190+" per CLAUDE.md;
+`test-pipeline` excluded by design).
+
+## Bug #33d — colon definition non-response (OPEN)
+
+**Observed (2026-07-11, kernel `695abda7...`):**
+`: T5 7 EMIT ;` echoed with no `ok` and no `?`
+within the 3s response window; all subsequent
+input returned nothing. Independently reproduced
+in Phase 4 gate — `: SQ DUP * ;` shows the
+identical signature and cascades five subsequent
+test failures (internal session evidence,
+untracked):
+
+```
+  FAIL: : SQ DUP * ; 7 SQ . = 49
+  FAIL: IF true = 42
+  FAIL: IF false = 99
+  FAIL: DO/LOOP
+  FAIL: Undefined word -> ?
+  FAIL: HEX FF = 255
+```
+
+The non-response begins at the definition step.
+Execution of the defined word is never reached.
+
+**Open question:** dead interpreter vs. STATE
+stuck in compile mode. If `;` is mishandled in
+the compile-mode branch of MC-INTERPRET-ARM64,
+subsequent input is silently consumed as compile
+tokens rather than executed — no `ok` prints.
+Observationally indistinguishable from a genuine
+hang in this session's captures.
+
+**Suspects (all in scope):**
+1. The compile loop (`:` entering compile mode,
+   WORD-loop token processing, STATE management)
+2. The `;` return path (compiling EXIT, resetting
+   STATE, returning to the interpreter loop)
+3. STATE stuck in compile mode — `;` mishandled,
+   subsequent input consumed as compile tokens
+
+**First experiments for the fix arc:**
+(a) After the non-response, send a bare `;` and
+    a bare token, check for `ok` — cheap
+    discriminator between dead and capturing.
+(b) DUMP the definition's dictionary entry before
+    any execution attempt — bytes before boot.
+
+**Priority:** Ahead of multi-digit NUMBER. #33d
+blocks Phase 4 close condition; multi-digit
+NUMBER does not block it as hard. Decided
+2026-07-11.
+
+### Phase 4 number-I/O cluster (pre-registered)
+
+Phase 4 gate failures include a cluster of 4
+number-I/O failures with up to 3 distinguishable
+threads:
+
+**Thread A — multi-digit NUMBER input parsing:**
+`10 1 - .` → `10 ?` — "10" is two digits, cannot
+be parsed by single-digit-only NUMBER. Directly
+observed.
+
+**Thread B — DOT output formatting (single-digit
+inputs):** `3 4 + .` → `70`; `6 7 * .` → `-40`.
+Inputs are single-digit (probes 1–6 confirm
+single-digit NUMBER works). The wrong output is
+from DOT's formatting path, not input parsing.
+Distinct from Thread A.
+
+**Thread C — floored division:** `-7 3 / .` → `-1`.
+Cross-ref: floored division is pre-registered
+(tools/floored-division has codegen but ARM64 `/`
+implementation status is unaudited). Observed `-1`
+matches neither truncated division (-2) nor floored
+division (-3). Unexplained — may be Thread B (DOT
+misformatting a correct `-3`) or a genuine division
+defect, or both. Not resolved by this session.
+
+HYPOTHESIS (not observed): DOT's digit extraction
+loop may share the division path, connecting
+Threads B and C. Plausible but unverified — DOT
+source not audited this session.
+
+NOTE: Serial response attribution across sequential
+probes in the Phase 4 capture is unreliable — a
+stray `70` appears after the `10 ?` response, which
+may be delayed output bleeding across probe
+boundaries.
