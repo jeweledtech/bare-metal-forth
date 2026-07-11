@@ -350,14 +350,35 @@ through both success and failure NUMBER paths.
 `len` field from the leaked `(WORD-BUF len)` pair —
 all test inputs are single-digit words (len=1).
 
-### Finding #33d: colon defs don't execute
+### Finding #33d: colon definition hangs INTERPRET
 
-`: T7 7 EMIT ; T7` → empty output. Interactive
-colon definitions compile (no `?` error) but produce
-no output when called. First-class Phase 4 gate
-failure — separate from comparisons and stack leak.
+`: T7 7 EMIT ;` produces no `ok` after `;` — the
+compile never returned to the interpreter loop.
+Subsequent `T7` gets no echo at all, consistent
+with a hung interpreter rather than a silently-
+executing word. T7 may never have been defined.
+
+**Evidence (leak-fixed image, SHA256 695abda...,
+private commit 133e211):** compile output `b': T7
+7 EMIT ;'` (echo only, no `ok`, no `?`), execute
+output `b''` (no echo of "T7", no output). Leak
+fix did NOT change this behavior.
+
+"Colon defs don't execute" and "compile hangs
+INTERPRET" are different bugs with different
+suspects — the latter points at `;`'s return path
+or the compile loop, not the colon runtime.
+Discriminator queued: send `: T7 7 EMIT ;` then
+`1 EMIT` on the same connection — if `1 EMIT`
+produces nothing, interpreter is confirmed hung
+at compile time.
 
 ### Finding: ALL comparison words inverted
+
+Table below taken through contaminated instrument
+(pre-leak-fix); inversion observation survives on
+the fixed image (`5 0< → 0xFF`, `0 0= → 0x00`
+post-fix) but individual rows require re-derivation.
 
 Runtime probing (not source analysis) established:
 
@@ -378,41 +399,107 @@ DOT's `0<` returns TRUE for positive input, causing
 NEGATE(5)=-5, then (DOTR) on the unsigned magnitude
 produces `31`.
 
-### CRITICAL: provenance gap discovered
+### Provenance verified — no stale artifact
 
-Two contradictions expose a stale-artifact problem:
+Fresh hash-verified build reproduced the inversion
+identically. The ?DUP "contradiction" dissolved:
+`5 ?DUP EMIT` was non-discriminating (both paths
+yield 0x05). The discriminating test `5 ?DUP DROP
+EMIT` → 0x01 confirmed ?DUP IS broken (CMP W0,W0
+never pushes), consistent with source. Source
+matches runtime — no stale binary.
 
-**C1 — ?DUP: source buggy, runtime correct.**
-Source at line 355 reads `W0 W0 A64-CMP,` (compares
-W0 with itself — always EQUAL, ?DUP should never
-push). But runtime: `5 ?DUP EMIT` → 0x05 (correct),
-`0 ?DUP EMIT` → 0x00 (correct). If the source being
-read built the binary being run, ?DUP would be
-broken. It isn't.
+### QEMU CSINC exonerated
 
-**C2 — 0<: binary correct, runtime wrong.**
-Binary at +0x08D8 decodes field-by-field to correct
-CSINC W0, WZR, WZR, GE (= CSET W0, LT). QEMU
-monitor confirms memory matches. But runtime 0<
-returns inverted results for all inputs.
+Self-contained probes with immediate operands
+(no stack involvement), capstone-verified bodies,
+hashed at boot:
 
-**One hypothesis explains both:** the running binary
-was NOT built from the source tree being read.
-`/tmp/forthos-arm64.bin` is a loose file with no
-provenance chain — no hash, no build timestamp,
-no verification that this session's `pmemsave`
-produced the file being analyzed.
+| Probe | Operand | CSINC cond | Expected | Got |
+|-------|---------|-----------|----------|-----|
+| control | MOVZ #1 (no CSINC) | — | 0x01 | 0x01 ✓ |
+| pos5 | MOVZ #5 | GE | 0x00 | 0x00 ✓ |
+| neg5 | MOVN #4 (-5) | GE | 0x01 | 0x01 ✓ |
+| zero | MOVZ #0 | GE | 0x00 | 0x00 ✓ |
 
-### Lesson: observation beat reasoning
+CSINC executes spec-correct. All four comparison
+words (`0=`, `0<>`, `0<`, `0>`) encode spec-correct
+conditions — capstone independently renders them as
+`cset eq`, `cset ne`, `cset lt`, `cset gt`.
+The instruction and the encoding are both right.
 
-Every hour went into static analysis of source and
-binary. The two facts that broke the case (?DUP
-works despite buggy source; comparisons inverted
-despite correct encoding) both came from cheap
-runtime probes. The ?DUP contradiction sat in the
-transcript for the entire session; it was noticed,
-rationalized ("maybe I misread"), and moved past.
-Static analysis cannot resolve provenance questions.
+### XOR removal RESCINDED
+
+The earlier "remove `1 XOR` in `A64-CSET,`" fix
+was two wrongs canceling. The emitter produces
+spec-correct encodings, QEMU executes them to spec,
+and the XOR is doing what the ARM manual says it
+should. The "noxor patch" compensated for the real
+bug (still unidentified) and would have broken the
+emitter the instant the real bug was fixed.
+
+**Anti-lesson:** a patch that makes symptoms
+disappear is not a fix until the mechanism is
+closed.
+
+### Four-links verification (post-leak-fix image)
+
+On the leak-fixed image (private commit 133e211),
+all four links to dictionary `0<` verified clean:
+
+1. **Bytes:** capstone decodes 0< body at +0x08D8
+   as POP/CMP #0/CSET LT/NEG/PUSH/NEXT — correct.
+2. **Dispatch:** marker patch (MOVZ #0x2A) at
+   +0x08D8 prints 0x2A — execution reaches the
+   right address.
+3. **Input:** identity patch (POP→NOP→PUSH) prints
+   0x05 — the word receives 5.
+4. **CPU:** self-contained CSINC probe (immediate
+   operands, no stack) returns spec-correct results.
+
+Yet `5 0< EMIT` on the unpatched image returns
+0xFF. All four links verified clean, result still
+wrong. One of the verifications does not cover the
+failing configuration.
+
+**Gap identified:** byte-verification of 0<'s body
+was never performed on the *unpatched, failing*
+image at runtime. Every probe booted patched files.
+The file bytes are trustworthy (deterministic build)
+but memory-at-execution-time is unverified. If any
+init pass, relocation, or self-modification writes
+over dictionary code after load, the paradox
+dissolves — and patched-body probes would never
+see it because they'd get the same treatment.
+
+### Stack leak contaminated earlier probes
+
+The leak fix changed arithmetic probe results:
+`2 3 + EMIT` was 0x04 (wrong), now 0x05 (correct).
+`5 3 - EMIT` was 0xFE (wrong), now 0x02 (correct).
+The earlier session's conclusion "arithmetic
+primitives are internally correct" was false —
+reached by reading contaminated instrumentation.
+Any conclusion from stack-borne probes before the
+leak fix requires re-derivation, not grandfathering.
+
+`5 .` shifted from -31 to -30. The leak was inside
+DOT's computation. Remaining wrongness should be
+accounted for by: inverted comparisons (0<) +
+broken ?DUP (?DUP never pushes, mangling the
+digit loop's termination). Falsifiable prediction:
+after the ?DUP fix and resolution of the (still-
+unidentified) `0<` mechanism, `5 .` = `5`.
+
+### Lesson: observation beat reasoning (updated)
+
+Session scoreboard: five hypotheses killed by cheap
+probes, zero killed by reasoning, two wrong fixes
+stopped before commit. The `?DUP EMIT` non-
+discriminating test, the all-zeros CSINC probe, and
+the "QEMU is broken" claim each required one more
+probe to correct. Static analysis found the leak
+mechanism; runtime probes did everything else.
 
 ## Phase C.1 gate status: PARTIALLY MET
 
