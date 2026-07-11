@@ -157,3 +157,78 @@ shows the constraint was not binding.
 **Going forward:** Before claiming "no room in the kernel," measure:
 build, then check `(padded_size - last_nonzero_byte)` in kernel.bin.
 The padded-size ceiling is real but the headroom within it is nonzero.
+
+---
+
+## Firmware-provided facts are read, not hardcoded (July 2026)
+
+**Date:** 2026-07-11
+**Status:** Accepted
+**Scope:** All boot paths, all architecture ports
+
+### Statement
+
+Any value that firmware owns — memory ranges, table locations, hardware
+description structures (ACPI tables, Device Tree blobs), core topology,
+interrupt routing — must be read from the authoritative firmware source at
+boot. A constant in ForthOS source that duplicates a firmware-assigned value
+is a defect of the stale-constant class, same severity as a silent failure
+or a false `ok`.
+
+Where a constant must exist anyway (an origin choice like `A64-ORG`, a load
+address, a buffer placement), it must be paired with a boot-time assertion
+that validates the choice against the firmware-provided data and fails
+loudly on collision. An unvalidated origin is a latent Bug #24-class
+boundary collision waiting for a firmware revision to expose it.
+
+### Motivating incident
+
+The ARM64 virt port placed `A64-ORG` at 0x40000000 — the same address where
+QEMU places the Device Tree blob at the base of RAM. The collision corrupted
+the DTB and was found by observation, not by any check. The fix (moving
+`A64-ORG` to 0x40100000) is currently another unvalidated constant. This
+decision requires it to be backed by an assertion: at boot, read the DTB
+header at the address firmware hands us, extract `totalsize`, and verify the
+kernel image and `A64-ORG` region do not overlap `[dtb_base, dtb_base +
+totalsize)`. Loud failure on overlap. This assertion lands as part of the
+current ARM64 Phase C arc, not after it.
+
+### Framing
+
+This is the five-planes discipline applied at the boot boundary. Firmware
+tables (E820, ACPI, DTB) are the machine's own statement of its physical
+map plane. A hardcoded firmware-owned address in vocabulary or kernel source
+is the address plane leaking into the code plane — the same plane-leak class
+as the UI-CORE hardcoded-address crash on the HP. The fix is the same:
+factor the address out of source and into data read from the authority at
+runtime.
+
+This is explicitly **not** a hardware abstraction layer. ForthOS parses
+firmware tables the same way it walks an MFT: as data structures at
+addresses, exposed as named Forth words, inspectable from the prompt.
+Firmware tables are inputs to the surveyor, not layers to live behind.
+
+### Enforcement
+
+1. **Read, don't assume.** E820 (legacy x86), UEFI GetMemoryMap (when the
+   UEFI path exists), and DTB memory nodes (ARM) are parsed during survey
+   and exposed as words.
+2. **Assert every origin.** Any load-address or region-placement constant
+   gets a boot-time (or build-time, where the data is static) assertion
+   against the firmware map. Assertions fail loudly — no `ok` on a machine
+   whose map contradicts our constants.
+3. **Fact vs. policy filter.** External "OS best practices" material is
+   evaluated item by item: does this describe a fact about the machine
+   (adopt: parse it, name it, expose it) or a policy about who may touch
+   the machine (evaluate against VISION.md; usually reject)? Rejections are
+   documented in docs/FIRMWARE-CONTRACT.md so they are strategy, not
+   omissions.
+
+### Consequences
+
+- Immediate: DTB-overlap assertion added to the ARM64 boot path (this arc).
+- Near-term: the embed-boundary HERE-delta assertion (already queued from
+  the SHUTDOWN/Bug #24 work) is the x86 sibling of this rule and should
+  cite this decision when it lands.
+- Ongoing: per-platform boot contracts live in docs/FIRMWARE-CONTRACT.md;
+  every new port's survey-phase checklist gates on them.
