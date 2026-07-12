@@ -679,3 +679,258 @@ probes in the Phase 4 capture is unreliable — a
 stray `70` appears after the `10 ?` response, which
 may be delayed output bleeding across probe
 boundaries.
+
+## Resolution: Bug #33d — CLOSED (2026-07-11)
+
+### Localization chain
+
+The defect was localized in three layers, each
+moved by a specific experiment:
+
+1. **Dispatch logic → `:`'s body.** Source audit
+   found the compile-mode IMMEDIATE check correct,
+   `;` correctly marked. E0 (NOOP, CR) proved
+   EXECUTE→DOCOL works. E3b showed `:` partially
+   wrote a header then SYSVARS zeroed — crash is
+   inside `:`'s body, not the dispatch.
+
+2. **`:`'s body → CMOVE primitive.** E3b dump:
+   link/len/name written correctly, ALIGN's pads
+   absent (name bytes intact), SYSVARS wiped 528+
+   bytes contiguously. Pattern matches a runaway
+   copy loop, not a wild jump.
+
+3. **CMOVE → SUB/SUBS opcode.** Byte decode of the
+   emitted kernel: CMOVE's loop decrement was
+   `SUB W2,W2,#1` (opcode 0x51, no flag update).
+   The `B.NE` loop-back consumed stale NZCV flags
+   from unspecified upstream code.
+
+### Mechanism
+
+The count cannot terminate the loop. The behavior
+is nondeterministic on upstream flag state:
+- Stale NE=true (observed): loop runs until a
+  store into unmapped memory raises an unhandled
+  data abort. Source=WORD-BUF (0x40120200),
+  dst=HERE (0x40101F64+). After the 2-byte name,
+  WORD-BUF contains zeros → copies zeros through
+  the dict area, through SYSVARS (zeroing STATE/
+  HERE/LATEST/BASE/TIB/WORD-BUF), overwrites its
+  own source region, continues until the abort.
+- Stale NE=false (not observed): exits after one
+  byte — silent short-copy, corrupted name, FIND
+  never matches the word.
+
+Note: CBZ (the zero-count guard) does NOT set
+flags. The stale flags come from whatever flag-
+setting instruction last ran upstream (inside
+EXECUTE, DOCOL, or the caller's NEXT sequence).
+
+### First-exercise path
+
+No passing probe before this fix ever called CMOVE
+at runtime on the ARM64 target. WORD parses byte-
+by-byte into WORD-BUF (C!). The host's T-HEADER
+builds target dictionary entries using C, in a
+loop. CMOVE's first runtime invocation was `:`
+copying the parsed name — the bug was latent from
+build day.
+
+### Class audit: branch-side completeness
+
+Every `COND-* A64-BCOND` site in target-arm64.fth:
+
+| Line | Context | Flag-setter | Sound? |
+|------|---------|-------------|--------|
+| 356 | ?DUP | CMP W,W | ✓ |
+| 447 | ABS | CMP# W,0 | ✓ |
+| 622 | /MOD floor | CMP# W,0 | ✓ |
+| 640 | MOD floor | CMP# W,0 | ✓ |
+| 655 | /MOD variant | CMP# W,0 | ✓ |
+| 667 | MIN | CMP W,W | ✓ |
+| 676 | MAX | CMP W,W | ✓ |
+| 815 | (LOOP) | CMP W,W | ✓ |
+| 923 | KEY poll | TST W,W | ✓ |
+| 938 | EMIT poll | TST W,W | ✓ |
+| 1106 | CMOVE loop | **SUB** | **BUG** |
+
+CMOVE was the only site. All others use flag-
+setting operations (CMP, CMP#, TST).
+
+Audit caveat (lesson for the method): presence
+of a flag-setter verifies the flags are fresh but
+does not verify the branch *condition* is the
+right one. Line 815's check passed this audit, but
+#33e (below) reveals a DO/LOOP defect that this
+frame cannot catch — a GE where LT is needed, or
+a wrong offset, produces fresh-but-wrong branching.
+
+### Two defects, same arc
+
+**Defect 1 (crash cause):** `A64-SUB#,` → `A64-SUBS#,`
+at CMOVE's loop decrement. Private commit `5f7366e`.
+
+**Defect 2 (latent, masked by defect 1):** Missing
+HERE-advance after CMOVE in `:`, `CREATE`, and
+`CONSTANT`. After `C,` writes the length byte,
+CMOVE copies the name but does not advance HERE.
+ALIGN then pads from the un-advanced position,
+overwriting name bytes with zeros. Three instances
+of the same pattern found by class audit. Private
+commit `d2b8098`.
+
+### Byte evidence: Q2 header dump (post-fix)
+
+After `: Q2 ;` on kernel `d80c62ed…`:
+```
+0x40102010: 0x40102000  link → previous ✓
+0x40102014: 0x00325102  len=2 "Q2" pad=0x00 ✓
+0x40102018: 0x40100100  CFA → DOCOL ✓
+0x4010201C: 0x40100120  body[0] → EXIT ✓
+
+SYSVARS: STATE=0 HERE=0x40102020 LATEST=0x40102010
+         BASE=0xA — all intact ✓
+```
+
+### Verification probes
+
+Broken kernel (`695abda7…`, pre-fix):
+- `: T5 7 EMIT ;` → no `ok`, no `?` (E3b)
+- `: Q1 ;` → SYSVARS zeroed (E3b)
+- E2 revival → no response (dead, not capturing)
+
+Fixed kernel (`d80c62ed…`, commits `5f7366e`+`d2b8098`):
+
+| # | Probe | Expected | Observed |
+|---|-------|----------|----------|
+| 1 | `: T0 ;` | ok | ok ✓ |
+| 2 | `: T5 7 EMIT ; T5` | 0x07 | 0x07 ✓ |
+| 3 | `: SQ DUP * ; 7 SQ EMIT` | 0x31 | 0x31 ✓ |
+| 4 | `: T0 ;` (redefine) | ok | ok ✓ |
+| 5 | regression set | 0x07/0x05 | ✓ |
+| 6 | `CREATE XX` | ok | ok ✓ |
+| 7 | `5 CONSTANT FV` `FV EMIT` | 0x05 | 0x05 ✓ |
+| 8 | Q2 header dump | well-formed | ✓ |
+
+Synced re-verify (same hash, rebuilt from
+committed private source): P2, P3, P6, P7 pass.
+
+Gates: ARM64 Phases 1–3 14/14; x86 192/192.
+Phase 4 improved 14/24 → 17/24 (3 cascade
+failures flipped; 7 remain = Threads A/B/C + #33e).
+
+### #33c LITERAL verdict — CONFIRMED WORKING
+
+Probe 2 (`: T5 7 EMIT ; T5` → 0x07) exercises
+the full compile-mode path: interpret `7` → STATE
+is -1 → LITERAL called → compiles `LIT 7` into
+definition → `;` executed → T5 called → DOCOL →
+LIT pushes 7 → EMIT sends 0x07 → EXIT.
+
+The INCONCLUSIVE verdict from the 2026-07-11
+session (blocked by #33d) is now closed as
+CONFIRMED WORKING. No separate LITERAL finding
+needed.
+
+### VBAR_EL1 promotion rationale
+
+This bug cost three experiment rounds to localize
+because the data abort was completely silent — no
+register dump, no fault address, no exception
+vector output. The VBAR_EL1 crash-reporting stub
+(queued since the initial ARM64 port) would have
+printed "DATA ABORT at 0x4014xxxx" as the first
+line of evidence, collapsing the E0→E3→E3b→decode
+chain into a single observation. Promoted from
+polish to next-in-arc (ahead of DTB assertion).
+
+## Bug #33e — DO/LOOP iterates once (OPEN)
+
+**Observed (2026-07-11, kernel `d80c62ed…`):**
+`5 0 DO 7 EMIT LOOP` produces one 0x07 byte then
+`ok`. The interpreter is alive and responsive
+after — `(LOOP)` exits on the first pass instead
+of continuing for 5 iterations.
+
+**Cascade-unmasking provenance:** This defect was
+hidden behind #33d — the CMOVE crash killed the
+interpreter before any DO/LOOP could execute. The
+prior session's Phase 4 raw output showed "2" for
+the DO/LOOP test, attributed to Thread B (DOT
+formatting). The targeted probe (`7 EMIT` inside
+the loop, no DOT) reveals a genuine control-flow
+defect.
+
+**Branch-side audit caveat:** The class audit
+(above) checked line 815 — `(LOOP)`'s branch site
+— and found `CMP W,W` preceding `COND-GE BCOND`.
+The flag-setter IS present and correct. The defect
+is therefore NOT the CMOVE-class "missing flags"
+bug. Suspects:
+
+1. **Backward-branch offset** — this target's prior
+   bugs include address-mixing in backward-branch
+   emitters (fa36980). A wrong offset exits the
+   loop or branches to the wrong location.
+2. **Condition sense / operand order** (leading
+   hypothesis alongside #1) — `(LOOP)` increments
+   index then branches back if not done. With
+   `CMP index, limit` + `B.GE exit`: after first
+   increment index=1, limit=5, 1 >= 5 is false →
+   branch-back taken, loop continues. BUT if the
+   operands are swapped (`CMP limit, index`) then
+   5 >= 1 is true → exits after one iteration.
+   **This matches the observed single-iteration
+   behavior.** Must validate against the x86
+   `(LOOP)`'s actual crossing semantics — this
+   kernel's DO/LOOP stores (index limit) on the
+   return stack and LEAVE sets I=LIMIT to force
+   exit, so the correct test is `index >= limit`
+   with index as first operand.
+3. **Index increment** — if `(LOOP)` increments by
+   the limit instead of by 1, or uses the wrong
+   register, the index could jump past the limit
+   on the first pass.
+
+All three are hypotheses. The #33e audit must
+decode `(LOOP)`'s emitted bytes (same method that
+convicted CMOVE) before proposing a fix.
+
+**Possible DOT entanglement:** DOT's digit
+extraction loop uses division in a counted or
+conditional loop. If that loop is `(LOOP)`-based,
+#33e may be the shared root cause of Thread B
+(wrong DOT output on single-digit inputs). Noted
+as possibility; not claimed without DOT source
+audit.
+
+**Correction:** `HEX FF DECIMAL .` → `FF ?` was
+previously categorized as a #33d cascade failure.
+Re-categorized as Thread A (multi-digit NUMBER) —
+"FF" is two hex digits, cannot be parsed by the
+single-digit-only NUMBER implementation.
+
+### Updated Phase 4 categorization (post #33d fix)
+
+7 remaining failures on kernel `d80c62ed…`:
+
+| Test | Output | Thread |
+|------|--------|--------|
+| `3 4 + .` = 7 | "70" | B (DOT) |
+| `10 1 - .` = 9 | "10 ?" | A (multi-digit) |
+| `6 7 * .` = 42 | "-40" | B (DOT) |
+| `-7 3 / .` = -3 | "-1" | B/C (unexplained) |
+| `7 SQ .` = 49 | "10" | B (DOT) |
+| `5 0 DO I . LOOP` | "2" | **#33e** |
+| `HEX FF .` = 255 | "FF ?" | A (multi-digit) |
+
+Priority queue: **VBAR_EL1 stub → #33e (DO/LOOP) →
+DTB assertion → multi-digit NUMBER.** Decided
+2026-07-11 — pay the crash-reporting setup cost
+before the next fix arc; every localization since
+the ARM64 port has paid the silent-abort tax.
+#33e is Phase 4 close-condition material AND may
+resolve Thread B if DOT's loop is entangled;
+DTB and NUMBER are functional items that don't
+block the interactive gate.
