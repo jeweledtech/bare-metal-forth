@@ -230,6 +230,8 @@ check('META-COMPILER loaded', '?' not in r,
 r = send(s, f'{A64_S} {A64_E} THRU', 15)
 check('ARM64-ASM loaded', '?' not in r,
       r.strip()[-60:])
+check('MRS encoder KAT', 'MRS-KAT-FAIL' not in r,
+      r.strip()[-60:])
 
 r = send(s, f'{TA_S} {TA_E} THRU', 30)
 check('TARGET-ARM64 loaded', '?' not in r,
