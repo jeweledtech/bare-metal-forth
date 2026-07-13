@@ -925,12 +925,48 @@ single-digit-only NUMBER implementation.
 | `5 0 DO I . LOOP` | "2" | **#33e** |
 | `HEX FF .` = 255 | "FF ?" | A (multi-digit) |
 
-Priority queue: **VBAR_EL1 stub → #33e (DO/LOOP) →
-DTB assertion → multi-digit NUMBER.** Decided
-2026-07-11 — pay the crash-reporting setup cost
-before the next fix arc; every localization since
-the ARM64 port has paid the silent-abort tax.
-#33e is Phase 4 close-condition material AND may
-resolve Thread B if DOT's loop is entangled;
-DTB and NUMBER are functional items that don't
-block the interactive gate.
+Priority queue: ~~VBAR_EL1 stub~~ → **#33e (DO/LOOP) →
+DTB assertion → multi-digit NUMBER.** VBAR_EL1
+landed 2026-07-12 (private `130ec34` + `b2fd990`,
+public `5c9e785` + `c079787`). The silent-abort
+tax is paid off.
+
+### VBAR_EL1 — landed 2026-07-12
+
+Flight recorder: self-contained handler (registers
+only, direct PL011 writes, WFE park). 16-entry
+vector table at 2KB-aligned boundary. Installed in
+boot stub before UART init. Image 8096→12288 bytes.
+
+Negative test evidence (verbatim):
+```
+!EXC EC=25 FAR=80000000 PC=4010095C
+```
+- EC=0x25: data abort from current EL (correct)
+- FAR=0x80000000: exact computed unmapped address
+- PC=0x4010095C decoded to `STR W0,[X1,#0]` at
+  image +0x95C, 2 instructions into `!`'s primitive
+  code body (header at +094C, CFA at +0950). PC
+  identifies the faulting *primitive*, not the
+  calling word — X27 (Forth IP) would identify the
+  colon def; noted as enhancement candidate.
+
+Boot stub is exactly 256/256 bytes (zero headroom).
+Resolution decided 2026-07-12: trampoline
+architecture — the stub captures x0 and branches
+to a boot-extension routine in normal code space;
+the 0x100 reservation stays fixed and the stub-size
+assertion becomes a guard on a now-stable
+trampoline. Rejected alternative: growing the
+reservation (a raised ceiling is still a ceiling).
+Implementation lands with TASK_DTB_ASSERT.
+See DECISIONS.md entry.
+
+Build-time assertions: VBAR-ALIGN-FAIL (table
+misalignment), VBAR-STUB-OVF (stub overflow),
+MRS-KAT-FAIL (encoder self-check). All run at
+vocab load / metacompile time; failure prints the
+marker once then parks.
+
+#33e is now next — the first debugging arc on this
+target with a witness already on duty.

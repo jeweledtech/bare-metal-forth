@@ -232,3 +232,29 @@ Firmware tables are inputs to the surveyor, not layers to live behind.
   cite this decision when it lands.
 - Ongoing: per-platform boot contracts live in docs/FIRMWARE-CONTRACT.md;
   every new port's survey-phase checklist gates on them.
+
+---
+
+## ARM64 boot stub: trampoline, not larger reservation (July 2026)
+
+**Decision:** The 0x100 boot-stub reservation stays fixed. Future growth
+(DTB capture, additional init) uses a trampoline: the stub captures x0
+and branches to a boot-extension routine emitted in normal code space.
+
+**Motivating incident:** VBAR_EL1 install (2026-07-12) filled the stub to
+exactly 256/256 bytes. The build-time assertion (VBAR-STUB-OVF) now fires
+on any addition. The next queued task (TASK_DTB_ASSERT) requires at least
+one more instruction in the boot path.
+
+**Why trampoline over a larger reservation:**
+- A raised ceiling (0x200, 0x400) is still a ceiling — it invites filling
+  and eventually hits the same problem at a higher address.
+- The trampoline removes the ceiling entirely: the stub becomes a fixed
+  preamble (capture, branch) and the extension routine lives in the same
+  address space as all other emitted code, growing freely.
+- The 0x100 reservation and its assertion become a guard on a stable,
+  known-size trampoline rather than a slowly-growing blob.
+
+**Rejected alternative:** Growing the reservation to 0x200 or larger.
+
+**Implementation:** Lands with TASK_DTB_ASSERT (next after #33e).
