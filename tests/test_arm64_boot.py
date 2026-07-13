@@ -248,6 +248,10 @@ print(f"  Output: {r.strip()!r}")
 check('BUILD-ARM64-VIRT completes',
       'ARM64 boot:' in r,
       r.strip()[:120])
+check('No VBAR align fail', 'VBAR-ALIGN-FAIL' not in r,
+      r.strip()[:120])
+check('No stub overflow', 'VBAR-STUB-OVF' not in r,
+      r.strip()[:120])
 
 # Check symbol count
 r = send(s, 'DECIMAL TSYM-N @ .', 2)
