@@ -516,10 +516,11 @@ r = send(bs, '0 IF 42 ELSE 99 THEN .', 3)
 check('IF false = 99', has_word(r, '99'),
       r.strip()[:60])
 
-# DO/LOOP
-r = send(bs, '5 0 DO I . LOOP', 3)
-check('DO/LOOP',
-      has_word(r, '0') and has_word(r, '4'),
+# DO/LOOP (must use colon def — DO/LOOP are compile-time words)
+r = send(bs, ': TDL 5 0 DO I EMIT LOOP ; TDL', 5)
+got_bytes = [r.count(chr(i)) for i in range(5)]
+check('DO/LOOP (compiled)',
+      all(r.count(chr(i)) >= 1 for i in range(5)),
       r.strip()[:60])
 
 # Undefined word
