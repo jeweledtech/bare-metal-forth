@@ -845,75 +845,96 @@ line of evidence, collapsing the E0→E3→E3b→decode
 chain into a single observation. Promoted from
 polish to next-in-arc (ahead of DTB assertion).
 
-## Bug #33e — DO/LOOP iterates once (OPEN)
+## Bug #33e — DO/LOOP iterates once — DISSOLVED (2026-07-14)
 
-**Observed (2026-07-11, kernel `d80c62ed…`):**
-`5 0 DO 7 EMIT LOOP` produces one 0x07 byte then
-`ok`. The interpreter is alive and responsive
-after — `(LOOP)` exits on the first pass instead
-of continuing for 5 iterations.
+**Original observation (2026-07-11, kernel
+`d80c62ed…`):** `5 0 DO 7 EMIT LOOP` produces one
+0x07 byte then `ok`. Characterized as "(LOOP)
+exits on the first pass instead of continuing for
+5 iterations."
 
-**Cascade-unmasking provenance:** This defect was
-hidden behind #33d — the CMOVE crash killed the
-interpreter before any DO/LOOP could execute. The
-prior session's Phase 4 raw output showed "2" for
-the DO/LOOP test, attributed to Thread B (DOT
-formatting). The targeted probe (`7 EMIT` inside
-the loop, no DOT) reveals a genuine control-flow
-defect.
+**Resolution: dissolved — the observation was
+correct Forth-83 behavior.** `DO` is IMMEDIATE: it
+*compiles* the `(DO)` XT into the dictionary at
+HERE but does not execute it. At the interpret
+prompt, `(DO)` never runs, the return stack is
+never set up, and no loop structure exists. The
+body (`7 EMIT`) executes once as plain interpret-
+mode word execution, producing exactly one 0x07.
 
-**Branch-side audit caveat:** The class audit
-(above) checked line 815 — `(LOOP)`'s branch site
-— and found `CMP W,W` preceding `COND-GE BCOND`.
-The flag-setter IS present and correct. The defect
-is therefore NOT the CMOVE-class "missing flags"
-bug. Suspects:
+**Decisive evidence — x86 semantic authority
+reproduces the observation identically:**
+```
+x86 interpret: 5 0 DO 7 EMIT LOOP → 1x 0x07
+x86 compiled:  : TL 5 0 DO 7 EMIT LOOP ; TL → 5x 0x07
+```
+The x86 kernel (192/192 tests, semantic authority
+for this target) produces one 0x07 at the interpret
+prompt. The ARM64 behavior matched exactly.
 
-1. **Backward-branch offset** — this target's prior
-   bugs include address-mixing in backward-branch
-   emitters (fa36980). A wrong offset exits the
-   loop or branches to the wrong location.
-2. **Condition sense / operand order** (leading
-   hypothesis alongside #1) — `(LOOP)` increments
-   index then branches back if not done. With
-   `CMP index, limit` + `B.GE exit`: after first
-   increment index=1, limit=5, 1 >= 5 is false →
-   branch-back taken, loop continues. BUT if the
-   operands are swapped (`CMP limit, index`) then
-   5 >= 1 is true → exits after one iteration.
-   **This matches the observed single-iteration
-   behavior.** Must validate against the x86
-   `(LOOP)`'s actual crossing semantics — this
-   kernel's DO/LOOP stores (index limit) on the
-   return stack and LEAVE sets I=LIMIT to force
-   exit, so the correct test is `index >= limit`
-   with index as first operand.
-3. **Index increment** — if `(LOOP)` increments by
-   the limit instead of by 1, or uses the wrong
-   register, the index could jump past the limit
-   on the first pass.
+**Root cause:** the 2026-07-11 characterization
+probe (`5 0 DO 7 EMIT LOOP` at the ok prompt) was
+an invalid interpret-mode construct. It was
+designed from reasoning about what DO/LOOP "should"
+do at a prompt, never validated against the x86
+reference first. The finding it produced was correct
+behavior faithfully reproduced, not a defect.
 
-All three are hypotheses. The #33e audit must
-decode `(LOOP)`'s emitted bytes (same method that
-convicted CMOVE) before proposing a fix.
+**Compiled-loop path verified working (first
+exercise, 2026-07-14, kernel SHA256 `a3cf68fc…`):**
 
-**Possible DOT entanglement:** DOT's digit
-extraction loop uses division in a counted or
-conditional loop. If that loop is `(LOOP)`-based,
-#33e may be the shared root cause of Thread B
-(wrong DOT output on single-digit inputs). Noted
-as possibility; not claimed without DOT source
-audit.
+| # | Probe | Expected | Observed |
+|---|-------|----------|----------|
+| T1 | `5 0 DO 7 EMIT LOOP` (interpret) | 1x 0x07 | 1x 0x07 |
+| T2 | `: TL 5 0 DO 7 EMIT LOOP ; TL` | 5x 0x07 | 5x 0x07 |
+| T3 | `: TI 5 0 DO I EMIT LOOP ; TI` | 0x00-0x04 | 0x00 0x01 0x02 0x03 0x04 |
+| T4 | `: T1 1 0 DO 7 EMIT LOOP ; T1` | 1x 0x07 | 1x 0x07 |
+| T5 | `: TN 2 0 DO 3 0 DO 7 EMIT LOOP LOOP ; TN` | 6x 0x07 | 6x 0x07 |
+| T6 | `: TZ 7 EMIT ; TZ` (post-T1 pollution) | 1x 0x07 | 1x 0x07 |
+| T7 | `: TL2 5 0 DO 7 EMIT LOOP ; TL2` (after T1) | 5x 0x07 | 5x 0x07 |
 
-**Correction:** `HEX FF DECIMAL .` → `FF ?` was
-previously categorized as a #33d cascade failure.
-Re-categorized as Thread A (multi-digit NUMBER) —
-"FF" is two hex digits, cannot be parsed by the
-single-digit-only NUMBER implementation.
+All probes green. No `!EXC` on any test. (DO),
+(LOOP), I, LOOP offset, and nested return-stack
+discipline all confirmed correct on first exercise.
 
-### Updated Phase 4 categorization (post #33d fix)
+**Dictionary-pollution note:** T1's interpret-mode
+`DO`/`LOOP` compiles orphaned `(DO)`/`(LOOP)` bytes
+at HERE. T6 and T7 confirm the dictionary survives
+— subsequent colon definitions and compiled loops
+work correctly. The orphaned bytes are overwritten
+by the next `: ... ;` definition.
 
-7 remaining failures on kernel `d80c62ed…`:
+**Thread B observation (recorded, not fixed):**
+`3 4 + .` → `70` — unchanged from prior
+observation. Thread B (DOT formatting) is NOT
+entangled with DO/LOOP; the "possible DOT
+entanglement" hypothesis (2026-07-11) is withdrawn
+as reasoning built on the dissolved characterization.
+DOT's digit-extraction loop does not use `(LOOP)`;
+Thread B remains an independent defect in the queue.
+
+**VBAR regression:** `!EXC EC=25 FAR=80000000
+PC=40100934` — recorder still firing on the same
+image, regression surface intact.
+
+**Lesson — validate probes against the semantic
+authority:** a probe designed from reasoning about
+what a construct "should" do, without first testing
+it on the x86 reference, manufactured a phantom bug
+that survived two sessions. The discriminating
+experiment is checking the x86 kernel with the same
+construct before characterizing an ARM64 divergence.
+
+**Correction (carried forward):** `HEX FF DECIMAL .`
+→ `FF ?` was previously categorized as a #33d
+cascade failure. Re-categorized as Thread A
+(multi-digit NUMBER) — "FF" is two hex digits,
+cannot be parsed by the single-digit-only NUMBER
+implementation.
+
+### Updated Phase 4 categorization (post #33e dissolution)
+
+6 remaining failures on kernel `a3cf68fc…`:
 
 | Test | Output | Thread |
 |------|--------|--------|
@@ -922,14 +943,16 @@ single-digit-only NUMBER implementation.
 | `6 7 * .` = 42 | "-40" | B (DOT) |
 | `-7 3 / .` = -3 | "-1" | B/C (unexplained) |
 | `7 SQ .` = 49 | "10" | B (DOT) |
-| `5 0 DO I . LOOP` | "2" | **#33e** |
 | `HEX FF .` = 255 | "FF ?" | A (multi-digit) |
 
-Priority queue: ~~VBAR_EL1 stub~~ → **#33e (DO/LOOP) →
-DTB assertion → multi-digit NUMBER.** VBAR_EL1
-landed 2026-07-12 (private `130ec34` + `b2fd990`,
-public `5c9e785` + `c079787`). The silent-abort
-tax is paid off.
+~~`5 0 DO I . LOOP`~~ — removed: was testing
+interpret-mode DO/LOOP (invalid construct). Phase 4
+test rewritten to use colon-definition form; now
+passes.
+
+Priority queue: ~~VBAR_EL1 stub~~ → ~~#33e
+(dissolved)~~ → **DTB assertion (trampoline design)
+→ multi-digit NUMBER.**
 
 ### VBAR_EL1 — landed 2026-07-12
 
@@ -968,5 +991,7 @@ MRS-KAT-FAIL (encoder self-check). All run at
 vocab load / metacompile time; failure prints the
 marker once then parks.
 
-#33e is now next — the first debugging arc on this
-target with a witness already on duty.
+#33e dissolved 2026-07-14 — probe was an invalid
+interpret-mode construct, not a kernel defect.
+Compiled DO/LOOP verified working (T2–T5 green).
+Queue advances to DTB assertion (trampoline design).
