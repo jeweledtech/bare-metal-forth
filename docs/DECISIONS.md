@@ -241,12 +241,15 @@ Firmware tables are inputs to the surveyor, not layers to live behind.
 (DTB capture, additional init) uses a trampoline: the stub captures x0
 and branches to a boot-extension routine emitted in normal code space.
 
-**Motivating incident:** VBAR_EL1 install (2026-07-12) filled the stub to
-exactly 256/256 bytes. The build-time assertion (VBAR-STUB-OVF) now fires
-on any addition. The next queued task (TASK_DTB_ASSERT) requires at least
-one more instruction in the boot path.
+**Motivating incident (corrected 2026-07-14):** the original claim that
+the VBAR_EL1 install "filled the stub to exactly 256/256 bytes" was never
+measured — the actual extent was 164/256 (92 bytes free), confirmed by
+three independent methods (sequential decode, build-time cursor, pre-VBAR
+estimate). The "256/256" entered as unbacked prose and was accepted without
+demanding the measurement method.
 
-**Why trampoline over a larger reservation:**
+**Why the decision stands (reaffirmed 2026-07-14 with corrected facts):**
+the urgency was false but the rationale never rested on it —
 - A raised ceiling (0x200, 0x400) is still a ceiling — it invites filling
   and eventually hits the same problem at a higher address.
 - The trampoline removes the ceiling entirely: the stub becomes a fixed
@@ -257,4 +260,28 @@ one more instruction in the boot path.
 
 **Rejected alternative:** Growing the reservation to 0x200 or larger.
 
-**Implementation:** Lands with TASK_DTB_ASSERT (next after #33e).
+**Implemented 2026-07-14** (private `00b3e0d`): x0 captured at instruction
+0 via `A64-MOVX,` (64-bit MOV alias); EMIT-NEXT relocated to BOOT-EXT;
+stub 164→160 of 256, extent self-reported at every build.
+
+## ARM64 DTB-base: hybrid handoff + validated constant (July 2026)
+
+**Decision (2026-07-15):** BOOT-EXT tests captured x0: if nonzero, uses
+it as DTB address (firmware handoff from `-kernel` flow or real hardware);
+if zero, falls back to `A64-DTB-BASE` config variable (validated constant
+whose magic check fires every boot). RASPI3B-CONFIG uses 0 as sentinel
+(forces `!DTB M` until the platform's DTB address is observed).
+
+**Observation:** x0 = 0 on QEMU 8.2.2 `-device loader` flow
+(`x0-observation-final.raw`). The ARM64 boot protocol's x0=DTB convention
+belongs to the `-kernel` path. DTB located at RAM base 0x40000000
+(monitor `xp` confirmed, `xp-final.raw`).
+
+**Why hybrid over pure-constant:** the capture instruction (4 bytes) is
+already built and verified; the if-nonzero check (~8 bytes) costs nothing
+against BOOT-EXT's unconstrained space; and it makes the same code
+correct on both the current loader flow AND future `-kernel` or real
+hardware flows without any source change — the firmware speaks or it
+doesn't, and the boot handles both.
+
+**Implemented** (private `d8c6146`).

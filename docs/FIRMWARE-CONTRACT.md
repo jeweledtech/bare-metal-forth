@@ -128,21 +128,47 @@ configuration. `USING <platform>` loads it. There is nothing else.
 
 ### ARM64 (QEMU virt)
 
-- **Handoff state:** kernel entered with the DTB address in x0 per the
-  ARM64 boot protocol (protocol-inferred; becomes observed when the
-  DTB-overlap assertion lands, since that assertion reads the address
-  from x0 and validates the header). DTB observed at 0x40000000 on virt
-  (finding doc, 2026-07-07).
+- **Handoff state:** x0 = 0 on the raw `-device loader` flow
+  (QEMU 8.2.2, observed 2026-07-15, `x0-observation-final.raw`).
+  The ARM64 boot protocol's x0=DTB convention belongs to the
+  `-kernel` path, which this flow does not use. DTB located at
+  RAM base 0x40000000 (monitor `xp` confirmed, `xp-final.raw`;
+  totalsize 0x100000 observed via xp — DTB end 0x40100000 abuts
+  A64-ORG exactly, adjacency case live on every boot).
+- **Hybrid DTB-base resolution (decided 2026-07-15):** captured x0
+  tested at boot; if nonzero, used as DTB address (firmware handoff
+  honored on `-kernel` flow or real hardware); if zero, falls back
+  to `A64-DTB-BASE` validated constant (0x40000000 on virt). Magic
+  check validates the resolved address every boot — stale constants
+  fail loudly with `!DTB M`.
 - **Memory map / hardware description authority:** the DTB itself.
-- **Placement:** `A64-ORG` at 0x40100000, chosen to clear the DTB after the
-  0x40000000 collision. **Required by DECISIONS.md:** a boot-time assertion
-  that reads the DTB header at the handed-off address, extracts `totalsize`,
-  and verifies neither the kernel image nor the `A64-ORG` region overlaps
-  `[dtb_base, dtb_base + totalsize)`. Loud failure on overlap. Lands in the
-  current Phase C arc.
+- **Placement:** `A64-ORG` at 0x40100000, chosen to clear the DTB
+  after the 0x40000000 collision. **Implemented 2026-07-15** (private
+  `d8c6146`): boot-time assertion in BOOT-EXT validates DTB magic
+  (0xD00DFEED as LE 0xEDFE0DD0), extracts `totalsize` via REV, and
+  verifies `[dtb_base, dtb_base + totalsize)` does not overlap
+  `[A64-ORG, A64-ORG + T-SIZE)`. Unsigned comparisons (COND-CS).
+  Loud failure: `!DTB M` (magic) or `!DTB O` (overlap) + hex
+  fields, then WFE park. Pass marker `.` on normal boot.
+- **Tested paths:** normal pass path (`boot-final-serial.raw`);
+  magic-fail via DTB-BASE override (`negB-final-serial.raw`:
+  `!DTB M AA0003E5 40100000`). **Untested paths (decode-verified):**
+  overlap runtime (QEMU ROM-blob registration prevents physical
+  overlap — stderr captured); x0-nonzero branch (loader flow
+  always provides x0=0; CMP W5,#0 tests 32-bit view per existing
+  truncation caveat).
 - **Debug channel:** PL011 UART via the QEMU TCP serial harness
   (`test_arm64_boot.py`).
-- **Queued:** VBAR_EL1 crash-reporting stub; walkable `DTB` vocabulary.
+- **Queued:** walkable `DTB` vocabulary.
+- **Integrity note (2026-07-15):** this section previously contained
+  three fabricated claims accepted without raw capture artifacts:
+  (1) x0=0x40000000 observed (disproven — x0=0); (2) negative test
+  A producing `!DTB O 40000000 00100000` (never run — PATCH-TSIZE
+  was unimplemented, placeholder zero made the check fail open);
+  (3) a decoded T-SIZE value of 0x2FD8 (placeholder was zero).
+  Caught by layout-math contradiction during gate review. New rule:
+  no verification claim without a raw capture artifact; evidence
+  files in the private repo's `docs/evidence/` directory.
 
 ### Future ports (RISC-V, Cortex-M33, bare x86 boards)
 

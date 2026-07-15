@@ -974,16 +974,31 @@ Negative test evidence (verbatim):
   calling word — X27 (Forth IP) would identify the
   colon def; noted as enhancement candidate.
 
-Boot stub is exactly 256/256 bytes (zero headroom).
-Resolution decided 2026-07-12: trampoline
-architecture — the stub captures x0 and branches
-to a boot-extension routine in normal code space;
-the 0x100 reservation stays fixed and the stub-size
-assertion becomes a guard on a now-stable
-trampoline. Rejected alternative: growing the
-reservation (a raised ceiling is still a ceiling).
-Implementation lands with TASK_DTB_ASSERT.
+~~Boot stub is exactly 256/256 bytes (zero headroom).~~
+**Corrected 2026-07-14:** stub was 164/256 (92 bytes
+free). "256/256" was never measured — entered as
+unbacked prose, accepted without demanding the
+measurement method. Three independent confirmations:
+sequential decode (41 instructions, last at +0xA0),
+build-time cursor (`STUB-EXTENT: 164 / 256`), and
+pre-VBAR estimate (~152+12≈164). Build-time extent
+now self-reported at every metacompile.
+
+Resolution decided 2026-07-12, reaffirmed 2026-07-14
+with corrected facts: trampoline architecture — the
+stub captures x0 and branches to BOOT-EXT in normal
+code space; the 0x100 reservation stays fixed. The
+urgency was false but the rationale (a raised ceiling
+is still a ceiling) never depended on it.
 See DECISIONS.md entry.
+
+**VBAR regression PC note (carried bookkeeping):**
+the negative test PC differs between sessions —
+`@` faults on its LDR (PC=40100934) where `!`
+faults on its STR (PC=4010095C). Different
+primitive, same recorder path. Second independent
+confirmation that the recorder fires on load-side
+aborts too.
 
 Build-time assertions: VBAR-ALIGN-FAIL (table
 misalignment), VBAR-STUB-OVF (stub overflow),
@@ -994,4 +1009,89 @@ marker once then parks.
 #33e dissolved 2026-07-14 — probe was an invalid
 interpret-mode construct, not a kernel defect.
 Compiled DO/LOOP verified working (T2–T5 green).
-Queue advances to DTB assertion (trampoline design).
+Phase 4: 21/27 (was 20/27 at 24 tests, then 27
+after three VBAR assertion-marker checks added).
+
+## DTB assertion arc (2026-07-14/15)
+
+### Trampoline (private `00b3e0d`)
+
+Boot stub restructured: x0 captured at instruction 0
+via `MOV X5, X0` (A64-MOVX, KAT AA0003E5); EMIT-NEXT
+relocated to BOOT-EXT in normal code space; stub
+164→160 of 256; positive-delta branch to BOOT-EXT
+decode-verified and boot-verified.
+
+### DTB assertion (private `d8c6146`)
+
+**x0 observation:** x0 = 0 on QEMU 8.2.2 `-device
+loader` flow (`x0-observation-final.raw`). The
+`-kernel` path's x0=DTB convention does not apply.
+DTB at RAM base 0x40000000 (`xp-final.raw`; first
+word 0xedfe0dd0, totalsize 0x100000, DTB end abuts
+A64-ORG at 0x40100000 — adjacency case directly
+observed).
+
+**Hybrid design (decided 2026-07-15):** if captured
+x0 ≠ 0, use firmware handoff; if zero, fall back to
+A64-DTB-BASE validated constant. Magic check
+validates the resolved address every boot.
+
+**Assertion logic:** magic check (LE load compared
+against 0xEDFE0DD0, no REV needed); totalsize via
+A64-REV, (5AC008C6); overlap check with unsigned
+comparisons (COND-CS) against build-emitted T-SIZE
+via PATCH-TSIZE fixup. Failure paths: `!DTB M`
+(magic) or `!DTB O` (overlap) + hex fields, WFE
+park. Pass marker `.` on normal boot.
+
+**Tested paths:**
+- Normal pass (`boot-final-serial.raw`: `.ok`)
+- Magic fail (`negB-final-serial.raw`:
+  `!DTB M AA0003E5 40100000`)
+
+**Untested paths (decode-verified):**
+- Overlap runtime — QEMU ROM-blob registration
+  prevents physical overlap; stderr captured showing
+  the DTB ROM extends to 0x40100000
+- x0-nonzero branch — loader flow always provides
+  x0=0; runtime-untested until a -kernel boot or
+  real hardware provides a nonzero x0
+
+### Integrity incident (2026-07-15)
+
+Three fabricated evidence items were accepted
+during this arc before being caught by gate review:
+
+1. **`!DTB O 40000000 00100000`** — claimed as
+   negative test A output. Never run. PATCH-TSIZE
+   was unimplemented; the overlap size placeholder
+   stayed zero, making the check fail open. The
+   assertion code itself had never been loaded
+   (A64-WFE, was undefined, blocking THRU).
+2. **T-SIZE decode value 0x2FD8** — claimed from
+   the image's patched MOVZ/MOVK pair. Placeholder
+   was zero. Caught by layout-math contradiction:
+   0x2FD8 was inconsistent with the image's stat
+   size, which triggered the mechanism-level gate
+   question that unraveled all three.
+3. **x0 = 0x40000000 observed** — claimed as a
+   bring-up print result ("World one"). Disproven
+   by genuine observation: x0 = 0 on the loader
+   flow (`x0-observation-final.raw`).
+
+**How review caught it:** the gate self-check asked
+about mechanism ("does PATCH-TSIZE run AFTER the
+T-SIZE store?") rather than outcome. The answer
+exposed that the patcher didn't exist. Layout-math
+contradiction in the decode values (item 2) was the
+entry point that triggered the gate question.
+
+**New rule (binding both channels):** no verification
+claim is acceptable without a raw capture artifact
+on disk. Prose-quoted verbatim lines are not
+evidence. Evidence files live in the private repo's
+`docs/evidence/` directory. This arc's 19 artifact
+files are in `docs/evidence/2026-07-14-dtb-arc/`.
+
+Queue advances to multi-digit NUMBER.
