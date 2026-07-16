@@ -485,58 +485,68 @@ def has_word(text, word):
     return bool(re.search(pat, text))
 
 
-# ---- Arithmetic (bug #33c: DOT output broken) ----
-# These checks use has_word() for anchored matching.
-# Until #33c is fixed, DOT-dependent checks will FAIL.
+# ---- Arithmetic ----
+# All has_word checks use resp_after_echo to strip the echoed
+# command, preventing false-pass from tokens in the echo.
 r = send(bs, '3 4 + .', 3)
-check('3 4 + . = 7', has_word(r, '7'),
+check('3 4 + . = 7',
+      has_word(resp_after_echo(r, '3 4 + .'), '7'),
       r.strip()[:60])
 
 r = send(bs, '10 1 - .', 3)
-check('10 1 - . = 9', has_word(r, '9'),
+check('10 1 - . = 9',
+      has_word(resp_after_echo(r, '10 1 - .'), '9'),
       r.strip()[:60])
 
 r = send(bs, '6 7 * .', 3)
-check('6 7 * . = 42', has_word(r, '42'),
+check('6 7 * . = 42',
+      has_word(resp_after_echo(r, '6 7 * .'), '42'),
       r.strip()[:60])
 
 # Floored division
 r = send(bs, '-7 3 / .', 3)
 check('-7 3 / . = -3 (floored)',
-      has_word(r, '-3'),
+      has_word(resp_after_echo(r, '-7 3 / .'), '-3'),
       r.strip()[:60])
 
 # Colon definition
 r = send(bs, ': SQ DUP * ;', 3)
 r = send(bs, '7 SQ .', 3)
 check(': SQ DUP * ; 7 SQ . = 49',
-      has_word(r, '49'),
+      has_word(resp_after_echo(r, '7 SQ .'), '49'),
       r.strip()[:60])
 
-# IF/ELSE/THEN
-r = send(bs, '1 IF 42 ELSE 99 THEN .', 3)
-check('IF true = 42', has_word(r, '42'),
+# IF/ELSE/THEN (compile-only — must use colon defs)
+# Interpret-mode IF leaks orig addresses on both x86 and ARM64;
+# that's correct Forth-83 behavior for compile-only words.
+tif1_cmd = ': TIF1 1 IF 42 ELSE 99 THEN . ; TIF1'
+r = send(bs, tif1_cmd, 3)
+check('IF true = 42',
+      has_word(resp_after_echo(r, tif1_cmd), '42'),
       r.strip()[:60])
 
-r = send(bs, '0 IF 42 ELSE 99 THEN .', 3)
-check('IF false = 99', has_word(r, '99'),
+tif0_cmd = ': TIF0 0 IF 42 ELSE 99 THEN . ; TIF0'
+r = send(bs, tif0_cmd, 3)
+check('IF false = 99',
+      has_word(resp_after_echo(r, tif0_cmd), '99'),
       r.strip()[:60])
 
 # DO/LOOP (must use colon def — DO/LOOP are compile-time words)
 r = send(bs, ': TDL 5 0 DO I EMIT LOOP ; TDL', 5)
-got_bytes = [r.count(chr(i)) for i in range(5)]
 check('DO/LOOP (compiled)',
       all(r.count(chr(i)) >= 1 for i in range(5)),
       r.strip()[:60])
 
 # Undefined word
 r = send(bs, 'NOTAWORD', 3)
-check('Undefined word -> ?', '?' in r,
+check('Undefined word -> ?',
+      '?' in resp_after_echo(r, 'NOTAWORD'),
       r.strip()[:60])
 
 # HEX mode
 r = send(bs, 'HEX FF DECIMAL .', 3)
-check('HEX FF = 255', has_word(r, '255'),
+check('HEX FF = 255',
+      has_word(resp_after_echo(r, 'HEX FF DECIMAL .'), '255'),
       r.strip()[:60])
 
 # ============================================================
