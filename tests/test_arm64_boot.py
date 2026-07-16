@@ -467,16 +467,22 @@ def resp_after_echo(full, cmd):
 
 
 def has_word(text, word):
-    """Word-boundary match — '7' must not match '-37'.
+    """Token match — '7' must not match '-37'.
 
-    Uses \\b anchors so substring false positives
-    (e.g. '7' in '-37') are eliminated.  See bug #33
-    verification lesson: the Phase 4 '7 in r' check
-    matched DOT's broken '-37' output, manufacturing
-    a false-positive green.
+    Matches word as a standalone numeric token: preceded
+    by a non-digit/non-minus char (or start) and followed
+    by a non-digit char (or end).  Handles both positive
+    and negative values correctly.
+
+    Fixes two earlier bugs:
+    - Plain 'in' matched substrings ('7' in '-37')
+    - \\b regex failed before '-' (non-word adjacent to
+      non-word), causing false-fails on negative values.
     """
-    return bool(re.search(r'\b' + re.escape(word)
-                          + r'\b', text))
+    # Escape for regex, then wrap with lookbehind/lookahead
+    # that anchor on non-numeric context
+    pat = r'(?<![0-9\-])' + re.escape(word) + r'(?![0-9])'
+    return bool(re.search(pat, text))
 
 
 # ---- Arithmetic (bug #33c: DOT output broken) ----
