@@ -285,3 +285,20 @@ hardware flows without any source change — the firmware speaks or it
 doesn't, and the boot handles both.
 
 **Implemented** (private `d8c6146`).
+
+## Finding-doc boundary: internals go private (July 2026)
+
+**Principle:** Finding docs that quote or describe PRIVATE-OWNED
+internals (emitter mechanics, defect sites, source excerpts of paid
+vocabularies) are private-repo documents, co-located with their
+evidence. Public finding/registry docs carry capability-level
+statements only — what was verified, when, outcome — plus at most a
+one-line pointer to the private finding. Public docs predating this
+ruling are grandfathered; new addenda to them follow the rule.
+
+**Origin (2026-07-16):** During the #33e DO/LOOP verification arc, an
+addendum quoting MC-LOOP-RT emitter internals was drafted into
+`docs/finding-arm64-virt-dispatch-2026-07-07.md` — a public-tracked
+registry doc. Caught pre-commit; the addendum moved to a private
+finding doc alongside its raw captures, and the public doc kept a
+one-line re-verification pointer.

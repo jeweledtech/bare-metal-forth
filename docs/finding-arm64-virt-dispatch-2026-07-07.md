@@ -954,6 +954,9 @@ Priority queue: ~~VBAR_EL1 stub~~ → ~~#33e
 (dissolved)~~ → **DTB assertion (trampoline design)
 → multi-digit NUMBER.**
 
+Dissolution independently re-verified 2026-07-16 on
+the post-Thread-B kernel; see private finding.
+
 ### VBAR_EL1 — landed 2026-07-12
 
 Flight recorder: self-contained handler (registers
