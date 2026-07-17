@@ -532,9 +532,14 @@ check('IF false = 99',
       r.strip()[:60])
 
 # DO/LOOP (must use colon def — DO/LOOP are compile-time words)
-r = send(bs, ': TDL 5 0 DO I EMIT LOOP ; TDL', 5)
-check('DO/LOOP (compiled)',
-      all(r.count(chr(i)) >= 1 for i in range(5)),
+# Hardened (#33e audit): printable digits via 48 +, and the
+# contiguous ascending substring '01234' checked post-echo.
+# The old form counted bytes 0x00-0x04 anywhere in the raw
+# response, which serial noise/padding could false-pass.
+tdl_cmd = ': TDL 5 0 DO I 48 + EMIT LOOP ; TDL'
+r = send(bs, tdl_cmd, 5)
+check('DO/LOOP (compiled, contiguous 01234)',
+      '01234' in resp_after_echo(r, tdl_cmd),
       r.strip()[:60])
 
 # Undefined word
