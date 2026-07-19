@@ -554,6 +554,37 @@ check('HEX FF = 255',
       has_word(resp_after_echo(r, 'HEX FF DECIMAL .'), '255'),
       r.strip()[:60])
 
+# ---- NUMBER coverage (multi-digit, sign, wrap, base, rejection) ----
+r = send(bs, '123 .', 3)
+check('multi-digit 123',
+      has_word(resp_after_echo(r, '123 .'), '123'),
+      r.strip()[:60])
+
+r = send(bs, '-45 .', 3)
+check('negative -45',
+      has_word(resp_after_echo(r, '-45 .'), '-45'),
+      r.strip()[:60])
+
+r = send(bs, '4294967295 .', 3)
+check('overflow wrap 2^32-1 = -1',
+      has_word(resp_after_echo(r, '4294967295 .'), '-1'),
+      r.strip()[:60])
+
+r = send(bs, 'HEX 12A DECIMAL .', 3)
+check('HEX 12A = 298',
+      has_word(resp_after_echo(r, 'HEX 12A DECIMAL .'), '298'),
+      r.strip()[:60])
+
+# Rejection: invalid token prints ?, next command still works
+r = send(bs, '12A', 3)
+check('12A rejected (? present)',
+      '?' in resp_after_echo(r, '12A'),
+      r.strip()[:60])
+r = send(bs, '5 3 + .', 3)
+check('recovery after reject (5 3 + . = 8)',
+      has_word(resp_after_echo(r, '5 3 + .'), '8'),
+      r.strip()[:60])
+
 # ============================================================
 # Cleanup
 # ============================================================
