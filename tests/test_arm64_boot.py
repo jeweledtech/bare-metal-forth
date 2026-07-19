@@ -156,6 +156,21 @@ def cleanup():
 # Preflight
 # ============================================================
 
+# Check for required vocabulary packs (private-owned) first —
+# a fresh-clone user without packs should see SKIP, not a
+# confusing "Missing combined.img" build-artifact error.
+VOCAB_DIR = os.path.join(PROJECT_DIR, 'forth', 'dict')
+REQUIRED_VOCABS = [
+    'meta-compiler.fth', 'arm64-asm.fth', 'target-arm64.fth']
+missing = [v for v in REQUIRED_VOCABS
+           if not os.path.exists(os.path.join(VOCAB_DIR, v))]
+if missing:
+    print("SKIP: missing vocabulary packs: "
+          + ", ".join(missing))
+    print("See https://shop.jollygeniusinc.com — "
+          "free-tier kernel tests are unaffected.")
+    sys.exit(77)
+
 for f in [COMBINED, COMBINED_IDE]:
     if not os.path.exists(f):
         print(f"FAIL: Missing {f}")
@@ -583,6 +598,24 @@ check('12A rejected (? present)',
 r = send(bs, '5 3 + .', 3)
 check('recovery after reject (5 3 + . = 8)',
       has_word(resp_after_echo(r, '5 3 + .'), '8'),
+      r.strip()[:60])
+
+# ---- DEPTH coverage ----
+r = send(bs, 'DEPTH .', 3)
+check('DEPTH empty = 0',
+      has_word(resp_after_echo(r, 'DEPTH .'), '0'),
+      r.strip()[:60])
+
+r = send(bs, '10 20 30 DEPTH . DROP DROP DROP', 3)
+check('DEPTH 3 items = 3',
+      has_word(resp_after_echo(
+          r, '10 20 30 DEPTH . DROP DROP DROP'), '3'),
+      r.strip()[:60])
+
+r = send(bs, '1 2 12A', 3)
+r = send(bs, 'DEPTH . DROP DROP', 3)
+check('DEPTH after rejection = 2 (stack untouched)',
+      has_word(resp_after_echo(r, 'DEPTH . DROP DROP'), '2'),
       r.strip()[:60])
 
 # ============================================================
