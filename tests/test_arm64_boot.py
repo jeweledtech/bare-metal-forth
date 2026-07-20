@@ -618,6 +618,39 @@ check('DEPTH after rejection = 2 (stack untouched)',
       has_word(resp_after_echo(r, 'DEPTH . DROP DROP'), '2'),
       r.strip()[:60])
 
+# ---- +LOOP coverage ----
+# Positive step
+pl1_cmd = ': PL1 10 0 DO I . 2 +LOOP ; PL1'
+r = send(bs, pl1_cmd, 5)
+resp = resp_after_echo(r, pl1_cmd)
+check('+LOOP positive step (0 2 4 6 8)',
+      all(has_word(resp, str(v)) for v in [0,2,4,6,8]),
+      r.strip()[:80])
+
+# Overshoot termination
+pl2_cmd = ': PL2 5 0 DO I . 3 +LOOP ; PL2'
+r = send(bs, pl2_cmd, 5)
+resp = resp_after_echo(r, pl2_cmd)
+check('+LOOP overshoot (0 3, terminates)',
+      has_word(resp, '0') and has_word(resp, '3')
+      and not has_word(resp, '6'),
+      r.strip()[:80])
+
+# Negative step
+pl3_cmd = ': PL3 0 10 DO I . -2 +LOOP ; PL3'
+r = send(bs, pl3_cmd, 5)
+resp = resp_after_echo(r, pl3_cmd)
+check('+LOOP negative step (10 8 6 4 2 0)',
+      all(has_word(resp, str(v))
+          for v in [10,8,6,4,2,0]),
+      r.strip()[:80])
+
+# Stack clean after +LOOP
+r = send(bs, 'DEPTH .', 3)
+check('+LOOP stack clean (DEPTH=0)',
+      has_word(resp_after_echo(r, 'DEPTH .'), '0'),
+      r.strip()[:60])
+
 # ============================================================
 # Cleanup
 # ============================================================
