@@ -302,3 +302,20 @@ addendum quoting MC-LOOP-RT emitter internals was drafted into
 registry doc. Caught pre-commit; the addendum moved to a private
 finding doc alongside its raw captures, and the public doc kept a
 one-line re-verification pointer.
+
+## ARM64 +LOOP uses simplified compare, not Forth-83 fence-crossing (July 2026)
+
+**Decision:** ARM64 +LOOP matches x86 kernel's simplified
+sign-branched compare (positive: index>=limit, negative:
+index<limit), NOT the Forth-83 standard fence-crossing
+test (sign change of index-limit before vs after add).
+
+**Consequence:** Negative-step loops include index=0 in
+their output when limit=0 (the body runs because 0 is
+not < 0). Standard fence-crossing would not execute at
+the boundary. This is deliberate x86/ARM64 parity, not
+a bug.
+
+**Evidence:** See private closure-plusloop-arm64.md for
+the full reference table, byte decode, and divergence
+analysis.
