@@ -41,6 +41,7 @@ forth/dict/rtl8168.fth
 forth/dict/file-stream.fth
 
 # Tier 3: Full Hardware Pack (additional)
+forth/dict/atapi-ahci.fth
 forth/dict/surveyor.fth
 forth/dict/graphics.fth
 forth/dict/audio.fth
