@@ -319,3 +319,28 @@ a bug.
 **Evidence:** See private closure-plusloop-arm64.md for
 the full reference table, byte decode, and divergence
 analysis.
+
+## HP 15-bs0xx AHCI port assignment — firmware facts read at boot (July 2026)
+
+**Observed on iron (2026-07-21):**
+- AHCI ABAR = B1235000 (read from PCI BAR5 via
+  `5 PCI-BAR@` at runtime, not hardcoded)
+- Port 0: SATA disk (PxSIG 00000101, Gen3 link)
+- Port 1: ATAPI optical drive (PxSIG EB140101, Gen1)
+- Port 2: implemented, no device (PxSSTS 00000004)
+
+**Decision:** Port numbers are discovered at boot via
+PxSIG signature scan, never hardcoded. The optical
+drive's port number (1 on this machine) is a firmware
+fact that may differ on other hardware. FIND-ATAPI
+returns whichever port reads SIG-ATAPI (EB140101).
+
+**Consequence:** ATAPI code must not assume a specific
+port index. USE-ATAPI sets AH-PORT from the discovered
+AT-PORT value and starts the port's command engine
+(PORT-STOP/PORT-START) on first use, since AHCI-INIT
+only starts the port FIND-PORT returns (the disk).
+
+**Evidence:** See private
+closure-atapi-ahci-phase1.md for raw SCAN-PORTS
+capture and the port-start transition proof.
