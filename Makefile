@@ -399,6 +399,42 @@ test-file-stream: $(IMAGE)
 	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null || true; \
 	exit $$RESULT
 
+# DISK-SURVEY placement gate: adversarial GPT layouts.
+# The test authors each disk with sgdisk and launches its
+# own QEMU per layout, so no QEMU is started here.
+# Skipped when surveyor.fth is absent (paid tier) or when
+# sgdisk is unavailable.
+# The $(COMBINED) prerequisite is only demandable on the full
+# tier: on the free tier surveyor.fth does not exist, so make
+# would fail resolving embedded.bin before the skip guard below
+# ever gets to run.
+ifeq ($(BUILD_TIER),full)
+SURVEY_DEPS = $(COMBINED)
+else
+SURVEY_DEPS =
+endif
+
+test-survey: $(SURVEY_DEPS)
+	@REASON=""; \
+	if [ ! -f forth/dict/surveyor.fth ]; then \
+		REASON="surveyor.fth absent (paid tier)"; \
+	elif ! command -v sgdisk >/dev/null 2>&1; then \
+		REASON="sgdisk not installed"; \
+	fi; \
+	if [ -n "$$REASON" ]; then \
+		echo "########################################"; \
+		echo "## NOT RUN: DISK-SURVEY placement gate"; \
+		echo "## reason: $$REASON"; \
+		echo "## No survey coverage in this run."; \
+		echo "## A green build here does NOT mean the"; \
+		echo "## survey was tested."; \
+		echo "########################################"; \
+		exit 0; \
+	fi; \
+	PORT=$$(($(TEST_PORT_BASE)+100)); \
+	echo "=== DISK-SURVEY layouts (ports $$PORT-$$((PORT+5))) ==="; \
+	python3 tests/test_survey_layouts.py $$PORT
+
 # Run metacompiler tests (5 files, x86 self-hosting verification)
 # NOT included in 'make test' — slow, boots multiple QEMU instances.
 test-meta: $(COMBINED)
@@ -463,7 +499,7 @@ test-meta: $(COMBINED)
 	@echo "Metacompiler tests complete!"
 
 # Run all tests (lint first, then functional tests)
-test: lint test-smoke test-loops test-vocabs test-gui test-integration test-file-stream
+test: lint test-smoke test-loops test-vocabs test-gui test-integration test-file-stream test-survey
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)
