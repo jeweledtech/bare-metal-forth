@@ -287,6 +287,22 @@ test-gui: $(COMBINED)
 		if [ $$STATUS -ne 0 ]; then exit $$STATUS; fi; \
 	done
 
+# Run the INSTALL write-allowlist gate (Piece 1).
+# Needs $(COMBINED): INSTALL is block-loaded off the catalog, not
+# embedded, so the block store has to be attached.
+test-install: $(COMBINED)
+	@cp $(COMBINED) $(COMBINED_IDE)
+	@echo "Running INSTALL allowlist test..."
+	@PORT=$$(($(TEST_PORT_BASE)+3)); \
+	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null; sleep 1; \
+	$(QEMU) -drive file=$(COMBINED),format=raw,if=floppy \
+		-drive file=$(COMBINED_IDE),format=raw,if=ide,index=1 \
+		-serial tcp::$$PORT,server=on,wait=off \
+		-display none -daemonize; \
+	sleep 2; \
+	python3 tests/test_install.py $$PORT; \
+	STATUS=$$?; pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null; exit $$STATUS
+
 # Run full integration test
 test-integration: $(COMBINED)
 	@cp $(COMBINED) $(COMBINED_IDE)
@@ -511,7 +527,7 @@ test-meta: $(COMBINED)
 	@echo "Metacompiler tests complete!"
 
 # Run all tests (lint first, then functional tests)
-test: lint test-smoke test-loops test-abort test-vocabs test-gui test-integration test-file-stream test-survey
+test: lint test-smoke test-loops test-abort test-install test-vocabs test-gui test-integration test-file-stream test-survey
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)
