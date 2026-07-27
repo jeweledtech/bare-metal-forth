@@ -238,6 +238,18 @@ test-loops: $(ACTIVE_IMAGE)
 	@python3 tests/test_begin_while.py $$(($(TEST_PORT_BASE)+1)); \
 		STATUS=$$?; pkill -9 -f "[q]emu.*$$(($(TEST_PORT_BASE)+1))" 2>/dev/null; exit $$STATUS
 
+# Run ABORT / ABORT" kernel gate (no block storage needed).
+# ABORT" is the substrate the INSTALL allowlist binds its refusal
+# to, so this is a kernel-tier gate, not a vocabulary one.
+test-abort: $(ACTIVE_IMAGE)
+	@echo "Running ABORT/ABORT\" kernel test..."
+	@$(QEMU) -drive file=$(ACTIVE_IMAGE),format=raw,if=floppy \
+		-serial tcp::$$(($(TEST_PORT_BASE)+2)),server=on,wait=off \
+		-display none -daemonize
+	@sleep 2
+	@python3 tests/test_abort.py $$(($(TEST_PORT_BASE)+2)); \
+		STATUS=$$?; pkill -9 -f "[q]emu.*$$(($(TEST_PORT_BASE)+2))" 2>/dev/null; exit $$STATUS
+
 # Run all vocabulary tests (need block storage)
 test-vocabs: $(COMBINED)
 	@cp $(COMBINED) $(COMBINED_IDE)
@@ -499,7 +511,7 @@ test-meta: $(COMBINED)
 	@echo "Metacompiler tests complete!"
 
 # Run all tests (lint first, then functional tests)
-test: lint test-smoke test-loops test-vocabs test-gui test-integration test-file-stream test-survey
+test: lint test-smoke test-loops test-abort test-vocabs test-gui test-integration test-file-stream test-survey
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)

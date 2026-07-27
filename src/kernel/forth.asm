@@ -2269,6 +2269,103 @@ DEFCODE '."', DOTQUOTE, F_IMMEDIATE
     NEXT
 
 ; ============================================================================
+; ABORT / ABORT" - Forth-83 error exit
+; ============================================================================
+
+; ABORT ( -- ) Empty the data stack and re-enter the interpreter.
+; ABORT also does the work of QUIT. This kernel has no QUIT word --
+; its interpreter loop is the cold_start thread -- so "re-enter the
+; interpreter" means resetting the return stack and pointing IP there.
+; VAR_TIB must go back to TIB_START: read_line always fills TIB_START,
+; so aborting out of a block LOAD (where VAR_TIB is the block buffer)
+; would otherwise parse the stale buffer forever.
+DEFCODE "ABORT", ABORT, 0
+    mov esp, DATA_STACK_TOP
+    mov ebp, RETURN_STACK_TOP
+    mov dword [VAR_STATE], 0
+    mov dword [VAR_TIB], TIB_START
+    mov dword [VAR_TOIN], 0
+    mov dword [VAR_BLK], 0
+    mov dword [VAR_BLOCK_LOADING], 0
+    mov esi, cold_start
+    NEXT
+
+; (ABORT") ( flag c-addr u -- ) Compiled runtime for ABORT".
+; The message is laid down by (S"), exactly as ." does it, so (S")
+; has already advanced IP past the inline string before this word
+; runs. That is why this word reads no inline data of its own and
+; both paths below leave IP correct.
+DEFCODE '(ABORT")', PAREN_ABORTQ, 0
+    pop ecx                     ; Length
+    pop edx                     ; Address
+    pop eax                     ; Flag
+    test eax, eax
+    jz .no_abort                ; False: nothing printed, carry on
+    ; True: ESI (Forth IP) is free to clobber -- code_ABORT
+    ; reloads it with cold_start.
+    mov esi, edx
+    test ecx, ecx
+    jz .fired
+.loop:
+    lodsb
+    call print_char
+    loop .loop
+.fired:
+    mov al, 13
+    call print_char
+    mov al, 10
+    call print_char
+    jmp code_ABORT
+.no_abort:
+    NEXT
+
+; ABORT" - IMMEDIATE, compile-only.
+; Layout: [(S") XT][length][string bytes...][align][(ABORT") XT]
+; Identical to ." except for the XT compiled after the string, so
+; the two stay on one string convention rather than two.
+DEFCODE 'ABORT"', ABORTQUOTE, F_IMMEDIATE
+    mov eax, [VAR_HERE]
+    mov dword [eax], DOSQUOTE       ; Compile (S") XT
+    add dword [VAR_HERE], 4
+    ; Reserve space for length
+    mov ebx, [VAR_HERE]             ; Save length cell address
+    add dword [VAR_HERE], 4
+    ; Copy string characters from TIB
+    mov edi, [VAR_HERE]
+    xor ecx, ecx
+    ; Skip leading space after ABORT"
+    mov edx, [VAR_TOIN]
+    mov eax, [VAR_TIB]
+    cmp byte [eax + edx], ' '
+    jne .copy
+    inc edx
+.copy:
+    movzx eax, byte [eax + edx]
+    test eax, eax                  ; NUL = end of interactive line
+    jz .done
+    inc edx
+    cmp al, '"'
+    je .done
+    stosb
+    inc ecx
+    mov eax, [VAR_TIB]
+    jmp .copy
+.done:
+    mov [VAR_TOIN], edx
+    ; Patch length
+    mov [ebx], ecx
+    ; Align HERE past string data
+    mov eax, edi
+    add eax, 3
+    and eax, ~3
+    mov [VAR_HERE], eax
+    ; Compile (ABORT") instead of TYPE -- the only difference from ."
+    mov eax, [VAR_HERE]
+    mov dword [eax], PAREN_ABORTQ
+    add dword [VAR_HERE], 4
+    NEXT
+
+; ============================================================================
 ; Comments
 ; ============================================================================
 
