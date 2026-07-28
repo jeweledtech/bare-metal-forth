@@ -314,6 +314,141 @@ expect('vector unchanged by a failed bind',
 expect('failed bind left the stack clean', 'DEPTH', 0)
 check('interpreter alive after a failed bind', alive())
 
+# ---------------------------------------------------------------
+# FREE-EXTENT tests
+#
+# The survey contract (PART-ENT, PART-END, MAP-TRUSTED?, etc.)
+# is populated manually here — no AHCI disk is attached in this
+# harness.  A fake reader returns success with a zeroed buffer,
+# simulating empty sectors.  The placement logic is exercised by
+# authored partition layouts; the read-back verification is
+# exercised by controlling the buffer contents.
+# ---------------------------------------------------------------
+
+# Set up both SURVEYOR and INSTALL in the search order.
+# SURVEYOR is embedded.  Order matters: ALSO SURVEYOR first,
+# then USING INSTALL puts INSTALL on top without evicting
+# SURVEYOR.  Do NOT use INSTALL DEFINITIONS here — DOVOC
+# replaces the top entry, which would evict SURVEYOR.
+send('ALSO SURVEYOR', 1.0)
+send('USING INSTALL', 1.0)
+
+# Create a zeroed 512-byte buffer and a fake reader.
+# TR: ( lba count -- flag ) always succeeds, does nothing.
+send('CREATE TR-BUF 512 ALLOT', 1.0)
+send('TR-BUF 512 0 FILL', 0.5)
+send(': TR 2DROP 0 ;', 1.0)
+
+# Helper to populate one PART-TBL entry.
+# PE! ( start end idx -- )
+# Stride is 16 bytes per entry.  Layout:
+#   +0: start LBA  +4: GUID  +8: type  +9: bad?  +C: end LBA
+send(': PE! PART-ENT >R R@ 12 + ! R> ! ;', 1.0)
+
+# Bind reader for all FREE-EXTENT tests.
+send("' TR SEC-READ-VEC !", 0.5)
+send('TR-BUF RD-BUF-ADDR !', 0.5)
+
+# ---------------------------------------------------------------
+print("\nTest 11: FREE-EXTENT refuses when MAP-TRUSTED? is false")
+send('0 MAP-OK !  0 PART-N !', 0.3)
+expect('MAP-TRUSTED? is false', 'MAP-TRUSTED?', 0)
+expect('FREE-EXTENT refuses (untrusted map)',
+       '100 FREE-EXTENT', 0)
+expect('OWN-BASE unchanged', 'OWN-BASE @', BASE)
+check('alive after untrusted map', alive())
+
+# ---------------------------------------------------------------
+print("\nTest 12: FREE-EXTENT refuses with no reader bound")
+send('-1 MAP-OK !  0 SEC-READ-VEC !  0 PART-N !', 0.3)
+send('0 OWN-BASE !  0 OWN-LEN !', 0.3)
+expect('FREE-EXTENT refuses (no reader)',
+       '100 FREE-EXTENT', 0)
+expect('OWN-BASE unchanged (no reader)', 'OWN-BASE @', 0)
+check('alive after no reader', alive())
+
+# ---------------------------------------------------------------
+print("\nTest 13: FREE-EXTENT finds gap in empty map")
+# No partitions, all space is free.
+send("' TR SEC-READ-VEC !  TR-BUF RD-BUF-ADDR !", 0.5)
+send('TR-BUF 512 0 FILL', 0.3)
+send('-1 MAP-OK !  0 PART-N !', 0.3)
+send('0 OWN-BASE !  0 OWN-LEN !', 0.3)
+expect('FREE-EXTENT succeeds (empty map)',
+       '100 FREE-EXTENT', -1)
+# MIN-LBA = 34 (after GPT header + entry sectors)
+expect('OWN-BASE = MIN-LBA (34)', 'OWN-BASE @', 34)
+expect('OWN-LEN = 100', 'OWN-LEN @', 100)
+check('alive after empty map', alive())
+
+# ---------------------------------------------------------------
+print("\nTest 14: FREE-EXTENT finds gap between partitions")
+# P0: 2048-10239   P1: 20480-28671
+# Pre-P0 gap: 34-2047 = 2014 sectors (too small for 2100)
+# Inter-partition gap: 10240-20479 = 10240 sectors (fits 2100)
+send('0 OWN-BASE !  0 OWN-LEN !', 0.3)
+send('-1 MAP-OK !  2 PART-N !', 0.3)
+send('2048 10239 0 PE!', 0.5)
+send('20480 28671 1 PE!', 0.5)
+send('0 0 PART-ENT 9 + C!  0 1 PART-ENT 9 + C!', 0.3)
+send('TR-BUF 512 0 FILL', 0.3)
+expect('FREE-EXTENT succeeds (gap between)',
+       '2100 FREE-EXTENT', -1)
+# Should land right after P0: LBA 10240
+expect('OWN-BASE = 10240 (after P0)',
+       'OWN-BASE @', 10240)
+expect('OWN-LEN = 2100', 'OWN-LEN @', 2100)
+check('alive after gap find', alive())
+
+# ---------------------------------------------------------------
+print("\nTest 15: FREE-EXTENT lands in pre-P0 gap when small")
+# Same layout, but request fits in the pre-P0 gap.
+send('0 OWN-BASE !  0 OWN-LEN !', 0.3)
+send('TR-BUF 512 0 FILL', 0.3)
+expect('FREE-EXTENT succeeds (pre-P0 gap)',
+       '100 FREE-EXTENT', -1)
+# Should land at MIN-LBA = 34
+expect('OWN-BASE = 34 (pre-P0 gap)', 'OWN-BASE @', 34)
+expect('OWN-LEN = 100', 'OWN-LEN @', 100)
+check('alive after pre-P0 gap', alive())
+
+# ---------------------------------------------------------------
+print("\nTest 16: FREE-EXTENT refuses when no gap fits")
+# One huge partition fills MIN-LBA to near horizon.
+send('0 OWN-BASE !  0 OWN-LEN !  1 PART-N !', 0.3)
+# Start at 34, end at 2147483646 (LBA-HORIZON - 1)
+send('34 2147483646 0 PE!', 0.5)
+send('0 0 PART-ENT 9 + C!', 0.3)
+expect('FREE-EXTENT refuses (no room)',
+       '100 FREE-EXTENT', 0)
+expect('OWN-BASE unchanged (no room)', 'OWN-BASE @', 0)
+check('alive after no room', alive())
+
+# ---------------------------------------------------------------
+print("\nTest 17: FREE-EXTENT refuses non-empty readback")
+# Empty map (all free), but buffer has non-zero data.
+send('0 OWN-BASE !  0 OWN-LEN !', 0.3)
+send('-1 MAP-OK !  0 PART-N !', 0.3)
+# Put non-zero data in the read buffer.
+send('305419896 TR-BUF !', 0.5)
+expect('FREE-EXTENT refuses (non-empty)',
+       '10 FREE-EXTENT', 0)
+expect('OWN-BASE unchanged (non-empty)',
+       'OWN-BASE @', 0)
+check('alive after non-empty readback', alive())
+
+# ---------------------------------------------------------------
+print("\nTest 18: FREE-EXTENT refuses zero or negative request")
+send('0 OWN-BASE !  0 OWN-LEN !', 0.3)
+send('-1 MAP-OK !  0 PART-N !', 0.3)
+send('TR-BUF 512 0 FILL', 0.3)
+expect('FREE-EXTENT refuses 0 sectors',
+       '0 FREE-EXTENT', 0)
+expect('FREE-EXTENT refuses -1 sectors',
+       '-1 FREE-EXTENT', 0)
+expect('OWN-BASE unchanged', 'OWN-BASE @', 0)
+check('alive after zero/negative', alive())
+
 send('ONLY FORTH DEFINITIONS DECIMAL', 1.0)
 
 print(f'\nPassed: {PASS}/{PASS + FAIL}')

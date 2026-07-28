@@ -3,6 +3,7 @@
 \ CATEGORY: system
 \ PLATFORM: x86
 \ SOURCE: hand-written
+\ REQUIRES: SURVEYOR
 \ CONFIDENCE: high
 \ ============================================
 \
@@ -44,6 +45,7 @@
 
 VOCABULARY INSTALL
 INSTALL DEFINITIONS
+ALSO SURVEYOR
 DECIMAL
 
 \ ---- The owned extent ----
@@ -108,9 +110,129 @@ CREATE IO-BUF 512 ALLOT
     CR
 ;
 
+\ ---- Reader vector ----
+\ Contract of the bound xt:
+\   ( lba count -- flag )
+\ where flag 0 = success, nonzero = error.
+\ The reader fills a buffer; its address is
+\ stored in RD-BUF-ADDR.
+\ 0 = unbound = FREE-EXTENT refuses.
+VARIABLE SEC-READ-VEC
+VARIABLE RD-BUF-ADDR
+
+: BIND-READER ( "name" -- )
+    WORD FIND NIP
+    DUP IF SEC-READ-VEC ! ELSE DROP THEN
+;
+
+\ ---- FREE-EXTENT ----
+\ Find a gap in the partition map, verify
+\ it is empty, and claim it as OWN-EXTENT.
+\
+\ Consumes the survey contract: PART-ENT,
+\ PART-END, PART-BAD?, MAP-TRUSTED?,
+\ LBA-HORIZON, PART-N. PARTITION-MAP must
+\ have been called first.
+\
+\ The reader must be bound and RD-BUF-ADDR
+\ set before calling:
+\   ' AHCI-READ SEC-READ-VEC !
+\   SEC-BUF RD-BUF-ADDR !
+
+VARIABLE FE-CAND
+VARIABLE FE-NEED
+VARIABLE FE-ADV
+VARIABLE FE-PS
+VARIABLE FE-PE
+
+\ After GPT header + 32 entry sectors
+34 CONSTANT MIN-LBA
+
+\ Check one partition for overlap with
+\ [FE-CAND, FE-CAND+FE-NEED). If overlap,
+\ advance FE-CAND past the partition end.
+: FE-CHK1 ( idx -- )
+    DUP PART-BAD? IF DROP EXIT THEN
+    DUP PART-ENT @ FE-PS !
+    PART-END FE-PE !
+    \ cand+need <= p-start means before
+    FE-CAND @ FE-NEED @ +
+    FE-PS @ <= IF EXIT THEN
+    \ cand > p-end means after
+    FE-CAND @ FE-PE @ > IF EXIT THEN
+    \ overlap: advance past this partition
+    FE-PE @ 1+ FE-CAND !
+    -1 FE-ADV !
+;
+
+\ Find the first gap >= FE-NEED sectors.
+\ Sets FE-CAND on success.
+: FE-FIND ( -- flag )
+    MIN-LBA FE-CAND !
+    BEGIN
+        \ Candidate wrapped past horizon?
+        FE-CAND @ 0< IF 0 EXIT THEN
+        \ Room before horizon?
+        LBA-HORIZON FE-NEED @ -
+        FE-CAND @ < IF 0 EXIT THEN
+        \ Scan all partitions for overlap
+        0 FE-ADV !
+        PART-N @ 0= 0= IF
+            PART-N @ 0 DO
+                I FE-CHK1
+            LOOP
+        THEN
+        FE-ADV @
+    0= UNTIL
+    -1
+;
+
+\ Check if the reader buffer is all zero.
+: SECTOR-ZERO? ( -- flag )
+    RD-BUF-ADDR @ 512 +
+    RD-BUF-ADDR @ DO
+        I @ IF 0 UNLOOP EXIT THEN
+    4 +LOOP
+    -1
+;
+
+\ Read back every sector of the candidate
+\ extent and verify all are zero. This is
+\ the placement check that holds when the
+\ survey is wrong.
+: FE-VERIFY ( -- flag )
+    SEC-READ-VEC @ 0= IF 0 EXIT THEN
+    RD-BUF-ADDR @ 0= IF 0 EXIT THEN
+    FE-CAND @ FE-NEED @ + FE-CAND @ DO
+        I 1 SEC-READ-VEC @ EXECUTE IF
+            0 UNLOOP EXIT
+        THEN
+        SECTOR-ZERO? 0= IF
+            0 UNLOOP EXIT
+        THEN
+    LOOP
+    -1
+;
+
+\ FREE-EXTENT: find and claim free space.
+\ Returns nonzero on success. On success,
+\ OWN-BASE and OWN-LEN are set, arming
+\ SAFE-WRITE for the claimed region.
+: FREE-EXTENT ( sectors -- flag )
+    DUP 1 < IF DROP 0 EXIT THEN
+    FE-NEED !
+    MAP-TRUSTED? 0= IF 0 EXIT THEN
+    FE-FIND 0= IF 0 EXIT THEN
+    FE-VERIFY 0= IF 0 EXIT THEN
+    FE-CAND @ OWN-BASE !
+    FE-NEED @ OWN-LEN !
+    -1
+;
+
 \ Binds if AHCI is already in the search
 \ order; silently does not if it is not.
 BIND-WRITER AHCI-WRITE
+BIND-READER AHCI-READ
 
 ONLY FORTH DEFINITIONS
 DECIMAL
