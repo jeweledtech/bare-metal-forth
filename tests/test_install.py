@@ -449,6 +449,416 @@ expect('FREE-EXTENT refuses -1 sectors',
 expect('OWN-BASE unchanged', 'OWN-BASE @', 0)
 check('alive after zero/negative', alive())
 
+# ---------------------------------------------------------------
+# FREE-SLOT tests
+#
+# FREE-SLOT scans the raw GPT entry array for the first slot whose
+# 128 bytes are all zero.  No AHCI disk is attached here, so the
+# entry array is synthesised by a fake reader that decides what
+# each sector contains from the LBA it was asked for.
+#
+# TRS ( lba count -- flag ) zero-fills the buffer, then marks as
+# used every slot whose GLOBAL index is below TS-USED.  Slot g
+# lives in sector 2 + g/4, so the sector at LBA n holds global
+# slots (n-2)*4 .. (n-2)*4+3.  Setting TS-USED to k therefore
+# authors "the first k slots are taken" across sector boundaries
+# without the test having to know which sector that lands in.
+#
+# TS-ERRLBA makes one chosen sector report a read error, so the
+# mid-scan error path is exercised on a layout that would
+# otherwise have succeeded -- a refusal that could also be
+# explained by "no free slot" would prove nothing.
+# ---------------------------------------------------------------
+
+send('DECIMAL', 0.5)
+send('VARIABLE TS-USED  VARIABLE TS-ERRLBA', 1.0)
+send('-1 TS-ERRLBA !  0 TS-USED !', 0.5)
+send(': TRS DROP TS-ERRLBA @ OVER = IF DROP 1 EXIT THEN', 1.0)
+send('  TR-BUF 512 0 FILL  2 - 4 *', 1.0)
+send('  4 0 DO DUP I + TS-USED @ < IF', 1.0)
+send('    -1 TR-BUF I 128 * + ! THEN LOOP DROP 0 ;', 1.5)
+check('TRS defined without error', alive())
+
+SLOT_SENTINEL = -777777
+
+
+def arm_slot():
+    send(f'DECIMAL {SLOT_SENTINEL} FS-SLOT !', 0.8)
+
+
+# ---------------------------------------------------------------
+print("\nTest 19: slot geometry is exact")
+# Slot g lives at LBA 2 + g/4, byte offset (g mod 4) * 128.  Both
+# edges of every sector are checked, plus slot 127 -- the last
+# slot must land on LBA 33, the last sector of the entry array.
+# An off-by-one here writes a partition entry into the first
+# sector of the host's data.
+expect('SLOT-LBA 0', '0 SLOT-LBA', 2)
+expect('SLOT-LBA 3 still sector 2', '3 SLOT-LBA', 2)
+expect('SLOT-LBA 4 crosses to sector 3', '4 SLOT-LBA', 3)
+expect('SLOT-LBA 127 is the last sector', '127 SLOT-LBA', 33)
+expect('SLOT-OFF 0', '0 SLOT-OFF', 0)
+expect('SLOT-OFF 1', '1 SLOT-OFF', 128)
+expect('SLOT-OFF 3 is the last entry in a sector',
+       '3 SLOT-OFF', 384)
+expect('SLOT-OFF 4 wraps to 0', '4 SLOT-OFF', 0)
+expect('SLOT-OFF 127', '127 SLOT-OFF', 384)
+# The last entry ends exactly at the end of a 512-byte sector.
+expect('last entry ends at the sector boundary',
+       '127 SLOT-OFF 128 +', 512)
+
+# ---------------------------------------------------------------
+print("\nTest 20: SLOT-FREE? tests all 128 bytes, not just the GUID")
+# This is the asymmetry against the survey, which decides an entry
+# is empty from the first 8 bytes of the type GUID alone.  That is
+# fine for deciding what to DISPLAY; it is not fine for deciding
+# what to OVERWRITE.  A tool that cleared the type GUID but left a
+# unique GUID or a name behind must still read as occupied.
+send('TR-BUF RD-BUF-ADDR !', 0.5)
+send('TR-BUF 512 0 FILL', 0.5)
+expect('zeroed slot 0 is free', '0 SLOT-FREE?', -1)
+expect('zeroed slot 3 is free', '3 SLOT-FREE?', -1)
+send('DECIMAL 1 TR-BUF !', 0.5)
+expect('first byte set makes slot 0 occupied', '0 SLOT-FREE?', 0)
+send('TR-BUF 512 0 FILL', 0.5)
+send('DECIMAL 1 TR-BUF 124 + !', 0.5)
+expect('LAST dword set makes slot 0 occupied',
+       '0 SLOT-FREE?', 0)
+expect('the neighbouring slot is untouched', '1 SLOT-FREE?', -1)
+send('TR-BUF 512 0 FILL', 0.5)
+send('DECIMAL 1 TR-BUF 128 + !', 0.5)
+expect('slot 1 occupied does not leak into slot 0',
+       '0 SLOT-FREE?', -1)
+expect('slot 1 reads occupied', '1 SLOT-FREE?', 0)
+check('alive after SLOT-FREE? probes', alive())
+
+# ---------------------------------------------------------------
+print("\nTest 21: FREE-SLOT refuses with no reader bound")
+send('0 SEC-READ-VEC !  TR-BUF RD-BUF-ADDR !', 0.5)
+arm_slot()
+expect('FREE-SLOT refuses (no reader)', 'FREE-SLOT', 0)
+expect('FS-SLOT untouched (no reader)', 'FS-SLOT @',
+       SLOT_SENTINEL)
+expect('stack clean (no reader)', 'DEPTH', 0)
+check('alive after no reader', alive())
+
+# ---------------------------------------------------------------
+print("\nTest 22: FREE-SLOT refuses with no buffer set")
+send("' TRS SEC-READ-VEC !  0 RD-BUF-ADDR !", 0.5)
+arm_slot()
+expect('FREE-SLOT refuses (null buffer)', 'FREE-SLOT', 0)
+expect('FS-SLOT untouched (null buffer)', 'FS-SLOT @',
+       SLOT_SENTINEL)
+check('alive after null buffer', alive())
+
+# ---------------------------------------------------------------
+print("\nTest 23: empty entry array yields slot 0")
+send("' TRS SEC-READ-VEC !  TR-BUF RD-BUF-ADDR !", 0.5)
+send('DECIMAL -1 TS-ERRLBA !  0 TS-USED !', 0.5)
+arm_slot()
+expect('FREE-SLOT succeeds (empty array)', 'FREE-SLOT', -1)
+expect('FS-SLOT = 0', 'FS-SLOT @', 0)
+expect('stack clean (empty array)', 'DEPTH', 0)
+check('alive after empty array', alive())
+
+# ---------------------------------------------------------------
+print("\nTest 24: first N occupied yields slot N")
+# 2 stays inside the first sector; 4 is the first slot of the
+# SECOND sector, so it only comes out right if the scan re-reads
+# on the sector boundary; 5 lands mid-sector after that boundary;
+# 127 is the last slot on the last sector.
+for used, want in ((1, 1), (2, 2), (4, 4), (5, 5), (127, 127)):
+    send(f'DECIMAL {used} TS-USED !', 0.5)
+    arm_slot()
+    expect(f'{used} occupied -> FREE-SLOT succeeds',
+           'FREE-SLOT', -1)
+    expect(f'{used} occupied -> FS-SLOT = {want}',
+           'FS-SLOT @', want)
+check('alive after occupied-prefix scans', alive())
+
+# ---------------------------------------------------------------
+print("\nTest 25: a full entry array refuses")
+# All 128 slots taken.  Refusing is the only safe answer: there is
+# no slot to claim and nothing may be overwritten to make one.
+send('DECIMAL 128 TS-USED !', 0.5)
+arm_slot()
+expect('FREE-SLOT refuses (array full)', 'FREE-SLOT', 0)
+expect('FS-SLOT untouched (array full)', 'FS-SLOT @',
+       SLOT_SENTINEL)
+expect('stack clean (array full)', 'DEPTH', 0)
+check('alive after full array', alive())
+
+# ---------------------------------------------------------------
+print("\nTest 26: a mid-scan read error refuses")
+# TS-USED 8 alone would return slot 8 (first slot of LBA 4).  The
+# error is injected on exactly that sector, so a refusal here can
+# only be the read-error path -- it cannot be explained away as
+# "no free slot".  Without this framing the test would pass on a
+# FREE-SLOT that ignored the reader's flag entirely.
+send('DECIMAL 8 TS-USED !  -1 TS-ERRLBA !', 0.5)
+arm_slot()
+expect('control: no error -> slot 8', 'FREE-SLOT', -1)
+expect('control: FS-SLOT = 8', 'FS-SLOT @', 8)
+send('DECIMAL 4 TS-ERRLBA !', 0.5)
+arm_slot()
+expect('read error at LBA 4 -> refuses', 'FREE-SLOT', 0)
+expect('FS-SLOT untouched (read error)', 'FS-SLOT @',
+       SLOT_SENTINEL)
+expect('stack clean (read error)', 'DEPTH', 0)
+check('alive after mid-scan read error', alive())
+# An error on the very first sector must refuse too.
+send('DECIMAL 0 TS-USED !  2 TS-ERRLBA !', 0.5)
+arm_slot()
+expect('read error at LBA 2 -> refuses', 'FREE-SLOT', 0)
+expect('FS-SLOT untouched (first-sector error)', 'FS-SLOT @',
+       SLOT_SENTINEL)
+send('DECIMAL -1 TS-ERRLBA !', 0.5)
+check('alive after first-sector read error', alive())
+
+# ---------------------------------------------------------------
+print("\nTest 27: GPT-CRC32 known-answer vector")
+# CBF43926 has bit 31 set, so it is compared rather than printed:
+# a signed `.` would render it negative.  This vector drives the
+# register through high-bit-set states, which is what catches a
+# sign-extending shift.
+send('HEX', 0.5)
+send(': GCRC-KAT S" 123456789" GPT-CRC32 CBF43926 =', 1.0)
+send('  IF ." KAT-OK" ELSE ." KAT-FAIL" THEN ;', 1.0)
+r = send('GCRC-KAT', 2.0)
+check('GPT-CRC32("123456789") = CBF43926',
+      'KAT-OK' in body_of(r), repr(body_of(r).strip()[-90:]))
+# Empty input must not wedge: 0 0 DO runs once under this kernel,
+# so GPT-CRC32 guards len<1.  The assertion is wrapped in a colon
+# def and invoked by a name that does NOT contain the expected
+# string -- sending the `." EMPTY-OK"` line directly would put the
+# answer in the command echo and pass against a wedged VM.
+send(': GCRC-EMPTY HERE 0 GPT-CRC32 0 =', 1.0)
+send('  IF ." EMPTY-OK" ELSE ." EMPTY-BAD" THEN ;', 1.0)
+r = send('GCRC-EMPTY', 2.0)
+check('GPT-CRC32 of empty input is 0',
+      'EMPTY-OK' in body_of(r), repr(body_of(r).strip()[-90:]))
+send('DECIMAL', 0.5)
+check('alive after CRC probes', alive())
+
+# ---------------------------------------------------------------
+# GPT-ARM / GPT-PERMIT? / GPT-WRITE tests
+#
+# TRH ( lba count -- flag ) synthesises a primary GPT header in
+# the buffer when LBA 1 is requested.  Every field the arm path
+# reads is a variable, so each guard can be driven independently.
+#
+# The fixture sets AlternateLBA (+0x20) and FirstUsableLBA (+0x28)
+# to DELIBERATELY DIFFERENT values.  Those two fields are eight
+# bytes apart and an earlier draft of GPT-ARM read the wrong one:
+# 0x28 is FirstUsableLBA, not AlternateLBA.  On a tight GPT that
+# refuses harmlessly (34-32 < 34), but on a 1 MB-aligned disk it
+# ARMS, with GW-BHDR and GW-BENT pointing into the first
+# partition's live data -- a "backup header" written over a host
+# filesystem.  A fixture that left the two fields equal, or
+# populated only one, could not tell the two reads apart.  Same
+# de-aliasing discipline as the read-error control in Test 26.
+# ---------------------------------------------------------------
+
+send('DECIMAL', 0.5)
+send('VARIABLE TH-SIGLO  VARIABLE TH-SIGHI', 1.0)
+send('VARIABLE TH-ALTLO  VARIABLE TH-ALTHI', 1.0)
+send('VARIABLE TH-FUSE', 1.0)
+send(': TRH DROP TS-ERRLBA @ OVER = IF DROP 1 EXIT THEN', 1.0)
+send('  1 = IF TR-BUF 512 0 FILL', 1.0)
+send('    TH-SIGLO @ TR-BUF !  TH-SIGHI @ TR-BUF 4 + !', 1.0)
+send('    TH-ALTLO @ TR-BUF 32 + !', 1.0)
+send('    TH-ALTHI @ TR-BUF 36 + !', 1.0)
+send('    TH-FUSE @ TR-BUF 40 + ! THEN  0 ;', 1.5)
+check('TRH defined without error', alive())
+
+# A valid header by default; individual tests spoil one field.
+ALT = 1048575          # a real disk-end LBA (512 MB image)
+FUSE = 2048            # the decoy at +0x28, 1 MB-aligned
+SLOT = 5               # -> GW-ENT 3, backup offset +1
+
+
+def good_header():
+    send('HEX 20494645 TH-SIGLO !  54524150 TH-SIGHI ! DECIMAL',
+         1.0)
+    send(f'DECIMAL {ALT} TH-ALTLO !  0 TH-ALTHI !', 0.6)
+    send(f'DECIMAL {FUSE} TH-FUSE !  -1 TS-ERRLBA !', 0.6)
+    send(f'DECIMAL {SLOT} FS-SLOT !', 0.5)
+    send("' TRH SEC-READ-VEC !  TR-BUF RD-BUF-ADDR !", 0.6)
+
+
+# ---------------------------------------------------------------
+print("\nTest 28: GPT-ARM refuses on every precondition")
+good_header()
+send('0 SEC-READ-VEC !', 0.4)
+expect('refuses with no reader', 'GPT-ARM', 0)
+expect('permit disarmed (no reader)', 'GW-ARMED @', 0)
+good_header()
+send('0 RD-BUF-ADDR !', 0.4)
+expect('refuses with no buffer', 'GPT-ARM', 0)
+good_header()
+send('DECIMAL -1 FS-SLOT !', 0.4)
+expect('refuses negative FS-SLOT', 'GPT-ARM', 0)
+good_header()
+send('DECIMAL 128 FS-SLOT !', 0.4)
+expect('refuses FS-SLOT past the last slot', 'GPT-ARM', 0)
+good_header()
+send('DECIMAL 0 TH-SIGLO !', 0.4)
+expect('refuses a bad signature', 'GPT-ARM', 0)
+good_header()
+send('DECIMAL 1 TS-ERRLBA !', 0.4)
+expect('refuses a header read error', 'GPT-ARM', 0)
+expect('permit disarmed after every refusal', 'GW-ARMED @', 0)
+expect('GW-BHDR left zero, not half-populated', 'GW-BHDR @', 0)
+expect('GW-ENT left zero', 'GW-ENT @', 0)
+check('alive after arm refusals', alive())
+
+# ---------------------------------------------------------------
+print("\nTest 29: GPT-ARM reads AlternateLBA (+0x20), not "
+      "FirstUsableLBA (+0x28)")
+# The de-aliasing test.  ALT and FUSE differ, so reading the wrong
+# offset yields 2048 instead of 1048575 -- a wrong, catchable
+# value rather than a coincidentally-right one.
+good_header()
+expect('GPT-ARM succeeds on a valid header', 'GPT-ARM', -1)
+expect('permit is armed', 'GW-ARMED @', -1)
+expect('GW-BHDR = AlternateLBA, NOT FirstUsableLBA',
+       'GW-BHDR @', ALT)
+# Stated separately so the failure message names the confusion:
+# had GPT-ARM read +0x28, this would be FUSE.
+expect('GW-BHDR is not the +0x28 decoy value',
+       f'GW-BHDR @ {FUSE} =', 0)
+expect('GW-HDR = 1', 'GW-HDR @', 1)
+expect('GW-ENT = SLOT-LBA of the chosen slot',
+       'GW-ENT @', 2 + SLOT // 4)
+expect('GW-BENT mirrors GW-ENT at the disk end',
+       'GW-BENT @', ALT - 32 + SLOT // 4)
+# All four must be distinct, or the permit is smaller than it
+# claims and one of the four writes has nowhere to go.
+expect('GW-HDR distinct from GW-ENT',
+       'GW-HDR @ GW-ENT @ =', 0)
+expect('GW-ENT distinct from GW-BENT',
+       'GW-ENT @ GW-BENT @ =', 0)
+expect('GW-BENT distinct from GW-BHDR',
+       'GW-BENT @ GW-BHDR @ =', 0)
+expect('GW-HDR distinct from GW-BHDR',
+       'GW-HDR @ GW-BHDR @ =', 0)
+check('alive after a successful arm', alive())
+
+# ---------------------------------------------------------------
+print("\nTest 30: the horizon bites at claim time")
+# The backup header is at the disk's last LBA, so this is where a
+# disk too large for signed compares must be refused -- once,
+# before anything is written.
+good_header()
+send('DECIMAL 1 TH-ALTHI !', 0.4)
+expect('refuses AlternateLBA with a nonzero high cell',
+       'GPT-ARM', 0)
+expect('disarmed (high cell)', 'GW-ARMED @', 0)
+good_header()
+send('HEX 80000000 TH-ALTLO ! DECIMAL', 0.6)
+expect('refuses AlternateLBA past the horizon (bit 31)',
+       'GPT-ARM', 0)
+expect('disarmed (bit 31)', 'GW-ARMED @', 0)
+good_header()
+send('DECIMAL 60 TH-ALTLO !', 0.4)
+expect('refuses when the backup array would overlap the primary',
+       'GPT-ARM', 0)
+# Control: one sector further out and the same layout arms, so
+# the refusal above is the overlap check and not something else.
+good_header()
+send('DECIMAL 66 TH-ALTLO !', 0.4)
+expect('control: 66 puts the backup array base at MIN-LBA',
+       'GPT-ARM', -1)
+expect('control: GW-BENT = base 34 + our slot sector',
+       'GW-BENT @', 34 + SLOT // 4)
+check('alive after horizon checks', alive())
+
+# ---------------------------------------------------------------
+print("\nTest 31: GPT-PERMIT? admits exactly four LBAs")
+good_header()
+expect('re-arm for permit tests', 'GPT-ARM', -1)
+expect('permits the primary header', '1 GPT-PERMIT?', -1)
+expect('permits our entry sector',
+       f'{2 + SLOT // 4} GPT-PERMIT?', -1)
+expect('permits the backup entry sector',
+       f'{ALT - 32 + SLOT // 4} GPT-PERMIT?', -1)
+expect('permits the backup header', f'{ALT} GPT-PERMIT?', -1)
+# LBA 0 is not in the set -- refused by absence, not by a check.
+expect('REFUSES LBA 0, the protective MBR', '0 GPT-PERMIT?', 0)
+# Other entry sectors belong to the host's other 127 slots.
+expect('refuses entry sector 2 (another slot)',
+       '2 GPT-PERMIT?', 0)
+expect('refuses entry sector 33 (another slot)',
+       '33 GPT-PERMIT?', 0)
+expect('refuses MIN-LBA', '34 GPT-PERMIT?', 0)
+# Neighbours of every permitted LBA, both sides.
+for lba, why in ((0, 'below the header'),
+                 (2 + SLOT // 4 - 1, 'below our entry sector'),
+                 (2 + SLOT // 4 + 1, 'above our entry sector'),
+                 (ALT - 32 + SLOT // 4 - 1, 'below backup entry'),
+                 (ALT - 32 + SLOT // 4 + 1, 'above backup entry'),
+                 (ALT - 1, 'below the backup header'),
+                 (ALT + 1, 'above the backup header')):
+    expect(f'refuses {lba} ({why})', f'{lba} GPT-PERMIT?', 0)
+# Unarmed refuses everything, including what it just permitted.
+send('GW-DISARM', 0.5)
+expect('unarmed refuses the primary header', '1 GPT-PERMIT?', 0)
+expect('unarmed refuses the backup header',
+       f'{ALT} GPT-PERMIT?', 0)
+expect('unarmed refuses LBA 0', '0 GPT-PERMIT?', 0)
+expect('unarmed permit leaves the stack clean', 'DEPTH', 0)
+check('alive after permit membership', alive())
+
+# ---------------------------------------------------------------
+print("\nTest 32: GPT-WRITE honours the permit")
+# Same sentinel discipline as SAFE-WRITE: a refusal counts only if
+# the writer never ran.
+send('BIND-WRITER TW', 1.2)
+arm()
+r = send('DECIMAL IO-BUF 1 GPT-WRITE', 2.0)
+check('unarmed GPT-WRITE refuses', 'not a GPT sector' in body_of(r),
+      repr(body_of(r).strip()[-90:]))
+expect('unarmed: writer never ran', 'W-LBA @', SENTINEL)
+good_header()
+expect('arm for write tests', 'GPT-ARM', -1)
+send('BIND-WRITER TW', 1.2)
+arm()
+r = send('DECIMAL IO-BUF 0 GPT-WRITE', 2.0)
+check('GPT-WRITE refuses LBA 0', 'not a GPT sector' in body_of(r),
+      repr(body_of(r).strip()[-90:]))
+expect('LBA 0: writer never ran', 'W-LBA @', SENTINEL)
+expect('LBA 0: stack emptied', 'DEPTH', 0)
+arm()
+r = send('DECIMAL IO-BUF 2 GPT-WRITE', 2.0)
+check("GPT-WRITE refuses another slot's entry sector",
+      'not a GPT sector' in body_of(r),
+      repr(body_of(r).strip()[-90:]))
+expect('other sector: writer never ran', 'W-LBA @', SENTINEL)
+# The permitted writes must actually reach the writer.
+for lba, name in ((1, 'primary header'),
+                  (2 + SLOT // 4, 'our entry sector'),
+                  (ALT - 32 + SLOT // 4, 'backup entry sector'),
+                  (ALT, 'backup header')):
+    arm()
+    send(f'DECIMAL {PATTERN} IO-BUF !', 0.8)
+    r = send(f'DECIMAL IO-BUF {lba} GPT-WRITE', 2.0)
+    b = body_of(r)
+    check(f'GPT-WRITE permits the {name}',
+          'ok' in b and 'refuse' not in b and 'failed' not in b,
+          repr(b.strip()[-90:]))
+    expect(f'{name}: writer received LBA {lba}', 'W-LBA @', lba)
+    expect(f'{name}: count 1', 'W-CNT @', 1)
+    expect(f'{name}: buffer round-tripped', 'W-VAL @', PATTERN)
+# A failing writer must not read as a successful GPT write.
+send('BIND-WRITER TWF', 1.2)
+arm()
+r = send('DECIMAL IO-BUF 1 GPT-WRITE', 2.0)
+check('a failing GPT write aborts', 'GPT write failed' in body_of(r),
+      repr(body_of(r).strip()[-90:]))
+expect('the failing writer really ran', 'W-LBA @', 1)
+expect('abort emptied the stack', 'DEPTH', 0)
+check('alive after GPT-WRITE tests', alive())
+
 send('ONLY FORTH DEFINITIONS DECIMAL', 1.0)
 
 print(f'\nPassed: {PASS}/{PASS + FAIL}')

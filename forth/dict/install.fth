@@ -229,6 +229,262 @@ VARIABLE FE-PE
     -1
 ;
 
+\ ============================================
+\ GPT-CRC32 (reflected, poly EDB88320)
+\ ============================================
+\ Tableless. Deliberately a second
+\ implementation, not a collision: FILE-STREAM
+\ carries a table-driven CRC32, but that
+\ vocabulary is paid and this file is public,
+\ so it cannot be called from here. The two
+\ agree on the polynomial and the inner step,
+\ which cross-validates both.
+\
+\ Gated against the standard vector
+\ "123456789" -> CBF43926 before it is ever
+\ pointed at a GPT. That vector drives the
+\ register through high-bit-set states, so it
+\ is exactly the test that catches a
+\ sign-extending shift. RSHIFT here is `shr`
+\ (forth.asm:909), verified at runtime, so no
+\ post-shift mask is needed.
+\
+\ A wrong CRC at LBA 1 makes firmware fall
+\ back to the backup header silently. The
+\ machine still boots, so a naive "did it come
+\ up" check passes a corrupt primary GPT.
+
+HEX
+EDB88320 CONSTANT GCRC-POLY
+FFFFFFFF CONSTANT GCRC-ONES
+DECIMAL
+
+VARIABLE GCRC-ACC
+
+\ The accumulator lives in a VARIABLE, not on
+\ the return stack: >R / R> inline inside a
+\ DO body corrupts I and J.
+: GCRC-BIT ( -- )
+    GCRC-ACC @ DUP 1 AND
+    IF   1 RSHIFT GCRC-POLY XOR
+    ELSE 1 RSHIFT
+    THEN GCRC-ACC ! ;
+
+\ 8 is a nonzero literal, so no phantom-loop
+\ guard is needed here.
+: GCRC-BYTE ( c -- )
+    GCRC-ACC @ XOR GCRC-ACC !
+    8 0 DO GCRC-BIT LOOP ;
+
+\ len 0 must be guarded: 0 0 DO runs the body
+\ once under this kernel.
+: GPT-CRC32 ( addr len -- crc )
+    GCRC-ONES GCRC-ACC !
+    DUP 0> IF
+        OVER + SWAP DO I C@ GCRC-BYTE LOOP
+    ELSE 2DROP
+    THEN
+    GCRC-ACC @ GCRC-ONES XOR ;
+
+\ ============================================
+\ GPT entry array: free-slot selection
+\ ============================================
+\ 128 entries x 128 bytes = 32 sectors at
+\ LBA 2..33. Slot N lives in sector 2 + N/4
+\ at byte offset (N mod 4) * 128.
+\
+\ Shift and mask rather than / and MOD: both
+\ are exact for powers of two and neither
+\ raises a signed-division question.
+\
+\ This scans the raw entry array on disk and
+\ deliberately does NOT consult the survey.
+\ PART-TBL compacts entries as it collects
+\ them -- SCAN-GPT-SEC drops the within-sector
+\ index and TAKE-ENTRY stores at a running
+\ PART-N -- so a physical slot number cannot
+\ be recovered from it. A survey built to
+\ answer "what partitions exist" cannot answer
+\ "which slot is free", because for that
+\ question the gaps are the payload.
+
+128 CONSTANT GPT-ENT-SIZE
+128 CONSTANT GPT-ENT-MAX
+2 CONSTANT GPT-ARR-LBA
+32 CONSTANT GPT-ARR-SECS
+
+: SLOT-LBA ( n -- lba ) 2 RSHIFT GPT-ARR-LBA + ;
+: SLOT-OFF ( n -- off ) 3 AND GPT-ENT-SIZE * ;
+
+VARIABLE FS-SLOT
+
+\ Free iff all 128 bytes are zero. Stricter
+\ than the survey's test, which reads only the
+\ first 8 bytes of the type GUID. The
+\ asymmetry is deliberate: the survey is
+\ deciding what to display, this is deciding
+\ what to overwrite. Any nonzero byte -- a
+\ stale name, a unique GUID left behind by a
+\ tool that cleared only the type -- means
+\ something else has a claim, so we refuse it.
+\ GPT requires a nonzero PartitionTypeGUID for
+\ any used entry, so all-zero is host-safe.
+: SLOT-FREE? ( n -- flag )
+    SLOT-OFF RD-BUF-ADDR @ +
+    DUP GPT-ENT-SIZE + SWAP DO
+        I @ IF 0 UNLOOP EXIT THEN
+    4 +LOOP
+    -1 ;
+
+\ Sets FS-SLOT and returns nonzero on success,
+\ matching FREE-EXTENT's shape. Reads once per
+\ four slots -- 32 reads, not 128 -- and stays
+\ a single DO loop so one UNLOOP is always the
+\ right number on the early exits.
+: FREE-SLOT ( -- flag )
+    SEC-READ-VEC @ 0= IF 0 EXIT THEN
+    RD-BUF-ADDR @ 0= IF 0 EXIT THEN
+    GPT-ENT-MAX 0 DO
+        I 3 AND 0= IF
+            I SLOT-LBA 1
+            SEC-READ-VEC @ EXECUTE IF
+                0 UNLOOP EXIT
+            THEN
+        THEN
+        I SLOT-FREE? IF
+            I FS-SLOT ! -1 UNLOOP EXIT
+        THEN
+    LOOP
+    0 ;
+
+\ ============================================
+\ The GPT metadata permit
+\ ============================================
+\ ADD-PARTITION is the one sanctioned write
+\ outside OWN-EXTENT, so it cannot go through
+\ SAFE-WRITE. It gets its own permit, and the
+\ two are deliberately DISJOINT: GPT-WRITE can
+\ reach only the metadata sectors, SAFE-WRITE
+\ only OWN-EXTENT. Each is a small claim that
+\ can be audited on its own. A single widened
+\ predicate would destroy both at once -- every
+\ ordinary data write would then carry standing
+\ permission to corrupt the partition table.
+\
+\ The permit is an explicit set of exactly four
+\ LBAs, compared for equality, not a range:
+\   GW-HDR   LBA 1, the primary header
+\   GW-ENT   the ONE primary entry sector our
+\            slot lives in
+\   GW-BENT  that sector's backup mirror
+\   GW-BHDR  the backup header
+\
+\ LBA 0 -- the protective MBR -- is absent from
+\ the set, so it is unreachable by
+\ construction. There is deliberately no
+\ "refuse LBA 0" line: a check can be deleted,
+\ a value that was never in the set cannot.
+\
+\ Only the one changed entry sector is ever
+\ written, never all 32. That is both the
+\ minimal permit and what the byte-identical
+\ gate wants: the host's other 31 entry sectors
+\ are untouched, so they are trivially
+\ unchanged. Recomputing the header CRC still
+\ reads all 32 -- reads are not gated.
+\
+\ Everything is computed at CLAIM time, not per
+\ write. The backup header sits at the disk's
+\ last LBA, which is exactly where the horizon
+\ must bite; deciding it here means "backup past
+\ horizon" refuses once, before anything is
+\ written. Deferred to write time it would fire
+\ mid-sequence, leaving a mutated primary GPT
+\ with a mirror that cannot be reached to match
+\ it. Do not write a primary you cannot mirror.
+
+VARIABLE GW-ARMED
+VARIABLE GW-HDR
+VARIABLE GW-ENT
+VARIABLE GW-BENT
+VARIABLE GW-BHDR
+
+\ "EFI PART" as two little-endian cells.
+HEX
+20494645 CONSTANT GPT-SIG-LO
+54524150 CONSTANT GPT-SIG-HI
+DECIMAL
+
+\ AlternateLBA -- the backup header's LBA -- is
+\ 8 bytes at +0x20. NOT +0x28: that is
+\ FirstUsableLBA, and reading it here would
+\ either refuse on a tight GPT (34-32 < 34) or,
+\ worse, arm on an aligned one with GW-BHDR and
+\ GW-BENT pointing into the first partition's
+\ live data. Offsets verified against a real
+\ sgdisk-authored header, not from memory.
+\ The high cell must be zero and the low cell
+\ must clear bit 31, or the backup lies past
+\ the horizon and this kernel cannot compare
+\ it.
+32 CONSTANT GPT-ALT-LO
+36 CONSTANT GPT-ALT-HI
+
+: GW-DISARM ( -- )
+    0 GW-ARMED !  0 GW-HDR !  0 GW-ENT !
+    0 GW-BENT !  0 GW-BHDR ! ;
+
+\ Arm the permit for the slot FREE-SLOT chose.
+\ Every failure path leaves the permit fully
+\ disarmed, so a refused arm cannot leave a
+\ half-populated set behind.
+: GPT-ARM ( -- flag )
+    GW-DISARM
+    SEC-READ-VEC @ 0= IF 0 EXIT THEN
+    RD-BUF-ADDR @ 0= IF 0 EXIT THEN
+    FS-SLOT @ DUP 0<
+    SWAP GPT-ENT-MAX < 0= OR IF 0 EXIT THEN
+    1 1 SEC-READ-VEC @ EXECUTE IF 0 EXIT THEN
+    RD-BUF-ADDR @ @ GPT-SIG-LO = 0= IF
+        0 EXIT
+    THEN
+    RD-BUF-ADDR @ 4 + @ GPT-SIG-HI = 0= IF
+        0 EXIT
+    THEN
+    RD-BUF-ADDR @ GPT-ALT-HI + @ IF 0 EXIT THEN
+    RD-BUF-ADDR @ GPT-ALT-LO + @
+    DUP 0< IF DROP 0 EXIT THEN
+    DUP GPT-ARR-SECS - MIN-LBA < IF
+        DROP 0 EXIT
+    THEN
+    GW-BHDR !
+    GW-BHDR @ GPT-ARR-SECS -
+    FS-SLOT @ 2 RSHIFT + GW-BENT !
+    FS-SLOT @ SLOT-LBA GW-ENT !
+    1 GW-HDR !
+    -1 GW-ARMED !
+    -1 ;
+
+\ Membership in the four-LBA set. Unarmed
+\ refuses first, and while unarmed every slot
+\ holds 0 -- so an unarmed permit cannot be
+\ tricked into matching LBA 0 either.
+: GPT-PERMIT? ( lba -- flag )
+    GW-ARMED @ 0= IF DROP 0 EXIT THEN
+    DUP GW-HDR @ = IF DROP -1 EXIT THEN
+    DUP GW-ENT @ = IF DROP -1 EXIT THEN
+    DUP GW-BENT @ = IF DROP -1 EXIT THEN
+    GW-BHDR @ = ;
+
+: GPT-WRITE ( buf lba -- )
+    DUP GPT-PERMIT? 0=
+    ABORT" INSTALL: refuse, not a GPT sector"
+    SEC-WRITE-VEC @ 0=
+    ABORT" INSTALL: refuse, no writer bound"
+    SWAP 1 SWAP
+    SEC-WRITE-VEC @ EXECUTE
+    ABORT" INSTALL: GPT write failed" ;
+
 \ Binds if AHCI is already in the search
 \ order; silently does not if it is not.
 BIND-WRITER AHCI-WRITE
