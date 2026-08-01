@@ -276,15 +276,23 @@ VARIABLE GCRC-ACC
     GCRC-ACC @ XOR GCRC-ACC !
     8 0 DO GCRC-BIT LOOP ;
 
-\ len 0 must be guarded: 0 0 DO runs the body
-\ once under this kernel.
-: GPT-CRC32 ( addr len -- crc )
-    GCRC-ONES GCRC-ACC !
+\ Streaming interface: hash data across
+\ multiple reads without a 16 KB buffer.
+\ GPT-CRC32 is redefined as their wrapper
+\ so the existing KAT transitively covers
+\ all three primitives.
+: CRC-BEGIN ( -- )
+    GCRC-ONES GCRC-ACC ! ;
+\ len 0 must be guarded: 0 0 DO runs the
+\ body once under this kernel.
+: CRC-CHUNK ( addr len -- )
     DUP 0> IF
         OVER + SWAP DO I C@ GCRC-BYTE LOOP
-    ELSE 2DROP
-    THEN
+    ELSE 2DROP THEN ;
+: CRC-END ( -- crc )
     GCRC-ACC @ GCRC-ONES XOR ;
+: GPT-CRC32 ( addr len -- crc )
+    CRC-BEGIN CRC-CHUNK CRC-END ;
 
 \ ============================================
 \ GPT entry array: free-slot selection
@@ -484,6 +492,253 @@ DECIMAL
     SWAP 1 SWAP
     SEC-WRITE-VEC @ EXECUTE
     ABORT" INSTALL: GPT write failed" ;
+
+\ ============================================
+\ ADD-PARTITION
+\ ============================================
+\ The one sanctioned write outside OWN-EXTENT.
+\ Read-modify-writes exactly one 128-byte slot
+\ in the GPT entry array, mirrors it to the
+\ backup, recomputes both header CRCs, and
+\ verifies every write by readback.
+\
+\ Caller provides a 128-byte entry at AP-ENT.
+\ Preconditions: FREE-SLOT and GPT-ARM must
+\ have succeeded (GW-ARMED true, FS-SLOT set,
+\ the four-LBA permit populated).
+\
+\ The primary and backup ENTRY sectors are
+\ byte-identical mirrors. The primary and
+\ backup HEADERS are NOT -- they differ in
+\ MyLBA, AlternateLBA, PartitionEntryLBA,
+\ and their own HeaderCRC32. Each header is
+\ patched in place from its own read, never
+\ copied from the other.
+\
+\ HeaderSize is READ from the header (+0x0C),
+\ bounded 92..512, and refused if out of
+\ range. Hardcoding 92 against a header that
+\ declares otherwise computes a CRC firmware
+\ rejects, causing silent fallback to backup.
+
+CREATE AP-SAVE 512 ALLOT
+VARIABLE AP-ENT
+VARIABLE AP-ECRC
+
+\ GPT header field offsets
+HEX
+0C CONSTANT GPT-HSIZ-OFF
+10 CONSTANT GPT-HCRC-OFF
+58 CONSTANT GPT-ECRC-OFF
+DECIMAL
+
+92 CONSTANT GPT-HSIZ-MIN
+512 CONSTANT GPT-HSIZ-MAX
+
+\ ---- Snapshot and patch ----
+\ Save the entry sector before modification
+\ so the byte-identical gate can verify
+\ neighbours are untouched.
+: AP-SNAP ( -- )
+    RD-BUF-ADDR @ AP-SAVE 512 CMOVE ;
+
+\ Copy the 128-byte entry into our slot
+\ within the sector buffer.
+: AP-PATCH ( -- )
+    AP-ENT @
+    RD-BUF-ADDR @ FS-SLOT @ SLOT-OFF +
+    GPT-ENT-SIZE CMOVE ;
+
+\ ---- Entry-array CRC (streaming) ----
+\ Hash all 32 entry sectors in ascending
+\ order, reading each into the buffer.
+\ Returns nonzero on success.
+: AP-EARR-CRC ( -- flag )
+    CRC-BEGIN
+    GPT-ARR-LBA GPT-ARR-SECS + GPT-ARR-LBA
+    DO
+        I 1 SEC-READ-VEC @ EXECUTE IF
+            0 UNLOOP EXIT
+        THEN
+        RD-BUF-ADDR @ 512 CRC-CHUNK
+    LOOP
+    CRC-END AP-ECRC !
+    -1 ;
+
+\ ---- Header CRC patch ----
+\ Read a header at the given LBA, patch its
+\ entry-array CRC, recompute HeaderCRC32,
+\ write it back. HeaderSize is read from
+\ +0x0C, bounded, and refused if out of
+\ range. Returns nonzero on success.
+: AP-HDR-PATCH ( lba -- flag )
+    DUP 1 SEC-READ-VEC @ EXECUTE IF
+        DROP 0 EXIT
+    THEN
+    \ Read and bound HeaderSize
+    RD-BUF-ADDR @ GPT-HSIZ-OFF + @
+    DUP GPT-HSIZ-MIN < IF
+        2DROP 0 EXIT
+    THEN
+    DUP GPT-HSIZ-MAX > IF
+        2DROP 0 EXIT
+    THEN
+    \ Stack: ( lba header-size )
+    \ Patch entry-array CRC at +0x58
+    AP-ECRC @
+    RD-BUF-ADDR @ GPT-ECRC-OFF + !
+    \ Zero the header's own CRC at +0x10
+    0 RD-BUF-ADDR @ GPT-HCRC-OFF + !
+    \ Hash HeaderSize bytes, write result
+    RD-BUF-ADDR @ SWAP CRC-BEGIN
+    CRC-CHUNK CRC-END
+    RD-BUF-ADDR @ GPT-HCRC-OFF + !
+    \ Write the patched header back
+    RD-BUF-ADDR @ SWAP GPT-WRITE -1 ;
+
+\ ---- Readback verification ----
+\ Verify the entry sector at the given LBA
+\ matches IO-BUF (the written content).
+: AP-VERIFY-SEC ( lba -- flag )
+    1 SEC-READ-VEC @ EXECUTE IF
+        0 EXIT
+    THEN
+    512 0 DO
+        RD-BUF-ADDR @ I + @
+        IO-BUF I + @ = 0= IF
+            0 UNLOOP EXIT
+        THEN
+    4 +LOOP
+    -1 ;
+
+\ Verify neighbours in the entry sector
+\ are untouched. Compares all bytes outside
+\ the 128-byte slot against AP-SAVE.
+: AP-VERIFY-NBR ( -- flag )
+    512 0 DO
+        I FS-SLOT @ SLOT-OFF DUP
+        GPT-ENT-SIZE + SWAP
+        \ Stack: ( I slot-end slot-start )
+        \ Skip bytes inside our slot
+        ROT DUP ROT >= SWAP ROT < AND IF
+        ELSE
+            RD-BUF-ADDR @ I + @
+            AP-SAVE I + @ = 0= IF
+                0 UNLOOP EXIT
+            THEN
+        THEN
+    4 +LOOP
+    -1 ;
+
+\ ---- Dual-array verify (decision #4) ----
+\ Read all 32 backup entry sectors, hash
+\ them, and refuse if the CRC differs from
+\ AP-ECRC (the primary array's CRC). This
+\ catches a pre-existing diverged backup --
+\ writing a backup header whose CRC claims
+\ content the backup array doesn't have
+\ would leave an internally inconsistent
+\ backup GPT.
+: AP-VERIFY-BARR ( -- flag )
+    CRC-BEGIN
+    GW-BHDR @ GPT-ARR-SECS -
+    DUP GPT-ARR-SECS + SWAP DO
+        I 1 SEC-READ-VEC @ EXECUTE IF
+            0 UNLOOP EXIT
+        THEN
+        RD-BUF-ADDR @ 512 CRC-CHUNK
+    LOOP
+    CRC-END AP-ECRC @ = ;
+
+\ ---- Header CRC readback verify ----
+\ Read a header back, recompute its CRC
+\ from the bytes on disk, and refuse if it
+\ does not match the CRC the header claims.
+\ This is the final proof that what was
+\ written is what the firmware will read.
+: AP-VERIFY-HDR ( lba -- flag )
+    1 SEC-READ-VEC @ EXECUTE IF
+        0 EXIT
+    THEN
+    RD-BUF-ADDR @ GPT-HSIZ-OFF + @
+    DUP GPT-HSIZ-MIN < IF DROP 0 EXIT THEN
+    DUP GPT-HSIZ-MAX > IF DROP 0 EXIT THEN
+    \ Save the claimed CRC before zeroing
+    RD-BUF-ADDR @ GPT-HCRC-OFF + @
+    SWAP
+    \ Zero the CRC field for recomputation
+    0 RD-BUF-ADDR @ GPT-HCRC-OFF + !
+    \ Hash and compare
+    RD-BUF-ADDR @ SWAP CRC-BEGIN
+    CRC-CHUNK CRC-END
+    = ;
+
+\ ---- Top-level orchestration ----
+\ ADD-PARTITION ( entry -- flag )
+\
+\ Sequence:
+\   1. Read primary entry sector
+\   2. Snapshot it (AP-SNAP)
+\   3. Patch our entry into our slot
+\   4. Save patched sector to IO-BUF
+\   5. GPT-WRITE to primary entry sector
+\   6. GPT-WRITE same sector to backup
+\   7. Verify primary readback + neighbours
+\   8. Verify backup = primary (byte-ident)
+\   9. Streaming CRC over all 32 entry secs
+\  10. Verify backup array = primary array
+\  11. Patch primary header CRC, write
+\  12. Patch backup header CRC, write
+\  13. Verify both header CRCs by readback
+: ADD-PARTITION ( entry -- flag )
+    AP-ENT !
+    GW-ARMED @ 0= IF 0 EXIT THEN
+    SEC-WRITE-VEC @ 0= IF 0 EXIT THEN
+    SEC-READ-VEC @ 0= IF 0 EXIT THEN
+    RD-BUF-ADDR @ 0= IF 0 EXIT THEN
+    AP-ENT @ 0= IF 0 EXIT THEN
+    \ 1. Read the primary entry sector
+    GW-ENT @ 1
+    SEC-READ-VEC @ EXECUTE IF 0 EXIT THEN
+    \ 2. Snapshot before modification
+    AP-SNAP
+    \ 3. Patch our entry into the slot
+    AP-PATCH
+    \ 4. Copy patched sector to IO-BUF
+    RD-BUF-ADDR @ IO-BUF 512 CMOVE
+    \ 5. Write primary entry sector
+    IO-BUF GW-ENT @ GPT-WRITE
+    \ 6. Write backup entry sector (mirror)
+    IO-BUF GW-BENT @ GPT-WRITE
+    \ 7. Verify primary + neighbours
+    GW-ENT @ AP-VERIFY-SEC 0= IF
+        0 EXIT
+    THEN
+    AP-VERIFY-NBR 0= IF 0 EXIT THEN
+    \ 8. Verify backup = primary
+    GW-BENT @ AP-VERIFY-SEC 0= IF
+        0 EXIT
+    THEN
+    \ 9. Entry-array CRC (streaming)
+    AP-EARR-CRC 0= IF 0 EXIT THEN
+    \ 10. Verify backup array = primary
+    AP-VERIFY-BARR 0= IF 0 EXIT THEN
+    \ 11. Patch and write primary header
+    GW-HDR @ AP-HDR-PATCH 0= IF
+        0 EXIT
+    THEN
+    \ 12. Patch and write backup header
+    GW-BHDR @ AP-HDR-PATCH 0= IF
+        0 EXIT
+    THEN
+    \ 13. Verify both headers by readback
+    GW-HDR @ AP-VERIFY-HDR 0= IF
+        0 EXIT
+    THEN
+    GW-BHDR @ AP-VERIFY-HDR 0= IF
+        0 EXIT
+    THEN
+    -1 ;
 
 \ Binds if AHCI is already in the search
 \ order; silently does not if it is not.

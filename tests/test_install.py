@@ -35,6 +35,8 @@ import socket
 import sys
 import time
 
+sys.stdout.reconfigure(line_buffering=True)
+
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 4490
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -858,6 +860,461 @@ check('a failing GPT write aborts', 'GPT write failed' in body_of(r),
 expect('the failing writer really ran', 'W-LBA @', 1)
 expect('abort emptied the stack', 'DEPTH', 0)
 check('alive after GPT-WRITE tests', alive())
+
+# ---------------------------------------------------------------
+# Streaming CRC split-boundary test
+# ---------------------------------------------------------------
+print("\nTest 33: streaming CRC split-boundary")
+# CRC-BEGIN, CRC-CHUNK "12345", CRC-CHUNK "6789", CRC-END must
+# equal CBF43926. A single-chunk pass can't tell you the
+# accumulator survives a call boundary; a split one can.
+send('HEX', 0.5)
+send(': GCRC-SPLIT CRC-BEGIN', 1.0)
+send('  S" 12345" CRC-CHUNK', 1.0)
+send('  S" 6789" CRC-CHUNK CRC-END', 1.0)
+send('  CBF43926 = IF ." SPLIT-OK"', 1.0)
+send('  ELSE ." SPLIT-BAD" THEN ;', 1.0)
+r = send('GCRC-SPLIT', 2.0)
+check('streaming CRC split-boundary = CBF43926',
+      'SPLIT-OK' in body_of(r),
+      repr(body_of(r).strip()[-90:]))
+send('DECIMAL', 0.5)
+check('alive after split-boundary CRC', alive())
+
+# ---------------------------------------------------------------
+# ADD-PARTITION tests
+#
+# The fixture simulates a GPT disk with a write cache: the fake
+# writer stores written sectors, and the fake reader returns them
+# on subsequent reads. This makes the readback verification path
+# exercise real round-trip I/O, not a no-op.
+#
+# The entry sector at GW-ENT is pre-populated with 3 occupied
+# slots and 1 free slot (our slot). After ADD-PARTITION, the
+# byte-identical gate checks:
+#   (a) the 3 neighbours are unchanged
+#   (b) our slot contains the entry we provided
+#   (c) the backup entry sector is byte-identical to the primary
+#   (d) both headers have correct CRCs
+# ---------------------------------------------------------------
+
+# Use the same ALT/SLOT from the GPT-ARM tests.
+# ALT = 1048575, SLOT = 5 -> entry sector LBA 3 (slot 5 / 4 = 1,
+# + GPT-ARR-LBA 2 = 3), backup entry at ALT - 32 + 1 = 1048544.
+# Slot offset within sector = (5 mod 4) * 128 = 128.
+
+# IMPORTANT: Forth word definitions must be sent as multi-line
+# fragments to stay under the serial buffer limit. Each send()
+# must be a syntactically complete fragment or a continuation
+# that the interpreter can process.
+
+send('DECIMAL', 0.5)
+send('ALSO SURVEYOR', 0.5)
+send('USING INSTALL', 1.0)
+send('INSTALL DEFINITIONS', 1.0)
+
+# Write cache: 6 slots x (4-byte LBA + 512-byte sector) = 3096
+# bytes. Enough for the 4 GPT-WRITE LBAs plus 2 SAFE-WRITE.
+WC_SLOTS = 6
+WC_STRIDE = 516   # 4 + 512
+
+send(f'VARIABLE WC-N', 0.5)
+send(f'CREATE WC-TBL {WC_SLOTS * WC_STRIDE} ALLOT', 1.0)
+send(f'WC-TBL {WC_SLOTS * WC_STRIDE} 0 FILL', 1.0)
+send(f'0 WC-N !', 0.3)
+
+# WC-FIND ( lba -- addr | 0 )
+# Search write cache for a stored sector.
+send(': WC-FIND', 0.5)
+send(f'  WC-N @ 0> IF', 0.5)
+send(f'    WC-N @ 0 DO', 0.5)
+send(f'      WC-TBL I {WC_STRIDE} * +', 0.5)
+send('      DUP @ ROT DUP ROT = IF', 0.5)
+send('        DROP 4 + UNLOOP EXIT', 0.5)
+send('      THEN SWAP DROP', 0.5)
+send('    LOOP', 0.3)
+send('  THEN DROP 0 ;', 0.5)
+check('WC-FIND defined', alive())
+
+# WC-STORE ( buf lba -- )
+# Store a sector in the write cache. If the LBA already exists,
+# overwrite; otherwise append.
+send(': WC-STORE DUP WC-FIND DUP IF', 1.0)
+send('    SWAP DROP 512 CMOVE', 0.5)
+send('  ELSE DROP', 0.3)
+send(f'    WC-N @ {WC_SLOTS} >= IF', 0.5)
+send('      2DROP EXIT THEN', 0.3)
+send(f'    WC-TBL WC-N @ {WC_STRIDE} * +', 0.5)
+send('    OVER OVER ! 4 +', 0.5)
+send('    ROT SWAP 512 CMOVE DROP', 0.5)
+send('    WC-N @ 1+ WC-N ! THEN ;', 0.5)
+check('WC-STORE defined', alive())
+
+# Fake writer TWA: ( lba count buf -- flag )
+# AHCI-WRITE signature. Stores to write cache.
+send(': TWA SWAP DROP OVER WC-STORE', 1.0)
+send('  W-LBA ! 0 ;', 0.5)
+check('TWA defined', alive())
+
+# Variables for the header fixture.
+send('VARIABLE THA-SIGLO VARIABLE THA-SIGHI', 1.0)
+send('VARIABLE THA-ALTLO VARIABLE THA-ALTHI', 1.0)
+send('VARIABLE THA-HSIZ', 1.0)
+send('VARIABLE THA-EPLBA', 1.0)
+# Flag to control backup array divergence for decision #4 test.
+send('VARIABLE THA-DIVERGE', 1.0)
+send('0 THA-DIVERGE !', 0.3)
+# Divergence pattern constant — must be defined OUTSIDE colon
+# definitions because HEX/DECIMAL are runtime, not IMMEDIATE.
+# Inside a colon def, `HEX DEADBEEF` compiles a call to HEX
+# and then tries to parse DEADBEEF in the current (decimal) BASE
+# → "WORD ?" → STATE corruption → wedge.
+send('HEX DEADBEEF CONSTANT DIVERGE-PAT DECIMAL', 1.0)
+
+# Slot patterns for pre-populating the entry sector.
+# Slots 4, 6, 7 occupied; slot 5 free (our slot).
+# Each occupied slot gets a distinct nonzero pattern.
+SLOT_IN_SEC = 5 % 4   # = 1, byte offset 128
+
+# TRA: fake reader for ADD-PARTITION tests.
+# Serves:
+#   LBA 1 -> primary header (from THA-* variables)
+#   LBA ALT -> backup header (MyLBA/AlternateLBA swapped)
+#   LBA 2-33 -> entry array (slot sector pre-populated)
+#   LBA (ALT-32)..(ALT-1) -> backup entry array
+#     (if THA-DIVERGE, backup entry sectors differ)
+#   Anything in write cache -> cached content
+#   Everything else -> zeroed
+#
+# Reader signature: ( lba count -- flag )
+# Reads into RD-BUF-ADDR.
+# We build it in pieces to stay under serial buffer limits.
+
+# First: helper to populate a GPT header in the buffer.
+# FILL-HDR ( my-lba alt-lba ep-lba -- )
+send(': FILL-HDR', 0.5)
+send('  RD-BUF-ADDR @ 512 0 FILL', 0.5)
+send('  THA-SIGLO @ RD-BUF-ADDR @ !', 0.5)
+send('  THA-SIGHI @ RD-BUF-ADDR @ 4 + !', 0.5)
+send('  THA-HSIZ @ RD-BUF-ADDR @ 12 + !', 0.5)
+send('  RD-BUF-ADDR @ 24 + !', 0.5)    # MyLBA
+send('  RD-BUF-ADDR @ 32 + !', 0.5)    # AlternateLBA
+send('  RD-BUF-ADDR @ 72 + ! ;', 0.5)  # PartitionEntryLBA
+check('FILL-HDR defined', alive())
+
+# Helper to populate entry sector with 3 occupied slots.
+# FILL-ENTS ( -- ) fills RD-BUF-ADDR with entry patterns.
+# Slot 0 (offset 0): pattern A1A1A1A1
+# Slot 1 (offset 128): all zero (our slot = slot 5 global)
+# Slot 2 (offset 256): pattern C3C3C3C3
+# Slot 3 (offset 384): pattern D4D4D4D4
+#
+# Pattern constants MUST be defined outside the colon def:
+# HEX/DECIMAL are runtime, not IMMEDIATE, so hex literals
+# inside a colon def are parsed in whatever compile-time
+# BASE is current (decimal) and fail. Same trap as
+# DIVERGE-PAT and bug #20 (PS2-MOUSE).
+send('HEX A1A1A1A1 CONSTANT PAT-A DECIMAL', 1.0)
+send('HEX C3C3C3C3 CONSTANT PAT-C DECIMAL', 1.0)
+send('HEX D4D4D4D4 CONSTANT PAT-D DECIMAL', 1.0)
+send(': FILL-ENTS RD-BUF-ADDR @ 512 0 FILL', 1.0)
+send('  RD-BUF-ADDR @ 128 0 DO', 0.5)
+send('    PAT-A OVER I + ! 4', 0.5)
+send('  +LOOP DROP', 0.3)
+send('  RD-BUF-ADDR @ 256 + 128 0 DO', 0.5)
+send('    PAT-C OVER I + ! 4', 0.5)
+send('  +LOOP DROP', 0.3)
+send('  RD-BUF-ADDR @ 384 + 128 0 DO', 0.5)
+send('    PAT-D OVER I + ! 4', 0.5)
+send('  +LOOP DROP ;', 0.5)
+check('FILL-ENTS defined', alive())
+expect('stack clean after FILL-ENTS', 'DEPTH', 0)
+
+# Now the main reader: TRA ( lba count -- flag )
+# Check write cache first, then authored defaults.
+send(': TRA DROP', 0.5)
+# Check write cache
+send('  DUP WC-FIND DUP IF', 0.5)
+send('    RD-BUF-ADDR @ 512 CMOVE DROP', 0.5)
+send('    0 EXIT THEN DROP', 0.5)
+# LBA 1 = primary header
+send('  DUP 1 = IF DROP', 0.5)
+send(f'    1 {ALT} 2 FILL-HDR 0 EXIT THEN', 0.8)
+# LBA ALT = backup header
+send(f'  DUP {ALT} = IF DROP', 0.8)
+send(f'    {ALT} 1 {ALT - 32} FILL-HDR', 0.8)
+send('    0 EXIT THEN', 0.3)
+# LBA 3 = our entry sector (slot 5 is in LBA 3)
+send('  DUP 3 = IF DROP', 0.5)
+send('    FILL-ENTS 0 EXIT THEN', 0.5)
+# LBA ALT-32+1 = backup entry sector for slot 5
+# Always serves FILL-ENTS (same as primary LBA 3).
+# This is GW-BENT — ADD-PARTITION writes it, so
+# divergence injected here would be masked by the
+# write cache.
+send(f'  DUP {ALT - 32 + 1} = IF DROP', 0.8)
+send('    FILL-ENTS 0 EXIT THEN', 0.5)
+# LBA ALT-32+2 = backup sector for LBA 4.
+# Primary LBA 4 is zeroed. Under THA-DIVERGE,
+# this returns nonzero — a genuine mismatch on
+# a sector ADD-PARTITION never writes, which is
+# exactly the case decision #4 exists for.
+send(f'  DUP {ALT - 32 + 2} = IF DROP', 0.8)
+send('    THA-DIVERGE @ IF', 0.5)
+send('      RD-BUF-ADDR @ 512 0 FILL', 0.5)
+send('      DIVERGE-PAT', 0.5)
+send('      RD-BUF-ADDR @ ! ', 0.5)
+send('    ELSE', 0.3)
+send('      RD-BUF-ADDR @ 512 0 FILL', 0.5)
+send('    THEN 0 EXIT THEN', 0.3)
+# All other entry sectors (2-33 and backup): zeroed
+send('  DROP RD-BUF-ADDR @ 512 0 FILL', 0.5)
+send('  0 ;', 0.3)
+check('TRA defined', alive())
+
+# ---- Set up the fixture ----
+send('HEX 20494645 THA-SIGLO !', 0.5)
+send('54524150 THA-SIGHI ! DECIMAL', 0.5)
+send(f'{ALT} THA-ALTLO !  0 THA-ALTHI !', 0.5)
+send('92 THA-HSIZ !', 0.3)
+send('2 THA-EPLBA !', 0.3)
+send(f'{SLOT} FS-SLOT !', 0.3)
+send("' TRA SEC-READ-VEC !", 0.5)
+send('TR-BUF RD-BUF-ADDR !', 0.5)
+send("' TWA SEC-WRITE-VEC !", 0.5)
+send('0 WC-N !', 0.3)
+
+# Arm the permit
+send('GW-DISARM', 0.3)
+expect('arm for ADD-PARTITION', 'GPT-ARM', -1)
+check('alive after fixture setup', alive())
+
+# Create the 128-byte entry to add.
+# Type GUID: all 0x11, Unique GUID: all 0x22,
+# Start LBA: 2048, End LBA: 4095, Attrs: 0, Name: "TEST"
+send('CREATE TEST-ENT 128 ALLOT', 1.0)
+send('TEST-ENT 128 0 FILL', 0.5)
+# Type GUID (16 bytes at +0).
+# Define hex values as constants outside any BASE
+# dependency — offsets are decimal, values are hex.
+send('HEX 11111111 CONSTANT TGUID DECIMAL', 1.0)
+send('HEX 22222222 CONSTANT UGUID DECIMAL', 1.0)
+send('TGUID TEST-ENT !', 0.5)
+send('TGUID TEST-ENT 4 + !', 0.5)
+send('TGUID TEST-ENT 8 + !', 0.5)
+send('TGUID TEST-ENT 12 + !', 0.5)
+# Unique GUID (16 bytes at +16)
+send('UGUID TEST-ENT 16 + !', 0.5)
+send('UGUID TEST-ENT 20 + !', 0.5)
+send('UGUID TEST-ENT 24 + !', 0.5)
+send('UGUID TEST-ENT 28 + !', 0.5)
+# Start LBA at +32 (8 bytes, low cell only)
+send('2048 TEST-ENT 32 + !', 0.5)
+send('0 TEST-ENT 36 + !', 0.3)
+# End LBA at +40
+send('4095 TEST-ENT 40 + !', 0.5)
+send('0 TEST-ENT 44 + !', 0.3)
+# Name at +56: "T" "E" "S" "T" in UTF-16LE.
+# ASCII codes are <128, safe in decimal.
+send('84 TEST-ENT 56 + C!', 0.5)
+send('69 TEST-ENT 58 + C!', 0.5)
+send('83 TEST-ENT 60 + C!', 0.5)
+send('84 TEST-ENT 62 + C!', 0.5)
+check('TEST-ENT populated', alive())
+
+# ---------------------------------------------------------------
+print("\nTest 34: ADD-PARTITION refuses when unarmed")
+send('GW-DISARM', 0.3)
+send(f'0 WC-N !  {SENTINEL} W-LBA !', 0.5)
+expect('refuses unarmed',
+       'TEST-ENT ADD-PARTITION', 0)
+expect('writer never ran (unarmed)', 'W-LBA @', SENTINEL)
+expect('stack clean (unarmed)', 'DEPTH', 0)
+check('alive after unarmed refuse', alive())
+
+# ---------------------------------------------------------------
+print("\nTest 35: ADD-PARTITION refuses with null entry")
+# Re-arm
+send("' TRA SEC-READ-VEC !", 0.5)
+send("' TWA SEC-WRITE-VEC !", 0.5)
+send('TR-BUF RD-BUF-ADDR !', 0.3)
+send(f'{SLOT} FS-SLOT !', 0.3)
+send('0 WC-N !', 0.3)
+expect('re-arm', 'GPT-ARM', -1)
+send(f'{SENTINEL} W-LBA !', 0.3)
+expect('refuses null entry', '0 ADD-PARTITION', 0)
+expect('writer never ran (null)', 'W-LBA @', SENTINEL)
+check('alive after null entry', alive())
+
+# ---------------------------------------------------------------
+print("\nTest 36: ADD-PARTITION succeeds end-to-end")
+# Fresh arm and clean write cache.
+send("' TRA SEC-READ-VEC !", 0.5)
+send("' TWA SEC-WRITE-VEC !", 0.5)
+send('TR-BUF RD-BUF-ADDR !', 0.3)
+send(f'{SLOT} FS-SLOT !', 0.3)
+send('0 THA-DIVERGE !', 0.3)
+send('0 WC-N !', 0.3)
+expect('re-arm for e2e', 'GPT-ARM', -1)
+expect('stack clean before ADD-PARTITION', 'DEPTH', 0)
+r = send('TEST-ENT ADD-PARTITION .', 15.0)
+body = body_of(r)
+nums = re.findall(r'-?\d+', body)
+result = int(nums[-1]) if nums else None
+check('ADD-PARTITION returns nonzero (success)',
+      result is not None and result != 0,
+      f'got {result!r} from {body.strip()[-120:]!r}')
+expect('stack clean after ADD-PARTITION', 'DEPTH', 0)
+check('alive after ADD-PARTITION', alive())
+
+# ---------------------------------------------------------------
+print("\nTest 37: entry sector written correctly")
+# Read back the primary entry sector and verify:
+# (a) our slot has the TEST-ENT content
+# (b) neighbours are unchanged
+
+# Read our slot's type GUID from the written sector.
+# Our slot is at offset 128 in the sector (slot 1 within sec).
+# The write cache has the sector at GW-ENT (LBA 3).
+# We can read it back via the reader.
+send(f'3 1 SEC-READ-VEC @ EXECUTE DROP', 1.5)
+# Check our entry's type GUID (first 4 bytes of slot 1).
+# 0x11111111 and 0x22222222 are positive in signed 32-bit.
+expect('slot type GUID[0] correct',
+       'RD-BUF-ADDR @ 128 + @', 0x11111111)
+expect('slot unique GUID[0] correct',
+       'RD-BUF-ADDR @ 144 + @', 0x22222222)
+expect('slot start LBA correct',
+       'RD-BUF-ADDR @ 160 + @', 2048)
+expect('slot end LBA correct',
+       'RD-BUF-ADDR @ 168 + @', 4095)
+# Neighbours: kernel . prints signed, so bit-31-set patterns
+# appear negative. Convert to signed 32-bit for comparison.
+# 0xA1A1A1A1 = -1583242847, 0xC3C3C3C3 = -1010580541,
+# 0xD4D4D4D4 = -724249388.
+expect('neighbour slot 0 intact',
+       'RD-BUF-ADDR @ @', -1583242847)
+expect('neighbour slot 0 last dword intact',
+       'RD-BUF-ADDR @ 124 + @', -1583242847)
+# Slot 2 (offset 256)
+expect('neighbour slot 2 intact',
+       'RD-BUF-ADDR @ 256 + @', -1010580541)
+# Slot 3 (offset 384)
+expect('neighbour slot 3 intact',
+       'RD-BUF-ADDR @ 384 + @', -724249388)
+check('alive after entry verify', alive())
+
+# ---------------------------------------------------------------
+print("\nTest 38: backup entry sector is byte-identical")
+# Read backup entry sector and compare to primary.
+# First read primary into IO-BUF for comparison.
+send(f'3 1 SEC-READ-VEC @ EXECUTE DROP', 1.5)
+send('RD-BUF-ADDR @ IO-BUF 512 CMOVE', 0.8)
+# Now read backup
+send(f'{ALT - 32 + 1} 1', 1.0)
+send('SEC-READ-VEC @ EXECUTE DROP', 1.5)
+# Compare all 512 bytes
+send(': CMP-SECS 512 0 DO', 0.5)
+send('    RD-BUF-ADDR @ I + @', 0.5)
+send('    IO-BUF I + @ = 0= IF', 0.5)
+send('      0 UNLOOP EXIT THEN', 0.5)
+send('  4 +LOOP -1 ;', 0.5)
+r = send('CMP-SECS .', 2.0)
+body = body_of(r)
+nums = re.findall(r'-?\d+', body)
+result = int(nums[-1]) if nums else None
+check('backup entry sector byte-identical to primary',
+      result is not None and result != 0,
+      f'got {result!r}')
+check('alive after backup compare', alive())
+
+# ---------------------------------------------------------------
+print("\nTest 39: header CRCs valid by readback")
+# Read back primary header, verify its CRC.
+send(': CHK-HDR 1 SEC-READ-VEC @ EXECUTE', 0.5)
+send('  IF 0 EXIT THEN', 0.3)
+send('  RD-BUF-ADDR @ 12 + @', 0.5)
+send('  DUP 92 < IF DROP 0 EXIT THEN', 0.5)
+send('  DUP 512 > IF DROP 0 EXIT THEN', 0.5)
+send('  RD-BUF-ADDR @ 16 + @ SWAP', 0.5)
+send('  0 RD-BUF-ADDR @ 16 + !', 0.5)
+send('  RD-BUF-ADDR @ SWAP CRC-BEGIN', 0.5)
+send('  CRC-CHUNK CRC-END = ;', 0.5)
+check('CHK-HDR defined', alive())
+
+r = send('1 CHK-HDR .', 2.0)
+body = body_of(r)
+nums = re.findall(r'-?\d+', body)
+result = int(nums[-1]) if nums else None
+check('primary header CRC valid',
+      result is not None and result != 0,
+      f'got {result!r}')
+
+r = send(f'{ALT} CHK-HDR .', 2.0)
+body = body_of(r)
+nums = re.findall(r'-?\d+', body)
+result = int(nums[-1]) if nums else None
+check('backup header CRC valid',
+      result is not None and result != 0,
+      f'got {result!r}')
+check('alive after header CRC checks', alive())
+
+# ---------------------------------------------------------------
+print("\nTest 40: ADD-PARTITION refuses diverged backup array")
+# Decision #4: if the backup entry array differs from the
+# primary, refuse rather than write a backup header whose CRC
+# claims content the backup array doesn't have.
+send("' TRA SEC-READ-VEC !", 0.5)
+send("' TWA SEC-WRITE-VEC !", 0.5)
+send('TR-BUF RD-BUF-ADDR !', 0.3)
+send(f'{SLOT} FS-SLOT !', 0.3)
+send('-1 THA-DIVERGE !', 0.3)
+send('0 WC-N !', 0.3)
+expect('re-arm for diverged test', 'GPT-ARM', -1)
+r = send('TEST-ENT ADD-PARTITION .', 15.0)
+body = body_of(r)
+nums = re.findall(r'-?\d+', body)
+result = int(nums[-1]) if nums else None
+check('ADD-PARTITION refuses diverged backup',
+      result is not None and result == 0,
+      f'got {result!r} from {body.strip()[-120:]!r}')
+send('0 THA-DIVERGE !', 0.3)
+check('alive after diverged test', alive())
+
+# ---------------------------------------------------------------
+print("\nTest 41: ADD-PARTITION refuses bad HeaderSize")
+# HeaderSize out of bounds must refuse. The guard reads +0x0C
+# and refuses < 92 or > 512.
+send("' TRA SEC-READ-VEC !", 0.5)
+send("' TWA SEC-WRITE-VEC !", 0.5)
+send('TR-BUF RD-BUF-ADDR !', 0.3)
+send(f'{SLOT} FS-SLOT !', 0.3)
+send('0 THA-DIVERGE !', 0.3)
+send('0 WC-N !', 0.3)
+# Set HeaderSize to 0 (below minimum)
+send('0 THA-HSIZ !', 0.3)
+expect('re-arm (bad hsiz)', 'GPT-ARM', -1)
+r = send('TEST-ENT ADD-PARTITION .', 15.0)
+body = body_of(r)
+nums = re.findall(r'-?\d+', body)
+result = int(nums[-1]) if nums else None
+check('refuses HeaderSize 0',
+      result is not None and result == 0,
+      f'got {result!r}')
+# Restore and try 1024 (above maximum)
+send('0 WC-N !', 0.3)
+send('1024 THA-HSIZ !', 0.3)
+expect('re-arm (hsiz 1024)', 'GPT-ARM', -1)
+r = send('TEST-ENT ADD-PARTITION .', 15.0)
+body = body_of(r)
+nums = re.findall(r'-?\d+', body)
+result = int(nums[-1]) if nums else None
+check('refuses HeaderSize 1024',
+      result is not None and result == 0,
+      f'got {result!r}')
+# Restore valid HeaderSize
+send('92 THA-HSIZ !', 0.3)
+check('alive after HeaderSize tests', alive())
 
 send('ONLY FORTH DEFINITIONS DECIMAL', 1.0)
 
