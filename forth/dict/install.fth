@@ -818,6 +818,65 @@ VARIABLE LBA0-OK?
     4 +LOOP
     -1 ;
 
+\ ---- Step 3: build the VBR image ----
+\ Decision A: the DAP start-LBA field is
+\ patched with OWN-BASE+KERNEL-OFFSET at a
+\ FIXED offset. VBR-LBA-OFF must equal the
+\ assembled template's dap+8; the harness
+\ derives that from build/boot.bin at run
+\ time and goes red loudly on drift. It
+\ WILL move when the CHS-removal variant
+\ lands -- update this one constant then.
+1 CONSTANT KERNEL-OFFSET
+467 CONSTANT VBR-LBA-OFF
+
+\ Bit 31 set: at/past LBA-HORIZON, so no
+\ permitted OWN-BASE+1 can ever equal it.
+\ Sentinel-vs-real is disjoint by
+\ construction, not by improbability.
+HEX DEADBEEF CONSTANT VBR-SENTINEL DECIMAL
+
+\ Template source. 0 = none = refuse. The
+\ test fixture or the block-loaded real
+\ template stores its address here.
+VARIABLE VBR-TPL
+CREATE VBR-IMG 512 ALLOT
+
+\ G5-R3 gate: the bake fired. The sentinel
+\ means an unpatched copy -- refused
+\ explicitly, even though = expected
+\ already excludes it, so a broken
+\ expected-value calc cannot alias into a
+\ pass.
+: VBR-BAKED? ( -- flag )
+    VBR-IMG VBR-LBA-OFF + @
+    DUP VBR-SENTINEL = IF DROP 0 EXIT THEN
+    OWN-BASE @ KERNEL-OFFSET + = ;
+
+\ G5-R4 gate: chainloadable. GRUB's
+\ chainloader +1 needs 55 AA at 510.
+: VBR-SIGNED? ( -- flag )
+    VBR-IMG 510 + C@ 85 =
+    VBR-IMG 511 + C@ 170 = AND ;
+
+\ Copy template, bake OWN-BASE+KERNEL-OFFSET
+\ into the DAP field, then gate the result.
+\ Only the copy is patched -- a template
+\ with a real LBA baked in would poison
+\ every later build. Refusals touch
+\ nothing, including a previously built
+\ image.
+: BUILD-VBR ( -- flag )
+    VBR-TPL @ 0= IF 0 EXIT THEN
+    OWN-BASE @ 0= IF 0 EXIT THEN
+    VBR-TPL @ 510 + C@ 85 =
+    VBR-TPL @ 511 + C@ 170 = AND
+    0= IF 0 EXIT THEN
+    VBR-TPL @ VBR-IMG 512 CMOVE
+    OWN-BASE @ KERNEL-OFFSET +
+    VBR-IMG VBR-LBA-OFF + !
+    VBR-BAKED? VBR-SIGNED? AND ;
+
 \ Binds if AHCI is already in the search
 \ order; silently does not if it is not.
 BIND-WRITER AHCI-WRITE

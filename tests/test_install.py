@@ -1416,6 +1416,100 @@ send('MS-SAVE @ MEM-BASE !', 0.3)
 expect('MEM-BASE restored', 'MEM-BASE @ MS-SAVE @ =', -1)
 check('alive after step-0 suite', alive())
 
+# ---------------------------------------------------------------
+# Task 4 step 3: BUILD-VBR -- the Decision A bake, red-first.
+# The fixture template and the gate share ONE offset constant
+# (VBR-LBA-OFF, defined Forth-side): these tests never hardcode
+# the byte offset, so the fixture and the future assembled
+# template cannot drift from the gate without the gate noticing.
+# ---------------------------------------------------------------
+
+print("\nTest 46: G5-R3 -- the bake fired (sentinel de-alias)")
+# Third leg of the drift triangle: the Forth constant must match
+# the ASSEMBLED template, derived from the artifact at runtime --
+# never a hardcoded offset.  DAP shape: size 10 00, reserved 00,
+# count (varies), dest 0x7E00, seg 0, start LBA dd 1, high dd 0.
+# When the CHS-removal VBR variant lands the offset will move;
+# this re-derivation goes red loudly, and updating VBR-LBA-OFF
+# is a green re-derivation, not a stale constant.
+with open('build/boot.bin', 'rb') as f:
+    bootbin = f.read()
+dap_re = re.compile(
+    b'\x10\x00..\x00\x7e\x00\x00'
+    b'\x01\x00\x00\x00\x00\x00\x00\x00', re.DOTALL)
+dap_hits = [m.start() for m in dap_re.finditer(bootbin)]
+check('exactly one DAP in assembled boot.bin',
+      len(dap_hits) == 1, f'matches at {dap_hits}')
+DAP_LBA_OFF = dap_hits[0] + 8 if dap_hits else None
+if DAP_LBA_OFF is not None:
+    expect('VBR-LBA-OFF matches assembled boot.bin',
+           'VBR-LBA-OFF', DAP_LBA_OFF)
+
+# Fixture template: zeros, one code-ish byte, the sentinel in
+# the DAP start-LBA field, 55 AA at 510/511.
+send('CREATE VBR-FIX 512 ALLOT', 1.0)
+send('VBR-FIX 512 0 FILL', 0.5)
+send('235 VBR-FIX C!', 0.3)
+send('VBR-SENTINEL VBR-FIX VBR-LBA-OFF + !', 0.5)
+send('85 VBR-FIX 510 + C!  170 VBR-FIX 511 + C!', 0.5)
+send('VBR-FIX VBR-TPL !', 0.3)
+send(f'{BASE} OWN-BASE !  {LEN} OWN-LEN !', 0.5)
+
+# Red: an UNPATCHED copy (a bake that never fired) must be
+# caught.  Simulate by copying the template without baking.
+send('VBR-TPL @ VBR-IMG 512 CMOVE', 0.5)
+expect('unpatched image still reads the sentinel',
+       'VBR-IMG VBR-LBA-OFF + @ VBR-SENTINEL =', -1)
+# A broken gate that only checks "field nonzero" WOULD pass on
+# the sentinel -- the false pass G5-R3 exists to prevent.
+expect('broken nonzero-check WOULD pass (red)',
+       'VBR-IMG VBR-LBA-OFF + @ 0= 0=', -1)
+expect('real gate refuses the unpatched image', 'VBR-BAKED?', 0)
+
+# Control: the real build.
+expect('BUILD-VBR succeeds', 'BUILD-VBR', -1)
+expect('baked field = OWN-BASE + KERNEL-OFFSET',
+       'VBR-IMG VBR-LBA-OFF + @', BASE + 1)
+expect('baked field is not the sentinel',
+       'VBR-IMG VBR-LBA-OFF + @ VBR-SENTINEL =', 0)
+expect('gate passes on the baked image', 'VBR-BAKED?', -1)
+# The bake patches the COPY, never the template -- a template
+# with a real LBA baked in would poison every later build.
+expect('template still holds the sentinel',
+       'VBR-FIX VBR-LBA-OFF + @ VBR-SENTINEL =', -1)
+
+# One variable at a time: each refusal, and no refusal may
+# scribble on the previously built image.
+send('0 VBR-TPL !', 0.3)
+expect('refuses: no template', 'BUILD-VBR', 0)
+send('VBR-FIX VBR-TPL !  0 OWN-BASE !', 0.5)
+expect('refuses: extent not claimed', 'BUILD-VBR', 0)
+expect('refusals left the built image untouched',
+       'VBR-IMG VBR-LBA-OFF + @', BASE + 1)
+send(f'{BASE} OWN-BASE !', 0.3)
+expect('stack clean after G5-R3', 'DEPTH', 0)
+check('alive after G5-R3', alive())
+
+# ---------------------------------------------------------------
+print("\nTest 47: G5-R4 -- built image is chainloadable (55 AA)")
+expect('control: rebuild passes', 'BUILD-VBR', -1)
+expect('byte 510 is 0x55', 'VBR-IMG 510 + C@', 85)
+expect('byte 511 is 0xAA', 'VBR-IMG 511 + C@', 170)
+expect('gate passes on the signed image', 'VBR-SIGNED?', -1)
+# Red: strip the signature from the built image.
+send('0 VBR-IMG 510 + C!', 0.3)
+expect('unsigned image: gate refuses', 'VBR-SIGNED?', 0)
+send('85 VBR-IMG 510 + C!', 0.3)
+expect('restored: gate passes again', 'VBR-SIGNED?', -1)
+# An unsigned TEMPLATE must refuse at build time -- a correct-
+# but-unsigned VBR would otherwise surface only at iron G6.
+send('0 VBR-FIX 510 + C!', 0.3)
+expect('refuses: unsigned template', 'BUILD-VBR', 0)
+send('85 VBR-FIX 510 + C!', 0.3)
+expect('control: signed template builds again', 'BUILD-VBR', -1)
+expect('stack clean after G5-R4', 'DEPTH', 0)
+check('alive after G5-R4', alive())
+
 send('ONLY FORTH DEFINITIONS DECIMAL', 1.0)
 
 print(f'\nPassed: {PASS}/{PASS + FAIL}')
