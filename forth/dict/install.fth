@@ -740,6 +740,84 @@ DECIMAL
     THEN
     -1 ;
 
+\ ==== Task 4: ADD-BOOT-ENTRY, step 0 ====
+\ Controller-ready probe and the G1 (LBA 0
+\ byte-identical) baseline/compare pair.
+\
+\ Fail-open read hazard (observed on iron,
+\ 2026-08-01): an uninitialized controller
+\ returns flag=1 with an ALL-ZERO buffer.
+\ A gate that ignored the flag would compare
+\ zero==zero and pass. So: a buffer is
+\ meaningless unless the read returned 0,
+\ and an all-zero LBA 0 is a failed read,
+\ not an empty MBR. Every word below errors
+\ (returns 0) rather than trusting such a
+\ buffer -- an error must never read as
+\ "identical".
+
+\ Memdisk image physical base, snapshotted
+\ once at load from the bootloader-set cell
+\ at 28098 (hex). The bootloader wrote it
+\ before this file could load, so the
+\ snapshot is always valid; production and
+\ tests both read the ForthOS-owned cell,
+\ never the live kernel variable. 0 = not a
+\ memdisk boot = no pristine source =
+\ refuse. The raw address also appears as
+\ MEMDISK-VAR in the paid ahci.fth --
+\ duplicated because public code cannot
+\ name a paid word; if the bootloader var
+\ ever moves, update both.
+VARIABLE MEM-BASE
+HEX 28098 @ DECIMAL MEM-BASE !
+
+CREATE LBA0-SAVE 512 ALLOT
+VARIABLE LBA0-OK?
+
+\ Boot signature at buffer end. Also rejects
+\ the all-zero buffer of a failed read.
+: ABE-SIG? ( -- flag )
+    RD-BUF-ADDR @ 510 + C@ 85 =
+    RD-BUF-ADDR @ 511 + C@ 170 = AND ;
+
+\ Step-0 probe: reader bound, buffer set,
+\ pristine memdisk source present, and LBA 0
+\ reads back flag=0 with the signature.
+: ABE-READY? ( -- flag )
+    SEC-READ-VEC @ 0= IF 0 EXIT THEN
+    RD-BUF-ADDR @ 0= IF 0 EXIT THEN
+    MEM-BASE @ 0= IF 0 EXIT THEN
+    0 1 SEC-READ-VEC @ EXECUTE IF
+        0 EXIT
+    THEN
+    ABE-SIG? ;
+
+\ G1 baseline capture. Never stores a buffer
+\ from a failed read; clears the trust flag
+\ first so a refused capture cannot leave a
+\ stale baseline looking fresh.
+: LBA0-BASELINE ( -- flag )
+    0 LBA0-OK? !
+    ABE-READY? 0= IF 0 EXIT THEN
+    RD-BUF-ADDR @ LBA0-SAVE 512 CMOVE
+    -1 LBA0-OK? ! -1 ;
+
+\ G1 compare: -1 only when a fresh flag=0
+\ read matches the trusted baseline. No
+\ baseline or failed read = 0, same as a
+\ mismatch -- fail closed.
+: LBA0-SAME? ( -- flag )
+    LBA0-OK? @ 0= IF 0 EXIT THEN
+    ABE-READY? 0= IF 0 EXIT THEN
+    512 0 DO
+        RD-BUF-ADDR @ I + @
+        LBA0-SAVE I + @ = 0= IF
+            0 UNLOOP EXIT
+        THEN
+    4 +LOOP
+    -1 ;
+
 \ Binds if AHCI is already in the search
 \ order; silently does not if it is not.
 BIND-WRITER AHCI-WRITE

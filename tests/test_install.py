@@ -1316,6 +1316,106 @@ check('refuses HeaderSize 1024',
 send('92 THA-HSIZ !', 0.3)
 check('alive after HeaderSize tests', alive())
 
+# ---------------------------------------------------------------
+# Task 4 (ADD-BOOT-ENTRY) step 0: controller-ready probe and the
+# G1 baseline/compare pair, red-first.
+#
+# MEM-BASE is install.fth's load-time snapshot of the bootloader's
+# MEMDISK_BASE cell -- a ForthOS-owned variable.  Tests poke the
+# snapshot, never the live kernel cell at 0x28098, so the block
+# subsystem is untouched no matter what these tests do.  Saved on
+# entry, restored at the end.
+# ---------------------------------------------------------------
+
+# Fixture: L0-IMG is the fake disk's LBA 0 -- realistic protective
+# MBR shape: zeros, one nonzero interior byte, 55 AA at 510/511.
+send('CREATE L0-IMG 512 ALLOT', 1.0)
+send('L0-IMG 512 0 FILL', 0.5)
+send('238 L0-IMG 440 + C!', 0.3)
+send('85 L0-IMG 510 + C!  170 L0-IMG 511 + C!', 0.5)
+# GRD: good reader -- flag=0, serves L0-IMG.
+send(': GRD 2DROP L0-IMG TR-BUF 512 CMOVE 0 ;', 1.0)
+# BRD: the fail-open hazard -- flag=1 AND an all-zero buffer,
+# exactly what the uninitialized AHCI controller did on iron.
+send(': BRD 2DROP TR-BUF 512 0 FILL 1 ;', 1.0)
+# NCMP: a deliberately BROKEN comparator that ignores the flag
+# discipline -- raw buffer compare, used to prove G1-R0 bites.
+send(': NCMP 512 0 DO TR-BUF I + C@ LBA0-SAVE I + C@', 0.5)
+send('  = 0= IF 0 UNLOOP EXIT THEN LOOP -1 ;', 1.0)
+send('VARIABLE MS-SAVE', 0.5)
+send('MEM-BASE @ MS-SAVE !', 0.3)
+
+# ---------------------------------------------------------------
+print("\nTest 42: ABE-READY? control-then-one-variable")
+# Control: everything present -> ready.
+send("' GRD SEC-READ-VEC !  TR-BUF RD-BUF-ADDR !", 0.5)
+send('4096 MEM-BASE !', 0.3)
+expect('control: probe passes', 'ABE-READY?', -1)
+# One variable at a time.
+send('0 SEC-READ-VEC !', 0.3)
+expect('refuses: reader unbound', 'ABE-READY?', 0)
+send("' GRD SEC-READ-VEC !  0 RD-BUF-ADDR !", 0.5)
+expect('refuses: no buffer', 'ABE-READY?', 0)
+send('TR-BUF RD-BUF-ADDR !  0 MEM-BASE !', 0.5)
+expect('refuses: no memdisk source', 'ABE-READY?', 0)
+send('4096 MEM-BASE !', 0.3)
+send("' BRD SEC-READ-VEC !", 0.3)
+expect('refuses: read flag=1', 'ABE-READY?', 0)
+expect('stack clean after probe matrix', 'DEPTH', 0)
+check('alive after probe matrix', alive())
+
+# ---------------------------------------------------------------
+print("\nTest 43: G1-R0 -- fail-open double-zero must error")
+# Both the baseline read and the after read return flag=1 with a
+# zero buffer.  The gate must ERROR (0), never report identical.
+send("' BRD SEC-READ-VEC !  4096 MEM-BASE !", 0.5)
+expect('capture refuses on flag=1', 'LBA0-BASELINE', 0)
+expect('no trusted baseline stored', 'LBA0-OK? @', 0)
+expect('compare refuses, not identical', 'LBA0-SAME?', 0)
+# Red proof that the test bites: simulate a broken gate that
+# stored the untrusted zero buffer anyway.  The raw compare then
+# reports identical (zero==zero) -- the false pass G1-R0 exists
+# to prevent.  The real gate still refuses on the same state.
+send('TR-BUF LBA0-SAVE 512 CMOVE', 0.5)
+expect('broken gate WOULD pass (red)', 'NCMP', -1)
+expect('real gate still refuses', 'LBA0-SAME?', 0)
+# Control pair: with a good read the same capture succeeds and
+# the buffer carries the signature (the iron sequence after
+# AHCI-INIT).
+send("' GRD SEC-READ-VEC !", 0.3)
+expect('control: capture passes', 'LBA0-BASELINE', -1)
+expect('control: baseline trusted', 'LBA0-OK? @', -1)
+expect('control: compare identical', 'LBA0-SAME?', -1)
+expect('stack clean after G1-R0', 'DEPTH', 0)
+check('alive after G1-R0', alive())
+
+# ---------------------------------------------------------------
+print("\nTest 44: G1-R1 -- comparator detects one byte")
+# Poke at offset 0x1C0 (448) BY INTENT: cell 112 of 128, late in
+# the sector.  This doubles as full-scan proof -- a compare loop
+# that ran once (or stopped early) would miss it, so red->green
+# here also certifies the DO loop covers the whole sector.
+expect('pre-poke: identical', 'LBA0-SAME?', -1)
+send('123 L0-IMG 448 + C!', 0.3)
+expect('one byte poked: MISMATCH', 'LBA0-SAME?', 0)
+send('0 L0-IMG 448 + C!', 0.3)
+expect('restored: identical again', 'LBA0-SAME?', -1)
+expect('stack clean after G1-R1', 'DEPTH', 0)
+check('alive after G1-R1', alive())
+
+# ---------------------------------------------------------------
+print("\nTest 45: G1-R2 -- captured baseline is real, not zero")
+expect('baseline byte 510 is 0x55', 'LBA0-SAVE 510 + C@', 85)
+expect('baseline byte 511 is 0xAA', 'LBA0-SAVE 511 + C@', 170)
+expect('baseline interior nonzero', 'LBA0-SAVE 440 + C@', 238)
+
+expect('stack clean after G1-R2', 'DEPTH', 0)
+
+# Restore the snapshot to its load-time value.
+send('MS-SAVE @ MEM-BASE !', 0.3)
+expect('MEM-BASE restored', 'MEM-BASE @ MS-SAVE @ =', -1)
+check('alive after step-0 suite', alive())
+
 send('ONLY FORTH DEFINITIONS DECIMAL', 1.0)
 
 print(f'\nPassed: {PASS}/{PASS + FAIL}')
