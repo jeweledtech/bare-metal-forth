@@ -995,6 +995,79 @@ VARIABLE GPT-SAVE
     GPT-SUM 0= IF 0 EXIT THEN
     GPT-SAVE @ = ;
 
+\ ---- Steps 4-7: the whole word ----
+\ Step-6 sample sectors: first, last, two
+\ fixed-LCG interior picks. Same shape as
+\ ESP-SAMPLE; exposed so tests derive the
+\ watch list from the artifact.
+: KRN-SAMPLE ( i -- sec )
+    DUP 0= IF DROP 0 EXIT THEN
+    DUP 1 = IF
+        DROP KERNEL-SECTORS 1 - EXIT
+    THEN
+    2 = IF 48271 ELSE 16807 THEN
+    KERNEL-SECTORS 2 - MOD 1+ ;
+
+\ Kernel sector i: memdisk source address
+\ (Decision B: the pristine RAM image at
+\ MEM-BASE+512) and destination LBA.
+: KRN-SRC ( i -- addr )
+    512 * MEM-BASE @ + 512 + ;
+: KRN-LBA ( i -- lba )
+    OWN-BASE @ KERNEL-OFFSET + + ;
+
+\ Step-6 sample: a fresh flag=0 read of the
+\ written sector must match its source.
+\ Validates the write path; image content
+\ is proven only at iron G6. Fail closed.
+: KRN-CHK ( i -- flag )
+    DUP KRN-LBA 1
+    SEC-READ-VEC @ EXECUTE IF
+        DROP 0 EXIT
+    THEN
+    KRN-SRC RD-BUF-ADDR @ SEC=? ;
+
+\ Step-6 VBR readback vs the built image.
+: VBR-CHK ( -- flag )
+    OWN-BASE @ 1
+    SEC-READ-VEC @ EXECUTE IF 0 EXIT THEN
+    VBR-IMG RD-BUF-ADDR @ SEC=? ;
+
+\ Step 4: every kernel sector, ascending
+\ from OWN-BASE+KERNEL-OFFSET, via
+\ SAFE-WRITE. Any out-of-extent or failed
+\ write ABORTs loudly inside SAFE-WRITE; a
+\ partial install never returns a flag.
+: ABE-KWRITE ( -- )
+    KERNEL-SECTORS 0 DO
+        I KRN-SRC I KRN-LBA SAFE-WRITE
+    LOOP ;
+
+\ The orchestration. Gate refusals return
+\ 0 before anything reaches the disk;
+\ write faults ABORT. -1 only when every
+\ step and every gate passed. VBR is
+\ written LAST: an interrupted install
+\ leaves no chainloadable sector behind.
+: ADD-BOOT-ENTRY ( -- flag )
+    ABE-READY? 0= IF 0 EXIT THEN
+    ABE-FITS? 0= IF 0 EXIT THEN
+    LBA0-BASELINE 0= IF 0 EXIT THEN
+    ESP-BASELINE 0= IF 0 EXIT THEN
+    GPT-BASELINE 0= IF 0 EXIT THEN
+    BUILD-VBR 0= IF 0 EXIT THEN
+    ABE-KWRITE
+    VBR-IMG OWN-BASE @ SAFE-WRITE
+    VBR-CHK 0= IF 0 EXIT THEN
+    4 0 DO
+        I KRN-SAMPLE KRN-CHK
+        0= IF 0 UNLOOP EXIT THEN
+    LOOP
+    LBA0-SAME? 0= IF 0 EXIT THEN
+    ESP-SAME? 0= IF 0 EXIT THEN
+    GPT-SAME? 0= IF 0 EXIT THEN
+    -1 ;
+
 \ Binds if AHCI is already in the search
 \ order; silently does not if it is not.
 BIND-WRITER AHCI-WRITE

@@ -1618,6 +1618,143 @@ expect('re-arm baseline', 'GPT-BASELINE', -1)
 expect('stack clean after G3', 'DEPTH', 0)
 check('alive after G3', alive())
 
+# ---------------------------------------------------------------
+# Task 4 flow steps 4-7, Landing B: the whole word.
+# Fixture: sparse 8-slot watch list.  OWR counts every write,
+# fail-injects at O-FAIL, and records watched sectors' bytes;
+# ORD serves LBA 0 (L0-IMG), watched sectors (recorded bytes),
+# and lba&255 fill for everything else (ESP + GPT).
+# G1-FLIP corrupts LBA 0 only once O-CNT > 0: the baseline
+# reads clean, the step-7 recheck reads dirty -- the serial-
+# safe equivalent of a concurrent poke mid-install.
+# G5-FLIP corrupts only watched (own-extent) readbacks, so a
+# 0 return under it is attributable to step 6, not step 7.
+# NOTE: the kernel "image" is live RAM at MEM-BASE+512 and the
+# sample checks compare readback against that same source --
+# self-consistent by construction.  They validate the WRITE
+# PATH; image content is proven only at iron G6.
+print("\nTest 51: ADD-BOOT-ENTRY whole-word matrix")
+send('CREATE O-WLBA 32 ALLOT', 1.0)
+send('O-WLBA 32 255 FILL', 0.5)
+send('CREATE O-WBUF 4096 ALLOT', 1.0)
+send('VARIABLE O-CNT   0 O-CNT !', 0.5)
+send('VARIABLE O-FAIL  -1 O-FAIL !', 0.5)
+send('VARIABLE G1-FLIP 0 G1-FLIP !', 0.5)
+send('VARIABLE G5-FLIP 0 G5-FLIP !', 0.5)
+# WL-FIND ( lba -- i -1 | 0 )
+send(': WL-FIND 8 0 DO DUP O-WLBA I 4 * + @ = IF', 0.8)
+send('  DROP I -1 UNLOOP EXIT THEN LOOP DROP 0 ;', 0.8)
+# OWR ( lba n buf -- f )
+send(': OWR 1 O-CNT +!  SWAP DROP', 0.8)
+send('  OVER O-FAIL @ = IF 2DROP 1 EXIT THEN', 0.8)
+send('  SWAP WL-FIND IF', 0.5)
+send('    512 * O-WBUF + 512 CMOVE ELSE DROP THEN 0 ;', 1.0)
+# ORD ( lba n -- f )
+send(': ORD DROP', 0.5)
+send('  DUP 0= IF DROP L0-IMG TR-BUF 512 CMOVE', 1.0)
+send('    G1-FLIP @ O-CNT @ 0= 0= AND IF', 0.8)
+send('      TR-BUF C@ 1 XOR TR-BUF C! THEN 0 EXIT THEN', 1.0)
+send('  DUP WL-FIND IF', 0.5)
+send('    SWAP DROP 512 * O-WBUF + TR-BUF 512 CMOVE', 1.0)
+send('    G5-FLIP @ IF', 0.5)
+send('      TR-BUF C@ 1 XOR TR-BUF C! THEN 0 EXIT THEN', 1.0)
+send('  255 AND TR-BUF 512 ROT FILL 0 ;', 1.0)
+
+# Bind everything; extent exactly holds VBR + kernel.
+send("' ORD SEC-READ-VEC !  TR-BUF RD-BUF-ADDR !", 0.5)
+send("' OWR SEC-WRITE-VEC !", 0.5)
+send(f'{BASE} OWN-BASE !  225 OWN-LEN !', 0.5)
+send('4096 MEM-BASE !', 0.3)
+send('100 ESP-BASE !  64 ESP-LEN !', 0.5)
+send('VBR-FIX VBR-TPL !', 0.5)
+
+# The watch list is derived from the artifact: sample sectors
+# come from KRN-SAMPLE, never Python arithmetic on constants.
+kfirst = BASE + 1
+s2 = val('2 KRN-SAMPLE')[0]
+s3 = val('3 KRN-SAMPLE')[0]
+last = val('1 KRN-SAMPLE')[0]
+check('interior samples derivable',
+      s2 is not None and s3 is not None and last is not None,
+      f'{[s2, s3, last]}')
+watches = [BASE, kfirst,
+           kfirst + (last or 0),
+           kfirst + (s2 or 0), kfirst + (s3 or 0)]
+for i, lba in enumerate(watches):
+    send(f'{lba} O-WLBA {i * 4} + !', 0.3)
+
+# Row 1: control.
+send('0 O-CNT !', 0.3)
+v, raw = val('ADD-BOOT-ENTRY', 8.0)
+check('control: whole word returns -1', v == -1,
+      raw.strip()[-90:])
+expect('control: 225 writes (224 kernel + VBR)', 'O-CNT @', 225)
+expect('control: VBR slot has the bake',
+       'O-WBUF VBR-LBA-OFF + @', kfirst)
+expect('control: VBR slot signed 55', 'O-WBUF 510 + C@', 85)
+expect('control: VBR slot signed AA', 'O-WBUF 511 + C@', 170)
+# First kernel sector recorded = its RAM source byte.
+src0 = val('MEM-BASE @ 512 + C@')[0]
+if src0 is not None:
+    expect('control: kernel slot matches source',
+           'O-WBUF 512 + C@', src0)
+expect('stack clean after control', 'DEPTH', 0)
+
+# Row 2: step-0 refusal (one variable: reader unbound).
+send('0 O-CNT !  0 SEC-READ-VEC !', 0.5)
+expect('refuses: reader unbound', 'ADD-BOOT-ENTRY', 0)
+expect('refusal wrote nothing', 'O-CNT @', 0)
+send("' ORD SEC-READ-VEC !", 0.3)
+
+# Row 3: step-1 refusal (one variable: extent one short).
+send('224 OWN-LEN !', 0.3)
+expect('refuses: extent too small', 'ADD-BOOT-ENTRY', 0)
+expect('small extent wrote nothing', 'O-CNT @', 0)
+send('225 OWN-LEN !', 0.3)
+expect('refusals left OWN-BASE alone', 'OWN-BASE @', BASE)
+
+# Row 4: mid-write fault -> ABORT, host untouched.
+send('0 O-CNT !  O-WBUF 512 0 FILL', 0.5)
+fail_lba = kfirst + 51
+send(f'{fail_lba} O-FAIL !', 0.3)
+r = send('ADD-BOOT-ENTRY', 6.0)
+check('mid-write fault aborts loudly', 'write failed' in r,
+      r.strip()[-90:])
+check('alive after abort', alive())
+expect('writes stopped at the fault', 'O-CNT @',
+       fail_lba - kfirst + 1)
+expect('VBR never written in this run', 'O-WBUF 510 + C@', 0)
+send('-1 O-FAIL !', 0.3)
+# The spec's own matrix line: G1+G2+G3 still show the host
+# untouched after an aborted install.  The baselines armed at
+# step 2 live in variables, so they survive the ABORT.
+expect('host untouched: G1 still -1', 'LBA0-SAME?', -1)
+expect('host untouched: G2 still -1', 'ESP-SAME?', -1)
+expect('host untouched: G3 still -1', 'GPT-SAME?', -1)
+expect('stack clean after abort row', 'DEPTH', 0)
+
+# Row 5: G1-live -- LBA 0 changes after the writes begin.
+send('0 O-CNT !  -1 G1-FLIP !', 0.5)
+v, raw = val('ADD-BOOT-ENTRY', 8.0)
+check('G1-live poke: returns 0', v == 0, raw.strip()[-90:])
+expect('all writes had completed', 'O-CNT @', 225)
+send('0 G1-FLIP !', 0.3)
+
+# Row 6: G5-live -- own-extent readback corrupted; LBA 0,
+# ESP, and GPT stay clean, so this 0 is step 6's.
+send('0 O-CNT !  -1 G5-FLIP !', 0.5)
+v, raw = val('ADD-BOOT-ENTRY', 8.0)
+check('G5-live poke: returns 0', v == 0, raw.strip()[-90:])
+send('0 G5-FLIP !', 0.3)
+
+# Recovery: the control row passes again untouched.
+send('0 O-CNT !', 0.3)
+v, raw = val('ADD-BOOT-ENTRY', 8.0)
+check('control again after the matrix', v == -1,
+      raw.strip()[-90:])
+expect('stack clean after matrix', 'DEPTH', 0)
+check('alive after matrix', alive())
+
 send('ONLY FORTH DEFINITIONS DECIMAL', 1.0)
 
 print(f'\nPassed: {PASS}/{PASS + FAIL}')
