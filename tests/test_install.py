@@ -30,6 +30,7 @@ prints "WORD ?" for an undefined word and then KEEPS EXECUTING the
 rest of the line, so a substring match can be satisfied by
 leftover stack junk.
 """
+import os
 import re
 import socket
 import sys
@@ -1509,6 +1510,113 @@ send('85 VBR-FIX 510 + C!', 0.3)
 expect('control: signed template builds again', 'BUILD-VBR', -1)
 expect('stack clean after G5-R4', 'DEPTH', 0)
 check('alive after G5-R4', alive())
+
+# ---------------------------------------------------------------
+# Task 4 flow steps 1-7, Landing A: step-1 size check plus the
+# G2 (ESP sampled tripwire) and G3 (GPT CRC tripwire) gate pairs.
+# ---------------------------------------------------------------
+
+print("\nTest 48: step 1 -- kernel fits the claimed extent")
+# Drift leg: KERNEL-SECTORS must match the built kernel image,
+# derived from the artifact at runtime, never hardcoded.
+ksize = os.path.getsize('build/kernel.bin')
+check('kernel.bin is whole sectors', ksize % 512 == 0, f'{ksize}')
+expect('KERNEL-SECTORS matches build/kernel.bin',
+       'KERNEL-SECTORS', ksize // 512)
+# Boundary: KERNEL-OFFSET + KERNEL-SECTORS sectors are needed.
+need = ksize // 512 + 1
+send(f'{need} OWN-LEN !', 0.3)
+expect('exactly sufficient extent fits', 'ABE-FITS?', -1)
+send(f'{need - 1} OWN-LEN !', 0.3)
+expect('one sector short refuses', 'ABE-FITS?', 0)
+send('0 OWN-LEN !', 0.3)
+expect('unclaimed extent refuses', 'ABE-FITS?', 0)
+send(f'{LEN} OWN-LEN !', 0.3)
+expect('stack clean after step-1 checks', 'DEPTH', 0)
+check('alive after step-1 checks', alive())
+
+# ---------------------------------------------------------------
+# Shared fixture for G2/G3: ERD ( lba n -- f ) serves ANY lba as
+# a full sector of its own low byte, so every sector has
+# distinct, derivable content.  E-PLBA/E-POKE overlay one byte
+# of one chosen lba -- the poke knob for both tripwires.
+# -1 E-PLBA = overlay off.
+send('VARIABLE E-PLBA  -1 E-PLBA !', 0.5)
+send('VARIABLE E-POKE', 0.3)
+send(': ERD DROP', 0.5)
+send('  DUP 255 AND TR-BUF 512 ROT FILL', 0.8)
+send('  DUP E-PLBA @ = IF', 0.5)
+send('    E-POKE @ TR-BUF C! THEN DROP 0 ;', 0.8)
+
+# ---------------------------------------------------------------
+print("\nTest 49: G2 -- ESP sampled tripwire, red-first")
+send("' ERD SEC-READ-VEC !  TR-BUF RD-BUF-ADDR !", 0.5)
+send('100 ESP-BASE !  64 ESP-LEN !', 0.5)
+expect('control: baseline captures', 'ESP-BASELINE', -1)
+expect('control: samples identical', 'ESP-SAME?', -1)
+# The sample list is derived from the artifact under test.
+samples = [val(f'{i} ESP-SAMPLE')[0] for i in range(4)]
+check('sample 0 is the first sector', samples[0] == 100,
+      f'{samples}')
+check('sample 1 is the last sector', samples[1] == 163,
+      f'{samples}')
+check('interior samples inside the extent',
+      all(s is not None and 100 < s < 163 for s in samples[2:]),
+      f'{samples}')
+if samples[2] is not None:
+    expect('samples reproducible', '2 ESP-SAMPLE', samples[2])
+    # Red: poke a SAMPLED sector -> must be caught.
+    send(f'{samples[2]} E-PLBA !  77 E-POKE !', 0.5)
+    expect('poked sampled sector: MISMATCH', 'ESP-SAME?', 0)
+    send('-1 E-PLBA !', 0.3)
+    expect('restored: identical again', 'ESP-SAME?', -1)
+    # Tripwire honesty: an UNSAMPLED sector is NOT covered --
+    # by design (static-assurance section: do not tighten).
+    uns = next(l for l in range(101, 163) if l not in samples)
+    send(f'{uns} E-PLBA !  77 E-POKE !', 0.5)
+    expect('unsampled poke passes (tripwire, by design)',
+           'ESP-SAME?', -1)
+    send('-1 E-PLBA !', 0.3)
+# G2-R0: double-zero must error, never report identical.
+send("' BRD SEC-READ-VEC !", 0.3)
+expect('capture refuses on flag=1', 'ESP-BASELINE', 0)
+expect('no trusted baseline stored', 'ESP-OK? @', 0)
+expect('compare refuses, not identical', 'ESP-SAME?', 0)
+send("' ERD SEC-READ-VEC !", 0.3)
+# One variable at a time.
+send('0 ESP-BASE !', 0.3)
+expect('refuses: ESP undeclared', 'ESP-BASELINE', 0)
+send('100 ESP-BASE !  3 ESP-LEN !', 0.5)
+expect('refuses: ESP too small to sample', 'ESP-BASELINE', 0)
+send('64 ESP-LEN !', 0.3)
+expect('re-arm baseline for later tests', 'ESP-BASELINE', -1)
+expect('stack clean after G2', 'DEPTH', 0)
+check('alive after G2', alive())
+
+# ---------------------------------------------------------------
+print("\nTest 50: G3 -- GPT CRC tripwire, red-first")
+send("' ERD SEC-READ-VEC !  TR-BUF RD-BUF-ADDR !", 0.5)
+send('-1 E-PLBA !', 0.3)
+expect('control: baseline captures', 'GPT-BASELINE', -1)
+expect('control: sum stable', 'GPT-SAME?', -1)
+# Red: one byte in one entry sector -> caught.
+send('7 E-PLBA !  99 E-POKE !', 0.5)
+expect('poked entry sector: MISMATCH', 'GPT-SAME?', 0)
+send('-1 E-PLBA !', 0.3)
+expect('restored: identical again', 'GPT-SAME?', -1)
+# The header sector (LBA 1) is inside the sum too.
+send('1 E-PLBA !  99 E-POKE !', 0.5)
+expect('poked header sector: MISMATCH', 'GPT-SAME?', 0)
+send('-1 E-PLBA !', 0.3)
+# Double-zero: flag=1 reader -> error, never identical.
+send("' BRD SEC-READ-VEC !", 0.3)
+expect('capture refuses on flag=1', 'GPT-BASELINE', 0)
+expect('no trusted baseline stored', 'GPT-OK? @', 0)
+expect('compare refuses, not identical', 'GPT-SAME?', 0)
+send("' ERD SEC-READ-VEC !", 0.3)
+expect('re-arm baseline', 'GPT-BASELINE', -1)
+expect('stack clean after G3', 'DEPTH', 0)
+check('alive after G3', alive())
 
 send('ONLY FORTH DEFINITIONS DECIMAL', 1.0)
 

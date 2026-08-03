@@ -877,6 +877,124 @@ CREATE VBR-IMG 512 ALLOT
     VBR-IMG VBR-LBA-OFF + !
     VBR-BAKED? VBR-SIGNED? AND ;
 
+\ ---- Step 1: kernel fits the extent ----
+\ Must match the padded kernel image the
+\ proven loader loads (KERNEL_PADDED_SIZE
+\ 1C000h / 512 = 224). The harness derives
+\ this from build/kernel.bin at run time
+\ and goes red loudly on drift.
+224 CONSTANT KERNEL-SECTORS
+
+\ Extent holds VBR + kernel. Unclaimed
+\ (OWN-LEN 0) refuses.
+: ABE-FITS? ( -- flag )
+    OWN-LEN @
+    KERNEL-OFFSET KERNEL-SECTORS +
+    < 0= ;
+
+\ ---- Step 2b: G2 ESP sampled tripwire ----
+\ SAMPLED by design: first + last + two
+\ fixed interior sectors. The allowlist is
+\ the guarantee; this is a tripwire. Do
+\ not tighten.
+VARIABLE ESP-BASE
+VARIABLE ESP-LEN
+VARIABLE ESP-OK?
+CREATE ESP-SAVE 2048 ALLOT
+
+\ Sample i -> LBA. Interior picks are fixed
+\ LCG constants folded into (1..len-2), so
+\ they are reproducible and never collide
+\ with first/last.
+: ESP-SAMPLE ( i -- lba )
+    DUP 0= IF DROP ESP-BASE @ EXIT THEN
+    DUP 1 = IF
+        DROP ESP-BASE @ ESP-LEN @ + 1 -
+        EXIT
+    THEN
+    2 = IF 48271 ELSE 16807 THEN
+    ESP-LEN @ 2 - MOD 1+ ESP-BASE @ + ;
+
+\ Cell-wise sector compare.
+: SEC=? ( a1 a2 -- flag )
+    512 0 DO
+        OVER I + @ OVER I + @ =
+        0= IF 2DROP 0 UNLOOP EXIT THEN
+    4 +LOOP
+    2DROP -1 ;
+
+\ Read sample i into the bound buffer.
+\ True only on a flag=0 read.
+: ESP-RD ( i -- flag )
+    ESP-SAMPLE 1
+    SEC-READ-VEC @ EXECUTE 0= ;
+
+\ Capture the 4 samples. Refuses on an
+\ undeclared or too-small ESP, unbound
+\ reader, or any failed read; a refusal
+\ never leaves a stale baseline trusted.
+: ESP-BASELINE ( -- flag )
+    0 ESP-OK? !
+    ESP-BASE @ 0= IF 0 EXIT THEN
+    ESP-LEN @ 4 < IF 0 EXIT THEN
+    SEC-READ-VEC @ 0= IF 0 EXIT THEN
+    RD-BUF-ADDR @ 0= IF 0 EXIT THEN
+    4 0 DO
+        I ESP-RD 0= IF 0 UNLOOP EXIT THEN
+        RD-BUF-ADDR @
+        ESP-SAVE I 512 * + 512 CMOVE
+    LOOP
+    -1 ESP-OK? ! -1 ;
+
+\ Re-read the samples and compare. No
+\ baseline or a failed read = 0, same as
+\ a mismatch -- fail closed.
+: ESP-SAME? ( -- flag )
+    ESP-OK? @ 0= IF 0 EXIT THEN
+    ESP-BASE @ 0= IF 0 EXIT THEN
+    ESP-LEN @ 4 < IF 0 EXIT THEN
+    4 0 DO
+        I ESP-RD 0= IF 0 UNLOOP EXIT THEN
+        RD-BUF-ADDR @
+        ESP-SAVE I 512 * + SEC=?
+        0= IF 0 UNLOOP EXIT THEN
+    LOOP
+    -1 ;
+
+\ ---- Step 2c: G3 GPT CRC tripwire ----
+VARIABLE GPT-OK?
+VARIABLE GPT-SAVE
+
+\ Streaming CRC over LBA 1..33: header +
+\ primary entry array. Backup structures
+\ excluded: unreachable by construction
+\ (allowlist), and G3 is a tripwire.
+: GPT-SUM ( -- sum -1 | 0 )
+    SEC-READ-VEC @ 0= IF 0 EXIT THEN
+    RD-BUF-ADDR @ 0= IF 0 EXIT THEN
+    CRC-BEGIN
+    34 1 DO
+        I 1 SEC-READ-VEC @ EXECUTE IF
+            0 UNLOOP EXIT
+        THEN
+        RD-BUF-ADDR @ 512 CRC-CHUNK
+    LOOP
+    CRC-END -1 ;
+
+\ One-cell baseline of the streamed sum.
+: GPT-BASELINE ( -- flag )
+    0 GPT-OK? !
+    GPT-SUM 0= IF 0 EXIT THEN
+    GPT-SAVE !
+    -1 GPT-OK? ! -1 ;
+
+\ Fail closed: no baseline or failed sum
+\ = 0, same as a mismatch.
+: GPT-SAME? ( -- flag )
+    GPT-OK? @ 0= IF 0 EXIT THEN
+    GPT-SUM 0= IF 0 EXIT THEN
+    GPT-SAVE @ = ;
+
 \ Binds if AHCI is already in the search
 \ order; silently does not if it is not.
 BIND-WRITER AHCI-WRITE
