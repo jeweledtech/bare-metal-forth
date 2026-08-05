@@ -823,12 +823,12 @@ VARIABLE LBA0-OK?
 \ patched with OWN-BASE+KERNEL-OFFSET at a
 \ FIXED offset. VBR-LBA-OFF must equal the
 \ assembled template's dap+8; the harness
-\ derives that from build/boot.bin at run
-\ time and goes red loudly on drift. It
-\ WILL move when the CHS-removal variant
-\ lands -- update this one constant then.
+\ derives that from build/vbr.bin (the
+\ CHS-removal chainload variant, the
+\ artifact of record) at run time and goes
+\ red loudly on drift.
 1 CONSTANT KERNEL-OFFSET
-467 CONSTANT VBR-LBA-OFF
+375 CONSTANT VBR-LBA-OFF
 
 \ Bit 31 set: at/past LBA-HORIZON, so no
 \ permitted OWN-BASE+1 can ever equal it.

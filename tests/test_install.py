@@ -163,9 +163,37 @@ expect('load left the stack clean', 'DEPTH', 0)
 # ---------------------------------------------------------------
 print("\nTest 2: no raw absolute writer is nameable in INSTALL")
 # The confinement claim: the only route to the disk from inside
-# this vocabulary is the vector.  Checked by name resolution in
-# the live search order, before the test defines anything of its
-# own, so the answer describes the shipped vocabulary.
+# this vocabulary is the vector.  Two legs:
+#
+#   WORDS scan  -- corroboration only.  Serial line-wrap can split
+#                  a name across a column boundary, so a wrapped
+#                  AHCI-WRITE would tokenize as two fragments and
+#                  false-PASS the absence check.
+#   DEF? (FIND) -- authoritative.  find_ walks the live search
+#                  order, which is what nameability means.
+#
+# If the two legs ever disagree, believe FIND.
+#
+# The WORDS capture runs BEFORE the test defines anything of its
+# own: defining a word at the prompt re-threads VAR_LATEST through
+# the FORTH chain and changes WORDS output (known cosmetic
+# duplicate behavior), so the scan must describe the shipped
+# vocabulary, not the test's residue.
+w = send('WORDS', 8.0)
+words_seen = set(re.findall(r'[!-~]+', w))
+for present in ('SAFE-WRITE', 'GPT-WRITE', 'ADD-PARTITION',
+                'ADD-BOOT-ENTRY'):
+    check(f'WORDS lists {present}', present in words_seen)
+check('WORDS does not list AHCI-WRITE (corroboration)',
+      'AHCI-WRITE' not in words_seen)
+
+# DEF? MUST be a colon definition.  Typed interactively,
+# `WORD X FIND` never tests X: the outer interpreter fetches each
+# token via word_, so the token FIND overwrites word_buffer (which
+# find_ reads, taking no stack input) before FIND executes -- the
+# lookup is always for the literal name "FIND", found or not.
+# Compiled WORD/FIND run back-to-back with no interpreter fetch in
+# between, so word_buffer survives.  Same reason BIND-WRITER works.
 send(': DEF? WORD FIND NIP ; ', 1.5)
 for raw_writer in ('AHCI-WRITE', 'ATA-WRITE-SECTOR', 'SECTOR-WRITE',
                    'LBA-WRITE', 'RAW-WRITE'):
@@ -175,6 +203,15 @@ for raw_writer in ('AHCI-WRITE', 'ATA-WRITE-SECTOR', 'SECTOR-WRITE',
 v, raw = val('DEF? SAFE-WRITE')
 check('DEF? resolves SAFE-WRITE (control)', v is not None and v != 0,
       f'got {v!r} from {raw.strip()[-90:]!r}')
+# Second control, opposite direction: a name that has never existed
+# must give 0 too.  The found-control catches a DEF? stuck at 0;
+# this catches one stuck nonzero (the word_buffer clobber presented
+# exactly as identical nonzero for found and not-found alike).
+expect('DEF? nonsense word gives 0 (probe sanity)',
+       'DEF? ZZZ-NEVER-DEFINED', 0)
+# The probes leave the stack clean only if FIND's contract held on
+# every path; residue here means the contract drifted.
+expect('stack clean after nameability probes', 'DEPTH', 0)
 
 # ---------------------------------------------------------------
 print("\nTest 3: refuses by default -- unconfigured and unbound")
@@ -1428,22 +1465,22 @@ check('alive after step-0 suite', alive())
 print("\nTest 46: G5-R3 -- the bake fired (sentinel de-alias)")
 # Third leg of the drift triangle: the Forth constant must match
 # the ASSEMBLED template, derived from the artifact at runtime --
-# never a hardcoded offset.  DAP shape: size 10 00, reserved 00,
-# count (varies), dest 0x7E00, seg 0, start LBA dd 1, high dd 0.
-# When the CHS-removal VBR variant lands the offset will move;
-# this re-derivation goes red loudly, and updating VBR-LBA-OFF
-# is a green re-derivation, not a stale constant.
-with open('build/boot.bin', 'rb') as f:
-    bootbin = f.read()
+# never a hardcoded offset.  The template the installer bakes is
+# the VARIANT (vbr.bin), so the offset derives from it; boot.bin
+# keeps its own frozen gate (Test 46b).  DAP shape: size 10 00,
+# reserved 00, count (varies), dest 0x7E00, seg 0, start LBA
+# dd VBR-SENTINEL (DEADBEEF, sentinel-baked), high dd 0.
+with open('build/vbr.bin', 'rb') as f:
+    vbrbin = f.read()
 dap_re = re.compile(
     b'\x10\x00..\x00\x7e\x00\x00'
-    b'\x01\x00\x00\x00\x00\x00\x00\x00', re.DOTALL)
-dap_hits = [m.start() for m in dap_re.finditer(bootbin)]
-check('exactly one DAP in assembled boot.bin',
+    b'\xef\xbe\xad\xde\x00\x00\x00\x00', re.DOTALL)
+dap_hits = [m.start() for m in dap_re.finditer(vbrbin)]
+check('exactly one sentinel DAP in assembled vbr.bin',
       len(dap_hits) == 1, f'matches at {dap_hits}')
 DAP_LBA_OFF = dap_hits[0] + 8 if dap_hits else None
 if DAP_LBA_OFF is not None:
-    expect('VBR-LBA-OFF matches assembled boot.bin',
+    expect('VBR-LBA-OFF matches assembled vbr.bin',
            'VBR-LBA-OFF', DAP_LBA_OFF)
 
 # Fixture template: zeros, one code-ish byte, the sentinel in
@@ -1490,6 +1527,34 @@ expect('refusals left the built image untouched',
 send(f'{BASE} OWN-BASE !', 0.3)
 expect('stack clean after G5-R3', 'DEPTH', 0)
 check('alive after G5-R3', alive())
+
+# ---------------------------------------------------------------
+print("\nTest 46b: proven loader frozen; loader DAPs disjoint")
+# boot.bin is the iron-proven memdisk loader. Its DAP is dd 1 at
+# offset 467 -- FROZEN facts about a shipped artifact, so hardcoding
+# is correct here: any change to either is the alarm firing, and
+# the fix is to justify touching the proven loader, not to update
+# this number. Disjoint patterns (01 00 00 00 vs EF BE AD DE) are
+# what let the two gates attribute a failure to the right binary.
+with open('build/boot.bin', 'rb') as f:
+    bootbin = f.read()
+legacy_re = re.compile(
+    b'\x10\x00..\x00\x7e\x00\x00'
+    b'\x01\x00\x00\x00\x00\x00\x00\x00', re.DOTALL)
+legacy_hits = [m.start() for m in legacy_re.finditer(bootbin)]
+check('boot.bin: exactly one dd-1 DAP (proven loader intact)',
+      len(legacy_hits) == 1, f'matches at {legacy_hits}')
+check('boot.bin: DAP LBA still at frozen offset 467',
+      bool(legacy_hits) and legacy_hits[0] + 8 == 467,
+      f'moved to {legacy_hits[0] + 8 if legacy_hits else None}')
+# Disjointness, both directions: a sentinel DAP appearing in
+# boot.bin means someone edited the proven loader toward the
+# variant; a dd-1 DAP in vbr.bin means an unbaked-template boot
+# could silently read LBA 1 instead of dying loudly.
+check('boot.bin: zero sentinel DAPs',
+      len(dap_re.findall(bootbin)) == 0)
+check('vbr.bin: zero dd-1 DAPs',
+      len(legacy_re.findall(vbrbin)) == 0)
 
 # ---------------------------------------------------------------
 print("\nTest 47: G5-R4 -- built image is chainloadable (55 AA)")
