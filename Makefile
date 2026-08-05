@@ -12,6 +12,7 @@ BUILD = build
 
 # Files
 BOOTLOADER = $(BUILD)/boot.bin
+VBR = $(BUILD)/vbr.bin
 KERNEL = $(BUILD)/kernel.bin
 IMAGE = $(BUILD)/bmforth.img
 BLOCKS = $(BUILD)/blocks.img
@@ -38,6 +39,10 @@ $(BUILD):
 
 # Assemble bootloader
 $(BOOTLOADER): $(SRC_BOOT)/boot.asm | $(BUILD)
+	$(NASM) -f bin -o $@ $<
+
+# Assemble VBR chainload variant (sibling of boot.bin, never replaces it)
+$(VBR): $(SRC_BOOT)/vbr.asm | $(BUILD)
 	$(NASM) -f bin -o $@ $<
 
 # Embedded vocabularies (evaluated at boot, no block storage needed)
@@ -290,7 +295,7 @@ test-gui: $(COMBINED)
 # Run the INSTALL write-allowlist gate (Piece 1).
 # Needs $(COMBINED): INSTALL is block-loaded off the catalog, not
 # embedded, so the block store has to be attached.
-test-install: $(COMBINED)
+test-install: $(COMBINED) $(BOOTLOADER) $(VBR)
 	@cp $(COMBINED) $(COMBINED_IDE)
 	@echo "Running INSTALL allowlist test..."
 	@PORT=$$(($(TEST_PORT_BASE)+3)); \
@@ -301,6 +306,13 @@ test-install: $(COMBINED)
 		-display none -daemonize; \
 	sleep 2; \
 	python3 tests/test_install.py $$PORT; \
+	STATUS=$$?; pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null; exit $$STATUS
+
+# VBR variant boot smoke (test manages its own QEMU; monitor on port+1)
+test-vbr: $(VBR) $(KERNEL) $(IMAGE)
+	@echo "Running VBR variant boot smoke..."
+	@PORT=$$(($(TEST_PORT_BASE)+8)); \
+	python3 tests/test_vbr_boot.py $$PORT; \
 	STATUS=$$?; pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null; exit $$STATUS
 
 # Run full integration test
@@ -527,7 +539,7 @@ test-meta: $(COMBINED)
 	@echo "Metacompiler tests complete!"
 
 # Run all tests (lint first, then functional tests)
-test: lint test-smoke test-loops test-abort test-install test-vocabs test-gui test-integration test-file-stream test-survey
+test: lint test-smoke test-loops test-abort test-install test-vbr test-vocabs test-gui test-integration test-file-stream test-survey
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)
@@ -539,6 +551,7 @@ iso: $(ACTIVE_IMAGE)
 # Check syntax only (no output)
 check: lint
 	$(NASM) -f bin -o /dev/null $(SRC_BOOT)/boot.asm
+	$(NASM) -f bin -o /dev/null $(SRC_BOOT)/vbr.asm
 	$(NASM) -f bin -o /dev/null $(SRC_KERNEL)/forth.asm
 	@echo "Syntax check passed."
 
