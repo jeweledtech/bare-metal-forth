@@ -769,6 +769,35 @@ EB8549BC CONSTANT FOS-TG2
 312B57CE CONSTANT FOS-UG3
 DECIMAL
 
+\ ---- Uniqueness scan (fail-closed) ----
+\ True iff FOS-UNIQ-GUID appears nowhere in
+\ the 32 primary entry sectors ON DISK. Disk,
+\ not the surveyor map: disk is the stronger
+\ authority and immune to same-session
+\ staleness. Inherits the fail-open read
+\ hazard: ANY flagged read refuses -- never
+\ "no hit in the sectors I could read".
+: GUID-AT? ( off -- flag )
+    RD-BUF-ADDR @ + 16 +
+    DUP @ FOS-UG0 =
+    OVER 4 + @ FOS-UG1 = AND
+    OVER 8 + @ FOS-UG2 = AND
+    SWAP 12 + @ FOS-UG3 = AND ;
+
+: GUID-ABSENT? ( -- flag )
+    SEC-READ-VEC @ 0= IF 0 EXIT THEN
+    RD-BUF-ADDR @ 0= IF 0 EXIT THEN
+    GPT-ARR-LBA GPT-ARR-SECS +
+    GPT-ARR-LBA DO
+        I 1 SEC-READ-VEC @ EXECUTE IF
+            0 UNLOOP EXIT THEN
+        512 0 DO
+            I GUID-AT? IF
+                0 UNLOOP UNLOOP EXIT THEN
+        GPT-ENT-SIZE +LOOP
+    LOOP
+    -1 ;
+
 \ ==== Task 4: ADD-BOOT-ENTRY, step 0 ====
 \ Controller-ready probe and the G1 (LBA 0
 \ byte-identical) baseline/compare pair.

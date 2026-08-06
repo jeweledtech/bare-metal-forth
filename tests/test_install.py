@@ -1848,6 +1848,42 @@ for i, v in enumerate(FOS_UG):
     expect(f'FOS-UG{i}', f'FOS-UG{i}', s32(v))
 expect('stack clean after constants', 'DEPTH', 0)
 
+# ---------------------------------------------------------------
+print("\nTest 53: GUID-ABSENT? (scan discipline)")
+# Fresh reader: G6R ( lba count -- flag ).
+#   G-MODE 0: all entry sectors read clean (zeros), flag=0
+#   G-MODE 1: LBA 33 carries FOS-UNIQ cells at offset 384
+#             (slot 127 -- last entry of last sector: proves
+#             comparator AND loop bounds in one test)
+#   G-MODE 2: fail-open -- flag=1, buffer left ALL-ZERO (the
+#             observed AHCI fail-open shape); a scanner that
+#             trusts the buffer sees "no dup" and lies
+send('VARIABLE G-MODE  0 G-MODE !', 0.5)
+send('CREATE G6-BUF 512 ALLOT', 0.5)
+send(': G6R DROP', 0.5)
+send('  G6-BUF 512 0 FILL', 0.5)
+send('  G-MODE @ 2 = IF DROP 1 EXIT THEN', 0.5)
+send('  G-MODE @ 1 = IF 33 = IF', 0.5)
+send('    FOS-UG0 G6-BUF 384 + 16 + !', 0.5)
+send('    FOS-UG1 G6-BUF 384 + 20 + !', 0.5)
+send('    FOS-UG2 G6-BUF 384 + 24 + !', 0.5)
+send('    FOS-UG3 G6-BUF 384 + 28 + !', 0.5)
+send('  THEN ELSE DROP THEN 0 ;', 0.5)
+check('G6R defined', alive())
+send("' G6R SEC-READ-VEC !", 0.5)
+send('G6-BUF RD-BUF-ADDR !', 0.5)
+
+expect('clean map: absent', 'GUID-ABSENT?', -1)
+send('1 G-MODE !', 0.3)
+expect('dup in slot 127: refuses', 'GUID-ABSENT?', 0)
+send('2 G-MODE !', 0.3)
+expect('fail-open read: refuses', 'GUID-ABSENT?', 0)
+send('0 G-MODE !', 0.3)
+send('0 SEC-READ-VEC !', 0.3)
+expect('unbound reader: refuses', 'GUID-ABSENT?', 0)
+send("' G6R SEC-READ-VEC !", 0.3)
+expect('stack clean after scan tests', 'DEPTH', 0)
+
 print(f'\nPassed: {PASS}/{PASS + FAIL}')
 s.close()
 sys.exit(0 if FAIL == 0 else 1)
