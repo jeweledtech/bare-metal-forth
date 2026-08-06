@@ -740,6 +740,35 @@ DECIMAL
     THEN
     -1 ;
 
+\ ============================================
+\ Canonical ForthOS partition GUIDs.
+\ Frozen 2026-08-05, minted ONCE-EVER.
+\ Provenance: python3 uuid.uuid4(); cells are
+\ little-endian 32-bit reads of bytes_le;
+\ round-trip via uuid.UUID(bytes_le=...)
+\ asserted at mint time. Never re-mint.
+\ DELIBERATE GPT BEND: ForthOS identity lives
+\ in the UNIQUE field because GRUB search has
+\ no type-GUID mode (--part-uuid matches the
+\ unique field only). Do not "fix" this.
+\ These eight constants are the ONLY GUID
+\ literals in the project. gen-grub-cfg.py
+\ pattern-scans this file for the FOS-UG*
+\ lines below; keep exactly one definition
+\ per cell, on its own line, this format.
+\ type: 4e011d24-9e20-45e8-bc49-85eb14c68532
+HEX
+4E011D24 CONSTANT FOS-TG0
+45E89E20 CONSTANT FOS-TG1
+EB8549BC CONSTANT FOS-TG2
+3285C614 CONSTANT FOS-TG3
+\ uniq: 32ba60fb-4548-4d4c-a439-fb80ce572b31
+32BA60FB CONSTANT FOS-UG0
+4D4C4548 CONSTANT FOS-UG1
+80FB39A4 CONSTANT FOS-UG2
+312B57CE CONSTANT FOS-UG3
+DECIMAL
+
 \ ==== Task 4: ADD-BOOT-ENTRY, step 0 ====
 \ Controller-ready probe and the G1 (LBA 0
 \ byte-identical) baseline/compare pair.

@@ -1822,6 +1822,32 @@ check('alive after matrix', alive())
 
 send('ONLY FORTH DEFINITIONS DECIMAL', 1.0)
 
+# ---------------------------------------------------------------
+print("\nTest 52: canonical GUID constants (frozen 2026-08-05)")
+# Re-establish search order: ALSO SURVEYOR before USING INSTALL
+# matches the convention used throughout this suite (lines 373-374,
+# 950-951). ONLY FORTH above evicted INSTALL; restore it now so
+# the constants are findable.
+send('ALSO SURVEYOR', 0.5)
+send('USING INSTALL', 1.0)
+# Cells must equal the spec's frozen values. HEX is sticky over
+# serial: val() prefixes DECIMAL, but the constants are compared
+# as decimal integers derived from the hex cells here in Python.
+FOS_TG = [0x4E011D24, 0x45E89E20, 0xEB8549BC, 0x3285C614]
+FOS_UG = [0x32BA60FB, 0x4D4C4548, 0x80FB39A4, 0x312B57CE]
+
+
+def s32(x):
+    """Kernel prints cells signed; compare in signed space."""
+    return x - 0x100000000 if x >= 0x80000000 else x
+
+
+for i, v in enumerate(FOS_TG):
+    expect(f'FOS-TG{i}', f'FOS-TG{i}', s32(v))
+for i, v in enumerate(FOS_UG):
+    expect(f'FOS-UG{i}', f'FOS-UG{i}', s32(v))
+expect('stack clean after constants', 'DEPTH', 0)
+
 print(f'\nPassed: {PASS}/{PASS + FAIL}')
 s.close()
 sys.exit(0 if FAIL == 0 else 1)
