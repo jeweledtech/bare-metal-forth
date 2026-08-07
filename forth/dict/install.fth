@@ -798,6 +798,44 @@ DECIMAL
     LOOP
     -1 ;
 
+\ ---- Canonical entry composer ----
+\ The ONLY tooling path that builds our GPT
+\ entry. ADD-PARTITION still accepts any
+\ hand-built entry -- deliberate operator
+\ power, not an oversight; the uniqueness
+\ guarantee holds for installs that compose
+\ here, and the runbook composes here
+\ unconditionally. Extent source: OWN-BASE/
+\ OWN-LEN, i.e. AFTER FREE-EXTENT's claim.
+CREATE OWN-ENT GPT-ENT-SIZE ALLOT
+
+: MOE-NAME ( -- )
+    70 OWN-ENT 56 + C!  79 OWN-ENT 58 + C!
+    82 OWN-ENT 60 + C!  84 OWN-ENT 62 + C!
+    72 OWN-ENT 64 + C!  79 OWN-ENT 66 + C!
+    83 OWN-ENT 68 + C! ;
+
+: MAKE-OWN-ENT ( -- entry | 0 )
+    OWN-BASE @ 0= IF 0 EXIT THEN
+    OWN-LEN @ 0= IF 0 EXIT THEN
+    GUID-ABSENT? 0= IF 0 EXIT THEN
+    OWN-ENT GPT-ENT-SIZE 0 FILL
+    FOS-TG0 OWN-ENT !
+    FOS-TG1 OWN-ENT 4 + !
+    FOS-TG2 OWN-ENT 8 + !
+    FOS-TG3 OWN-ENT 12 + !
+    FOS-UG0 OWN-ENT 16 + !
+    FOS-UG1 OWN-ENT 20 + !
+    FOS-UG2 OWN-ENT 24 + !
+    FOS-UG3 OWN-ENT 28 + !
+    OWN-BASE @ OWN-ENT 32 + !
+    0 OWN-ENT 36 + !
+    OWN-BASE @ OWN-LEN @ + 1-
+    OWN-ENT 40 + !
+    0 OWN-ENT 44 + !
+    MOE-NAME
+    OWN-ENT ;
+
 \ ==== Task 4: ADD-BOOT-ENTRY, step 0 ====
 \ Controller-ready probe and the G1 (LBA 0
 \ byte-identical) baseline/compare pair.

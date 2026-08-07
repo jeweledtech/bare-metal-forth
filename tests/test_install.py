@@ -1884,6 +1884,41 @@ expect('unbound reader: refuses', 'GUID-ABSENT?', 0)
 send("' G6R SEC-READ-VEC !", 0.3)
 expect('stack clean after scan tests', 'DEPTH', 0)
 
+# ---------------------------------------------------------------
+print("\nTest 54: MAKE-OWN-ENT composer")
+# Extent source is OWN-BASE/OWN-LEN (FREE-EXTENT's post-claim
+# contract). Composer-only seam: ADD-PARTITION still accepts any
+# entry (deliberate operator power); uniqueness holds only via
+# this composer, which the runbook uses unconditionally.
+# NOTE: each expect below RE-INVOKES MAKE-OWN-ENT (full rescan +
+# recompose). Keep G-MODE=0 and OWN-BASE/OWN-LEN frozen through
+# this whole block, or the asserts test a different composition.
+send('0 OWN-BASE !  0 OWN-LEN !', 0.5)
+expect('refuses unclaimed extent', 'MAKE-OWN-ENT', 0)
+send('534528 OWN-BASE !  225 OWN-LEN !', 0.5)
+send('1 G-MODE !', 0.3)
+expect('refuses when dup present', 'MAKE-OWN-ENT', 0)
+send('0 G-MODE !', 0.3)
+v, _ = val('MAKE-OWN-ENT')
+check('composes on clean map (nonzero entry)',
+      v is not None and v != 0, f'got {v!r}')
+# Field asserts against known offsets, via the entry address.
+expect('type cell 0', 'MAKE-OWN-ENT @', s32(0x4E011D24))
+expect('type cell 3', 'MAKE-OWN-ENT 12 + @', s32(0x3285C614))
+expect('uniq cell 0', 'MAKE-OWN-ENT 16 + @', s32(0x32BA60FB))
+expect('uniq cell 3', 'MAKE-OWN-ENT 28 + @', s32(0x312B57CE))
+expect('start LBA lo', 'MAKE-OWN-ENT 32 + @', 534528)
+expect('start LBA hi', 'MAKE-OWN-ENT 36 + @', 0)
+expect('end LBA lo', 'MAKE-OWN-ENT 40 + @', 534528 + 225 - 1)
+expect('end LBA hi', 'MAKE-OWN-ENT 44 + @', 0)
+# Name "FORTHOS" UTF-16LE at +56
+for i, ch in enumerate('FORTHOS'):
+    expect(f'name[{i}]={ch}',
+           f'MAKE-OWN-ENT 56 + {2 * i} + C@', ord(ch))
+expect('name terminator', 'MAKE-OWN-ENT 70 + C@', 0)
+expect('attrs zero', 'MAKE-OWN-ENT 48 + @', 0)
+expect('stack clean after composer', 'DEPTH', 0)
+
 print(f'\nPassed: {PASS}/{PASS + FAIL}')
 s.close()
 sys.exit(0 if FAIL == 0 else 1)
