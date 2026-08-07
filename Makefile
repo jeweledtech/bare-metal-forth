@@ -625,4 +625,8 @@ pxe-status:
 grub-net: $(COMBINED) tools/pxe/grub.cfg
 	@bash tools/pxe/build-grub-net.sh
 
-.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined check-kernel-size test test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream pxe-setup pxe-push pxe-status grub-net free run-free check-sync test-grub-cfg
+# Push staged GRUB tree to /srv/tftp (side-by-side; no cutover)
+pxe-push-grub: grub-net
+	@bash tools/pxe/push-grub.sh
+
+.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined check-kernel-size test test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-grub-cfg
