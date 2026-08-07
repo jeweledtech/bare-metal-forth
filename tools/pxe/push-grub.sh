@@ -5,7 +5,7 @@
 # PRINTS the dnsmasq cutover line; NEVER applies it -- the
 # cutover is an iron-session step with a written rollback
 # (spec D1, RUNBOOK-G6.md step 2).
-set -e
+set -e -o pipefail
 cd "$(dirname "$0")/../.."
 TREE=build/tftp
 TFTP_ROOT=/srv/tftp
@@ -39,6 +39,8 @@ STG=$( (cd "$TREE" &&
     xargs md5sum | md5sum | cut -d' ' -f1) )
 if [ "$DEP" != "$STG" ]; then
     echo "ERROR: deployed tree hash $DEP != staged $STG"
+    echo "Remediation: rerun 'make pxe-push-grub' (recopies staged"
+    echo "tree); do NOT cut dnsmasq over until DEP == STG."
     exit 1
 fi
 echo "Deployed OK: our-files hash $DEP"
