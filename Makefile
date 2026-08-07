@@ -621,4 +621,8 @@ pxe-push: $(COMBINED) check-kernel-size
 pxe-status:
 	@bash tools/pxe/test-pxe.sh
 
-.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined check-kernel-size test test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream pxe-setup pxe-push pxe-status free run-free check-sync test-grub-cfg
+# Stage the GRUB-PXE netboot tree (side-by-side with pxelinux)
+grub-net: $(COMBINED) tools/pxe/grub.cfg
+	@bash tools/pxe/build-grub-net.sh
+
+.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined check-kernel-size test test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream pxe-setup pxe-push pxe-status grub-net free run-free check-sync test-grub-cfg
