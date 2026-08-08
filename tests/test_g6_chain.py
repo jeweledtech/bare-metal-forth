@@ -9,6 +9,7 @@ The disk every leg chainloads is the one ADD-BOOT-ENTRY actually
 wrote. Red legs poke COPIES; build/tftp and the installed image
 are never hand-modified.
 """
+import atexit
 import os
 import re
 import shutil
@@ -125,9 +126,22 @@ def poll_grub_menu(timeout=40):
 # ---- QEMU lifecycle ----
 
 def qemu_kill():
+    # Graceful monitor quit FIRST: SIGKILL on a daemonized QEMU
+    # holding the raw .img open can drop in-flight AHCI writes,
+    # and the stage 2->3 boundary reads that image as the second
+    # authority. pkill stays as the fallback, not a replacement.
+    try:
+        mon_cmd('quit', wait=1)
+    except Exception:
+        pass
     subprocess.run(['pkill', '-9', '-f', f'[q]emu.*{PORT}'],
                    capture_output=True)
     time.sleep(1)
+
+
+# A fatal() mid-run must not strand a daemonized QEMU on the
+# ports -- that poisons the NEXT run as a mystery failure.
+atexit.register(qemu_kill)
 
 
 def qemu_net_boot(disk, tree=TREE):
@@ -290,10 +304,12 @@ fatal('memdisk instance alive (7 6 * = 42)', v == 42, raw[-90:])
 # Discriminator: this IS a memdisk boot (nonzero), which also
 # proves the probe can tell the instances apart before legs A/B
 # lean on it. Probe order fixed; HEX is sticky -> DECIMAL after.
-raw = send('HEX 28098 @ .', 1.5)
-send('DECIMAL', 0.5)
-fatal('MEMDISK-VAR nonzero on memdisk boot',
-      re.search(r'\b0\b *ok', body_of(raw)) is None, raw[-90:])
+# POSITIVE probe (absence-of-'0 ok' was fail-open: a wedged
+# instance, an error line, or empty output all passed). val()
+# wraps as 'DECIMAL <expr> .', so the literal parses in hex and
+# the flag prints in decimal; any '?' -> None -> FAIL.
+v, raw = val('HEX 28098 @ 0= 0= DECIMAL')
+fatal('MEMDISK-VAR nonzero on memdisk boot', v == -1, raw[-90:])
 
 # Load INSTALL blocks (range THRU -- blocks come from the
 # memdisk RAM image on this boot path). Three as-built facts
