@@ -305,11 +305,12 @@ fatal('MEMDISK-VAR nonzero on memdisk boot',
 #   2. S" INSTALL" LOAD-VOCAB dies ('F ?' / 'FF ?' then wedge)
 #      on this boot path -- the known LOAD-VOCAB bug; THRU of
 #      the catalog range is the documented workaround.
-#   3. The THRU must run BEFORE AHCI-INIT: ahci.fth installs
-#      AHCI-BLK-READ via BLK-READER! at init, re-vectoring
-#      BLOCK reads from the memdisk RAM image to the AHCI
-#      fixture disk (574 BLOCK then returns garbage; observed
-#      as a meta-compiler word spew + reboot).
+#   3. The THRU must run BEFORE AHCI-INIT. OBSERVED: with the
+#      order reversed, the THRU spews meta-compiler words and
+#      reboots. Mechanism UNCONFIRMED -- BLK-READER! is only
+#      referenced inside AHCI-RW (never called by AHCI-INIT),
+#      so the earlier "init re-vectors BLOCK" explanation does
+#      not hold; keep the ordering, root cause is an open item.
 a, b = get_vocab_blocks('INSTALL')
 fatal('INSTALL catalog range found', a is not None)
 send(f'{a} {b} THRU', 25)
