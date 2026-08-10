@@ -325,6 +325,7 @@ VARIABLE GCRC-ACC
 : SLOT-OFF ( n -- off ) 3 AND GPT-ENT-SIZE * ;
 
 VARIABLE FS-SLOT
+-1 FS-SLOT !
 
 \ Free iff all 128 bytes are zero. Stricter
 \ than the survey's test, which reads only the
@@ -344,14 +345,24 @@ VARIABLE FS-SLOT
     4 +LOOP
     -1 ;
 
+VARIABLE FS-OCC
+VARIABLE FS-FIRST
+
 \ Sets FS-SLOT and returns nonzero on success,
-\ matching FREE-EXTENT's shape. Reads once per
-\ four slots -- 32 reads, not 128 -- and stays
-\ a single DO loop so one UNLOOP is always the
-\ right number on the early exits.
+\ matching FREE-EXTENT's shape. Scans all 128
+\ slots (32 sector reads), counts occupied
+\ entries, and remembers the first free slot.
+\ After the full scan a consistency gate
+\ refuses when occupied=0 but the survey
+\ reports partitions -- that state means the
+\ scan is not seeing the disk. Mirrors
+\ FREE-EXTENT's MAP-TRUSTED? posture: an
+\ untrusted or absent survey also refuses.
 : FREE-SLOT ( -- flag )
     SEC-READ-VEC @ 0= IF 0 EXIT THEN
     RD-BUF-ADDR @ 0= IF 0 EXIT THEN
+    MAP-TRUSTED? 0= IF 0 EXIT THEN
+    0 FS-OCC !  -1 FS-FIRST !
     GPT-ENT-MAX 0 DO
         I 3 AND 0= IF
             I SLOT-LBA 1
@@ -360,10 +371,19 @@ VARIABLE FS-SLOT
             THEN
         THEN
         I SLOT-FREE? IF
-            I FS-SLOT ! -1 UNLOOP EXIT
+            FS-FIRST @ 0< IF
+                I FS-FIRST !
+            THEN
+        ELSE
+            1 FS-OCC +!
         THEN
     LOOP
-    0 ;
+    FS-FIRST @ 0< IF 0 EXIT THEN
+    FS-OCC @ 0= PART-N @ 0<> AND IF
+        0 EXIT
+    THEN
+    FS-FIRST @ FS-SLOT !
+    -1 ;
 
 \ ============================================
 \ The GPT metadata permit
@@ -442,10 +462,10 @@ DECIMAL
     0 GW-ARMED !  0 GW-HDR !  0 GW-ENT !
     0 GW-BENT !  0 GW-BHDR ! ;
 
-\ Arm the permit for the slot FREE-SLOT chose.
-\ Every failure path leaves the permit fully
-\ disarmed, so a refused arm cannot leave a
-\ half-populated set behind.
+\ FS-SLOT is -1 at load; only FREE-SLOT
+\ sets it. GPT-ARM refuses anything outside
+\ 0..127, so an un-run FREE-SLOT refuses
+\ here. Every failure path disarms fully.
 : GPT-ARM ( -- flag )
     GW-DISARM
     SEC-READ-VEC @ 0= IF 0 EXIT THEN

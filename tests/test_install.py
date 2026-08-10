@@ -159,6 +159,10 @@ check('USING INSTALL succeeds', '?' not in body_of(r),
       repr(body_of(r).strip()[-120:]))
 check('interpreter alive after load', alive())
 expect('load left the stack clean', 'DEPTH', 0)
+# Bug #33 sentinel: FS-SLOT must be -1 at load time. Nothing
+# before this line touches FS-SLOT, so this is a live probe of
+# the load-time init, not a stale leftover.
+expect('FS-SLOT = -1 at load (Bug #33 sentinel)', 'FS-SLOT @', -1)
 
 # ---------------------------------------------------------------
 print("\nTest 2: no raw absolute writer is nameable in INSTALL")
@@ -593,8 +597,12 @@ check('alive after null buffer', alive())
 
 # ---------------------------------------------------------------
 print("\nTest 23: empty entry array yields slot 0")
+# On a legitimately empty disk (no partitions, trusted survey)
+# the consistency gate must NOT fire: occupied=0 AND PART-N=0
+# is consistent, so slot 0 is claimable.
 send("' TRS SEC-READ-VEC !  TR-BUF RD-BUF-ADDR !", 0.5)
 send('DECIMAL -1 TS-ERRLBA !  0 TS-USED !', 0.5)
+send('-1 MAP-OK !  0 PART-N !', 0.5)
 arm_slot()
 expect('FREE-SLOT succeeds (empty array)', 'FREE-SLOT', -1)
 expect('FS-SLOT = 0', 'FS-SLOT @', 0)
@@ -607,8 +615,9 @@ print("\nTest 24: first N occupied yields slot N")
 # SECOND sector, so it only comes out right if the scan re-reads
 # on the sector boundary; 5 lands mid-sector after that boundary;
 # 127 is the last slot on the last sector.
+send('-1 MAP-OK !', 0.3)
 for used, want in ((1, 1), (2, 2), (4, 4), (5, 5), (127, 127)):
-    send(f'DECIMAL {used} TS-USED !', 0.5)
+    send(f'DECIMAL {used} TS-USED !  {used} PART-N !', 0.5)
     arm_slot()
     expect(f'{used} occupied -> FREE-SLOT succeeds',
            'FREE-SLOT', -1)
@@ -620,7 +629,7 @@ check('alive after occupied-prefix scans', alive())
 print("\nTest 25: a full entry array refuses")
 # All 128 slots taken.  Refusing is the only safe answer: there is
 # no slot to claim and nothing may be overwritten to make one.
-send('DECIMAL 128 TS-USED !', 0.5)
+send('DECIMAL 128 TS-USED !  128 PART-N !  -1 MAP-OK !', 0.5)
 arm_slot()
 expect('FREE-SLOT refuses (array full)', 'FREE-SLOT', 0)
 expect('FS-SLOT untouched (array full)', 'FS-SLOT @',
@@ -635,7 +644,8 @@ print("\nTest 26: a mid-scan read error refuses")
 # only be the read-error path -- it cannot be explained away as
 # "no free slot".  Without this framing the test would pass on a
 # FREE-SLOT that ignored the reader's flag entirely.
-send('DECIMAL 8 TS-USED !  -1 TS-ERRLBA !', 0.5)
+send('DECIMAL 8 TS-USED !  8 PART-N !  -1 MAP-OK !', 0.5)
+send('DECIMAL -1 TS-ERRLBA !', 0.5)
 arm_slot()
 expect('control: no error -> slot 8', 'FREE-SLOT', -1)
 expect('control: FS-SLOT = 8', 'FS-SLOT @', 8)
@@ -647,7 +657,7 @@ expect('FS-SLOT untouched (read error)', 'FS-SLOT @',
 expect('stack clean (read error)', 'DEPTH', 0)
 check('alive after mid-scan read error', alive())
 # An error on the very first sector must refuse too.
-send('DECIMAL 0 TS-USED !  2 TS-ERRLBA !', 0.5)
+send('DECIMAL 0 TS-USED !  0 PART-N !  2 TS-ERRLBA !', 0.5)
 arm_slot()
 expect('read error at LBA 2 -> refuses', 'FREE-SLOT', 0)
 expect('FS-SLOT untouched (first-sector error)', 'FS-SLOT @',
@@ -1918,6 +1928,64 @@ for i, ch in enumerate('FORTHOS'):
 expect('name terminator', 'MAKE-OWN-ENT 70 + C@', 0)
 expect('attrs zero', 'MAKE-OWN-ENT 48 + @', 0)
 expect('stack clean after composer', 'DEPTH', 0)
+
+# ---------------------------------------------------------------
+print("\nTest 55: GPT-ARM refuses when FS-SLOT = -1 (sentinel)")
+# The sentinel value is -1, which is 0< true, so GPT-ARM's
+# existing signed lower-bound check catches it without any
+# guard change. Pinning this proves the sentinel works as a
+# safety net for the un-run FREE-SLOT case (Bug #33).
+good_header()
+send('DECIMAL -1 FS-SLOT !', 0.5)
+expect('GPT-ARM refuses sentinel FS-SLOT', 'GPT-ARM', 0)
+expect('permit fully disarmed', 'GW-ARMED @', 0)
+expect('stack clean', 'DEPTH', 0)
+check('alive after sentinel GPT-ARM', alive())
+
+# ---------------------------------------------------------------
+print("\nTest 56: FREE-SLOT consistency gate")
+# Sub-case (i): all-free array + survey says N>0 -> refuses.
+# The TRS reader returns an all-zero buffer when TS-USED=0,
+# simulating an entry array with no occupied slots. MAP-OK=true
+# and PART-N=5 simulates a survey that saw 5 partitions.
+# The gate must refuse: the scan saw nothing but the survey
+# did, so the scan is blind.
+send("' TRS SEC-READ-VEC !  TR-BUF RD-BUF-ADDR !", 0.5)
+send('DECIMAL -1 TS-ERRLBA !  0 TS-USED !', 0.5)
+send('-1 MAP-OK !  5 PART-N !', 0.5)
+arm_slot()
+expect('gate: all-free + survey N>0 -> refuses',
+       'FREE-SLOT', 0)
+expect('FS-SLOT untouched (gate refusal)', 'FS-SLOT @',
+       SLOT_SENTINEL)
+expect('stack clean (gate refusal)', 'DEPTH', 0)
+check('alive after gate refusal', alive())
+
+# Sub-case (ii): all-free array + survey genuinely empty
+# (trusted, 0 partitions) -> slot 0 claimed. This is the
+# legitimately-empty-disk case. Old Test 23 exercised
+# this path implicitly; under the gate it still works because
+# occupied=0 AND PART-N=0, so the gate does not fire.
+send('-1 MAP-OK !  0 PART-N !', 0.5)
+send('DECIMAL 0 TS-USED !', 0.5)
+arm_slot()
+expect('gate: all-free + survey empty -> succeeds',
+       'FREE-SLOT', -1)
+expect('FS-SLOT = 0 (empty disk)', 'FS-SLOT @', 0)
+expect('stack clean (empty disk)', 'DEPTH', 0)
+check('alive after empty disk', alive())
+
+# Sub-case (iii): survey untrusted/absent -> refuses.
+# MAP-OK=0 makes MAP-TRUSTED? return false.
+send('0 MAP-OK !  0 PART-N !', 0.5)
+send('DECIMAL 0 TS-USED !', 0.5)
+arm_slot()
+expect('gate: untrusted survey -> refuses',
+       'FREE-SLOT', 0)
+expect('FS-SLOT untouched (untrusted)', 'FS-SLOT @',
+       SLOT_SENTINEL)
+expect('stack clean (untrusted)', 'DEPTH', 0)
+check('alive after untrusted survey refusal', alive())
 
 print(f'\nPassed: {PASS}/{PASS + FAIL}')
 s.close()
