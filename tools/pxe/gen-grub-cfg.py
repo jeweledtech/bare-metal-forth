@@ -5,8 +5,13 @@ Single source of truth: the FOS-UG* CONSTANT lines in
 forth/dict/install.fth (the only GUID literals in the project).
 The scan is FATAL on zero hits and on multiple hits per cell.
 
-Every emitted command is on ONE line. GRUB's script parser
-"mostly tolerates" backslash-newline; nothing here leans on it.
+Mechanism: GRUB's search command has NO --part-uuid mode at all
+(grub-pc 2.12 ships search_fs_file / search_fs_uuid /
+search_label only).  probe.mod is GRUB's only GUID accessor, so
+entry 1 loads biosdisk + part_gpt + probe + regexp + chain, then
+walks every (hd*,gpt*) device with `probe --part-uuid` looking
+for the canonical unique GUID.  probe returns LOWERCASE
+(verified live 2026-08-09).
 
 --override-guid exists solely for the harness's leg C (wrong-GUID
 red leg) -- same generator, never a hand edit.
@@ -63,11 +68,17 @@ menuentry "ForthOS - memdisk (dev)" {{
 }}
 
 menuentry "ForthOS (installed to disk)" {{
+    insmod biosdisk
     insmod part_gpt
-    insmod search_part_uuid
+    insmod probe
+    insmod regexp
     insmod chain
-    search --no-floppy --part-uuid {guid} --set root
-    chainloader +1
+    set found=
+    for p in (hd*,gpt*); do
+        probe --set puuid --part-uuid $p
+        if [ "$puuid" = "{guid}" ]; then set root=$p; set found=1; fi
+    done
+    if [ "$found" = "1" ]; then chainloader +1; else echo "ForthOS: partition GUID not found"; sleep 5; fi
 }}
 """
 

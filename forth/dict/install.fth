@@ -748,9 +748,11 @@ DECIMAL
 \ round-trip via uuid.UUID(bytes_le=...)
 \ asserted at mint time. Never re-mint.
 \ DELIBERATE GPT BEND: ForthOS identity lives
-\ in the UNIQUE field because GRUB search has
-\ no type-GUID mode (--part-uuid matches the
-\ unique field only). Do not "fix" this.
+\ in the UNIQUE field because probe --part-uuid
+\ (GRUB's ONLY GUID accessor -- search has no
+\ part-uuid mode at all, and type GUIDs have
+\ no accessor) reads the unique field.
+\ Do not "fix" this.
 \ These eight constants are the ONLY GUID
 \ literals in the project. gen-grub-cfg.py
 \ pattern-scans this file for the FOS-UG*
