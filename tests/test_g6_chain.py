@@ -475,6 +475,14 @@ with open(DISK, 'rb') as f, open(PRISTINE, 'rb') as p:
     check('(b) exactly one GPT slot changed', len(changed) == 1,
           f'changed slots: {changed}')
     slot = changed[0] if len(changed) == 1 else -1
+    # The changed slot MUST have been empty (all-zero) in the
+    # pristine image.  Without this, assert (b) is fail-open:
+    # "one slot changed" passes equally whether we claimed a free
+    # slot or overwrote an occupied one (e.g. the ESP at slot 0).
+    pristine_ent = pre[slot * 128:(slot + 1) * 128]
+    check('(b) changed slot was empty in pristine',
+          pristine_ent == bytes(128),
+          f'slot {slot} pristine type: {pristine_ent[:16].hex()}')
     # (c) backup entry array == primary
     check('(c) backup array == primary',
           rd(f, g6fix.TOTAL - 33, 32) == cur)
@@ -513,6 +521,69 @@ with open(DISK, 'rb') as f, open(PRISTINE, 'rb') as p:
           len(kern) == 224 * SEC, str(len(kern)))
     check('(e) kernel bytes on disk == build/kernel.bin',
           rd(f, OWN_BASE + 1, 224) == kern)
+
+# ================= phase 2: the four-leg matrix =================
+# Legs A/B prove BOTH menu entries boot the right instance from
+# the SAME installed disk; C/D are the loud-failure legs.
+
+print('\nStage 4: leg A -- entry 1 chainloads the installed'
+      ' instance')
+qemu_net_boot(DISK)
+sendkey('down')          # blind: SeaBIOS buffers; GRUB consumes on menu init
+sendkey('ret')           # blind: fires entry 1 before the 5 s timeout
+# poll_grub_menu can't be used here -- by the time VGA shows the
+# menu text the blind ret has already booted, so the GRUB menu
+# assertion is replaced by the chainload-liveness probe below.
+# Chainload path: iPXE->TFTP->GRUB (consumes blind keys)->VBR->kernel.
+time.sleep(30)
+SER = serial_connect()
+fatal('leg A: serial connected', SER is not None)
+time.sleep(3)
+drain(SER)
+# Readiness poll (same pattern as stage 2): the chainloaded
+# kernel may still be initialising; retry until it responds.
+v = None
+for _ in range(20):
+    v, raw = val('2 3 +', wait=2)
+    if v == 5:
+        break
+    time.sleep(3)
+check('leg A: installed instance alive (2 3 + = 5)', v == 5,
+      raw[-90:])
+legA_ok = v == 5
+# Discriminator: chainload boot has NO memdisk hook, so the
+# MEMDISK_BASE cell reads 0. POSITIVE form (stage 2's lesson:
+# regex on raw output is fail-open); val() wraps as
+# 'DECIMAL <expr> .' so the literal parses in hex and 0 prints
+# in decimal; '?' -> None -> FAIL.
+expect('leg A: discriminator 0 (chainload, no memdisk)',
+       'HEX 28098 @ DECIMAL', 0)
+SER.close()
+qemu_kill()
+
+print('\nStage 5: leg B -- timeout falls through to memdisk')
+qemu_net_boot(DISK)
+menu = poll_grub_menu()
+fatal('leg B: GRUB menu up over TFTP',
+      'ForthOS - memdisk' in menu, menu[:200])
+# NO sendkey: the 5 s timeout must select entry 0 on its own --
+# this is the daily-driver guarantee (frozen entry order).
+time.sleep(25)
+SER = serial_connect()
+fatal('leg B: serial connected', SER is not None)
+time.sleep(3)
+drain(SER)
+v, raw = val('2 3 +')
+check('leg B: memdisk instance alive (2 3 + = 5)', v == 5,
+      raw[-90:])
+# POSITIVE flag form (mirror of stage 2): 0= 0= collapses any
+# nonzero cell to -1, so a wedged instance, an error line, or
+# empty output cannot fake a pass the way absence-of-'0 ok' did.
+v, raw = val('HEX 28098 @ 0= 0= DECIMAL')
+check('leg B: discriminator nonzero (memdisk boot)', v == -1,
+      raw[-90:])
+SER.close()
+qemu_kill()
 
 print(f'\nPassed: {PASS}/{PASS + FAIL}')
 sys.exit(1 if FAIL else 0)
