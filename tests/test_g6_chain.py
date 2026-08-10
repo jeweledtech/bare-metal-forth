@@ -426,6 +426,13 @@ fatal('OWN-BASE probed', OWN_BASE is not None and OWN_BASE > 33,
 print(f'  OWN-BASE = {OWN_BASE}')
 expect('OWN-LEN = 225', 'OWN-LEN @', 225)
 
+# The claim step Bug #33 was made of: FREE-SLOT is the only
+# setter of FS-SLOT (load-time -1), and GPT-ARM refuses an
+# unset slot. Slot 5 = first empty on the HP-mirror fixture
+# (slots 0-4 occupied, 0 = ESP).
+expect('slot claimed', 'FREE-SLOT', -1, wait=10)
+expect('FS-SLOT = 5 (first empty; ESP survives)', 'FS-SLOT @', 5)
+
 expect('GPT-ARM', 'GPT-ARM', -1, wait=5)
 # Split for attribution: if the composer refuses it returns 0,
 # and a combined 'MAKE-OWN-ENT ADD-PARTITION' would feed that 0
