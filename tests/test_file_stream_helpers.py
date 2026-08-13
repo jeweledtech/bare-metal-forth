@@ -192,6 +192,10 @@ check('CRC32 "123456789"',
 # ================================================
 s.close()
 
-print(f'\n{PASS} passed, {FAIL} failed'
-      f' out of {PASS + FAIL}')
+# Format is load-bearing, not cosmetic: `make test`'s headline is
+# defined as the sum of every `^Passed:` line the run emits, so a
+# suite that prints any other shape is silently outside the count.
+# This one was -- 16 assertions invisible to both baselines, by
+# accident of formatting rather than by decision.
+print(f'\nPassed: {PASS}/{PASS + FAIL}')
 sys.exit(1 if FAIL else 0)

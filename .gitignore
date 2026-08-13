@@ -62,6 +62,13 @@ tests/test_ui_core.py
 tests/test_gui_harvest.py
 tests/test_ui_parser.py
 tests/test_ui_events.py
+# Sixth member of the paid `test-gui` loop; had no rule while its
+# five siblings above did, so it was the one paid test a careless
+# `git add tests/` could sweep into the public repo. Placement in
+# that loop is the tier decision -- the missing rule was an
+# oversight, not an exemption. (Note: forth/dict/ui-*.fth ARE
+# public; only these tests are gated.)
+tests/test_fe_strip_cr.py
 
 # Tier 4: UBT Pipeline
 tools/ubt-llm/
