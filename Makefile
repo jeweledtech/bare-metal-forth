@@ -315,6 +315,45 @@ test-vbr: $(VBR) $(KERNEL) $(IMAGE)
 	python3 tests/test_vbr_boot.py $$PORT; \
 	STATUS=$$?; pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null; exit $$STATUS
 
+# G6 chain harness: live install + 4-leg boot matrix.
+# Manages its own QEMU; monitor on port+1, so this target OWNS the
+# two-port bracket +95/+96 (4595/4596).
+#
+# ALLOCATE BY BRACKET, NOT BY OFFSET. A target that spawns a
+# monitor claims PORT..PORT+n, so grepping for the literal offset
+# undercounts: +90 looks free but test_meta_does brackets 90/91/92.
+# There are also two axes, and both must be checked -- Makefile
+# allocations AND the `else 45xx` bare-run defaults in tests/,
+# which a human debugging by hand will bind. +93 was the first
+# choice and is free on the first axis only: 4593 is
+# test_nfbuild_diag's default and 4594 is test_cortexm_boot's.
+# +95/+96 is free on both. This paragraph is a rule, not a
+# promise -- the previous version of this comment asserted that
+# sharing +90 with test_meta_does was "safe because they never
+# run concurrently," which is a condition nothing enforces.
+#
+# The grub-net prerequisite is DELIBERATE, not incidental: it
+# guarantees build/tftp matches the current build. build-grub-net.sh
+# rm -rf's and rebuilds the tree from combined.img, so re-staging is
+# deterministic rather than accumulated state; combined.img was
+# measured unchanged across test-install (the disk-writing target
+# that precedes this one). Dropping the dep would permit a silently
+# stale tree, which fails by misattribution -- the exact shape of
+# the PXE-freshness incidents this project has already paid for.
+# Known gap: nothing asserts WHICH tree booted; make ordering is
+# the guarantee. See the docket's carried items.
+test-g6: grub-net $(VBR) $(KERNEL)
+	@echo "Running G6 chain harness..."
+	@PORT=$$(($(TEST_PORT_BASE)+95)); \
+	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null || true; \
+	pkill -9 -f "[q]emu.*$$((PORT+1))" 2>/dev/null || true; \
+	sleep 1; \
+	python3 tests/test_g6_chain.py $$PORT; \
+	STATUS=$$?; \
+	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null || true; \
+	pkill -9 -f "[q]emu.*$$((PORT+1))" 2>/dev/null || true; \
+	exit $$STATUS
+
 # Run full integration test
 test-integration: $(COMBINED)
 	@cp $(COMBINED) $(COMBINED_IDE)
@@ -544,7 +583,7 @@ test-meta: $(COMBINED)
 	@echo "Metacompiler tests complete!"
 
 # Run all tests (lint first, then functional tests)
-test: lint test-smoke test-loops test-abort test-install test-vbr test-vocabs test-gui test-integration test-file-stream test-survey
+test: lint test-smoke test-loops test-abort test-install test-vbr test-grub-cfg test-g6 test-vocabs test-gui test-integration test-file-stream test-survey
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)
@@ -629,4 +668,4 @@ grub-net: $(COMBINED) tools/pxe/grub.cfg
 pxe-push-grub: grub-net
 	@bash tools/pxe/push-grub.sh
 
-.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined check-kernel-size test test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-grub-cfg
+.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined check-kernel-size test test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-grub-cfg test-g6
