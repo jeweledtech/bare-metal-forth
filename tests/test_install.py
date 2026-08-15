@@ -30,6 +30,7 @@ prints "WORD ?" for an undefined word and then KEEPS EXECUTING the
 rest of the line, so a substring match can be satisfied by
 leftover stack junk.
 """
+import hashlib
 import os
 import re
 import socket
@@ -37,6 +38,45 @@ import sys
 import time
 
 sys.stdout.reconfigure(line_buffering=True)
+
+# ---- self-describing log: hash the inputs BEFORE running them ----
+# Any transcript quoting "Passed: N/N" must carry proof of WHICH
+# bytes produced it; see tests/test_g6_chain.py for the long-form
+# rationale.  Duplicated rather than factored into a shared helper
+# on purpose: a suite's provenance must not depend on another file
+# being importable, or the one failure mode it exists to survive
+# (wrong/missing code) is the one that suppresses it.
+#
+# combined.img is declared even though this suite does not open it:
+# it is the image the QEMU on PORT was booted from by the Makefile,
+# so it is the largest input to every result below AND the one this
+# file has no other way to name.  A harness hash alone would attest
+# to the driver while saying nothing about the driven.  install.fth
+# is inside that image, but is hashed separately too -- the image
+# is only as current as the last build, and the gap between "the
+# source says" and "the running image says" is the failure this
+# line exists to make visible.
+#
+# Paths are anchored to the repo root rather than the cwd: this
+# file already opens build/* relative to the cwd, so a run started
+# from anywhere but ROOT hashes nothing and then dies later on an
+# unrelated open.  Anchoring makes the provenance line correct
+# independent of how the suite was invoked.
+_PROV_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_prov_unreadable = []
+for _label, _p in (('harness', os.path.abspath(__file__)),
+                   ('install.fth', 'forth/dict/install.fth'),
+                   ('combined.img', 'build/combined.img'),
+                   ('vbr.bin', 'build/vbr.bin'),
+                   ('boot.bin', 'build/boot.bin')):
+    _p = _p if os.path.isabs(_p) else os.path.join(_PROV_ROOT, _p)
+    try:
+        with open(_p, 'rb') as _f:
+            _h = hashlib.sha256(_f.read()).hexdigest()
+    except OSError as _e:
+        _h = '<UNREADABLE>'
+        _prov_unreadable.append(f'{_label} ({_p}): {_e}')
+    print(f'input sha256 {_h}  {_label}')
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 4490
 
@@ -114,6 +154,15 @@ def expect(name, expr, want):
     v, raw = val(expr)
     check(f'{name} ({expr} = {want})', v is not None and v == want,
           f'got {v!r} from {raw.strip()[-90:]!r}')
+
+
+# COUNTED (+1 to N), not a bare raise.  Declared at the top of the
+# file, ASSERTED here, because check() does not exist until now --
+# an unreadable input must produce a parseable FAIL plus a
+# "Passed: N/M" line.  A traceback gives a scraper nothing, which
+# is indistinguishable from "never ran".
+check('all declared inputs readable', not _prov_unreadable,
+      '; '.join(_prov_unreadable))
 
 
 def alive():

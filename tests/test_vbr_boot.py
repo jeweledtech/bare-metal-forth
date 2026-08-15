@@ -22,11 +22,40 @@ leg nothing overwrites the screen and the text is stable. The
 positive leg's kernel repaints VGA, so banner assertions are only
 made on the halted negative leg.
 """
+import hashlib
+import os
 import re
 import socket
 import subprocess
 import sys
 import time
+
+# ---- self-describing log: hash the inputs BEFORE running them ----
+# Any transcript quoting "Passed: N/N" must carry proof of WHICH
+# bytes produced it; see tests/test_g6_chain.py for the long-form
+# rationale.  Duplicated rather than factored into a shared helper
+# on purpose: a suite's provenance must not depend on another file
+# being importable, or the one failure mode it exists to survive
+# (wrong/missing code) is the one that suppresses it.
+#
+# The BINARIES are declared inputs here, not just this file.  For
+# most suites build/* is output; for this one vbr.bin IS the code
+# under test -- a boot sector -- and kernel.bin/bmforth.img carry
+# the A/B claim asserted a few lines below ("proven layout with
+# only the loader swapped").  A log naming only the harness would
+# be silent about every byte that actually ran on the CPU.
+_prov_unreadable = []
+for _label, _p in (('harness', os.path.abspath(__file__)),
+                   ('vbr.bin', 'build/vbr.bin'),
+                   ('kernel.bin', 'build/kernel.bin'),
+                   ('bmforth.img', 'build/bmforth.img')):
+    try:
+        with open(_p, 'rb') as _f:
+            _h = hashlib.sha256(_f.read()).hexdigest()
+    except OSError as _e:
+        _h = '<UNREADABLE>'
+        _prov_unreadable.append(f'{_label} ({_p}): {_e}')
+    print(f'input sha256 {_h}  {_label}')
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 4508
 MON_PORT = PORT + 1
@@ -69,6 +98,17 @@ def check(name, ok, detail=''):
     else:
         FAIL += 1
         print(f'  FAIL: {name}' + (f' -- {detail}' if detail else ''))
+
+
+# COUNTED (+1 to N), not a bare raise.  Declared at the top,
+# ASSERTED here, because check() does not exist until now -- an
+# unreadable input must produce a parseable FAIL plus a
+# "Passed: N/M" line.  A traceback gives a scraper nothing, which
+# is indistinguishable from "never ran".  (The opens above would
+# raise first today; this stays so that adding a declared input
+# which is NOT opened cannot go unchecked.)
+check('all declared inputs readable', not _prov_unreadable,
+      '; '.join(_prov_unreadable))
 
 
 def drain(s, out):

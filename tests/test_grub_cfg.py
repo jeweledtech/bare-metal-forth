@@ -13,6 +13,7 @@ Three disciplines under test (spec D2 / Section 2):
    biosdisk+probe GUID loop (search has no --part-uuid at all),
    and chainloader only inside the found-guard.
 """
+import hashlib
 import importlib.util
 import os
 import subprocess
@@ -36,6 +37,37 @@ def check(name, ok, detail=''):
         FAIL += 1
         print(f'  FAIL: {name}' + (f' -- {detail}' if detail else ''))
 
+
+# ---- self-describing log: hash the inputs BEFORE running them ----
+# Any transcript quoting "Passed: N/N" must carry proof of WHICH
+# bytes produced it; see tests/test_g6_chain.py for the long-form
+# rationale.  Duplicated rather than factored into a shared helper
+# on purpose: a suite's provenance must not depend on another file
+# being importable, or the one failure mode it exists to survive
+# (wrong/missing code) is the one that suppresses it.
+#
+# All four, not just this file.  Test 3 is a DRIFT GATE comparing
+# COMMITTED against what GEN produces from FTH, so a log naming
+# only the harness would attest to a comparison whose two sides
+# could both have moved.  BEFORE exec_module, which RUNS GEN.
+_unreadable = []
+for _label, _p in (('harness', os.path.abspath(__file__)),
+                   ('gen-grub-cfg', GEN),
+                   ('install.fth', FTH),
+                   ('grub.cfg', COMMITTED)):
+    try:
+        with open(_p, 'rb') as _f:
+            _h = hashlib.sha256(_f.read()).hexdigest()
+    except OSError as _e:
+        _h = '<UNREADABLE>'
+        _unreadable.append(f'{_label} ({_p}): {_e}')
+    print(f'input sha256 {_h}  {_label}')
+# COUNTED (+1 to N), not a bare raise: an unreadable input must
+# produce a parseable FAIL plus a "Passed: N/M" line.  A traceback
+# gives a scraper nothing, which is indistinguishable from
+# "never ran".
+check('all declared inputs readable', not _unreadable,
+      '; '.join(_unreadable))
 
 spec = importlib.util.spec_from_file_location('gencfg', GEN)
 gencfg = importlib.util.module_from_spec(spec)

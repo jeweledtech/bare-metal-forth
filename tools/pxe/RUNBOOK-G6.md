@@ -121,29 +121,88 @@ unsequenced**. Missing any one fails at a later gate, and before
 Bug #33's sentinel, one of them silently destroyed the ESP entry.
 Tick each:
 
-1. [ ] **load the install vocab before `AHCI-INIT`** (observed
-       constraint — block source goes hostile after AHCI-INIT)
+1. [ ] **the INSTALL catalog-range `THRU` runs before `AHCI-INIT`**
+       (observed 2026-08-06, mechanism unconfirmed — **keep this
+       step**; see the scope note below before touching it)
 2. [ ] vector binds
 3. [ ] VBR-TPL push
 4. [ ] ESP extent declaration
 5. [ ] `FREE-SLOT` claim
 
+> **⚠ Step 1's stated REASON was falsified 2026-08-13. The step
+> stands.** This runbook used to justify step 1 with "block source
+> goes hostile after `AHCI-INIT`." That generalisation is dead:
+> `ARM-VBR-TPL` (§3c) does a single `BLOCK` read *after*
+> `AHCI-INIT` in the green harness and gets correct bytes —
+> `TPL-SUM` equals the host's `sum(vbr.bin)`, G6 71/71.
+>
+> **A single `BLOCK` read is not a `THRU` of a range.** What was
+> actually observed on 2026-08-06 is narrower and still unrefuted:
+> `THRU`-ing the INSTALL catalog range *after* `AHCI-INIT` spews
+> meta-compiler words and reboots; *before* it is clean. Different
+> operation, so the measurement **narrows the reason and retires
+> nothing.** Do not delete step 1 on the strength of §3c.
+>
+> Note also that step 1 is about the **block load**, not the search
+> order: `ALSO SURVEYOR` and `USING INSTALL` demonstrably run
+> *after* `AHCI-INIT` in the green harness. Only the `THRU` is
+> order-constrained.
+>
+> **Third distinct rot mechanism, same symptom.**
+> `search --part-uuid` was a real mechanism *named wrong*.
+> `INSTALL-THRU` was *shorthand mistaken for a mechanism*. This one
+> was **an observation that was true when recorded and was later
+> falsified by a better measurement** — the most insidious of the
+> three, because it was honestly earned. The defense does not vary
+> with the mechanism: **when you falsify something, grep for it
+> before you move on.** This claim outlived its refutation in three
+> stores after being corrected in one.
+
 ### 3a. Load and initialise
 
-**Source: `tests/test_g6_chain.py:702-706`.** Type what the green
+**Source: `tests/test_g6_chain.py:733-756`.** Type what the green
 harness types; check it against that file if anything differs.
 
-```forth
-USING AHCI
-ALSO SURVEYOR
-USING INSTALL
-AHCI-INIT
+`install.fth` is **not** in `EMBED_VOCABS` (`Makefile:49`) — it is
+the one vocab here that needs a block load, and `LOAD-VOCAB` is
+broken on this boot path (`'F ?'` then wedge), so the documented
+workaround is a literal `THRU` of its catalog range. Get the two
+numbers **at the desk** and carry them; do not try to compute them
+at the console:
+
+```sh
+python3 tools/catalog_layout.py INSTALL      # prints "<n> <m> THRU"
 ```
 
+It reads `build/blocks.img` — the catalog **the machine reads** —
+so the numbers are the running image's, not a recomputation that
+could disagree with it. Run it against the *same* image you are
+about to boot.
+
+```forth
+<first> <last> THRU        \ from the generator above, BEFORE init
+USING AHCI
+AHCI-INIT
+ALSO SURVEYOR
+USING INSTALL
+```
+
+- [ ] **The `THRU` comes BEFORE `AHCI-INIT`** — arming step 1. The
+      search-order words come *after*; only the block load is
+      order-constrained.
 - [ ] **`ALSO SURVEYOR` comes BEFORE `USING INSTALL`** — the DOVOC
       trap: `USING` replaces the top of the search order, so an
       `ALSO` issued after it is lost.
 - [ ] `USING AHCI` needs no block load; AHCI is an embedded vocab.
+
+> **Corrected 2026-08-13.** This block previously read `USING AHCI`
+> / `ALSO SURVEYOR` / `USING INSTALL` / `AHCI-INIT`, with no block
+> load at all — so the operator's `USING INSTALL` would have hit a
+> vocab that was never loaded, on the first session that used it,
+> and `AHCI-INIT` ran last in violation of arming step 1. It cited
+> `:702-706`, a range that had since drifted. **A citation is only
+> a defense if someone follows it** — this one was checked against
+> the harness and disagreed with it in three ways.
 
 > **⚠ `INSTALL-THRU` is not a word. Do not type it.** It has no
 > definition anywhere in `forth/`, `src/`, `tests/`, or `tools/`.
@@ -170,86 +229,78 @@ SEC-BUF RD-BUF-ADDR !
 BIND-WRITER AHCI-WRITE
 ```
 
-### 3c. Push the VBR template — **BLOCKED**
+### 3c. Arm the VBR template — **one line**
 
-> ### ⛔ BLOCKED — requires blocks-side VBR-TPL delivery (Task 12.5)
->
-> **Do not schedule the iron session until 12.5 lands.** This step
-> gates everything after it: without `VBR-TPL` armed, `BUILD-VBR`
-> refuses and iron G6 produces nothing.
->
-> **Why it is blocked.** On this laptop there is no way to paste.
-> - The net console is **output only** — `forth.asm:5432`,
->   `net_console_enabled: db 0 ; 1 = mirror output to UDP`.
-> - `NET-DICT`, the inbound code path, `REQUIRES: NE2000`
->   (`forth/dict/net-dict.fth:7-9`). The HP has an RTL8168.
-> - The HP has no UART — **(ASSERTED, UNVERIFIED.** Traced to
->   prose in `docs/TASK_INSTALL_BOOT_ENTRY.md:746` and nowhere
->   else; no serial header has been *observed* on the 15-bs0xx.
->   **Check the board before relying on this.** If a header
->   exists, this leg falls and the fallback below may be
->   unnecessary — the other two legs stand on their own.)
->   An unmarked assertion sitting between two cited facts
->   inherits their credibility without earning it.
->
-> So input is the **PS/2 keyboard**, and the fallback below means
-> hand-typing **512 pokes across 128 lines**, with one sum gate at
-> the end and no indication of which line was dropped.
->
-> **The fix** is build-side and QEMU-testable: bake the VBR
-> template into the blocks image, registered in the catalog by
-> name so the block number is derived and not hardcoded, and have
-> the install vocab copy it into `VBR-TPL`. This step then
-> collapses to **one** typed line (a callable arming word).
-> Auto-arming at load time would make it zero, but that means
-> calling `BLOCK` while `install.fth` is itself being loaded from
-> blocks — the same nested-block territory as a known live defect
-> — so it is deliberately deferred rather than bundled.
->
-> **How this surfaced,** because it generalizes: the gap was
-> already written down and accurately described — "VBR-TPL runtime
-> template delivery (blocks-side; today only the test fixture
-> populates it)" — and had been sitting in the carried items as
-> backlog. It became visible as a *blocker* only by asking what
-> the operator physically types. **A dependency recorded as a
-> known gap can still be undiscovered as a blocker.**
-
-**Fallback, explicit last resort only** — if 12.5 has not landed
-and the session must proceed anyway. Generate the lines **at the
-desk, from the current build**, and carry the output on paper:
-
-```bash
-python3 - <<'EOF'
-data = open('build/vbr.bin', 'rb').read()
-assert len(data) == 512, len(data)
-print('CREATE VBR-LIVE 512 ALLOT')
-for i in range(0, 512, 4):
-    print('  '.join(
-        f'{data[i+j]} VBR-LIVE {i+j} + C!' for j in range(4)))
-print(': TPL-SUM 0 512 0 DO VBR-LIVE I + C@ + LOOP ;')
-print(f'\\ TPL-SUM must print {sum(data)}')
-print('\\ after TPL-SUM verifies, type: VBR-LIVE VBR-TPL !')
-EOF
-```
-
-Paste the block, then verify **before** arming:
+**Source: `tests/test_g6_chain.py`, the "Arm VBR-TPL from the
+blocks-side template" block.** Type what the green harness types;
+check it against that file if anything differs.
 
 ```forth
-TPL-SUM .              \ must equal the noted sum
-VBR-LIVE 510 + C@ .    \ 85   (0x55)
-VBR-LIVE 511 + C@ .    \ 170  (0xAA)
+ARM-VBR-TPL .
 ```
 
-- [ ] Sum matches → **now** type the store by hand:
-      ```forth
-      VBR-LIVE VBR-TPL !
-      VBR-TPL @ VBR-LIVE = .    \ -1
-      ```
+- [ ] Prints `-1`. A `0` means the template was **not** delivered
+      — do not continue, `BUILD-VBR` will refuse at the
+      no-template gate and everything after it is noise.
 
-**The store line is a COMMENT in the generator on purpose:**
-pasting the whole block must not arm the pointer. A sum mismatch
-means a dropped poke line — redo the push, do not proceed.
-Fail-closed ordering: verify, then arm.
+`ARM-VBR-TPL` looks `VBR-TEMPLATE` up in the block catalog **by
+name** (the block number is derived, never typed), copies the 512
+bytes out of the block buffer into `VBR-RAW`, and stores that
+address in `VBR-TPL`.
+
+**Then verify the CONTENT — the flag does not.** `-1` reports that
+delivery happened; it cannot report that the bytes are right.
+Measured 2026-08-13: against an image with one byte of the staged
+block flipped, `ARM-VBR-TPL` still returned `-1` while the sum
+moved by exactly the flip. Two gates, and they stay two.
+
+```forth
+: TPL-SUM 0 512 0 DO VBR-RAW I + C@ + LOOP ;
+TPL-SUM .              \ must equal the sum noted at the desk
+VBR-RAW 510 + C@ .     \ 85   (0x55)
+VBR-RAW 511 + C@ .     \ 170  (0xAA)
+VBR-TPL @ VBR-RAW = .  \ -1
+```
+
+Get the expected sum **at the desk, from the build you deployed**,
+and carry it on paper — do not trust a number written in this file:
+
+```bash
+python3 -c "d=open('build/vbr.bin','rb').read(); \
+assert len(d)==512, len(d); print('TPL-SUM must print', sum(d))"
+```
+
+- [ ] Sum matches. A mismatch means the block store and
+      `build/vbr.bin` disagree — **stop and re-check which image
+      this machine actually booted** (step 0's hash check). Do not
+      proceed on a template that does not match the build.
+
+**Why this is one line and not 512 pokes.** On this laptop there
+is no way to paste: the net console is **output only**
+(`forth.asm:5432`, `net_console_enabled: db 0 ; 1 = mirror output
+to UDP`), `NET-DICT` — the inbound path — `REQUIRES: NE2000`
+(`forth/dict/net-dict.fth:7-9`) and the board has an RTL8168, and
+the HP is believed to have no UART (**asserted, unverified** —
+traced to prose in `docs/TASK_INSTALL_BOOT_ENTRY.md:746` and
+nowhere else; no serial header has been *observed* on the
+15-bs0xx). So input is the **PS/2 keyboard**, and before Task 12.5
+this step meant hand-typing 512 pokes across 128 lines with one
+sum gate at the end and no indication of which line was dropped.
+
+That fallback is **deleted, not parked.** The generator that
+produced those lines is in git history, where retrieving it costs
+a deliberate act. Leaving it here as a "last resort" would keep a
+substitute mechanism one bad session away from being used on the
+day blocks delivery misbehaves — which is the day you most need
+this step to be exercising the real path.
+
+**How this surfaced,** because it generalizes: the gap was already
+written down and accurately described — "VBR-TPL runtime template
+delivery (blocks-side; today only the test fixture populates it)"
+— and had been sitting in the carried items as backlog. It became
+visible as a *blocker* only by asking what the operator physically
+types. **A dependency recorded as a known gap can still be
+undiscovered as a blocker.**
 
 ### 3d. Declare the ESP extent
 

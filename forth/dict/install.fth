@@ -46,6 +46,7 @@
 VOCABULARY INSTALL
 INSTALL DEFINITIONS
 ALSO SURVEYOR
+ALSO CATALOG-RESOLVER
 DECIMAL
 
 \ ---- The owned extent ----
@@ -959,6 +960,61 @@ HEX DEADBEEF CONSTANT VBR-SENTINEL DECIMAL
 \ template stores its address here.
 VARIABLE VBR-TPL
 CREATE VBR-IMG 512 ALLOT
+
+\ ---- Blocks-side template delivery ----
+\ Replaces 512 hand-typed C! pokes, which
+\ made the iron session impossible: the HP
+\ has no paste target (net console is
+\ output-only; NET-DICT needs NE2000, the
+\ board has an RTL8168).
+\ The template is a catalog-addressed BINARY
+\ block -- same shape as the *-form.fth data
+\ blocks: found by name, read as data, never
+\ interpreted. The block number is DERIVED
+\ from the catalog, never hardcoded, so a
+\ layout change cannot desynchronize it.
+CREATE VBR-RAW 512 ALLOT
+
+\ The CMOVE is MANDATORY, not tidiness.
+\ BLOCK returns an LRU buffer that a later
+\ BLOCK call can evict and reuse -- and this
+\ word itself makes several BLOCK calls, as
+\ CATALOG-FIND walks the catalog blocks
+\ before we ever touch the payload. Storing
+\ the block address into VBR-TPL would leave
+\ a pointer that quietly starts reading some
+\ other block's bytes. Do NOT "simplify" it.
+\
+\ A SECOND reason was asserted here and is
+\ now FALSIFIED; recorded so nobody re-adds
+\ it: "the block source goes hostile after
+\ AHCI-INIT." MEASURED 2026-08-13, G6 71/71
+\ -- ARM-VBR-TPL does a single BLOCK read
+\ AFTER AHCI-INIT in the harness and gets
+\ the right bytes (TPL-SUM equals the host
+\ sum(vbr.bin)). The LRU reason alone
+\ carries this CMOVE.
+\
+\ SCOPE OF THAT FALSIFICATION -- read this
+\ before deleting anything elsewhere. It
+\ kills "the block source goes hostile,"
+\ full stop. It does NOT retire the rule
+\ that reason was invented to explain: the
+\ catalog-range THRU still must run BEFORE
+\ AHCI-INIT (observed 2026-08-06, mechanism
+\ still unconfirmed). A single BLOCK read
+\ is not a THRU of a range -- a different
+\ operation, so this measurement narrows
+\ the REASON and retires no step.
+: ARM-VBR-TPL ( -- flag )
+  S" VBR-TEMPLATE" CATALOG-FIND 0= IF
+    0 EXIT
+  THEN
+  DROP
+  CATALOG-MEM @ IF DROP 0 EXIT THEN
+  BLOCK VBR-RAW 512 CMOVE
+  VBR-RAW VBR-TPL !
+  -1 ;
 
 \ G5-R3 gate: the bake fired. The sentinel
 \ means an unpatched copy -- refused

@@ -96,6 +96,50 @@ SET_BLK = 199                         # settings.fth SET-BLK constant
 HP_WRITE_CEILING = 910                # blocks 0-910 writable on HP (LBA < 2048)
 
 
+def load_raw_payloads(specs):
+    """Parse --raw NAME=path specs into catalog-placeable payloads.
+
+    A raw payload is a BINARY blob that gets a catalog entry and a
+    block slot, but is never interpreted -- the same shape as the
+    *-form.fth data blocks, which are found by CATALOG-FIND and read
+    by FORM-LOAD rather than THRU'd.
+
+    It must NOT go through source_to_block(): that path opens in text
+    mode, encodes ascii/errors='replace' (every byte >127 becomes
+    '?'), splits on splitlines() (which breaks on \\r \\x0b \\x0c \\x1c
+    \\x1d \\x1e \\x85 as well as \\n), then truncates at 64 and pads
+    with spaces. A 512-byte VBR would be silently shredded. Hence the
+    separate raw write below.
+    """
+    payloads = []
+    for spec in specs:
+        if '=' not in spec:
+            print(f"Error: --raw expects NAME=path, got '{spec}'",
+                  file=sys.stderr)
+            sys.exit(1)
+        name, path = spec.split('=', 1)
+        if not os.path.isfile(path):
+            print(f"Error: raw payload '{name}' not found at {path}",
+                  file=sys.stderr)
+            sys.exit(1)
+        with open(path, 'rb') as f:
+            data = f.read()
+        if not data:
+            print(f"Error: raw payload '{name}' ({path}) is empty.",
+                  file=sys.stderr)
+            sys.exit(1)
+        nblocks = (len(data) + BLOCK_SIZE - 1) // BLOCK_SIZE
+        payloads.append({
+            'name': name,
+            'filename': os.path.basename(path),
+            'filepath': path,
+            'data': data,
+            'blocks_needed': nblocks,
+            'raw': True,
+        })
+    return payloads
+
+
 def place_vocab(next_block, num_blocks):
     """Start block for a vocab, skipping the reserved settings range.
 
@@ -161,8 +205,28 @@ def main():
         print(__doc__)
         sys.exit(1)
 
-    disk_image = sys.argv[1]
-    vocab_dir = sys.argv[2]
+    args = sys.argv[1:]
+    raw_specs = []
+    positional = []
+    i = 0
+    while i < len(args):
+        if args[i] == '--raw':
+            if i + 1 >= len(args):
+                print("Error: --raw requires NAME=path", file=sys.stderr)
+                sys.exit(1)
+            raw_specs.append(args[i + 1])
+            i += 2
+        else:
+            positional.append(args[i])
+            i += 1
+
+    if len(positional) < 2:
+        print(__doc__)
+        sys.exit(1)
+
+    disk_image = positional[0]
+    vocab_dir = positional[1]
+    payloads = load_raw_payloads(raw_specs)
 
     if not os.path.isfile(disk_image):
         print(f"Error: disk image '{disk_image}' not found", file=sys.stderr)
@@ -197,15 +261,30 @@ def main():
               f"Fix before writing catalog.")
         sys.exit(1)
 
+    # Raw payloads are placed and catalogued EXACTLY like vocabs --
+    # same place_vocab() skip, same check_reservation() build-fail.
+    # They differ only at the write, which is byte-for-byte instead of
+    # screen-formatted. Appending them past the layout instead would
+    # let a payload land inside SETTINGS_RESERVED, where a runtime
+    # settings save would silently overwrite the VBR template.
+    #
+    # NOT gated on HP_WRITE_CEILING, deliberately: that ceiling is a
+    # WRITE constraint (see its comment, and check_reservation's
+    # docstring -- "vocab sources above block 910 are legal code-store
+    # blocks, read from the RAM memdisk"). A raw payload is read-only
+    # data, so it is in the same class as vocab source. Gating it here
+    # would fail the build on a condition that is not a defect.
+    entries = vocabs + payloads
+
     # Build catalog blocks first to know how many we need
     # Temp layout with block 2 start — will adjust after
     temp_layout = {}
     temp_next = 2
-    for v in vocabs:
+    for v in entries:
         start = place_vocab(temp_next, v['blocks_needed'])
         temp_layout[v['name']] = start
         temp_next = start + v['blocks_needed']
-    cat_blocks = build_catalog_blocks(vocabs, temp_layout)
+    cat_blocks = build_catalog_blocks(entries, temp_layout)
     num_cat_blocks = len(cat_blocks)
 
     # Recompute layout: data starts after catalog blocks
@@ -213,16 +292,16 @@ def main():
     data_start = 1 + num_cat_blocks
     layout = {}
     next_block = data_start
-    for v in vocabs:
+    for v in entries:
         start = place_vocab(next_block, v['blocks_needed'])
         layout[v['name']] = start
         next_block = start + v['blocks_needed']
 
     # Rebuild catalog with correct block numbers
-    cat_blocks = build_catalog_blocks(vocabs, layout)
+    cat_blocks = build_catalog_blocks(entries, layout)
 
     # Two-store invariants — fail the BUILD, not the bench
-    check_reservation(vocabs, layout)
+    check_reservation(entries, layout)
 
     image_size = os.path.getsize(disk_image)
     needed_size = next_block * BLOCK_SIZE
@@ -245,6 +324,22 @@ def main():
             for i, block_data in enumerate(block_list):
                 f.seek((start + i) * BLOCK_SIZE)
                 f.write(block_data)
+
+        # Write raw payloads byte-for-byte. TAIL FILL IS ZERO, stated
+        # here rather than inherited: vocab blocks pad with SPACES
+        # (0x20) because they are Forth screens, and silently
+        # inheriting that for binary would put 0x20 in the slack.
+        # Harmless for a 512-byte VBR in a 1024-byte block -- nothing
+        # reads past 512, and TPL-SUM only sums 512 -- which is
+        # exactly why a wrong fill would be invisible HERE and wrong
+        # in the next payload that is not block-aligned.
+        for p in payloads:
+            start = layout[p['name']]
+            span = p['blocks_needed'] * BLOCK_SIZE
+            padded = p['data'].ljust(span, b'\x00')
+            assert len(padded) == span, (p['name'], len(padded), span)
+            f.seek(start * BLOCK_SIZE)
+            f.write(padded)
 
     # Report
     print(f"Vocabulary Catalog written to {disk_image}")
@@ -269,6 +364,14 @@ def main():
         print(f"  Blocks {SETTINGS_RESERVED.start}-"
               f"{SETTINGS_RESERVED.stop - 1}: (reserved: settings, "
               f"SET-BLK={SET_BLK})")
+    for p in payloads:
+        start = layout[p['name']]
+        end = start + p['blocks_needed'] - 1
+        span = 'Block %d' % start if start == end else \
+            'Blocks %d-%d' % (start, end)
+        print(f"  {span}: {p['name']} (RAW {len(p['data'])} bytes "
+              f"from {p['filename']}, zero-filled to "
+              f"{p['blocks_needed'] * BLOCK_SIZE})")
     print(f"  Total: {next_block} blocks used")
 
 

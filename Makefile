@@ -161,7 +161,14 @@ blocks: $(BLOCKS)
 # Stamp file proves the catalog has been written into $(BLOCKS)
 # for the current set of vocab sources.  If write-catalog fails,
 # the stamp is not created and the next build retries.
-$(BUILD)/.catalog.stamp: $(BLOCKS) $(VOCAB_SOURCES) tools/write-catalog.py
+#
+# $(VBR) is a prerequisite because the catalog now carries the VBR
+# template as a raw payload. A catalog built from a stale vbr.bin
+# yields a template that passes its OWN sum check while being the
+# wrong build; the G6 harness compares against the host's
+# build/vbr.bin and would catch it, but at the wrong layer and with
+# far worse attribution.
+$(BUILD)/.catalog.stamp: $(BLOCKS) $(VOCAB_SOURCES) tools/write-catalog.py $(VBR)
 	@echo "Populating catalog into $(BLOCKS)..."
 	$(MAKE) write-catalog && touch $@
 
@@ -183,8 +190,15 @@ write-block: $(BLOCKS)
 
 # Build vocabulary catalog and write all .fth files to blocks disk
 # Block 0: reserved, Block 1: catalog, Block 2+: vocabularies
-write-catalog: $(BLOCKS)
-	python3 tools/write-catalog.py $(BLOCKS) forth/dict/
+#
+# --raw VBR-TEMPLATE: the installer's VBR template, delivered as a
+# catalog-addressed BINARY block (same shape as the *-form.fth data
+# blocks: found by CATALOG-FIND, read as data, never interpreted).
+# This is what lets INSTALL arm VBR-TPL with zero pokes, replacing
+# the 512 hand-typed C! lines that blocked the iron session.
+write-catalog: $(BLOCKS) $(VBR)
+	python3 tools/write-catalog.py $(BLOCKS) forth/dict/ \
+	        --raw VBR-TEMPLATE=$(VBR)
 
 # --- Combined Image ---
 

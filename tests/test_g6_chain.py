@@ -37,6 +37,7 @@ os.chdir(ROOT)
 # path cannot hash one file while loading another.
 GENCFG_PY = 'tools/pxe/gen-grub-cfg.py'
 FIXTURE_PY = 'tests/g6_fixture.py'
+CATALOG_PY = 'tools/catalog_layout.py'
 TREE = 'build/tftp'
 DISK = 'build/g6-disk.img'
 PRISTINE = 'build/g6-disk-pristine.img'
@@ -79,10 +80,13 @@ def load_mod(name, path):
 # states what it is, instead of relying on someone remembering
 # what was on disk at the time.
 #
-# ALL THREE code inputs, not just this file.  FIXTURE_PY fixes the
+# ALL FOUR code inputs, not just this file.  FIXTURE_PY fixes the
 # disk geometry the whole run is built on and GENCFG_PY produces
 # the cfg under test; both are load_mod'd at runtime, so either
-# could change without moving this file's hash.  A line reading
+# could change without moving this file's hash.  CATALOG_PY
+# resolves the INSTALL block range that stage 2 THRUs -- it decides
+# WHICH BLOCKS the machine loads, so a change there changes what
+# ran while leaving this file byte-identical.  A line reading
 # "harness sha256 ..." while the fixture had silently changed
 # would OVERSTATE its coverage, which is worse than printing
 # nothing, because it stops people looking.  The tftp tree is
@@ -100,7 +104,8 @@ def load_mod(name, path):
 _unreadable = []
 for _label, _p in (('harness', _SELF),
                    ('fixture', FIXTURE_PY),
-                   ('gen-grub-cfg', GENCFG_PY)):
+                   ('gen-grub-cfg', GENCFG_PY),
+                   ('catalog-layout', CATALOG_PY)):
     try:
         with open(_p, 'rb') as _f:
             _h = hashlib.sha256(_f.read()).hexdigest()
@@ -110,8 +115,28 @@ for _label, _p in (('harness', _SELF),
     # Every DECLARED input gets a line even when unreadable --
     # a silently omitted row is indistinguishable from an input
     # that was never declared.  Scrapers should match
-    # `input sha256 (\S+)\s+(\S+)`, not a bare 64-hex run.
+    # `input (md5|sha256) (\S+)\s+(\S+)`, not a bare 64-hex run.
+    # The alternation is not cosmetic: the tftp tree's manifest
+    # below is md5 (tree-hash.sh is the push-grub provenance
+    # AUTHORITY and does not change to suit a log format), so the
+    # algorithm is NAMED per line rather than assumed by position.
     print(f'input sha256 {_h}  {_label}')
+# The staged TFTP tree is the fourth input and the only one that
+# is not a file: it is what GRUB actually fetches, and both legs'
+# behaviour is a function of it.  Printed HERE, with the other
+# three, rather than only at stage 0 -- a scraper that has to know
+# about two different provenance formats in two different places
+# will read one of them.  Stage 0 still GATES it (a manifest that
+# is not 32 hex is fatal there); this line only REPORTS it, so a
+# tree that does not exist yet degrades to <UNREADABLE> instead of
+# failing before the harness can say what it was looking for.
+try:
+    _manifest = subprocess.run(
+        ['bash', 'tools/pxe/tree-hash.sh', TREE],
+        capture_output=True, text=True).stdout.strip() or '<UNREADABLE>'
+except OSError:
+    _manifest = '<UNREADABLE>'
+print(f'input md5 {_manifest}  tftp-tree')
 # COUNTED precondition (+1 to N), not a bare raise: an unreadable
 # input must produce a parseable FAIL plus a "Passed: N/M" line.
 # A traceback gives a log scraper nothing, which is
@@ -127,11 +152,27 @@ fatal('all code inputs readable', not _unreadable,
 # argv[1] raises, and that must not be able to suppress the hash
 # lines.  Nothing between the top of the file and here reads
 # PORT or MON.
-PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 4590
+#
+# NO BARE DEFAULT, deliberately.  It used to read `else 4590`,
+# which was WRONG: `make test-g6` passes TEST_PORT_BASE+95 = 4595.
+# A constant that claims to mirror the Makefile and does not is
+# the same duplicate-that-drifts shape this suite gates against
+# elsewhere, and it drifts silently because both numbers are free
+# ports -- the run works, it just is not the run you configured.
+# Deleting the number deletes the drift; the Makefile is the sole
+# authority for the port.  fatal(), not sys.exit(), so a bare
+# invocation still emits a parseable FAIL and a "Passed: N/M".
+fatal('port argument supplied (invoke via `make test-g6`)',
+      len(sys.argv) > 1, 'usage: test_g6_chain.py PORT')
+PORT = int(sys.argv[1])
 MON = PORT + 1
 
 gencfg = load_mod('gencfg', GENCFG_PY)
 g6fix = load_mod('g6fix', FIXTURE_PY)
+# load_mod, not `import`, for the same reason as the other two: the
+# hashed path and the loaded path are the SAME constant, so a
+# rename cannot hash one file while importing another off sys.path.
+catalog_layout = load_mod('catalog_layout', CATALOG_PY)
 
 # ---- channel registry (fatal() must not strand a chardev) ----
 # QEMU's socket chardevs serve ONE client at a time. A monitor or
@@ -577,40 +618,36 @@ def expect(name, expr, want, wait=1.5):
           f'got {v!r} from {raw.strip()[-90:]!r}')
 
 
-PROJECT_DIR = ROOT  # get_vocab_blocks below is a verbatim copy
-# from tests/test_ahci_write.py, which names the repo root
-# PROJECT_DIR; alias so the paste stays byte-identical.
+BLOCKS_IMG = 'build/blocks.img'
 
 
 def get_vocab_blocks(vocab_name):
-    try:
-        result = subprocess.run(
-            [sys.executable, '-c', f"""
-import sys, os
-sys.path.insert(0, os.path.join('{PROJECT_DIR}', 'tools'))
-from importlib.machinery import SourceFileLoader
-wc = SourceFileLoader('wc', os.path.join(
-    '{PROJECT_DIR}', 'tools', 'write-catalog.py'
-)).load_module()
-vocabs = wc.scan_vocabs(os.path.join(
-    '{PROJECT_DIR}', 'forth', 'dict'))
-_nc = (len(vocabs) + wc.CATALOG_DATA_LINES - 1) // wc.CATALOG_DATA_LINES
-nb = 1 + _nc
-for v in vocabs:
-    nb = wc.place_vocab(nb, v['blocks_needed'])
-    if v['name'] == '{vocab_name}':
-        print(f"{{nb}} {{nb + v['blocks_needed'] - 1}}")
-        break
-    nb += v['blocks_needed']
-"""],
-            capture_output=True, text=True, timeout=10
-        )
-        if result.stdout.strip():
-            parts = result.stdout.strip().split()
-            return int(parts[0]), int(parts[1])
-    except Exception:
-        pass
-    return None, None
+    """Read the block range out of the CATALOG THE MACHINE READS.
+
+    This used to re-run write-catalog.py's placement algorithm in a
+    subprocess and trust that the two agreed.  It replaced that
+    with a parse of the built artifact, for a reason that had
+    already gone live once: the algorithm copy modelled VOCABS ONLY,
+    while write-catalog now lays out `vocabs + raw payloads`, and
+    the number of catalog blocks -- which every data block number
+    is offset by -- is a function of the COMBINED entry count.  At
+    65 entries both come to 5 blocks, so the copy is right today
+    and would go wrong at 76 without touching this file.  That is
+    the drift-bug family exactly: a duplicated algorithm in the
+    test, correct until the original grows a term.
+
+    Parsing the catalog removes the duplicate rather than repairing
+    it.  These are the same bytes CATALOG-FIND parses in Forth, so
+    a layout the harness can read is a layout the machine can read.
+
+    The parse itself now lives in tools/catalog_layout.py, shared
+    with the completeness gate and the runbook generator -- writing
+    it a third time here would rebuild the duplicate this docstring
+    exists to complain about.  (Provenance hashing is still
+    deliberately duplicated per-suite; that is a different rule,
+    and the reason is stated at the top of this file.)
+    """
+    return catalog_layout.vocab_blocks(vocab_name, BLOCKS_IMG)
 
 
 # ================= tree identity =================
@@ -623,13 +660,15 @@ fatal('staged tree exists',
 fatal('staged cfg == committed grub.cfg (drift gate, live)',
       open(f'{TREE}/grub/grub.cfg').read() ==
       open('tools/pxe/grub.cfg').read())
-manifest = subprocess.run(
-    ['bash', 'tools/pxe/tree-hash.sh', TREE],
-    capture_output=True, text=True).stdout.strip()
+# Reuses the value the provenance block already printed rather
+# than recomputing it.  Recomputing would let the REPORTED hash
+# and the GATED hash be two different measurements of a tree that
+# changed in between -- the log would then attest to a tree no
+# gate ever checked.  One computation, one number, two uses.
+manifest = _manifest
 fatal('manifest hash computed (push-grub provenance authority)',
       re.fullmatch(r'[0-9a-f]{32}', manifest) is not None,
       manifest)
-print(f'  tree manifest: {manifest}')
 
 # ================= fixture =================
 print('\nStage 1: fixture')
@@ -695,6 +734,14 @@ fatal('MEMDISK-VAR nonzero on memdisk boot', v == -1, raw[-90:])
 #      referenced inside AHCI-RW (never called by AHCI-INIT),
 #      so the earlier "init re-vectors BLOCK" explanation does
 #      not hold; keep the ordering, root cause is an open item.
+#      SCOPE (2026-08-13): a BROADER claim once stood on top of
+#      this one -- "the block source goes hostile after
+#      AHCI-INIT" -- and is now FALSIFIED. ARM-VBR-TPL, further
+#      down this same stage, does a single BLOCK read AFTER
+#      AHCI-INIT and gets correct bytes (TPL-SUM matches the
+#      host). That kills the generalisation and retires NOTHING
+#      here: a BLOCK read is not a THRU of a range. Narrower
+#      reason, same step. Do not reorder on the strength of it.
 a, b = get_vocab_blocks('INSTALL')
 fatal('INSTALL catalog range found', a is not None)
 send(f'{a} {b} THRU', 25)
@@ -716,44 +763,62 @@ send('SEC-BUF RD-BUF-ADDR !', 1)
 send('BIND-WRITER AHCI-WRITE', 1)
 check('alive after arm', val('1 2 +')[0] == 3)
 
-# ---- Populate VBR-TPL with the REAL template ----
-# BLOCKING gap closed here: ADD-BOOT-ENTRY's step 3 builds the
-# VBR from VBR-TPL, and NOTHING populates it at runtime -- the
-# as-built record's open item ("VBR-TPL runtime delivery;
-# today only the test fixture populates it"). Without this
-# push the live install would fail at host assert (d) -- far
-# from the actual cause -- or refuse at BUILD-VBR's no-template
-# gate. Mechanism transcribed from Test 51's fixture pattern
-# (test_install.py ~:1488: CREATE buf ALLOT, C! pokes,
-# `buf VBR-TPL !`), just with build/vbr.bin's real 512 bytes.
-# COROLLARY (lands in Task 12): the iron runbook's install
-# step needs this IDENTICAL push over the net console, or iron
-# G6 dies at the same place with a photograph of nothing.
+# ---- Arm VBR-TPL from the blocks-side template ----
+# ONE typed line, because on iron there is no paste target: the
+# net console is output-only (NET-DICT needs an NE2000; the HP
+# board has an RTL8168). The 512 C! pokes that used to live here
+# were a TEST FIXTURE standing in for a missing production
+# mechanism, sitting upstream of every assertion that would have
+# detected the absence -- so the harness proved the installer
+# worked given a template nothing in the shipped system supplied.
+# Task 12.5 built the real path (install.fth ARM-VBR-TPL, a
+# catalog-addressed binary block written by write-catalog.py
+# --raw) and this harness now exercises THAT, not a substitute.
+#
+# The fixture is gone, not disabled. It is in git history, where
+# retrieving it costs a deliberate act. Parking it in a dead
+# branch would have reproduced the same defect wearing a
+# different hat: a substitute mechanism one flag-flip away on the
+# day blocks delivery misbehaves -- the day you most need the
+# harness to be testing the real path.
+#
+# RED-FIRST, 2026-08-13: the population was deleted BEFORE the
+# replacement was built, to check that anything downstream
+# actually depended on it. It did -- exit 2, Passed: 51/61, 10
+# FAILs, first and nearest at BUILD-VBR's no-template gate
+# (FAIL: ADD-BOOT-ENTRY -- got 0). So re-pointing these
+# assertions at a blocks-delivered buffer is a real test and not
+# theater. DO NOT WEAKEN THAT GATE on the theory that the host
+# asserts cover it: they detect, but the gate ATTRIBUTES. Without
+# line 52 that log reads as nine independent defects in nine
+# subsystems instead of one cause and its echo.
 VBR_TPL_BYTES = open('build/vbr.bin', 'rb').read()
 fatal('vbr.bin is one sector', len(VBR_TPL_BYTES) == 512,
       str(len(VBR_TPL_BYTES)))
-send('CREATE VBR-LIVE 512 ALLOT', 1.0)
-# 4 pokes per line (~90 chars) stays well under the serial line
-# limit; values are decimal -- BASE is DECIMAL here (the
-# discriminator probe above restored it explicitly).
-for i in range(0, 512, 4):
-    line = '  '.join(
-        f'{VBR_TPL_BYTES[i + j]} VBR-LIVE {i + j} + C!'
-        for j in range(4))
-    send(line, 0.2)
-# Readback: byte-sum is the cheap whole-buffer oracle (max
-# 512*255 = 130560, no cell overflow), then the two structural
-# facts BUILD-VBR itself gates on (55AA at 510/511).
+# Two gates, and they must stay two. ARM-VBR-TPL's flag reports
+# that DELIVERY happened -- catalog hit, block mode, CMOVE done.
+# It cannot report that the BYTES are right. MEASURED 2026-08-13:
+# against an image with one byte of the staged block flipped,
+# ARM-VBR-TPL still returned -1 while TPL-SUM moved 38891 ->
+# 39000, exactly the -73 +182 the flip predicts. Collapsing these
+# into one check would leave the content assertion unexecuted in
+# precisely the run where content is wrong.
+expect('ARM-VBR-TPL delivers template', 'ARM-VBR-TPL', -1, wait=5)
+# Byte-sum against the HOST ARTIFACT is the whole-buffer oracle
+# (max 512*255 = 130560, no cell overflow), then the two
+# structural facts BUILD-VBR itself gates on (55AA at 510/511).
+# Compared against build/vbr.bin rather than a literal: the
+# number is derived from the same file the build embedded, so a
+# regenerated VBR cannot leave a stale constant behind.
 # DO/LOOP is compile-only in this kernel (every DO in the whole
-# suite sits in a colon def -- none interpreted), so the sum
-# loop must be compiled first, not typed bare.
-send(': TPL-SUM 0 512 0 DO VBR-LIVE I + C@ + LOOP ;', 1.0)
+# suite sits in a colon def -- none interpreted), so the sum loop
+# must be compiled first, not typed bare.
+send(': TPL-SUM 0 512 0 DO VBR-RAW I + C@ + LOOP ;', 1.0)
 expect('template byte-sum matches host', 'TPL-SUM',
        sum(VBR_TPL_BYTES), wait=8)
-expect('template 55AA low', 'VBR-LIVE 510 + C@', 0x55)
-expect('template 55AA high', 'VBR-LIVE 511 + C@', 0xAA)
-send('VBR-LIVE VBR-TPL !', 0.5)
-expect('VBR-TPL armed', 'VBR-TPL @ VBR-LIVE =', -1)
+expect('template 55AA low', 'VBR-RAW 510 + C@', 0x55)
+expect('template 55AA high', 'VBR-RAW 511 + C@', 0xAA)
+expect('VBR-TPL armed', 'VBR-TPL @ VBR-RAW =', -1)
 
 # ---- Declare the ESP extent for the G2 tripwire ----
 # Second runtime-arming gap (same class as the VBR-TPL push,
