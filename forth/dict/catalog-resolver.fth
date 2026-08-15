@@ -36,7 +36,22 @@ HEX
 
 \ ---- Constants ----
 1 CONSTANT CATALOG-BLK
-4 CONSTANT CAT-NBLKS
+\ NOT the scan width -- a fail-closed CEILING.
+\ The width is derived per-run in CATALOG-FIND
+\ by walking while the header line matches.
+\ 20 hex = 32 blocks = 480 entries.
+\ WHY DERIVED: write-catalog.py emits
+\ ceil(entries/15) catalog blocks, so any
+\ constant width silently hides every entry
+\ past it, and hides it as "not found" rather
+\ than as an error. MEASURED 2026-08-13 with
+\ the old `4 CONSTANT CAT-NBLKS` against a
+\ 5-block catalog: SHUTDOWN (block 4) resolved
+\ to 1019 1030, while X86-ASM, VIDEO,
+\ VGA-GRAPHICS and ZIP-READER (block 5) all
+\ returned FALSE. Four vocabs were unloadable
+\ and nothing reported it.
+20 CONSTANT CAT-MAXBLKS
 8 CONSTANT MAX-LOADING
 40 CONSTANT MAX-NAME
 
@@ -163,6 +178,17 @@ VARIABLE CF-LE
 VARIABLE CF-WS
 VARIABLE CF-WL
 VARIABLE CF-NUM
+VARIABLE CF-BLK
+
+\ Is this block a catalog block? Line 0 of
+\ every catalog block write-catalog.py emits
+\ is exactly this header; the first block
+\ past the catalog is vocab source, whose
+\ line 0 is a \ ==== banner. So the header
+\ IS the end marker -- no count to keep in
+\ sync with the writer.
+: CAT-HDR? ( addr -- flag )
+  F S" \ VOCAB-CATALOG" STR= ;
 
 \ Parse decimal number at address.
 : CF-PARSE-NUM ( addr -- addr' n )
@@ -224,16 +250,21 @@ VARIABLE CF-NUM
   THEN
   0 CATALOG-MEM !
   CF-NL ! CF-NA !
-  CAT-NBLKS 0 DO
-    CATALOG-BLK I + BLOCK CF-BUF !
+  CATALOG-BLK CF-BLK !
+  BEGIN
+    CF-BLK @ CATALOG-BLK - CAT-MAXBLKS <
+    IF CF-BLK @ BLOCK DUP CF-BUF ! CAT-HDR?
+    ELSE FALSE THEN
+  WHILE
     10 1 DO
       CF-BUF @ I 40 * + CF-LS !
       CF-LS @ 40 + CF-LE !
       CF-MATCH-LINE IF
-        TRUE UNLOOP UNLOOP EXIT
+        TRUE UNLOOP EXIT
       THEN
     LOOP
-  LOOP
+    1 CF-BLK +!
+  REPEAT
   FALSE ;
 
 \ ---- Core vocab loading (recursive) ----
