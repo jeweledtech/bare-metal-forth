@@ -152,7 +152,7 @@ python3 tools/hp-portread-capture.py --boot-path pxe --port 6666 \
 ```
 
 `--port 6666` is also the tool's default
-(`hp-portread-capture.py:47`); it is written out because the number
+(`hp-portread-capture.py:46`); it is written out because the number
 must agree with the hardcoded destination two paragraphs up, and an
 explicit flag makes that agreement checkable on the page.
 
@@ -171,9 +171,17 @@ explicit flag makes that agreement checkable on the page.
   not a malfunction: run this command **after** step 1's
   `make pxe-push-grub`, and treat an ABORT here as "step 1 is not
   actually done."
-- *Not separately run*: gate-pass followed by listening, which is
-  the composition of the two observed paths (the pass branch
-  differs from `--skip-hash-gate` only in not aborting).
+- *Composition — gate-pass followed by listening* (added
+  2026-08-20, `7c66cc6`): run with `--port 6666` and `--deployed`
+  pointed at a **byte-identical copy** of `build/combined.img` —
+  header records `hash gate: PASS` with both sha256s equal,
+  listener binds `udp/:6666`, two UDP packets arrive timestamped,
+  and the log survives a hard kill (per-packet flush). The one
+  thing this does not exercise is the literal default `--deployed`
+  path: `/srv/tftp/forth.img` was stale at test time, and
+  deploying out of order just to green a smoke test would invert
+  step 1. Same gate code, same pass branch; only the path string
+  differs.
 
 **Do not use `nc -u -l 6666` for the evidence transcript.** UDP
 netcat locks onto the first sender and, depending on version (`-l`
