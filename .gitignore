@@ -154,3 +154,6 @@ docs/TASK_PANEL_ARCHITECTURE_VALIDATION.md
 docs/2026-04-30_-_Mentor_Touchbase
 docs/MENTOR_SESSION_REFERENCE.docx
 docs/plans/
+
+# Claude Code session state + working memory -- internal, never publish
+.claude/

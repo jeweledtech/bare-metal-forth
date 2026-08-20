@@ -682,10 +682,15 @@ boots:**
       run contradicted; it was never measured and was not
       reconciled toward the observation. Anything descending from
       it (655-old, 668) is falsified with it.
-- [ ] **The `make test` headline is 804**, and say **measured
-      per-suite** when you write it — 22 `^Passed:` lines, exit 0,
-      full tree, public `c0bb8b4`. On a free-tier checkout the
-      count is 16 lines and a lower sum; that is tier, not
+- [ ] **The `make test` headline is measured THIS session, not
+      quoted from this page.** A pinned value here went stale in
+      under a day once, in the document that teaches "when you
+      falsify something, grep for it." Run `make test`, sum the
+      `^Passed:` lines, and say **measured per-suite** when you
+      write it. The value's history lives in the test-count lineage
+      section of `BUILD-DOCKET.md` (claude.ai project store) —
+      record the new measurement there. On a free-tier checkout the
+      line count is 16 and a lower sum; that is tier, not
       regression, so **carry the line count next to the sum**.
 - [ ] **Re-derive any decomposition you write, in the same
       session, from that run's own log.** Do not carry a part
