@@ -114,6 +114,152 @@ the net console. **Save the full transcript.** It is the iron
 equivalent of the harness log, and it is what makes "did AHCI-INIT
 actually run first?" answerable a month from now.
 
+### 3.0 Net-console bring-up — dev box first, then CONFIRM on the HP
+
+**Source: `forth/dict/auto-detect.fth:199-224` (auto path),
+`forth/dict/rtl8168.fth:447,484` (manual words), `src/kernel/forth.asm:3263`
+(probe word). Iron precedent: the console has come up on this exact
+HP twice — `atapi-iron.txt` line 1 is `Net console ON`, before any
+typed input, and the 2026-03-25 bring-up session established it.**
+
+**This is NOT a block load and carries no ordering constraint
+against arming step 1.** `rtl8168.fth` is in `EMBED_VOCABS`
+(`Makefile:49`) — embedded in the full-tier image like AHCI. The
+`THRU` constraint below is about the INSTALL catalog range; nothing
+in this section touches blocks. (Checked, not assumed — an earlier
+draft of this session's plan guessed a block-load constraint that is
+not there.)
+
+#### On the dev box, BEFORE the step-2 PXE boot
+
+The kernel's UDP destination is **hardcoded** (`rtl8168.fth:74-76`):
+HP `10.42.0.100` → dev box `10.42.0.1`, port `6666`. That works only
+if dnsmasq hands out that range and the listener is bound on that
+interface — a subnet change becomes a silent no-transcript, the same
+fail-open shape as the confirmation gate below. Pre-check:
+
+```bash
+ip -4 addr show | grep '10\.42\.0\.1/'   # dev box must hold 10.42.0.1
+```
+
+Then start the listener. Use the purpose-built capture tool — it
+flushes per packet and hash-gates the deployed image against the
+build (step 1's discipline, mechanised):
+
+```bash
+python3 tools/hp-portread-capture.py --boot-path pxe --port 6666 \
+    --out docs/EVIDENCE_G6_NETCON.log
+```
+
+`--port 6666` is also the tool's default
+(`hp-portread-capture.py:47`); it is written out because the number
+must agree with the hardcoded destination two paragraphs up, and an
+explicit flag makes that agreement checkable on the page.
+
+**What was verified, exactly (2026-08-20, `d0b4efc`):**
+
+- *Listener path*: scripted UDP sender against
+  `--port 4610 --skip-hash-gate` — binds `0.0.0.0:<port>`, plain
+  `recvfrom` loop with **no sender lock**, per-packet flush,
+  appends; the tail line arrived. The docstring says "port-read
+  capture" but nothing in the receive path is port-read-specific;
+  it is a general UDP console listener.
+- *Hash-gate path*: the documented invocation (no skip), run
+  against a genuinely stale `/srv/tftp/forth.img` — **ABORT, exit
+  1, no log file created, socket never bound.** The listener
+  refuses to start on a stale deploy. That is step 1's discipline,
+  not a malfunction: run this command **after** step 1's
+  `make pxe-push-grub`, and treat an ABORT here as "step 1 is not
+  actually done."
+- *Not separately run*: gate-pass followed by listening, which is
+  the composition of the two observed paths (the pass branch
+  differs from `--skip-hash-gate` only in not aborting).
+
+**Do not use `nc -u -l 6666` for the evidence transcript.** UDP
+netcat locks onto the first sender and, depending on version (`-l`
+vs `-lk`, BSD vs GNU), either exits after the first datagram or
+buffers such that the tail is lost. The transcript's most important
+line is `DEPTH .` printing 0 — the proof the stack was clean — and
+that is exactly the packet a buffered listener eats. If netcat is
+the only option: `nc -u -lk 6666 | tee -a transcript.txt`, and
+record the tail risk in the session notes.
+
+Start the listener **before** the step-2 PXE boot, so the boot spew
+— including the `Net console ON` line itself — lands in the
+transcript.
+
+#### On the HP: nothing to type, ONE thing to confirm
+
+`AUTO-DETECT` runs at boot (`auto-detect.fth:224`) and enables the
+console only when the NIC probe succeeds — `NIC-OK @ IF
+NET-CONSOLE-ON THEN` (`auto-detect.fth:209`). That `IF` is the trap:
+**a failed probe leaves the console off and says nothing**, which
+from the operator's chair is indistinguishable from "no output yet."
+You would type the whole install, get nothing, and learn at step 5
+that the evidence never existed. Absence-of-output is not a health
+check — the same fail-open shape as §3e's all-zero-buffer read.
+
+**Confirmation gate — before ANY of §3a. The one mandatory tell is
+arrival at the listener; nothing on the HP's side can substitute:**
+
+- [ ] **Boot spew arriving at the dev-box listener.** This is the
+      gate. Every other check below is a diagnostic for *why* it is
+      not arriving, not an alternative way to pass — the local flag
+      can read 1 with the wrong subnet, a listener bound on the
+      wrong interface, or a firewall in the way, and every one of
+      those leaves the transcript empty while the HP looks healthy.
+- [ ] `Net console ON` on the **VGA screen** in the boot spew
+      (diagnostic: distinguishes "console never enabled" — go to
+      the manual fallback — from "enabled but not arriving" — go
+      to the dev-box pre-checks above).
+- [ ] The explicit probe — a kernel word, needs no search-order
+      change (`forth.asm:3263`) — same diagnostic, for when the
+      spew has scrolled off:
+
+```forth
+NET-CON-ENABLED C@ .    \ 1 = enabled locally; says NOTHING about
+                        \ arrival. 0 = OFF -- manual fallback below
+```
+
+#### Manual fallback, if the probe prints 0
+
+```forth
+ALSO RTL8168
+RTL8168-INIT
+NET-CONSOLE-ON
+NET-CON-ENABLED C@ .    \ must now print 1
+```
+
+- [ ] **`ALSO RTL8168`, not `USING RTL8168` — and run the fallback
+      BEFORE any of §3a.** `USING` replaces the top of the search
+      order: the same DOVOC trap §3a documents for `USING INSTALL`
+      evicting SURVEYOR. An operator who reaches for this fallback
+      *after* §3a's `ALSO SURVEYOR / USING INSTALL` and types `USING
+      RTL8168` silently evicts INSTALL, and the next install word
+      wedges. The vocab's own usage header says `USING RTL8168`
+      (`rtl8168.fth:20`) — safe at a bare post-boot `ok`, wrong
+      mid-install; since the hazard is positional, use the form that
+      is safe in both positions.
+      **`ALSO RTL8168` is observed, not inferred** (QEMU serial,
+      `combined.img` at `d0b4efc`, 2026-08-20): after `ALSO
+      RTL8168`, the vocab word `NET-CONSOLE-OFF` executed (`Net
+      console OFF`), `ORDER` showed the search order two deep with
+      FORTH still beneath (`0003652C 00028048`), `DEPTH .` printed
+      0. Search-order semantics are kernel software, identical on
+      iron — QEMU is a valid oracle for this claim, unlike for
+      hardware behaviour.
+- [ ] If `RTL8168-INIT` prints `RTL8168 not found`, the boot-time
+      probe failure is real hardware news, not a transient — go to
+      the skip fallback below.
+
+#### If the console cannot be brought up
+
+Record **"transcript SKIPPED"** — in those words — in the session
+notes, and photograph the VGA screen after **every** §3e line (each
+ends in `.`, so each response fits a frame). A skip must not read
+like a pass: steps 3 and 5 list the transcript as required evidence,
+and a photo series is a degraded substitute, not an equivalent.
+
 ### FIVE ARMING STEPS — none enforced by the word chain
 
 The installer's words are individually gated but **collectively
