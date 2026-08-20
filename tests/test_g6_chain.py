@@ -839,6 +839,7 @@ send(f'{ESP_BASE} ESP-BASE !  '
 expect('ESP-BASE declared', 'ESP-BASE @', ESP_BASE)
 expect('ESP-LEN declared', 'ESP-LEN @', ESP_LAST - ESP_BASE + 1)
 
+# --8<-- RUNBOOK-3E-BEGIN
 # Flag-checked probe before trust (fail-open hazard): LBA 0 read
 # must return flag 0 AND carry the fixture's 55AA.
 expect('LBA0 read flag 0', '0 1 AHCI-READ', 0, wait=3)
@@ -877,6 +878,7 @@ expect('MAKE-OWN-ENT composed (nonzero entry)',
 expect('ADD-PARTITION', 'ADD-PARTITION', -1, wait=30)
 expect('ADD-BOOT-ENTRY', 'ADD-BOOT-ENTRY', -1, wait=60)
 expect('stack clean after install', 'DEPTH', 0)
+# --8<-- RUNBOOK-3E-END
 close_ch(SER)
 qemu_kill()
 

@@ -471,6 +471,11 @@ test-grub-cfg:
 	@echo "Running GRUB cfg gates..."
 	@python3 tests/test_grub_cfg.py
 
+# Doc drift gate: docs someone types from must match their artifact
+test-doc-drift:
+	@echo "Running doc drift gates..."
+	@python3 tests/test_doc_drift.py
+
 # UBT LLM validation (single-binary, requires NVIDIA_API_KEY)
 ubt-llm-validate:
 	@echo "Running UBT LLM validation on i8042prt.sys..."
@@ -597,7 +602,7 @@ test-meta: $(COMBINED)
 	@echo "Metacompiler tests complete!"
 
 # Run all tests (lint first, then functional tests)
-test: lint test-smoke test-loops test-abort test-install test-vbr test-grub-cfg test-g6 test-vocabs test-gui test-integration test-file-stream test-survey
+test: lint test-smoke test-loops test-abort test-install test-vbr test-grub-cfg test-doc-drift test-g6 test-vocabs test-gui test-integration test-file-stream test-survey
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)

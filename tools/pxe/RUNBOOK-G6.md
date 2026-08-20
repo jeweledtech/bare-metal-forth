@@ -322,36 +322,69 @@ ESP-BASE @ .   ESP-LEN @ .
 
 ### 3e. Survey, claim, install
 
+**Source: `tests/test_g6_chain.py:848-879`.** Type what the green
+harness types; check it against that file if anything differs.
+
+**Every line ends in `.`, and that is not cosmetic.** The harness sends
+each expression as `DECIMAL <expr> .`, which *consumes* the flag. Typing
+these words bare leaves flags on the stack, and `ADD-PARTITION ( entry
+-- flag )` takes whatever is on top as its entry pointer — see the
+warning after this block.
+
 ```forth
-\ flag-checked LBA 0 probe first
-PARTITION-MAP
-MAP-TRUSTED? .          \ must be true before anything writes
-225 FREE-EXTENT
-FREE-SLOT
-FS-SLOT @ .             \ MUST print a slot >= 0
+DECIMAL
+
+\ flag-checked LBA 0 probe BEFORE trusting any buffer
+0 1 AHCI-READ .         \ 0   (nonzero = failed read; a zero buffer is
+                        \      a failed read, not an empty MBR)
+SEC-BUF 510 + C@ .      \ 85
+SEC-BUF 511 + C@ .      \ 170
+
+PARTITION-MAP           \ leaves nothing on the stack
+MAP-TRUSTED? .          \ -1  required before anything writes
+
+225 FREE-EXTENT .       \ -1
+OWN-BASE @ .            \ RECORD THIS — where ForthOS landed
+OWN-LEN @ .             \ 225
+
+FREE-SLOT .             \ -1
+FS-SLOT @ .             \ MUST be >= 0
+
+GPT-ARM .               \ -1  — arm BEFORE composing
+MAKE-OWN-ENT DUP 0= 0= .   \ -1, and LEAVES the entry on the stack
+ADD-PARTITION .         \ -1  — consumes the entry
+ADD-BOOT-ENTRY .        \ -1
+DEPTH .                 \ 0
 ```
 
 - [ ] **`FS-SLOT @ .` prints ≥ 0.** The load-time value is `-1`
-      and GPT-ARM refuses it. **Bug #33 was exactly this step
+      and `GPT-ARM` refuses it. **Bug #33 was exactly this step
       omitted** — the arming looked complete and was not.
-
-```forth
-MAKE-OWN-ENT
-```
-
-- [ ] **Probe the entry nonzero BEFORE `ADD-PARTITION`.** Same
-      attribution split the harness uses: it separates "the
-      composer failed" from "the write failed."
-
-```forth
-GPT-ARM
-ADD-PARTITION
-ADD-BOOT-ENTRY
--1 .        \ sanity
-DEPTH .     \ 0
-```
-
+- [ ] **`GPT-ARM .` comes before `MAKE-OWN-ENT`, and prints `-1`.**
+- [ ] **`MAKE-OWN-ENT DUP 0= 0= .` prints `-1`.** The `DUP 0= 0=` is
+      the attribution split: it probes a *copy* of the flag and leaves
+      the entry address in place. Do **not** type `MAKE-OWN-ENT .` —
+      that consumes the entry and `ADD-PARTITION` then reads whatever is
+      beneath it.
+- [ ] **`DEPTH .` prints 0.** A nonzero depth means a flag went
+      unconsumed somewhere above, which means `ADD-PARTITION` may have
+      been handed the wrong pointer. **This is an after-the-write
+      diagnostic, not a gate** — it cannot un-write the disk.
 - [ ] Transcript saved.
+
+> **⚠ Why the `.` and the order are load-bearing.** `GPT-ARM ( -- flag )`
+> pushes `-1`; `ADD-PARTITION ( entry -- flag )` pops its entry from the
+> top of stack. Typed bare and in the old order — `MAKE-OWN-ENT`,
+> `GPT-ARM`, `ADD-PARTITION` — the stack is `entry -1` and
+> `ADD-PARTITION` takes **`-1` as the entry address**. The `AP-ENT @ 0=`
+> guard passes (`-1` is not zero), `AP-PATCH` `CMOVE`s 128 bytes from
+> `0xFFFFFFFF` into the slot, and steps 7–8 verify the write **against
+> the buffer they just patched** — so it *returns `-1` and looks like a
+> success*. The disk then carries a slot with garbage where the
+> canonical GUIDs belong, GRUB's probe loop cannot find it, and leg A
+> fails with `ForthOS: partition GUID not found` — **the leg C message,
+> on a leg A run.** A stack discipline this quiet is why the harness
+> citation on this block is not optional.
 
 **A refusal at any gate leaves the disk untouched by construction.**
 Install rollback is a non-event unless G1/G3 say otherwise.
