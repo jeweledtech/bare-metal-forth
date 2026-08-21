@@ -275,9 +275,11 @@ unsequenced**. Missing any one fails at a later gate, and before
 Bug #33's sentinel, one of them silently destroyed the ESP entry.
 Tick each:
 
-1. [ ] **the INSTALL catalog-range `THRU` runs before `AHCI-INIT`**
-       (observed 2026-08-06, mechanism unconfirmed — **keep this
-       step**; see the scope note below before touching it)
+1. [ ] **`DECIMAL` is in effect on the line that types the INSTALL
+       catalog range** — the real invariant, mechanism confirmed
+       2026-08-20 (third act of the ⚠ block below). The `THRU`
+       still runs before `AHCI-INIT` **as typed** — order kept,
+       retired as mechanism
 2. [ ] vector binds
 3. [ ] VBR-TPL push
 4. [ ] ESP extent declaration
@@ -311,11 +313,54 @@ Tick each:
 > with the mechanism: **when you falsify something, grep for it
 > before you move on.** This claim outlived its refutation in three
 > stores after being corrected in one.
+>
+> **Third act (2026-08-20): mechanism CONFIRMED; the ordering is
+> RETIRED as mechanism and kept as the typed sequence.** A
+> pre-registered experiment (suspects named before the run, the
+> misparse range derived from the shipped catalog, a forward-order
+> control leg) reproduced the 2026-08-06 spew and explained it:
+> `AHCI-INIT`'s success path ends `." Drive on port " DECIMAL . HEX
+> CR` (`ahci.fth:499`) and returns with **BASE=16**. A bare
+> `575 653` typed after it parses as hex — blocks 1397–1619, today
+> the metacompiler TARGET/UI source — and `THRU` loads *those*:
+> undefined-word spew, wedge. With `DECIMAL` on the line, the same
+> range `THRU` is clean **after** `AHCI-INIT` and INSTALL fully
+> loads. The 08-13 falsifier above never touched this because
+> `ARM-VBR-TPL` finds its block **by name** — no numeral is parsed.
+> *A measurement can be correct, honestly earned, and still not
+> bear on the thing it appears to bear on* — a fourth rot species;
+> when a claim survives a falsification attempt, ask what the
+> attempt did **not** exercise.
+>
+> **The replacement invariant: BASE must be decimal when block
+> numbers are typed.** Stated unconditionally — boot base is
+> habitat-dependent (decimal on a floppy boot, **HEX on the
+> GRUB-memdisk path iron uses**), and a conditional invites the
+> operator to check, guess, or skip. §3a carries it **twice**: the
+> first typed line (boot base is HEX before it) and the block's
+> closing `DECIMAL` (because `AHCI-INIT` runs at the *end* of §3a,
+> BASE would otherwise be 16 through §3b–§3d — §3c's `512`-loop
+> would run 1298 iterations, §3d's `2048` would store 8264 — until
+> §3e's own `DECIMAL`). The `2048 → 8264` warning under the
+> aliasing tells is the SAME defect at a second site, there for the
+> loop-back case. The typed order is
+> unchanged: this page's only authority is agreeing with the green
+> harness, and the harness keeps the `THRU` first. The root fix —
+> caller-transparent `BASE @ … BASE !` inside `AHCI-INIT` — is
+> deliberately deferred to **after** iron G6: it rebuilds
+> `combined.img`, invalidating the desk card's hash, the pushed
+> TFTP tree, and the QEMU-green commit this session rests on. The
+> deferral is pinned mechanically, not in prose: the harness
+> asserts `BASE is 16 after AHCI-INIT (known defect)` and goes red
+> the day the fix lands.
 
 ### 3a. Load and initialise
 
-**Source: `tests/test_g6_chain.py:733-756`.** Type what the green
-harness types; check it against that file if anything differs.
+**Source: `tests/test_g6_chain.py`, between the `RUNBOOK-3A-BEGIN`
+and `RUNBOOK-3A-END` markers — drift-gated by
+`tests/test_doc_drift.py` (gate B-3a), so this block cannot silently
+disagree with the harness.** Type what the green harness types;
+check it against that region if anything differs.
 
 `install.fth` is **not** in `EMBED_VOCABS` (`Makefile:49`) — it is
 the one vocab here that needs a block load, and `LOAD-VOCAB` is
@@ -334,16 +379,23 @@ could disagree with it. Run it against the *same* image you are
 about to boot.
 
 ```forth
-<first> <last> THRU        \ from the generator above, BEFORE init
+DECIMAL <first> <last> THRU  \ range from the generator above
 USING AHCI
 AHCI-INIT
 ALSO SURVEYOR
 USING INSTALL
+DECIMAL                    \ AHCI-INIT left BASE=16; restore it once
 ```
 
-- [ ] **The `THRU` comes BEFORE `AHCI-INIT`** — arming step 1. The
-      search-order words come *after*; only the block load is
-      order-constrained.
+- [ ] **`DECIMAL` opens the `THRU` line and closes the block** —
+      arming step 1. Boot base on this (GRUB-memdisk) path is HEX,
+      so a bare range misparses into the metacompiler blocks; and
+      `AHCI-INIT` exits with BASE=16, so the trailing `DECIMAL`
+      restores a sane base for §3b–§3e, which all type numerals.
+      Unconditional — do not probe BASE and decide; type it.
+- [ ] **The `THRU` comes BEFORE `AHCI-INIT`** — order kept as
+      typed; retired as mechanism (⚠ third act above). The
+      search-order words come *after*.
 - [ ] **`ALSO SURVEYOR` comes BEFORE `USING INSTALL`** — the DOVOC
       trap: `USING` replaces the top of the search order, so an
       `ALSO` issued after it is lost.
@@ -476,7 +528,12 @@ ESP-BASE @ .   ESP-LEN @ .
 
 ### 3e. Survey, claim, install
 
-**Source: `tests/test_g6_chain.py:848-879`.** Type what the green
+**Source: `tests/test_g6_chain.py`, between the `RUNBOOK-3E-BEGIN`
+and `RUNBOOK-3E-END` markers — drift-gated by
+`tests/test_doc_drift.py` (gate B). An earlier citation here was a
+line range; it went stale the first time the harness grew a line
+above it, which is what the markers exist to survive.** Type what
+the green
 harness types; check it against that file if anything differs.
 
 **Every line ends in `.`, and that is not cosmetic.** The harness sends

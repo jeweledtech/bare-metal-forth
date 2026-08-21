@@ -728,29 +728,82 @@ fatal('MEMDISK-VAR nonzero on memdisk boot', v == -1, raw[-90:])
 #   2. S" INSTALL" LOAD-VOCAB dies ('F ?' / 'FF ?' then wedge)
 #      on this boot path -- the known LOAD-VOCAB bug; THRU of
 #      the catalog range is the documented workaround.
-#   3. The THRU must run BEFORE AHCI-INIT. OBSERVED: with the
-#      order reversed, the THRU spews meta-compiler words and
-#      reboots. Mechanism UNCONFIRMED -- BLK-READER! is only
-#      referenced inside AHCI-RW (never called by AHCI-INIT),
-#      so the earlier "init re-vectors BLOCK" explanation does
-#      not hold; keep the ordering, root cause is an open item.
-#      SCOPE (2026-08-13): a BROADER claim once stood on top of
-#      this one -- "the block source goes hostile after
-#      AHCI-INIT" -- and is now FALSIFIED. ARM-VBR-TPL, further
-#      down this same stage, does a single BLOCK read AFTER
-#      AHCI-INIT and gets correct bytes (TPL-SUM matches the
-#      host). That kills the generalisation and retires NOTHING
-#      here: a BLOCK read is not a THRU of a range. Narrower
-#      reason, same step. Do not reorder on the strength of it.
+#   3. DECIMAL must be in effect when the block range is TYPED.
+#      Mechanism CONFIRMED 2026-08-20 (pre-registered experiment,
+#      suspect S1; logs /tmp/thru-exp-*.log): the 2026-08-06
+#      "reversed order spews meta-compiler words and reboots" was
+#      never an ordering constraint. AHCI-INIT's success path
+#      ends 'DECIMAL . HEX CR' (ahci.fth:499) and returns with
+#      BASE=16, so a bare '575 653' typed after it misparses as
+#      hex (-> 1397-1619, the TARGET-*/UI-* metacompiler blocks)
+#      and THRU loads those instead: undefined-word spew, wedge.
+#      With DECIMAL on the line the SAME range THRU is clean
+#      AFTER AHCI-INIT and INSTALL fully loads (FS-SLOT @ = -1).
+#      The 2026-08-13 falsifier (ARM-VBR-TPL's single BLOCK read
+#      after init) never contradicted this: it finds its block
+#      by NAME, not a typed numeral. This harness was protected
+#      only by ACCIDENT -- val() prefixes every probe with
+#      DECIMAL, leaving it sticky before the THRU. Red-first
+#      proof 2026-08-20: HEX injected before a bare THRU took
+#      the suite 29/29 -> 15/29, with 'alive after INSTALL THRU'
+#      still PASSING (a liveness probe is not a content probe)
+#      and every INSTALL word absent downstream. Hence the
+#      explicit DECIMAL below. Typed order kept as-is (zero
+#      churn before iron); ordering is RETIRED as mechanism.
+#      Root fix (BASE-transparent AHCI-INIT via BASE @ ... BASE !)
+#      is deferred until AFTER iron G6 -- it rebuilds
+#      combined.img and invalidates deployment provenance.
 a, b = get_vocab_blocks('INSTALL')
 fatal('INSTALL catalog range found', a is not None)
-send(f'{a} {b} THRU', 25)
-check('alive after INSTALL THRU', val('1 2 +')[0] == 3)
+# --8<-- RUNBOOK-3A-BEGIN
+send(f'DECIMAL {a} {b} THRU', 25)
+# The exemption below is measured, not assumed: the 2026-08-20
+# red-first run (HEX injected before a bare THRU) took the suite
+# to 15/29 and this probe STILL PASSED -- a liveness probe cannot
+# detect that THRU loaded the wrong 200 blocks. Exempt because it
+# is scaffolding; it is NOT evidence about the THRU's content.
+check('alive after INSTALL THRU',
+      val('1 2 +')[0] == 3)  # runbook-exempt: liveness only, blind to THRU content (see above)
 send('USING AHCI', 2)        # embedded vocab, no THRU needed
 send('AHCI-INIT', 5)
-check('alive after AHCI-INIT', val('1 2 +')[0] == 3)
+# TRIPWIRE, asserts the KNOWN DEFECT on purpose: AHCI-INIT's
+# success path ends 'DECIMAL . HEX CR' and returns with BASE=16.
+# The root fix (caller-transparent BASE @ ... BASE ! in ahci.fth)
+# is deferred until AFTER iron G6 because it rebuilds
+# combined.img. When that fix lands, THIS goes red -- which is
+# the point: prose deferrals in three stores don't fire; this
+# does, and names the docs to update (this comment block, the
+# runbook's step-1 ⚠ block, the docket's 08-21 entry). The probe
+# CANNOT go through the expect/val helpers: both prefix DECIMAL,
+# overwriting the very state being measured. Raw send, and it
+# must run BEFORE the DECIMAL-prefixed liveness probe below, for
+# the same reason.
+# Side effect, named so nobody assumes it is load-bearing:
+# this probe sets DECIMAL -- the same ACCIDENTAL protection the
+# explicit DECIMAL on the THRU line just removed. Harmless today
+# because nothing downstream depends on it (the THRU carries its
+# own DECIMAL; every expect/val prefixes one), but it is an
+# accident, not a substitute for the driver fix.
+# A red here is NOT a broken suite. DO NOT delete this test to
+# make the suite green: update it to assert BASE *unchanged*
+# across AHCI-INIT, and update the three docs named above.
+raw_base = send('BASE @ DECIMAL .', 2)  # runbook-exempt: pins the known BASE=16 defect; a red here means the deferred ahci.fth fix landed
+check('BASE is 16 after AHCI-INIT (known defect, root fix post-iron)',
+      re.findall(r'-?\d+', body_of(raw_base))[-1:] == ['16'],
+      raw_base.strip()[-90:])
+check('alive after AHCI-INIT',
+      val('1 2 +')[0] == 3)  # runbook-exempt: liveness only; its DECIMAL prefix MASKS the BASE mutation this line sits after -- a bare probe here would have shown 2A on 2026-08-06
 send('ALSO SURVEYOR', 1)     # BEFORE USING INSTALL (DOVOC trap)
 send('USING INSTALL', 2)
+# Close the stage with an explicit DECIMAL: AHCI-INIT left BASE=16
+# and sections 3b-3d all type numerals inside that window (3c's
+# ': TPL-SUM 0 512 0 DO ...' would compile a 1298-iteration loop
+# under HEX; 3d's 2048 would store 8264). One restore immediately
+# after the word that broke the base, instead of four per-section
+# copies -- and it is what the deferred ahci.fth fix will do, so
+# when the root fix lands this line becomes redundant, not wrong.
+send('DECIMAL', 1)
+# --8<-- RUNBOOK-3A-END
 # Arm vectors: reads land at SEC-BUF, so RD-BUF-ADDR = SEC-BUF.
 # NOTE: GUID-ABSENT? (called inside MAKE-OWN-ENT) reads the GPT
 # entry array through SEC-READ-VEC into RD-BUF-ADDR's buffer --

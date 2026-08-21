@@ -192,6 +192,8 @@ RUNBOOK = 'tools/pxe/RUNBOOK-G6.md'
 
 BEGIN = '# --8<-- RUNBOOK-3E-BEGIN'
 END = '# --8<-- RUNBOOK-3E-END'
+BEGIN_3A = '# --8<-- RUNBOOK-3A-BEGIN'
+END_3A = '# --8<-- RUNBOOK-3A-END'
 
 # expect(name, expr, want, ...) -> expr is the typed expression.
 EXPECT_RE = re.compile(r"expect\(\s*'[^']*'\s*,\s*'([^']*)'")
@@ -200,6 +202,13 @@ EXPECT_RE = re.compile(r"expect\(\s*'[^']*'\s*,\s*'([^']*)'")
 VAL_RE = re.compile(r"val\(\s*'([^']*)'")
 # send('CMD', wait) -> typed verbatim, no trailing '.'
 SEND_RE = re.compile(r"send\(\s*'([^']*)'")
+# send(f'CMD {a} ...', wait) -> typed verbatim with Python-derived
+# fields.  Gate B (3e) deliberately EXCLUDES f-sends (the ESP pokes
+# are fixture-derived and the runbook derives them differently);
+# gate B-3a must PARSE them, because its one f-send -- the catalog
+# range THRU -- is exactly the line being gated.  The counting
+# backstop forces this: an unparsed f-send is a raw-count mismatch.
+FSEND_RE = re.compile(r"send\(\s*f'([^']*)'")
 
 
 # Independent call-site counter for the gate B counting backstop.
@@ -211,11 +220,11 @@ SEND_RE = re.compile(r"send\(\s*'([^']*)'")
 CALL_SITE_RE = re.compile(r'\b(?:expect|val|send)\(')
 
 
-def harness_sequence():
+def harness_sequence(begin=BEGIN, end=END, fstrings=False):
     text = read(HARNESS)
-    if BEGIN not in text or END not in text:
+    if begin not in text or end not in text:
         return None
-    region = text.split(BEGIN, 1)[1].split(END, 1)[0]
+    region = text.split(begin, 1)[1].split(end, 1)[0]
 
     # Count raw call sites BEFORE any joining or parsing, so the
     # counting assertion is independent of the joiner.
@@ -255,10 +264,17 @@ def harness_sequence():
             # val() sends 'DECIMAL <expr> .' — same as a consumed expr
             seq.append(('expr', m.group(1).strip()))
             continue
+        if fstrings:
+            m = FSEND_RE.search(line)
+            if m:
+                seq.append(('bare', m.group(1).strip()))
+                continue
         m = SEND_RE.search(line)
         if m and not m.group(1).startswith(':'):
-            # f-strings (ESP pokes) and colon definitions are excluded:
-            # the first are fixture-derived, the second are helper defs.
+            # f-strings (ESP pokes) and colon definitions are excluded
+            # unless fstrings=True: in 3e they are fixture-derived; in
+            # 3a the f-send IS the gated line.  Colon definitions are
+            # helper defs either way.
             seq.append(('bare', m.group(1).strip()))
     return seq, raw_call_count
 
@@ -348,9 +364,132 @@ def gate_b():
           'in that slot')
 
 
+# ===================================================================
+# Gate B-3a -- RUNBOOK-G6.md 3a must equal what the harness types
+# ===================================================================
+#
+# Born 2026-08-20, the day the THRU-before-AHCI-INIT mechanism was
+# confirmed as BASE stickiness: 3a became the second typed block with
+# a cited source, its first line grew a load-bearing DECIMAL, and
+# nothing gated it.  A marker that promises a gate with no gate behind
+# it is FREE-SLOT's shape (comments asserting callers it didn't have),
+# so the 3A markers and this gate land in the same commit.
+#
+# NOT a copy of gate B: the harness sends 'DECIMAL 575 653 THRU' with
+# session-derived numbers; the runbook necessarily writes
+# 'DECIMAL <first> <last> THRU' because the numbers come off the desk
+# generator against THAT session's blocks.img.  A literal compare
+# fails on a correct doc.  Normalisation rule: collapse ONLY tokens
+# that are f-string fields ({a}), doc placeholders (<first>), or bare
+# integers to '#'.  Word tokens still compare exactly -- the rule must
+# not be able to bless 'USING AHCI' vs 'USING INSTALL'.
+
+PLACEHOLDER_RE = re.compile(r'\{[^}]*\}|<[^>]*>|^\d+$')
+
+
+def norm_3a(typed):
+    return ' '.join('#' if PLACEHOLDER_RE.fullmatch(t) else t
+                    for t in typed.split())
+
+
+def runbook_3a_sequence():
+    text = read(RUNBOOK)
+    m = re.search(r'^### 3a\..*?^```forth\n(.*?)^```',
+                  text, re.DOTALL | re.MULTILINE)
+    if not m:
+        return None
+    seq = []
+    for line in m.group(1).splitlines():
+        line = re.sub(r'\\.*$', '', line).strip()   # drop \ comments
+        # Unlike the 3e parser, a standalone or leading DECIMAL is
+        # KEPT: in 3e every expr rides val()'s DECIMAL prefix, but in
+        # 3a the DECIMAL is the payload this gate exists to protect.
+        if not line:
+            continue
+        seq.append(('bare', line))
+    return seq
+
+
+def gate_b_3a():
+    print('Gate B-3a: RUNBOOK-G6.md 3a vs the green harness')
+    result = harness_sequence(BEGIN_3A, END_3A, fstrings=True)
+    rs = runbook_3a_sequence()
+
+    if result is None:
+        check('harness carries RUNBOOK-3A markers', False,
+              f'add {BEGIN_3A} / {END_3A} around the load-and-init '
+              f'sends in {HARNESS}')
+        return
+    hs, raw_call_count = result
+    check('harness carries RUNBOOK-3A markers', True)
+
+    if rs is None:
+        check('runbook 3a forth block located', False,
+              'no ```forth block under "### 3a." -- section renamed?')
+        return
+    check('runbook 3a forth block located', True)
+
+    check('gate B-3a has a non-empty sequence to compare',
+          len(hs) > 0 and len(rs) > 0,
+          f'harness={len(hs)} runbook={len(rs)}')
+
+    check('gate B-3a parsed every call in the region',
+          raw_call_count == len(hs),
+          f'{raw_call_count} call sites vs {len(hs)} parsed -- the '
+          'continuation joiner collapsed two calls onto one line, or '
+          'a call form is unrecognised')
+
+    hn = [(k, norm_3a(e)) for k, e in hs]
+    rn = [(k, norm_3a(e)) for k, e in rs]
+    for i in range(max(len(hn), len(rn))):
+        h = hn[i] if i < len(hn) else None
+        r = rn[i] if i < len(rn) else None
+        if h == r:
+            continue
+        check(f'step {i + 1} agrees', False,
+              f'harness={h!r} runbook={r!r}')
+        return
+    check(f'all {len(rn)} typed steps agree, in order', True)
+
+    # The specific invariants, asserted by name so a regression is
+    # attributable rather than just "step N differs".
+    words = [e for _, e in rn]
+    first = words[0] if words else ''
+    check('BASE: first typed line is DECIMAL-prefixed THRU',
+          first.startswith('DECIMAL ') and first.endswith(' THRU'),
+          'confirmed 2026-08-20: AHCI-INIT leaves BASE=16 and boot '
+          'base on the GRUB-memdisk path is HEX; a bare range '
+          'misparses into the metacompiler TARGET blocks')
+    try:
+        i_thru = next(i for i, w in enumerate(words)
+                      if w.endswith('THRU'))
+        i_init = next(i for i, w in enumerate(words)
+                      if w == 'AHCI-INIT')
+        check('THRU precedes AHCI-INIT (order kept as typed)',
+              i_thru < i_init,
+              'ordering is retired as MECHANISM, kept as the typed '
+              'sequence; the doc has no authority to differ from the '
+              'harness')
+    except StopIteration:
+        check('both THRU and AHCI-INIT present', False)
+    try:
+        i_also = next(i for i, w in enumerate(words)
+                      if w == 'ALSO SURVEYOR')
+        i_using = next(i for i, w in enumerate(words)
+                       if w == 'USING INSTALL')
+        check('DOVOC trap: ALSO SURVEYOR precedes USING INSTALL',
+              i_also < i_using,
+              'USING replaces the top of the search order; an ALSO '
+              'issued after it is lost')
+    except StopIteration:
+        check('both ALSO SURVEYOR and USING INSTALL present', False)
+
+
 if __name__ == '__main__':
     gate_a()
     print()
     gate_b()
+    print()
+    gate_b_3a()
     print(f'\nPassed: {PASS}/{PASS + FAIL}')
     sys.exit(0 if FAIL == 0 else 1)

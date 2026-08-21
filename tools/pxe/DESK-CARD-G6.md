@@ -94,22 +94,27 @@ diagnosed on a machine whose baseline boot is broken.
 
 ## F. Step 3 — install, over the net console
 
-**Start the transcript first.** If the net console cannot be raised,
-photograph the screen after every line below and write **"transcript
-SKIPPED"** in the notes — do not let it read like a pass. (Pre-flight
-F2: the bring-up procedure is not in the runbook. Sort it at the desk.)
+**Start the transcript first** — bring-up procedure is runbook §3.0
+(listener command, confirmation gate, manual fallback). If the net
+console cannot be raised, photograph the screen after every line below
+and write **"transcript SKIPPED"** in the notes — do not let it read
+like a pass.
 
-### 3a — load and init (harness `test_g6_chain.py:733-756`)
+### 3a — load and init (harness: `RUNBOOK-3A` markers, drift-gated)
 
 ```forth
-______ ______ THRU     \ the two numbers from section A — BEFORE init
+DECIMAL ______ ______ THRU   \ the two numbers from section A
 USING AHCI
 AHCI-INIT
 ALSO SURVEYOR
 USING INSTALL
+DECIMAL                \ AHCI-INIT leaves BASE=16; restore it once
 ```
 
-- [ ] `THRU` **before** `AHCI-INIT` — arming step 1
+- [ ] **`DECIMAL` opens the `THRU` line and closes the block** —
+      arming step 1. Boot base here is HEX; a bare range loads the
+      wrong 200 blocks and *the next probe still prints ok*.
+- [ ] `THRU` **before** `AHCI-INIT` — order kept as typed
 - [ ] `ALSO SURVEYOR` **before** `USING INSTALL` — the DOVOC trap
 - [ ] **Never type `INSTALL-THRU`.** It is not a word.
 
@@ -166,7 +171,8 @@ stale second copy costs you the session.
 Before you start, confirm the runbook in front of you is the patched
 one. Three tells, any of which is enough:
 
-- [ ] It cites **`tests/test_g6_chain.py:848-879`** at the top of §3e
+- [ ] It cites the **`RUNBOOK-3E-BEGIN/END` markers** (not a bare
+      line range) at the top of §3e
 - [ ] **`GPT-ARM .` appears BEFORE `MAKE-OWN-ENT`**
 - [ ] **Every line ends in `.`** and there is no `-1 . \ sanity` line
 
