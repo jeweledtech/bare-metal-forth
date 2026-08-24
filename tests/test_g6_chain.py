@@ -809,13 +809,13 @@ check('alive after AHCI-INIT',
       val('1 2 +')[0] == 3)  # runbook-exempt: liveness only; its DECIMAL prefix MASKS the BASE mutation this line sits after -- a bare probe here would have shown 2A on 2026-08-06
 send('ALSO SURVEYOR', 1)     # BEFORE USING INSTALL (DOVOC trap)
 send('USING INSTALL', 2)
-# Close the stage with an explicit DECIMAL: AHCI-INIT left BASE=16
-# and sections 3b-3d all type numerals inside that window (3c's
-# ': TPL-SUM 0 512 0 DO ...' would compile a 1298-iteration loop
-# under HEX; 3d's 2048 would store 8264). One restore immediately
-# after the word that broke the base, instead of four per-section
-# copies -- and it is what the deferred ahci.fth fix will do, so
-# when the root fix lands this line becomes redundant, not wrong.
+# Close the stage with an explicit DECIMAL. Before the 2026-08-23
+# ahci.fth fix, AHCI-INIT left BASE=16 and sections 3b-3d all type
+# numerals inside that window (3c's ': TPL-SUM 0 512 0 DO ...'
+# would compile a 1298-iteration loop under HEX; 3d's 2048 would
+# store 8264), so this line was the sole defense. The fix landed
+# (runbook fourth act); the line STAYS as belt-and-braces -- the
+# typed-numeral invariant does not lean on one word's manners.
 send('DECIMAL', 1)
 # --8<-- RUNBOOK-3A-END
 # Arm vectors: reads land at SEC-BUF, so RD-BUF-ADDR = SEC-BUF.
@@ -907,13 +907,87 @@ expect('ESP-BASE declared', 'ESP-BASE @', ESP_BASE)
 expect('ESP-LEN declared', 'ESP-LEN @', ESP_LAST - ESP_BASE + 1)
 
 # --8<-- RUNBOOK-3E-BEGIN
+# Typed step, mirroring runbook section 3e's opening line. Until
+# 2026-08-23 the gate's runbook parser dropped bare DECIMAL, so
+# this operator step existed in the doc but was invisible to the
+# gate protecting typed steps; keeping DECIMAL as a compared
+# token closes that hole, and the harness must type it too.
+send('DECIMAL', 1)
 # Flag-checked probe before trust (fail-open hazard): LBA 0 read
 # must return flag 0 AND carry the fixture's 55AA.
 expect('LBA0 read flag 0', '0 1 AHCI-READ', 0, wait=3)
 expect('LBA0 55AA low byte', 'SEC-BUF 510 + C@', 0x55)
 expect('LBA0 55AA high byte', 'SEC-BUF 511 + C@', 0xAA)
 
-send('PARTITION-MAP', 10)
+raw_pm = send('PARTITION-MAP', 10)
+# The survey table is what the operator reads LBA extents off, so
+# its rendered radix is load-bearing (section 3d's ESP-BASE/ESP-LEN
+# pokes come from this output on iron). Print it into every log so
+# a radix or format change is visible in evidence, not silent.
+print('  PARTITION-MAP output (mainline):')
+for _ln in body_of(raw_pm).splitlines():
+    print('    | ' + _ln.rstrip())
+# PIN (measured 2026-08-23, before/after byte-identical across the
+# base-transparency fix): the ESP start LBA renders as 8-digit hex
+# via .H8 -- '00000800' for sector 2048 -- independent of caller's
+# base. Section 3d's operator reads this field, so a radix or width
+# change must red here, not surface silently on iron.
+check('PARTITION-MAP renders ESP LBA as 8-digit hex',
+      '00000800' in body_of(raw_pm),
+      body_of(raw_pm).strip()[:120])
+# TRIPWIRE (added 2026-08-23, expected RED on the DECIMAL leg until
+# the surveyor.fth fix lands): PARTITION-MAP must be
+# base-transparent. Until the fix, both of its prints -- the
+# per-partition P-number line and the closing partition-count
+# line -- ended 'DECIMAL . HEX', returning with BASE=16 regardless
+# of the caller's base. Same sticky-BASE defect class as
+# AHCI-INIT, and the direct cause of the OWN-LEN=549 install
+# slack: an operator typing section 3e's '225 FREE-EXTENT' after
+# PARTITION-MAP had 225 parsed in HEX (0x225 = 549).
+# Bidirectional for the same reason as the AHCI-INIT tripwire in
+# the 3A region above (a one-legged probe passes coincidentally);
+# same raw-send constraint (expect/val prefix DECIMAL,
+# overwriting the state being measured); same probe semantics
+# ('BASE @ DECIMAL .' prints the entry base rendered in decimal
+# and leaves BASE=10). The probe/check pair is verbatim the one
+# the BASE-LIAR proof showed able to fail on the HEX leg
+# (docs/evidence/base-transparency-item1-2026-08-23.txt).
+# Re-running PARTITION-MAP for the legs is allocation-free and
+# idempotent: it resets PART-N and MAP-OK, re-FILLs PART-TBL (a
+# load-time CREATE/ALLOT buffer in surveyor.fth), and re-reads
+# the GPT into SEC-BUF (ahci.fth load-time buffer). Its callees
+# -- SCAN-GPT-SEC, PROBE-PARTS, PART-ENT, PART-BAD?, .PTYPE --
+# mutate nothing but those buffers; there is no PHYS-ALLOC
+# anywhere in surveyor.fth and no other BASE mutation in the
+# word's call path. Verified by reading surveyor.fth 2026-08-23,
+# not assumed.
+send('DECIMAL', 1)            # runbook-exempt: tripwire sets its own entry condition; not an operator step
+raw_pm_dec = send('PARTITION-MAP', 10)  # runbook-exempt: transparency-probe re-run, never typed by the operator; idempotent rescan (see evidence above)
+raw_base = send('BASE @ DECIMAL .', 2)  # runbook-exempt: interrogates BASE, which no DECIMAL-prefixed helper can measure
+check('BASE unchanged across PARTITION-MAP (entered DECIMAL)',
+      re.findall(r'-?\d+', body_of(raw_base))[-1:] == ['10'],
+      raw_base.strip()[-90:])
+send('HEX', 1)                # runbook-exempt: second tripwire leg entry condition; not an operator step
+raw_pm_hex = send('PARTITION-MAP', 10)  # runbook-exempt: transparency-probe re-run, HEX leg (same evidence)
+raw_base = send('BASE @ DECIMAL .', 2)  # runbook-exempt: interrogates BASE; leaves BASE=10 for the code below
+check('BASE unchanged across PARTITION-MAP (entered HEX)',
+      re.findall(r'-?\d+', body_of(raw_base))[-1:] == ['16'],
+      raw_base.strip()[-90:])
+# The legs run with deliberately different entry bases, so a
+# caller-base-dependent render shows up HERE and nowhere else.
+# Print both so the comparison always exists in the log.
+print('  PARTITION-MAP output (tripwire, entered DECIMAL):')
+for _ln in body_of(raw_pm_dec).splitlines():
+    print('    | ' + _ln.rstrip())
+print('  PARTITION-MAP output (tripwire, entered HEX):')
+for _ln in body_of(raw_pm_hex).splitlines():
+    print('    | ' + _ln.rstrip())
+# Typed step, mirrored in runbook section 3e: restore decimal
+# before the sector counts below ('225 FREE-EXTENT' parsed in
+# HEX is the OWN-LEN=549 slack). Belt-and-braces once the
+# surveyor.fth fix lands -- the typed-numeral invariant does not
+# lean on one word's manners.
+send('DECIMAL', 1)
 expect('survey trusted', 'MAP-TRUSTED?', -1)
 expect('claim 225 sectors', '225 FREE-EXTENT', -1, wait=20)
 OWN_BASE, raw = val('OWN-BASE @')

@@ -70,3 +70,66 @@ calibration on first use, so CALIBRATE-DELAY is NOT lazily
 reachable from AHCI-INIT's path and the green tripwire masks
 nothing. (Grep 2026-08-23: definition + HARDWARE-INIT, no
 other callers.)
+
+== PARTITION-MAP (second half of item 1, same defect class) ==
+Two sticky-BASE sites in PARTITION-MAP (surveyor.fth,
+private-tier): the per-partition P-number print and the closing
+partition-count print, both ending 'DECIMAL . HEX' /
+'DECIMAL .' with HEX ambient. Fix: same stack-carried base
+save/restore as AHCI-INIT, applied at both sites (source is
+private-tier).
+
+RED RUN (bidirectional tripwire vs unfixed surveyor.fth),
+docs/evidence/g6-pm-red-2026-08-23.log:
+  FAIL: BASE unchanged across PARTITION-MAP (entered DECIMAL) -- BASE @ DECIMAL .
+16 ok
+  PASS: BASE unchanged across PARTITION-MAP (entered HEX)
+Passed: 74/75
+(exit=2. Sole failure in the run is the DECIMAL leg, exactly
+mirroring the AHCI-INIT red. Falsifiability of the HEX leg
+carries over from the BASE-LIAR proof above: identical probe
+and check expression, only the word under test differs.)
+
+== RADIX-OF-INTERIOR-PRINTS VERIFICATION (measured, not read) ==
+Concern raised in review: the old code deliberately left HEX set
+for the prints that follow the P-number (.PTYPE text, LBA via
+.H8), so restoring the caller's base on a decimal-entered call
+could change the rendered radix of the survey table -- the
+output the operator reads LBA extents off into section 3d's
+ESP-BASE/ESP-LEN pokes on iron.
+Method: full PARTITION-MAP output captured before and after the
+fix, three call sites each (mainline, tripwire DECIMAL leg,
+tripwire HEX leg), via the harness's permanent output-print
+blocks. Full capture logs preserved alongside this file:
+docs/evidence/g6-pm-output-before-fix-2026-08-23.log,
+docs/evidence/g6-pm-output-after-fix-2026-08-23.log.
+Mechanical diff of all six captured blocks: BYTE-IDENTICAL.
+Mechanism (explains why it had to come out that way): .H8
+renders hex arithmetically (RSHIFT/AND per digit), not through
+BASE; .PTYPE is pure text in all branches. So the LBA and type
+fields were never base-dependent and restoring the caller's
+base cannot move them. No explicit HEX needed for the interior
+prints; section 3d's expected values [2048, 534527] stand.
+Measured rendering, QEMU G6 disk (all three call sites, both
+sides of the fix):
+  P1 : FAT32LBA 00000800
+  P2 : UnknownLBA 00082C00
+  P3 : UnknownLBA 0008A800
+  P4 : RecoveryLBA 6E322000
+  P5 : UnknownLBA 6E522000
+  5 partitions found
+Pin added to the harness from this measurement: ESP start LBA
+renders as 8-digit hex '00000800' (= sector 2048). The pin is a
+substring presence check, not a position/format parser.
+
+== GREEN RUN (surveyor.fth fix at both sites; pin included) ==
+Full log: docs/evidence/g6-pm-green-2026-08-23.log (excerpt
+verbatim, in the order the harness printed it -- the pin runs
+on the mainline call, before the tripwire legs):
+  PASS: PARTITION-MAP renders ESP LBA as 8-digit hex
+  PASS: BASE unchanged across PARTITION-MAP (entered DECIMAL)
+  PASS: BASE unchanged across PARTITION-MAP (entered HEX)
+Passed: 76/76
+(exit=0. test-g6 count read off run logs: 73 at the AHCI green
+above, 75 at the PARTITION-MAP red run's denominator, 76 here
+with the pin. Re-derive any headline from a run log.)

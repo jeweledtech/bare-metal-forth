@@ -288,7 +288,15 @@ def runbook_sequence():
     seq = []
     for line in m.group(1).splitlines():
         line = re.sub(r'\\.*$', '', line).strip()   # drop \ comments
-        if not line or line == 'DECIMAL':
+        # Standalone DECIMAL KEPT as of 2026-08-23. The skip was
+        # 3e-specific -- the 3a parser keeps every non-empty line,
+        # and gate B-3a has been green comparing 3a's two DECIMAL
+        # tokens all along -- so the two parsers were silently
+        # divergent, and 3e's opening DECIMAL (a typed operator
+        # step) was invisible to the gate protecting typed steps.
+        # This ends the inconsistency; the harness types both 3e
+        # DECIMALs non-exempt so the sides stay symmetric.
+        if not line:
             continue
         if line.endswith(' .'):
             seq.append(('expr', line[:-2].strip()))
@@ -401,9 +409,9 @@ def runbook_3a_sequence():
     seq = []
     for line in m.group(1).splitlines():
         line = re.sub(r'\\.*$', '', line).strip()   # drop \ comments
-        # Unlike the 3e parser, a standalone or leading DECIMAL is
-        # KEPT: in 3e every expr rides val()'s DECIMAL prefix, but in
-        # 3a the DECIMAL is the payload this gate exists to protect.
+        # A standalone or leading DECIMAL is KEPT: the DECIMAL is
+        # payload this gate exists to protect. (The 3e parser
+        # dropped bare DECIMAL until 2026-08-23; both now agree.)
         if not line:
             continue
         seq.append(('bare', line))

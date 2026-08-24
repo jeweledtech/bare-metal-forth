@@ -1,0 +1,295 @@
+python3 tools/embed-vocabs.py build/embedded.bin forth/dict/hardware.fth forth/dict/port-mapper.fth forth/dict/echoport.fth forth/dict/pci-enum.fth forth/dict/catalog-resolver.fth forth/dict/ahci.fth forth/dict/rtl8168.fth forth/dict/ntfs.fth forth/dict/auto-detect.fth forth/dict/fat32.fth forth/dict/surveyor.fth forth/dict/ui-core.fth forth/dict/ui-parser.fth forth/dict/ui-events.fth forth/dict/gui-harvest.fth forth/dict/ps2-keyboard.fth forth/dict/file-editor-core.fth forth/dict/file-editor-disk.fth forth/dict/notepad-form.fth forth/dict/notepad.fth forth/dict/hello-form.fth forth/dict/hello-app.fth forth/dict/file-stream.fth forth/dict/file-browser-form.fth forth/dict/file-browser.fth
+Embedded vocab binary: build/embedded.bin
+  Input files: forth/dict/hardware.fth, forth/dict/port-mapper.fth, forth/dict/echoport.fth, forth/dict/pci-enum.fth, forth/dict/catalog-resolver.fth, forth/dict/ahci.fth, forth/dict/rtl8168.fth, forth/dict/ntfs.fth, forth/dict/auto-detect.fth, forth/dict/fat32.fth, forth/dict/surveyor.fth, forth/dict/ui-core.fth, forth/dict/ui-parser.fth, forth/dict/ui-events.fth, forth/dict/gui-harvest.fth, forth/dict/ps2-keyboard.fth, forth/dict/file-editor-core.fth, forth/dict/file-editor-disk.fth, forth/dict/notepad-form.fth, forth/dict/notepad.fth, forth/dict/hello-form.fth, forth/dict/hello-app.fth, forth/dict/file-stream.fth, forth/dict/file-browser-form.fth, forth/dict/file-browser.fth
+  Token stream: 95343 bytes
+  Output (with NUL): 95344 bytes
+nasm -f bin -o build/kernel.bin src/kernel/forth.asm
+Creating disk image...
+cat build/boot.bin build/kernel.bin > build/bmforth.img
+Disk image created: build/bmforth.img
+  Bootloader: 512 bytes
+  Kernel: 114688 bytes
+  Total: 115200 bytes
+Populating catalog into build/blocks.img...
+make write-catalog && touch build/.catalog.stamp
+make[1]: Entering directory '/home/bbrown/projects/forthos'
+python3 tools/write-catalog.py build/blocks.img forth/dict/ \
+        --raw VBR-TEMPLATE=build/vbr.bin
+  Lint OK: ahci.fth (57 BASE note(s))
+  Lint OK: arm64-asm.fth (27 BASE note(s))
+  Lint OK: asm-vocab.fth (20 BASE note(s))
+  Lint OK: atapi-ahci.fth (32 BASE note(s))
+  Lint OK: audio.fth (27 BASE note(s))
+  Lint OK: auto-detect.fth (15 BASE note(s))
+  Lint OK: cab-extract.fth (27 BASE note(s))
+  Lint OK: catalog-resolver.fth (26 BASE note(s))
+  Lint OK: cd-atapi.fth
+  Lint OK: deflate.fth (23 BASE note(s))
+  Lint OK: dict_system.fth
+  Lint OK: disasm.fth (6 BASE note(s))
+  Lint OK: disk-survey-form.fth
+  Lint OK: echoport.fth (2 BASE note(s))
+  Lint OK: editor.fth (32 BASE note(s))
+  Lint OK: fat32.fth (25 BASE note(s))
+  Lint OK: file-browser-form.fth (4 BASE note(s))
+  Lint OK: file-browser.fth (11 BASE note(s))
+  Lint OK: file-editor-core.fth (72 BASE note(s))
+  Lint OK: file-editor-disk.fth (3 BASE note(s))
+  Lint OK: file-stream.fth
+  Lint OK: graphics.fth
+  Lint OK: gui-harvest.fth
+  Lint OK: hardware.fth (15 BASE note(s))
+  Lint OK: hello-app.fth
+  Lint OK: hello-form.fth (4 BASE note(s))
+  Lint OK: install.fth
+  Lint OK: meta-compiler.fth (3 BASE note(s))
+  Lint OK: mirror.fth (32 BASE note(s))
+  Lint OK: msi-reader.fth (28 BASE note(s))
+  Lint OK: ne2000.fth (4 BASE note(s))
+  Lint OK: net-dict.fth (14 BASE note(s))
+  Lint OK: notepad-form.fth (4 BASE note(s))
+  Lint OK: notepad.fth
+  Lint OK: ntfs.fth (33 BASE note(s))
+  Lint OK: pci-enum.fth (12 BASE note(s))
+  Lint OK: pit-timer.fth
+  Lint OK: port-mapper.fth (22 BASE note(s))
+  Lint OK: port-monitor-form.fth
+  Lint OK: port-monitor.fth
+  Lint OK: ps2-keyboard.fth (3 BASE note(s))
+  Lint OK: ps2-mouse.fth
+  Lint OK: rtl8139.fth (10 BASE note(s))
+  Lint OK: rtl8168.fth (42 BASE note(s))
+  Lint OK: serial-16550.fth (3 BASE note(s))
+  Lint OK: settings-dash.fth
+  Lint OK: settings-form.fth (4 BASE note(s))
+  Lint OK: settings.fth (21 BASE note(s))
+  Lint OK: shutdown.fth (40 BASE note(s))
+  Lint OK: stub-dispatch.fth
+  Lint OK: surveyor-deep.fth (18 BASE note(s))
+  Lint OK: surveyor-detail.fth (4 BASE note(s))
+  Lint OK: surveyor.fth (26 BASE note(s))
+  Lint OK: target-arm64.fth (77 BASE note(s))
+  Lint OK: target-cortex-m.fth (40 BASE note(s))
+  Lint OK: target-x86.fth (212 BASE note(s))
+  Lint OK: thumb2-asm.fth (40 BASE note(s))
+  Lint OK: ui-core.fth (7 BASE note(s))
+  Lint OK: ui-events.fth (1 BASE note(s))
+  Lint OK: ui-parser.fth (1 BASE note(s))
+  Lint OK: vga-graphics.fth (2 BASE note(s))
+  Lint OK: video.fth (7 BASE note(s))
+  Lint OK: x86-asm.fth (57 BASE note(s))
+  Lint OK: zip-reader.fth (9 BASE note(s))
+Vocabulary Catalog written to build/blocks.img
+  Block 0: (reserved)
+  Block 1: VOCAB-CATALOG (1/5)
+  Block 2: VOCAB-CATALOG (2/5)
+  Block 3: VOCAB-CATALOG (3/5)
+  Block 4: VOCAB-CATALOG (4/5)
+  Block 5: VOCAB-CATALOG (5/5)
+  Blocks 6-45: AHCI (ahci.fth, 40 blocks)
+  Blocks 46-78: ARM64-ASM (arm64-asm.fth, 33 blocks)
+  Blocks 79-95: ASM-VOCAB (asm-vocab.fth, 17 blocks)
+  Blocks 96-117: ATAPI-AHCI (atapi-ahci.fth, 22 blocks)
+  Blocks 118-146: AUDIO (audio.fth, 29 blocks)
+  Blocks 147-161: AUTO-DETECT (auto-detect.fth, 15 blocks)
+  Blocks 162-181: CAB-EXTRACT (cab-extract.fth, 20 blocks)
+  Blocks 192-207: (reserved: settings, SET-BLK=199)
+  Blocks 208-230: CATALOG-RESOLVER (catalog-resolver.fth, 23 blocks)
+  Blocks 231-236: CD-ATAPI (cd-atapi.fth, 6 blocks)
+  Blocks 237-263: DEFLATE (deflate.fth, 27 blocks)
+  Blocks 264-292: DICT-SYSTEM (dict_system.fth, 29 blocks)
+  Blocks 293-344: DISASM (disasm.fth, 52 blocks)
+  Blocks 345-346: DISK-SURVEY-FORM (disk-survey-form.fth, 2 blocks)
+  Blocks 347-361: ECHOPORT (echoport.fth, 15 blocks)
+  Blocks 362-385: EDITOR (editor.fth, 24 blocks)
+  Blocks 386-414: FAT32 (fat32.fth, 29 blocks)
+  Blocks 415-419: FILE-BROWSER-FORM (file-browser-form.fth, 5 blocks)
+  Blocks 420-455: FILE-BROWSER (file-browser.fth, 36 blocks)
+  Blocks 456-497: FILE-EDITOR (file-editor-core.fth, 42 blocks)
+  Blocks 498-501: FILE-EDITOR-DISK (file-editor-disk.fth, 4 blocks)
+  Blocks 502-520: FILE-STREAM (file-stream.fth, 19 blocks)
+  Blocks 521-536: GRAPHICS (graphics.fth, 16 blocks)
+  Blocks 537-549: GUI-HARVEST (gui-harvest.fth, 13 blocks)
+  Blocks 550-561: HARDWARE (hardware.fth, 12 blocks)
+  Blocks 562-569: HELLO-APP (hello-app.fth, 8 blocks)
+  Blocks 570-574: HELLO-FORM (hello-form.fth, 5 blocks)
+  Blocks 575-653: INSTALL (install.fth, 79 blocks)
+  Blocks 654-680: META-COMPILER (meta-compiler.fth, 27 blocks)
+  Blocks 681-700: MIRROR (mirror.fth, 20 blocks)
+  Blocks 701-722: MSI-READER (msi-reader.fth, 22 blocks)
+  Blocks 723-744: NE2000 (ne2000.fth, 22 blocks)
+  Blocks 745-759: NET-DICT (net-dict.fth, 15 blocks)
+  Blocks 760-766: NOTEPAD-FORM (notepad-form.fth, 7 blocks)
+  Blocks 767-779: NOTEPAD (notepad.fth, 13 blocks)
+  Blocks 780-835: NTFS (ntfs.fth, 56 blocks)
+  Blocks 836-852: PCI-ENUM (pci-enum.fth, 17 blocks)
+  Blocks 853-857: PIT-TIMER (pit-timer.fth, 5 blocks)
+  Blocks 858-874: PORT-MAPPER (port-mapper.fth, 17 blocks)
+  Blocks 875-876: PORT-MONITOR-FORM (port-monitor-form.fth, 2 blocks)
+  Blocks 877-897: PORT-MONITOR (port-monitor.fth, 21 blocks)
+  Blocks 898-911: PS2-KEYBOARD (ps2-keyboard.fth, 14 blocks)
+  Blocks 912-918: PS2-MOUSE (ps2-mouse.fth, 7 blocks)
+  Blocks 919-937: RTL8139 (rtl8139.fth, 19 blocks)
+  Blocks 938-971: RTL8168 (rtl8168.fth, 34 blocks)
+  Blocks 972-983: SERIAL-16550 (serial-16550.fth, 12 blocks)
+  Blocks 984-989: SETTINGS-DASH (settings-dash.fth, 6 blocks)
+  Blocks 990-995: SETTINGS-FORM (settings-form.fth, 6 blocks)
+  Blocks 996-1021: SETTINGS (settings.fth, 26 blocks)
+  Blocks 1022-1033: SHUTDOWN (shutdown.fth, 12 blocks)
+  Blocks 1034-1040: STUB-DISPATCH (stub-dispatch.fth, 7 blocks)
+  Blocks 1041-1057: SURVEYOR-DEEP (surveyor-deep.fth, 17 blocks)
+  Blocks 1058-1078: SURVEYOR-DETAIL (surveyor-detail.fth, 21 blocks)
+  Blocks 1079-1150: SURVEYOR (surveyor.fth, 72 blocks)
+  Blocks 1151-1305: TARGET-ARM64 (target-arm64.fth, 155 blocks)
+  Blocks 1306-1431: TARGET-CORTEX-M (target-cortex-m.fth, 126 blocks)
+  Blocks 1432-1549: TARGET-X86 (target-x86.fth, 118 blocks)
+  Blocks 1550-1584: THUMB2-ASM (thumb2-asm.fth, 35 blocks)
+  Blocks 1585-1616: UI-CORE (ui-core.fth, 32 blocks)
+  Blocks 1617-1631: UI-EVENTS (ui-events.fth, 15 blocks)
+  Blocks 1632-1646: UI-PARSER (ui-parser.fth, 15 blocks)
+  Blocks 1647-1655: VGA-GRAPHICS (vga-graphics.fth, 9 blocks)
+  Blocks 1656-1671: VIDEO (video.fth, 16 blocks)
+  Blocks 1672-1695: X86-ASM (x86-asm.fth, 24 blocks)
+  Blocks 1696-1711: ZIP-READER (zip-reader.fth, 16 blocks)
+  Block 1712: VBR-TEMPLATE (RAW 512 bytes from vbr.bin, zero-filled to 1024)
+  Total: 1713 blocks used
+make[1]: Leaving directory '/home/bbrown/projects/forthos'
+cat build/bmforth.img build/blocks.img > build/combined.img
+Combined image: build/combined.img
+  Kernel: 115200 bytes (LBA 0-224)
+  Blocks: 2097152 bytes (LBA 225+)
+  Total:  2212352 bytes
+Staged build/tftp:
+  memdisk:   /usr/lib/syslinux/memdisk
+  forth.img: 2e1b7ef9b806fea4cc2429a78a3a44d0
+  manifest:  fe091e06ec897deb53af1d423a23874a
+Running G6 chain harness...
+input sha256 774da4f50d49d3465f43c2acf01a94cfa0c23e4570a23ff53f46f86b6e76d522  harness
+input sha256 360613d3205f7cc0a0ca902e9fb810ea94b267b5055eedb3de89d8e7dd2a4e67  fixture
+input sha256 60331d58239701ff6834f5add173cb120e850f56a42702140ca31f37c21e1479  gen-grub-cfg
+input sha256 f28bc7d9268f834d4f339b53738128ce4eaef077da216864e723d3f498a0084f  catalog-layout
+input md5 fe091e06ec897deb53af1d423a23874a  tftp-tree
+  PASS: all code inputs readable
+  PASS: port argument supplied (invoke via `make test-g6`)
+G6 chain harness (port 4595)
+==================================================
+
+Stage 0: tree identity (one tree, both consumers)
+  PASS: staged tree exists
+  PASS: staged cfg == committed grub.cfg (drift gate, live)
+  PASS: manifest hash computed (push-grub provenance authority)
+
+Stage 1: fixture
+  PASS: fixture self-verify
+
+Stage 2: phase 1 -- live install (memdisk over GRUB)
+  PASS: GRUB menu up over TFTP
+  PASS: serial connected
+  PASS: memdisk instance alive (7 6 * = 42)
+  PASS: MEMDISK-VAR nonzero on memdisk boot
+  PASS: INSTALL catalog range found
+  PASS: alive after INSTALL THRU
+  PASS: BASE unchanged across AHCI-INIT (entered DECIMAL)
+  PASS: BASE unchanged across AHCI-INIT (entered HEX)
+  PASS: alive after AHCI-INIT
+  PASS: alive after arm
+  PASS: vbr.bin is one sector
+  PASS: ARM-VBR-TPL delivers template (ARM-VBR-TPL = -1)
+  PASS: template byte-sum matches host (TPL-SUM = 38891)
+  PASS: template 55AA low (VBR-RAW 510 + C@ = 85)
+  PASS: template 55AA high (VBR-RAW 511 + C@ = 170)
+  PASS: VBR-TPL armed (VBR-TPL @ VBR-RAW = = -1)
+  PASS: fixture has exactly one ESP
+  PASS: ESP-BASE declared (ESP-BASE @ = 2048)
+  PASS: ESP-LEN declared (ESP-LEN @ = 532480)
+  PASS: LBA0 read flag 0 (0 1 AHCI-READ = 0)
+  PASS: LBA0 55AA low byte (SEC-BUF 510 + C@ = 85)
+  PASS: LBA0 55AA high byte (SEC-BUF 511 + C@ = 170)
+  PARTITION-MAP output (mainline):
+    | === Partitions ===
+    | P1 : FAT32LBA 00000800
+    | P2 : UnknownLBA 00082C00
+    | P3 : UnknownLBA 0008A800
+    | P4 : RecoveryLBA 6E322000
+    | P5 : UnknownLBA 6E522000
+    | 5 partitions found
+    | ok
+  PASS: BASE unchanged across PARTITION-MAP (entered DECIMAL)
+  PASS: BASE unchanged across PARTITION-MAP (entered HEX)
+  PARTITION-MAP output (tripwire, entered DECIMAL):
+    | === Partitions ===
+    | P1 : FAT32LBA 00000800
+    | P2 : UnknownLBA 00082C00
+    | P3 : UnknownLBA 0008A800
+    | P4 : RecoveryLBA 6E322000
+    | P5 : UnknownLBA 6E522000
+    | 5 partitions found
+    | ok
+  PARTITION-MAP output (tripwire, entered HEX):
+    | === Partitions ===
+    | P1 : FAT32LBA 00000800
+    | P2 : UnknownLBA 00082C00
+    | P3 : UnknownLBA 0008A800
+    | P4 : RecoveryLBA 6E322000
+    | P5 : UnknownLBA 6E522000
+    | 5 partitions found
+    | ok
+  PASS: survey trusted (MAP-TRUSTED? = -1)
+  PASS: claim 225 sectors (225 FREE-EXTENT = -1)
+  PASS: OWN-BASE probed
+  OWN-BASE = 34
+  PASS: OWN-LEN = 225 (OWN-LEN @ = 225)
+  PASS: slot claimed (FREE-SLOT = -1)
+  PASS: FS-SLOT = 5 (first empty; ESP survives) (FS-SLOT @ = 5)
+  PASS: GPT-ARM (GPT-ARM = -1)
+  PASS: MAKE-OWN-ENT composed (nonzero entry) (MAKE-OWN-ENT DUP 0= 0= = -1)
+  PASS: ADD-PARTITION (ADD-PARTITION = -1)
+  PASS: ADD-BOOT-ENTRY (ADD-BOOT-ENTRY = -1)
+  PASS: stack clean after install (DEPTH = 0)
+
+Stage 3: host asserts (independent of the word gates)
+  PASS: (a) LBA 0 byte-identical to fixture
+  PASS: (b) exactly one GPT slot changed
+  PASS: (b) changed slot was empty in pristine
+  PASS: (c) backup array == primary
+  PASS: (f) type GUID field
+  PASS: (f) unique GUID field
+  PASS: (f) slot start == OWN-BASE
+  PASS: (f) slot end == OWN-BASE+224
+  PASS: (d) vbr.bin sentinel unique
+  PASS: (d) 55AA at 510
+  PASS: (d) baked OWN-BASE+1 at VBR-LBA-OFF
+  PASS: (d) VBR == template except the bake
+  PASS: (e) kernel is 224 sectors exactly
+  PASS: (e) kernel bytes on disk == build/kernel.bin
+
+Stage 4: leg A -- entry 1 chainloads the installed instance
+  PASS: leg A: GRUB menu up over TFTP
+  PASS: leg A: serial connected
+  PASS: leg A: installed instance alive (2 3 + = 5)
+  PASS: leg A: discriminator 0 (chainload, no memdisk) (HEX 28098 @ DECIMAL = 0)
+
+Stage 5: leg B -- timeout falls through to memdisk
+  PASS: leg B: GRUB menu up over TFTP
+  PASS: leg B: serial connected
+  PASS: leg B: memdisk instance alive (2 3 + = 5)
+  PASS: leg B: discriminator nonzero (memdisk boot)
+
+Stage 6: leg C -- wrong GUID: search fails loudly
+  PASS: leg C: scratch cfg carries the all-zeros GUID
+  PASS: leg C: serial attached before GRUB runs
+  PASS: leg C: GRUB menu up over TFTP
+  PASS: leg C: distinctive no-match echo visible (gated on leg A matching)
+  PASS: leg C: serial silent (gated on leg A seeing ok)
+
+Stage 7: leg D -- reverted bake dies in disk_error
+  PASS: leg D: sentinel readback at VBR-LBA-OFF
+  PASS: leg D: copy differs; installed disk VBR still baked
+  PASS: leg D: serial attached before GRUB runs
+  PASS: leg D: GRUB menu up
+  PASS: leg D: DISK ERR on halted screen
+  PASS: leg D: variant banner (right loader ran)
+  PASS: leg D: no ok (gated on leg A seeing ok)
+
+Passed: 75/75
+EXIT=0

@@ -562,6 +562,7 @@ SEC-BUF 510 + C@ .      \ 85
 SEC-BUF 511 + C@ .      \ 170
 
 PARTITION-MAP           \ leaves nothing on the stack
+DECIMAL                 \ belt-and-braces: BASE decimal for the typed sector counts
 MAP-TRUSTED? .          \ -1  required before anything writes
 
 225 FREE-EXTENT .       \ -1

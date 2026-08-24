@@ -1,0 +1,109 @@
+Staged build/tftp:
+  memdisk:   /usr/lib/syslinux/memdisk
+  forth.img: 351eb8b625af389f27f667bafe630b98
+  manifest:  d38bc4d3f9869bdf94f2f6db0bbb83f1
+Running G6 chain harness...
+input sha256 704275265533896b961e6c08ca4977e92bc0f80651bc5d1389a4c6fd36ff158f  harness
+input sha256 360613d3205f7cc0a0ca902e9fb810ea94b267b5055eedb3de89d8e7dd2a4e67  fixture
+input sha256 60331d58239701ff6834f5add173cb120e850f56a42702140ca31f37c21e1479  gen-grub-cfg
+input sha256 f28bc7d9268f834d4f339b53738128ce4eaef077da216864e723d3f498a0084f  catalog-layout
+input md5 d38bc4d3f9869bdf94f2f6db0bbb83f1  tftp-tree
+  PASS: all code inputs readable
+  PASS: port argument supplied (invoke via `make test-g6`)
+G6 chain harness (port 4595)
+==================================================
+
+Stage 0: tree identity (one tree, both consumers)
+  PASS: staged tree exists
+  PASS: staged cfg == committed grub.cfg (drift gate, live)
+  PASS: manifest hash computed (push-grub provenance authority)
+
+Stage 1: fixture
+  PASS: fixture self-verify
+
+Stage 2: phase 1 -- live install (memdisk over GRUB)
+  PASS: GRUB menu up over TFTP
+  PASS: serial connected
+  PASS: memdisk instance alive (7 6 * = 42)
+  PASS: MEMDISK-VAR nonzero on memdisk boot
+  PASS: INSTALL catalog range found
+  PASS: alive after INSTALL THRU
+  PASS: BASE unchanged across AHCI-INIT (entered DECIMAL)
+  PASS: BASE unchanged across AHCI-INIT (entered HEX)
+  PASS: alive after AHCI-INIT
+  PASS: alive after arm
+  PASS: vbr.bin is one sector
+  PASS: ARM-VBR-TPL delivers template (ARM-VBR-TPL = -1)
+  PASS: template byte-sum matches host (TPL-SUM = 38891)
+  PASS: template 55AA low (VBR-RAW 510 + C@ = 85)
+  PASS: template 55AA high (VBR-RAW 511 + C@ = 170)
+  PASS: VBR-TPL armed (VBR-TPL @ VBR-RAW = = -1)
+  PASS: fixture has exactly one ESP
+  PASS: ESP-BASE declared (ESP-BASE @ = 2048)
+  PASS: ESP-LEN declared (ESP-LEN @ = 532480)
+  PASS: LBA0 read flag 0 (0 1 AHCI-READ = 0)
+  PASS: LBA0 55AA low byte (SEC-BUF 510 + C@ = 85)
+  PASS: LBA0 55AA high byte (SEC-BUF 511 + C@ = 170)
+  FAIL: BASE unchanged across PARTITION-MAP (entered DECIMAL) -- BASE @ DECIMAL .
+16 ok
+  PASS: BASE unchanged across PARTITION-MAP (entered HEX)
+  PASS: survey trusted (MAP-TRUSTED? = -1)
+  PASS: claim 225 sectors (225 FREE-EXTENT = -1)
+  PASS: OWN-BASE probed
+  OWN-BASE = 34
+  PASS: OWN-LEN = 225 (OWN-LEN @ = 225)
+  PASS: slot claimed (FREE-SLOT = -1)
+  PASS: FS-SLOT = 5 (first empty; ESP survives) (FS-SLOT @ = 5)
+  PASS: GPT-ARM (GPT-ARM = -1)
+  PASS: MAKE-OWN-ENT composed (nonzero entry) (MAKE-OWN-ENT DUP 0= 0= = -1)
+  PASS: ADD-PARTITION (ADD-PARTITION = -1)
+  PASS: ADD-BOOT-ENTRY (ADD-BOOT-ENTRY = -1)
+  PASS: stack clean after install (DEPTH = 0)
+
+Stage 3: host asserts (independent of the word gates)
+  PASS: (a) LBA 0 byte-identical to fixture
+  PASS: (b) exactly one GPT slot changed
+  PASS: (b) changed slot was empty in pristine
+  PASS: (c) backup array == primary
+  PASS: (f) type GUID field
+  PASS: (f) unique GUID field
+  PASS: (f) slot start == OWN-BASE
+  PASS: (f) slot end == OWN-BASE+224
+  PASS: (d) vbr.bin sentinel unique
+  PASS: (d) 55AA at 510
+  PASS: (d) baked OWN-BASE+1 at VBR-LBA-OFF
+  PASS: (d) VBR == template except the bake
+  PASS: (e) kernel is 224 sectors exactly
+  PASS: (e) kernel bytes on disk == build/kernel.bin
+
+Stage 4: leg A -- entry 1 chainloads the installed instance
+  PASS: leg A: GRUB menu up over TFTP
+  PASS: leg A: serial connected
+  PASS: leg A: installed instance alive (2 3 + = 5)
+  PASS: leg A: discriminator 0 (chainload, no memdisk) (HEX 28098 @ DECIMAL = 0)
+
+Stage 5: leg B -- timeout falls through to memdisk
+  PASS: leg B: GRUB menu up over TFTP
+  PASS: leg B: serial connected
+  PASS: leg B: memdisk instance alive (2 3 + = 5)
+  PASS: leg B: discriminator nonzero (memdisk boot)
+
+Stage 6: leg C -- wrong GUID: search fails loudly
+  PASS: leg C: scratch cfg carries the all-zeros GUID
+  PASS: leg C: serial attached before GRUB runs
+  PASS: leg C: GRUB menu up over TFTP
+  PASS: leg C: distinctive no-match echo visible (gated on leg A matching)
+  PASS: leg C: serial silent (gated on leg A seeing ok)
+
+Stage 7: leg D -- reverted bake dies in disk_error
+  PASS: leg D: sentinel readback at VBR-LBA-OFF
+  PASS: leg D: copy differs; installed disk VBR still baked
+  PASS: leg D: serial attached before GRUB runs
+  PASS: leg D: GRUB menu up
+  PASS: leg D: DISK ERR on halted screen
+  PASS: leg D: variant banner (right loader ran)
+  PASS: leg D: no ok (gated on leg A seeing ok)
+
+Passed: 74/75
+make: *** [Makefile:361: test-g6] Error 1
+EXIT=2

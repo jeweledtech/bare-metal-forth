@@ -1,0 +1,1619 @@
+ahci.fth: OK (57 BASE note(s))
+arm64-asm.fth: OK (27 BASE note(s))
+asm-vocab.fth: OK (20 BASE note(s))
+atapi-ahci.fth: OK (32 BASE note(s))
+audio.fth: OK (27 BASE note(s))
+auto-detect.fth: OK (15 BASE note(s))
+cab-extract.fth: OK (27 BASE note(s))
+catalog-resolver.fth: OK (26 BASE note(s))
+cd-atapi.fth: OK
+deflate.fth: OK (23 BASE note(s))
+dict_system.fth: OK
+disasm.fth: OK (6 BASE note(s))
+disk-survey-form.fth: OK
+echoport.fth: OK (2 BASE note(s))
+editor.fth: OK (32 BASE note(s))
+fat32.fth: OK (25 BASE note(s))
+file-browser-form.fth: OK (4 BASE note(s))
+file-browser.fth: OK (11 BASE note(s))
+file-editor-core.fth: OK (72 BASE note(s))
+file-editor-disk.fth: OK (3 BASE note(s))
+file-stream.fth: OK
+graphics.fth: OK
+gui-harvest.fth: OK
+hardware.fth: OK (15 BASE note(s))
+hello-app.fth: OK
+hello-form.fth: OK (4 BASE note(s))
+install.fth: OK
+meta-compiler.fth: OK (3 BASE note(s))
+mirror.fth: OK (32 BASE note(s))
+msi-reader.fth: OK (28 BASE note(s))
+ne2000.fth: OK (4 BASE note(s))
+net-dict.fth: OK (14 BASE note(s))
+notepad-form.fth: OK (4 BASE note(s))
+notepad.fth: OK
+ntfs.fth: OK (33 BASE note(s))
+pci-enum.fth: OK (12 BASE note(s))
+pit-timer.fth: OK
+port-mapper.fth: OK (22 BASE note(s))
+port-monitor-form.fth: OK
+port-monitor.fth: OK
+ps2-keyboard.fth: OK (3 BASE note(s))
+ps2-mouse.fth: OK
+rtl8139.fth: OK (10 BASE note(s))
+rtl8168.fth: OK (42 BASE note(s))
+serial-16550.fth: OK (3 BASE note(s))
+settings-dash.fth: OK
+settings-form.fth: OK (4 BASE note(s))
+settings.fth: OK (21 BASE note(s))
+shutdown.fth: OK (40 BASE note(s))
+stub-dispatch.fth: OK
+surveyor-deep.fth: OK (18 BASE note(s))
+surveyor-detail.fth: OK (4 BASE note(s))
+surveyor.fth: OK (26 BASE note(s))
+target-arm64.fth: OK (77 BASE note(s))
+target-cortex-m.fth: OK (40 BASE note(s))
+target-x86.fth: OK (212 BASE note(s))
+thumb2-asm.fth: OK (40 BASE note(s))
+ui-core.fth: OK (7 BASE note(s))
+ui-events.fth: OK (1 BASE note(s))
+ui-parser.fth: OK (1 BASE note(s))
+vga-graphics.fth: OK (2 BASE note(s))
+video.fth: OK (7 BASE note(s))
+x86-asm.fth: OK (57 BASE note(s))
+zip-reader.fth: OK (9 BASE note(s))
+
+64 files: 0 error(s), 1204 warning(s)
+Run with --verbose to see BASE tracking details.
+forth.asm: OK
+Running smoke test...
+  PASS: WORDS shows DROP
+  PASS: WORDS shows DUMP
+  PASS: basic arithmetic
+  PASS: S" interpret mode
+  PASS: ." compile mode
+  PASS: IF/ELSE/THEN
+  PASS: DO/LOOP
+
+Passed: 7/7
+Running loop control flow test...
+
+Test 1: BEGIN/WHILE/REPEAT countdown
+  define: ': COUNT-DOWN 0 CNT ! 5 BEGIN DUP WHILE 1 CNT +! 1- REPEAT DROP CNT @ ;\r\nok'
+  result: 'COUNT-DOWN .\r\n5 ok' (parsed: 5)
+  PASS: BEGIN/WHILE/REPEAT counts 5 iterations
+
+Test 2: BEGIN/UNTIL countdown
+  define: ': COUNT-UP 0 BEGIN 1+ DUP 10 = UNTIL ;\r\nok'
+  result: 'COUNT-UP .\r\n10 ok' (parsed: 10)
+  PASS: BEGIN/UNTIL counts to 10
+
+Test 3: BEGIN/AGAIN with EXIT
+  define: ': FIND-3 0 BEGIN 1+ DUP 3 = IF EXIT THEN AGAIN ;\r\nok'
+  result: 'FIND-3 .\r\n3 ok' (parsed: 3)
+  PASS: BEGIN/AGAIN with EXIT at 3
+
+Test 4: DO/LOOP then BEGIN/WHILE/REPEAT
+  define: ': MIXED 0 3 0 DO 1+ LOOP 5 BEGIN DUP WHILE 1- SWAP 1+ SWAP REPEAT DROP ;\r\nok'
+  result: 'MIXED .\r\n8 ok' (parsed: 8)
+  PASS: DO/LOOP(+3) then WHILE(+5) = 8
+
+Test 5: Stack clean
+  PASS: Stack clean
+
+Passed: 5/5
+Running ABORT/ABORT" kernel test...
+
+Test 1: ABORT" compiles (word exists)
+  PASS: definition using ABORT" compiles without ?
+
+Test 2: FALSE path is transparent
+  PASS: FALSE path leaves 42
+  PASS: FALSE path prints nothing
+  PASS: stack clean after FALSE path (DEPTH = 0)
+
+Test 3: TRUE path fires
+  PASS: TRUE path prints the message
+  PASS: TRUE path does NOT run the rest of the definition
+  PASS: interpreter alive after abort
+  PASS: stack empty after abort (DEPTH = 0)
+
+Test 4: abort empties a non-empty stack
+  PASS: abort with junk on stack prints message
+  PASS: junk discarded by abort (DEPTH = 0)
+  PASS: interpreter alive after discarding junk
+
+Test 5: abort unwinds nested calls
+  PASS: nested abort prints the message
+  PASS: nested abort skips both callers tails
+  PASS: stack empty after nested abort (DEPTH = 0)
+  PASS: interpreter alive after nested abort
+
+Test 6: bare ABORT
+  PASS: bare ABORT does not wedge the interpreter
+  PASS: bare ABORT empties the stack (DEPTH = 0)
+
+Test 7: compilation state reset
+  PASS: STATE is interpreting after aborts (STATE @ = 0)
+  PASS: can still define after aborts
+  PASS: post-abort definition runs (T-AFTER = 10)
+
+Passed: 20/20
+Populating catalog into build/blocks.img...
+make write-catalog && touch build/.catalog.stamp
+make[1]: Entering directory '/home/bbrown/projects/forthos'
+python3 tools/write-catalog.py build/blocks.img forth/dict/ \
+        --raw VBR-TEMPLATE=build/vbr.bin
+  Lint OK: ahci.fth (57 BASE note(s))
+  Lint OK: arm64-asm.fth (27 BASE note(s))
+  Lint OK: asm-vocab.fth (20 BASE note(s))
+  Lint OK: atapi-ahci.fth (32 BASE note(s))
+  Lint OK: audio.fth (27 BASE note(s))
+  Lint OK: auto-detect.fth (15 BASE note(s))
+  Lint OK: cab-extract.fth (27 BASE note(s))
+  Lint OK: catalog-resolver.fth (26 BASE note(s))
+  Lint OK: cd-atapi.fth
+  Lint OK: deflate.fth (23 BASE note(s))
+  Lint OK: dict_system.fth
+  Lint OK: disasm.fth (6 BASE note(s))
+  Lint OK: disk-survey-form.fth
+  Lint OK: echoport.fth (2 BASE note(s))
+  Lint OK: editor.fth (32 BASE note(s))
+  Lint OK: fat32.fth (25 BASE note(s))
+  Lint OK: file-browser-form.fth (4 BASE note(s))
+  Lint OK: file-browser.fth (11 BASE note(s))
+  Lint OK: file-editor-core.fth (72 BASE note(s))
+  Lint OK: file-editor-disk.fth (3 BASE note(s))
+  Lint OK: file-stream.fth
+  Lint OK: graphics.fth
+  Lint OK: gui-harvest.fth
+  Lint OK: hardware.fth (15 BASE note(s))
+  Lint OK: hello-app.fth
+  Lint OK: hello-form.fth (4 BASE note(s))
+  Lint OK: install.fth
+  Lint OK: meta-compiler.fth (3 BASE note(s))
+  Lint OK: mirror.fth (32 BASE note(s))
+  Lint OK: msi-reader.fth (28 BASE note(s))
+  Lint OK: ne2000.fth (4 BASE note(s))
+  Lint OK: net-dict.fth (14 BASE note(s))
+  Lint OK: notepad-form.fth (4 BASE note(s))
+  Lint OK: notepad.fth
+  Lint OK: ntfs.fth (33 BASE note(s))
+  Lint OK: pci-enum.fth (12 BASE note(s))
+  Lint OK: pit-timer.fth
+  Lint OK: port-mapper.fth (22 BASE note(s))
+  Lint OK: port-monitor-form.fth
+  Lint OK: port-monitor.fth
+  Lint OK: ps2-keyboard.fth (3 BASE note(s))
+  Lint OK: ps2-mouse.fth
+  Lint OK: rtl8139.fth (10 BASE note(s))
+  Lint OK: rtl8168.fth (42 BASE note(s))
+  Lint OK: serial-16550.fth (3 BASE note(s))
+  Lint OK: settings-dash.fth
+  Lint OK: settings-form.fth (4 BASE note(s))
+  Lint OK: settings.fth (21 BASE note(s))
+  Lint OK: shutdown.fth (40 BASE note(s))
+  Lint OK: stub-dispatch.fth
+  Lint OK: surveyor-deep.fth (18 BASE note(s))
+  Lint OK: surveyor-detail.fth (4 BASE note(s))
+  Lint OK: surveyor.fth (26 BASE note(s))
+  Lint OK: target-arm64.fth (77 BASE note(s))
+  Lint OK: target-cortex-m.fth (40 BASE note(s))
+  Lint OK: target-x86.fth (212 BASE note(s))
+  Lint OK: thumb2-asm.fth (40 BASE note(s))
+  Lint OK: ui-core.fth (7 BASE note(s))
+  Lint OK: ui-events.fth (1 BASE note(s))
+  Lint OK: ui-parser.fth (1 BASE note(s))
+  Lint OK: vga-graphics.fth (2 BASE note(s))
+  Lint OK: video.fth (7 BASE note(s))
+  Lint OK: x86-asm.fth (57 BASE note(s))
+  Lint OK: zip-reader.fth (9 BASE note(s))
+Vocabulary Catalog written to build/blocks.img
+  Block 0: (reserved)
+  Block 1: VOCAB-CATALOG (1/5)
+  Block 2: VOCAB-CATALOG (2/5)
+  Block 3: VOCAB-CATALOG (3/5)
+  Block 4: VOCAB-CATALOG (4/5)
+  Block 5: VOCAB-CATALOG (5/5)
+  Blocks 6-45: AHCI (ahci.fth, 40 blocks)
+  Blocks 46-78: ARM64-ASM (arm64-asm.fth, 33 blocks)
+  Blocks 79-95: ASM-VOCAB (asm-vocab.fth, 17 blocks)
+  Blocks 96-117: ATAPI-AHCI (atapi-ahci.fth, 22 blocks)
+  Blocks 118-146: AUDIO (audio.fth, 29 blocks)
+  Blocks 147-161: AUTO-DETECT (auto-detect.fth, 15 blocks)
+  Blocks 162-181: CAB-EXTRACT (cab-extract.fth, 20 blocks)
+  Blocks 192-207: (reserved: settings, SET-BLK=199)
+  Blocks 208-230: CATALOG-RESOLVER (catalog-resolver.fth, 23 blocks)
+  Blocks 231-236: CD-ATAPI (cd-atapi.fth, 6 blocks)
+  Blocks 237-263: DEFLATE (deflate.fth, 27 blocks)
+  Blocks 264-292: DICT-SYSTEM (dict_system.fth, 29 blocks)
+  Blocks 293-344: DISASM (disasm.fth, 52 blocks)
+  Blocks 345-346: DISK-SURVEY-FORM (disk-survey-form.fth, 2 blocks)
+  Blocks 347-361: ECHOPORT (echoport.fth, 15 blocks)
+  Blocks 362-385: EDITOR (editor.fth, 24 blocks)
+  Blocks 386-414: FAT32 (fat32.fth, 29 blocks)
+  Blocks 415-419: FILE-BROWSER-FORM (file-browser-form.fth, 5 blocks)
+  Blocks 420-455: FILE-BROWSER (file-browser.fth, 36 blocks)
+  Blocks 456-497: FILE-EDITOR (file-editor-core.fth, 42 blocks)
+  Blocks 498-501: FILE-EDITOR-DISK (file-editor-disk.fth, 4 blocks)
+  Blocks 502-520: FILE-STREAM (file-stream.fth, 19 blocks)
+  Blocks 521-536: GRAPHICS (graphics.fth, 16 blocks)
+  Blocks 537-549: GUI-HARVEST (gui-harvest.fth, 13 blocks)
+  Blocks 550-561: HARDWARE (hardware.fth, 12 blocks)
+  Blocks 562-569: HELLO-APP (hello-app.fth, 8 blocks)
+  Blocks 570-574: HELLO-FORM (hello-form.fth, 5 blocks)
+  Blocks 575-653: INSTALL (install.fth, 79 blocks)
+  Blocks 654-680: META-COMPILER (meta-compiler.fth, 27 blocks)
+  Blocks 681-700: MIRROR (mirror.fth, 20 blocks)
+  Blocks 701-722: MSI-READER (msi-reader.fth, 22 blocks)
+  Blocks 723-744: NE2000 (ne2000.fth, 22 blocks)
+  Blocks 745-759: NET-DICT (net-dict.fth, 15 blocks)
+  Blocks 760-766: NOTEPAD-FORM (notepad-form.fth, 7 blocks)
+  Blocks 767-779: NOTEPAD (notepad.fth, 13 blocks)
+  Blocks 780-835: NTFS (ntfs.fth, 56 blocks)
+  Blocks 836-852: PCI-ENUM (pci-enum.fth, 17 blocks)
+  Blocks 853-857: PIT-TIMER (pit-timer.fth, 5 blocks)
+  Blocks 858-874: PORT-MAPPER (port-mapper.fth, 17 blocks)
+  Blocks 875-876: PORT-MONITOR-FORM (port-monitor-form.fth, 2 blocks)
+  Blocks 877-897: PORT-MONITOR (port-monitor.fth, 21 blocks)
+  Blocks 898-911: PS2-KEYBOARD (ps2-keyboard.fth, 14 blocks)
+  Blocks 912-918: PS2-MOUSE (ps2-mouse.fth, 7 blocks)
+  Blocks 919-937: RTL8139 (rtl8139.fth, 19 blocks)
+  Blocks 938-971: RTL8168 (rtl8168.fth, 34 blocks)
+  Blocks 972-983: SERIAL-16550 (serial-16550.fth, 12 blocks)
+  Blocks 984-989: SETTINGS-DASH (settings-dash.fth, 6 blocks)
+  Blocks 990-995: SETTINGS-FORM (settings-form.fth, 6 blocks)
+  Blocks 996-1021: SETTINGS (settings.fth, 26 blocks)
+  Blocks 1022-1033: SHUTDOWN (shutdown.fth, 12 blocks)
+  Blocks 1034-1040: STUB-DISPATCH (stub-dispatch.fth, 7 blocks)
+  Blocks 1041-1057: SURVEYOR-DEEP (surveyor-deep.fth, 17 blocks)
+  Blocks 1058-1078: SURVEYOR-DETAIL (surveyor-detail.fth, 21 blocks)
+  Blocks 1079-1150: SURVEYOR (surveyor.fth, 72 blocks)
+  Blocks 1151-1305: TARGET-ARM64 (target-arm64.fth, 155 blocks)
+  Blocks 1306-1431: TARGET-CORTEX-M (target-cortex-m.fth, 126 blocks)
+  Blocks 1432-1549: TARGET-X86 (target-x86.fth, 118 blocks)
+  Blocks 1550-1584: THUMB2-ASM (thumb2-asm.fth, 35 blocks)
+  Blocks 1585-1616: UI-CORE (ui-core.fth, 32 blocks)
+  Blocks 1617-1631: UI-EVENTS (ui-events.fth, 15 blocks)
+  Blocks 1632-1646: UI-PARSER (ui-parser.fth, 15 blocks)
+  Blocks 1647-1655: VGA-GRAPHICS (vga-graphics.fth, 9 blocks)
+  Blocks 1656-1671: VIDEO (video.fth, 16 blocks)
+  Blocks 1672-1695: X86-ASM (x86-asm.fth, 24 blocks)
+  Blocks 1696-1711: ZIP-READER (zip-reader.fth, 16 blocks)
+  Block 1712: VBR-TEMPLATE (RAW 512 bytes from vbr.bin, zero-filled to 1024)
+  Total: 1713 blocks used
+make[1]: Leaving directory '/home/bbrown/projects/forthos'
+cat build/bmforth.img build/blocks.img > build/combined.img
+Combined image: build/combined.img
+  Kernel: 115200 bytes (LBA 0-224)
+  Blocks: 2097152 bytes (LBA 225+)
+  Total:  2212352 bytes
+Running INSTALL allowlist test...
+input sha256 52ea8373cf2ab6cabef422ac931ebbba53c28c1ba8bb08692523622f21dcd373  harness
+input sha256 d213eac50689d7e4f7f4c486bb9630b02c635605d1a984935d070f9d3890f8de  install.fth
+input sha256 21a7bc327de24d869e803e9c567091ecb20e676c77ed370d3a11f90724f62c53  combined.img
+input sha256 4798ac22c3ee8d7b53aabe728e07fe72e6e82ce1b604d04d7428864a80d724ef  vbr.bin
+input sha256 29b6d3713c9aa2bf2838b364f6c9f461c3897a17e4d4500ca70c57f1cb85df4b  boot.bin
+  PASS: all declared inputs readable
+
+Test 1: INSTALL loads and is usable
+  PASS: LOAD-VOCAB INSTALL succeeds
+  PASS: interpreter alive after LOAD-VOCAB
+  PASS: USING INSTALL succeeds
+  PASS: interpreter alive after load
+  PASS: load left the stack clean (DEPTH = 0)
+  PASS: FS-SLOT = -1 at load (Bug #33 sentinel) (FS-SLOT @ = -1)
+
+Test 2: no raw absolute writer is nameable in INSTALL
+  PASS: WORDS lists SAFE-WRITE
+  PASS: WORDS lists GPT-WRITE
+  PASS: WORDS lists ADD-PARTITION
+  PASS: WORDS lists ADD-BOOT-ENTRY
+  PASS: WORDS does not list AHCI-WRITE (corroboration)
+  PASS: AHCI-WRITE not nameable (DEF? AHCI-WRITE = 0)
+  PASS: ATA-WRITE-SECTOR not nameable (DEF? ATA-WRITE-SECTOR = 0)
+  PASS: SECTOR-WRITE not nameable (DEF? SECTOR-WRITE = 0)
+  PASS: LBA-WRITE not nameable (DEF? LBA-WRITE = 0)
+  PASS: RAW-WRITE not nameable (DEF? RAW-WRITE = 0)
+  PASS: DEF? resolves SAFE-WRITE (control)
+  PASS: DEF? nonsense word gives 0 (probe sanity) (DEF? ZZZ-NEVER-DEFINED = 0)
+  PASS: stack clean after nameability probes (DEPTH = 0)
+
+Test 3: refuses by default -- unconfigured and unbound
+  PASS: witness armed (W-LBA @ = -999999)
+  PASS: OWN-BASE defaults to 0 (OWN-BASE @ = 0)
+  PASS: OWN-LEN defaults to 0 (OWN-LEN @ = 0)
+  PASS: SEC-WRITE-VEC defaults to unbound (SEC-WRITE-VEC @ = 0)
+  PASS: OWN-EXTENT? false for LBA 0 (0 OWN-EXTENT? = 0)
+  PASS: OWN-EXTENT? false for a plausible LBA (2048 OWN-EXTENT? = 0)
+  PASS: unconfigured SAFE-WRITE: prints a refusal
+  PASS: unconfigured SAFE-WRITE: writer never ran (W-LBA @ = -999999)
+  PASS: unconfigured SAFE-WRITE: stack emptied (DEPTH = 0)
+
+Test 4: extent declared, writer still unbound
+  PASS: OWN-BASE set (OWN-BASE @ = 2048)
+  PASS: in-extent LBA now allowed by OWN-EXTENT? (2048 OWN-EXTENT? 0= = 0)
+  PASS: unbound SAFE-WRITE: prints a refusal
+  PASS: unbound SAFE-WRITE: writer never ran (W-LBA @ = -999999)
+  PASS: unbound SAFE-WRITE: stack emptied (DEPTH = 0)
+
+Test 5: BIND-WRITER stores an xt, not a FIND flag
+  PASS: TW is nameable
+  PASS: BIND-WRITER stored the xt of TW, not 1 or -1 (SEC-WRITE-VEC @ = 440724)
+
+Test 6: round-trip through the vector
+  PASS: in-extent SAFE-WRITE completes without refusing
+  PASS: writer received the LBA (W-LBA @ = 2050)
+  PASS: writer received count 1 (W-CNT @ = 1)
+  PASS: pattern round-tripped through the vector (W-VAL @ = 305419896)
+  PASS: SAFE-WRITE consumed both arguments (DEPTH = 0)
+  PASS: interpreter alive after a permitted write
+
+Test 7: extent boundaries
+  PASS: first LBA of extent allowed (2048 OWN-EXTENT? = -1)
+  PASS: last LBA of extent allowed (2111 OWN-EXTENT? = -1)
+  PASS: one below base refused (2047 OWN-EXTENT? = 0)
+  PASS: one past end refused (2112 OWN-EXTENT? = 0)
+  PASS: LBA 0 refused (0 OWN-EXTENT? = 0)
+  PASS: below base: prints a refusal
+  PASS: below base: writer never ran (W-LBA @ = -999999)
+  PASS: below base: stack emptied (DEPTH = 0)
+  PASS: past end: prints a refusal
+  PASS: past end: writer never ran (W-LBA @ = -999999)
+  PASS: past end: stack emptied (DEPTH = 0)
+  PASS: LBA 0 -- the host boot sector: prints a refusal
+  PASS: LBA 0 -- the host boot sector: writer never ran (W-LBA @ = -999999)
+  PASS: LBA 0 -- the host boot sector: stack emptied (DEPTH = 0)
+
+Test 8: bit-31 LBA refused, not wrapped
+  PASS: OWN-EXTENT? refuses 0x80000000
+  PASS: SAFE-WRITE refuses 0x80000000
+  PASS: writer never ran for 0x80000000 (W-LBA @ = -999999)
+  PASS: stack emptied (DEPTH = 0)
+
+Test 9: a failing write is not a successful one
+  PASS: failing writer aborts with a message
+  PASS: the failing writer really did run (W-LBA @ = 2050)
+  PASS: abort emptied the stack (DEPTH = 0)
+  PASS: interpreter alive after a failed write
+
+Test 10: BIND-WRITER on an absent name is not an error
+  PASS: absent name does not print an error
+  PASS: vector unchanged by a failed bind (SEC-WRITE-VEC @ = 440724)
+  PASS: failed bind left the stack clean (DEPTH = 0)
+  PASS: interpreter alive after a failed bind
+
+Test 11: FREE-EXTENT refuses when MAP-TRUSTED? is false
+  PASS: MAP-TRUSTED? is false (MAP-TRUSTED? = 0)
+  PASS: FREE-EXTENT refuses (untrusted map) (100 FREE-EXTENT = 0)
+  PASS: OWN-BASE unchanged (OWN-BASE @ = 2048)
+  PASS: alive after untrusted map
+
+Test 12: FREE-EXTENT refuses with no reader bound
+  PASS: FREE-EXTENT refuses (no reader) (100 FREE-EXTENT = 0)
+  PASS: OWN-BASE unchanged (no reader) (OWN-BASE @ = 0)
+  PASS: alive after no reader
+
+Test 13: FREE-EXTENT finds gap in empty map
+  PASS: FREE-EXTENT succeeds (empty map) (100 FREE-EXTENT = -1)
+  PASS: OWN-BASE = MIN-LBA (34) (OWN-BASE @ = 34)
+  PASS: OWN-LEN = 100 (OWN-LEN @ = 100)
+  PASS: alive after empty map
+
+Test 14: FREE-EXTENT finds gap between partitions
+  PASS: FREE-EXTENT succeeds (gap between) (2100 FREE-EXTENT = -1)
+  PASS: OWN-BASE = 10240 (after P0) (OWN-BASE @ = 10240)
+  PASS: OWN-LEN = 2100 (OWN-LEN @ = 2100)
+  PASS: alive after gap find
+
+Test 15: FREE-EXTENT lands in pre-P0 gap when small
+  PASS: FREE-EXTENT succeeds (pre-P0 gap) (100 FREE-EXTENT = -1)
+  PASS: OWN-BASE = 34 (pre-P0 gap) (OWN-BASE @ = 34)
+  PASS: OWN-LEN = 100 (OWN-LEN @ = 100)
+  PASS: alive after pre-P0 gap
+
+Test 16: FREE-EXTENT refuses when no gap fits
+  PASS: FREE-EXTENT refuses (no room) (100 FREE-EXTENT = 0)
+  PASS: OWN-BASE unchanged (no room) (OWN-BASE @ = 0)
+  PASS: alive after no room
+
+Test 17: FREE-EXTENT refuses non-empty readback
+  PASS: FREE-EXTENT refuses (non-empty) (10 FREE-EXTENT = 0)
+  PASS: OWN-BASE unchanged (non-empty) (OWN-BASE @ = 0)
+  PASS: alive after non-empty readback
+
+Test 18: FREE-EXTENT refuses zero or negative request
+  PASS: FREE-EXTENT refuses 0 sectors (0 FREE-EXTENT = 0)
+  PASS: FREE-EXTENT refuses -1 sectors (-1 FREE-EXTENT = 0)
+  PASS: OWN-BASE unchanged (OWN-BASE @ = 0)
+  PASS: alive after zero/negative
+  PASS: TRS defined without error
+
+Test 19: slot geometry is exact
+  PASS: SLOT-LBA 0 (0 SLOT-LBA = 2)
+  PASS: SLOT-LBA 3 still sector 2 (3 SLOT-LBA = 2)
+  PASS: SLOT-LBA 4 crosses to sector 3 (4 SLOT-LBA = 3)
+  PASS: SLOT-LBA 127 is the last sector (127 SLOT-LBA = 33)
+  PASS: SLOT-OFF 0 (0 SLOT-OFF = 0)
+  PASS: SLOT-OFF 1 (1 SLOT-OFF = 128)
+  PASS: SLOT-OFF 3 is the last entry in a sector (3 SLOT-OFF = 384)
+  PASS: SLOT-OFF 4 wraps to 0 (4 SLOT-OFF = 0)
+  PASS: SLOT-OFF 127 (127 SLOT-OFF = 384)
+  PASS: last entry ends at the sector boundary (127 SLOT-OFF 128 + = 512)
+
+Test 20: SLOT-FREE? tests all 128 bytes, not just the GUID
+  PASS: zeroed slot 0 is free (0 SLOT-FREE? = -1)
+  PASS: zeroed slot 3 is free (3 SLOT-FREE? = -1)
+  PASS: first byte set makes slot 0 occupied (0 SLOT-FREE? = 0)
+  PASS: LAST dword set makes slot 0 occupied (0 SLOT-FREE? = 0)
+  PASS: the neighbouring slot is untouched (1 SLOT-FREE? = -1)
+  PASS: slot 1 occupied does not leak into slot 0 (0 SLOT-FREE? = -1)
+  PASS: slot 1 reads occupied (1 SLOT-FREE? = 0)
+  PASS: alive after SLOT-FREE? probes
+
+Test 21: FREE-SLOT refuses with no reader bound
+  PASS: FREE-SLOT refuses (no reader) (FREE-SLOT = 0)
+  PASS: FS-SLOT untouched (no reader) (FS-SLOT @ = -777777)
+  PASS: stack clean (no reader) (DEPTH = 0)
+  PASS: alive after no reader
+
+Test 22: FREE-SLOT refuses with no buffer set
+  PASS: FREE-SLOT refuses (null buffer) (FREE-SLOT = 0)
+  PASS: FS-SLOT untouched (null buffer) (FS-SLOT @ = -777777)
+  PASS: alive after null buffer
+
+Test 23: empty entry array yields slot 0
+  PASS: FREE-SLOT succeeds (empty array) (FREE-SLOT = -1)
+  PASS: FS-SLOT = 0 (FS-SLOT @ = 0)
+  PASS: stack clean (empty array) (DEPTH = 0)
+  PASS: alive after empty array
+
+Test 24: first N occupied yields slot N
+  PASS: 1 occupied -> FREE-SLOT succeeds (FREE-SLOT = -1)
+  PASS: 1 occupied -> FS-SLOT = 1 (FS-SLOT @ = 1)
+  PASS: 2 occupied -> FREE-SLOT succeeds (FREE-SLOT = -1)
+  PASS: 2 occupied -> FS-SLOT = 2 (FS-SLOT @ = 2)
+  PASS: 4 occupied -> FREE-SLOT succeeds (FREE-SLOT = -1)
+  PASS: 4 occupied -> FS-SLOT = 4 (FS-SLOT @ = 4)
+  PASS: 5 occupied -> FREE-SLOT succeeds (FREE-SLOT = -1)
+  PASS: 5 occupied -> FS-SLOT = 5 (FS-SLOT @ = 5)
+  PASS: 127 occupied -> FREE-SLOT succeeds (FREE-SLOT = -1)
+  PASS: 127 occupied -> FS-SLOT = 127 (FS-SLOT @ = 127)
+  PASS: alive after occupied-prefix scans
+
+Test 25: a full entry array refuses
+  PASS: FREE-SLOT refuses (array full) (FREE-SLOT = 0)
+  PASS: FS-SLOT untouched (array full) (FS-SLOT @ = -777777)
+  PASS: stack clean (array full) (DEPTH = 0)
+  PASS: alive after full array
+
+Test 26: a mid-scan read error refuses
+  PASS: control: no error -> slot 8 (FREE-SLOT = -1)
+  PASS: control: FS-SLOT = 8 (FS-SLOT @ = 8)
+  PASS: read error at LBA 4 -> refuses (FREE-SLOT = 0)
+  PASS: FS-SLOT untouched (read error) (FS-SLOT @ = -777777)
+  PASS: stack clean (read error) (DEPTH = 0)
+  PASS: alive after mid-scan read error
+  PASS: read error at LBA 2 -> refuses (FREE-SLOT = 0)
+  PASS: FS-SLOT untouched (first-sector error) (FS-SLOT @ = -777777)
+  PASS: alive after first-sector read error
+
+Test 27: GPT-CRC32 known-answer vector
+  PASS: GPT-CRC32("123456789") = CBF43926
+  PASS: GPT-CRC32 of empty input is 0
+  PASS: alive after CRC probes
+  PASS: TRH defined without error
+
+Test 28: GPT-ARM refuses on every precondition
+  PASS: refuses with no reader (GPT-ARM = 0)
+  PASS: permit disarmed (no reader) (GW-ARMED @ = 0)
+  PASS: refuses with no buffer (GPT-ARM = 0)
+  PASS: refuses negative FS-SLOT (GPT-ARM = 0)
+  PASS: refuses FS-SLOT past the last slot (GPT-ARM = 0)
+  PASS: refuses a bad signature (GPT-ARM = 0)
+  PASS: refuses a header read error (GPT-ARM = 0)
+  PASS: permit disarmed after every refusal (GW-ARMED @ = 0)
+  PASS: GW-BHDR left zero, not half-populated (GW-BHDR @ = 0)
+  PASS: GW-ENT left zero (GW-ENT @ = 0)
+  PASS: alive after arm refusals
+
+Test 29: GPT-ARM reads AlternateLBA (+0x20), not FirstUsableLBA (+0x28)
+  PASS: GPT-ARM succeeds on a valid header (GPT-ARM = -1)
+  PASS: permit is armed (GW-ARMED @ = -1)
+  PASS: GW-BHDR = AlternateLBA, NOT FirstUsableLBA (GW-BHDR @ = 1048575)
+  PASS: GW-BHDR is not the +0x28 decoy value (GW-BHDR @ 2048 = = 0)
+  PASS: GW-HDR = 1 (GW-HDR @ = 1)
+  PASS: GW-ENT = SLOT-LBA of the chosen slot (GW-ENT @ = 3)
+  PASS: GW-BENT mirrors GW-ENT at the disk end (GW-BENT @ = 1048544)
+  PASS: GW-HDR distinct from GW-ENT (GW-HDR @ GW-ENT @ = = 0)
+  PASS: GW-ENT distinct from GW-BENT (GW-ENT @ GW-BENT @ = = 0)
+  PASS: GW-BENT distinct from GW-BHDR (GW-BENT @ GW-BHDR @ = = 0)
+  PASS: GW-HDR distinct from GW-BHDR (GW-HDR @ GW-BHDR @ = = 0)
+  PASS: alive after a successful arm
+
+Test 30: the horizon bites at claim time
+  PASS: refuses AlternateLBA with a nonzero high cell (GPT-ARM = 0)
+  PASS: disarmed (high cell) (GW-ARMED @ = 0)
+  PASS: refuses AlternateLBA past the horizon (bit 31) (GPT-ARM = 0)
+  PASS: disarmed (bit 31) (GW-ARMED @ = 0)
+  PASS: refuses when the backup array would overlap the primary (GPT-ARM = 0)
+  PASS: control: 66 puts the backup array base at MIN-LBA (GPT-ARM = -1)
+  PASS: control: GW-BENT = base 34 + our slot sector (GW-BENT @ = 35)
+  PASS: alive after horizon checks
+
+Test 31: GPT-PERMIT? admits exactly four LBAs
+  PASS: re-arm for permit tests (GPT-ARM = -1)
+  PASS: permits the primary header (1 GPT-PERMIT? = -1)
+  PASS: permits our entry sector (3 GPT-PERMIT? = -1)
+  PASS: permits the backup entry sector (1048544 GPT-PERMIT? = -1)
+  PASS: permits the backup header (1048575 GPT-PERMIT? = -1)
+  PASS: REFUSES LBA 0, the protective MBR (0 GPT-PERMIT? = 0)
+  PASS: refuses entry sector 2 (another slot) (2 GPT-PERMIT? = 0)
+  PASS: refuses entry sector 33 (another slot) (33 GPT-PERMIT? = 0)
+  PASS: refuses MIN-LBA (34 GPT-PERMIT? = 0)
+  PASS: refuses 0 (below the header) (0 GPT-PERMIT? = 0)
+  PASS: refuses 2 (below our entry sector) (2 GPT-PERMIT? = 0)
+  PASS: refuses 4 (above our entry sector) (4 GPT-PERMIT? = 0)
+  PASS: refuses 1048543 (below backup entry) (1048543 GPT-PERMIT? = 0)
+  PASS: refuses 1048545 (above backup entry) (1048545 GPT-PERMIT? = 0)
+  PASS: refuses 1048574 (below the backup header) (1048574 GPT-PERMIT? = 0)
+  PASS: refuses 1048576 (above the backup header) (1048576 GPT-PERMIT? = 0)
+  PASS: unarmed refuses the primary header (1 GPT-PERMIT? = 0)
+  PASS: unarmed refuses the backup header (1048575 GPT-PERMIT? = 0)
+  PASS: unarmed refuses LBA 0 (0 GPT-PERMIT? = 0)
+  PASS: unarmed permit leaves the stack clean (DEPTH = 0)
+  PASS: alive after permit membership
+
+Test 32: GPT-WRITE honours the permit
+  PASS: unarmed GPT-WRITE refuses
+  PASS: unarmed: writer never ran (W-LBA @ = -999999)
+  PASS: arm for write tests (GPT-ARM = -1)
+  PASS: GPT-WRITE refuses LBA 0
+  PASS: LBA 0: writer never ran (W-LBA @ = -999999)
+  PASS: LBA 0: stack emptied (DEPTH = 0)
+  PASS: GPT-WRITE refuses another slot's entry sector
+  PASS: other sector: writer never ran (W-LBA @ = -999999)
+  PASS: GPT-WRITE permits the primary header
+  PASS: primary header: writer received LBA 1 (W-LBA @ = 1)
+  PASS: primary header: count 1 (W-CNT @ = 1)
+  PASS: primary header: buffer round-tripped (W-VAL @ = 305419896)
+  PASS: GPT-WRITE permits the our entry sector
+  PASS: our entry sector: writer received LBA 3 (W-LBA @ = 3)
+  PASS: our entry sector: count 1 (W-CNT @ = 1)
+  PASS: our entry sector: buffer round-tripped (W-VAL @ = 305419896)
+  PASS: GPT-WRITE permits the backup entry sector
+  PASS: backup entry sector: writer received LBA 1048544 (W-LBA @ = 1048544)
+  PASS: backup entry sector: count 1 (W-CNT @ = 1)
+  PASS: backup entry sector: buffer round-tripped (W-VAL @ = 305419896)
+  PASS: GPT-WRITE permits the backup header
+  PASS: backup header: writer received LBA 1048575 (W-LBA @ = 1048575)
+  PASS: backup header: count 1 (W-CNT @ = 1)
+  PASS: backup header: buffer round-tripped (W-VAL @ = 305419896)
+  PASS: a failing GPT write aborts
+  PASS: the failing writer really ran (W-LBA @ = 1)
+  PASS: abort emptied the stack (DEPTH = 0)
+  PASS: alive after GPT-WRITE tests
+
+Test 33: streaming CRC split-boundary
+  PASS: streaming CRC split-boundary = CBF43926
+  PASS: alive after split-boundary CRC
+  PASS: WC-FIND defined
+  PASS: WC-STORE defined
+  PASS: TWA defined
+  PASS: FILL-HDR defined
+  PASS: FILL-ENTS defined
+  PASS: stack clean after FILL-ENTS (DEPTH = 0)
+  PASS: TRA defined
+  PASS: arm for ADD-PARTITION (GPT-ARM = -1)
+  PASS: alive after fixture setup
+  PASS: TEST-ENT populated
+
+Test 34: ADD-PARTITION refuses when unarmed
+  PASS: refuses unarmed (TEST-ENT ADD-PARTITION = 0)
+  PASS: writer never ran (unarmed) (W-LBA @ = -999999)
+  PASS: stack clean (unarmed) (DEPTH = 0)
+  PASS: alive after unarmed refuse
+
+Test 35: ADD-PARTITION refuses with null entry
+  PASS: re-arm (GPT-ARM = -1)
+  PASS: refuses null entry (0 ADD-PARTITION = 0)
+  PASS: writer never ran (null) (W-LBA @ = -999999)
+  PASS: alive after null entry
+
+Test 36: ADD-PARTITION succeeds end-to-end
+  PASS: re-arm for e2e (GPT-ARM = -1)
+  PASS: stack clean before ADD-PARTITION (DEPTH = 0)
+  PASS: ADD-PARTITION returns nonzero (success)
+  PASS: stack clean after ADD-PARTITION (DEPTH = 0)
+  PASS: alive after ADD-PARTITION
+
+Test 37: entry sector written correctly
+  PASS: slot type GUID[0] correct (RD-BUF-ADDR @ 128 + @ = 286331153)
+  PASS: slot unique GUID[0] correct (RD-BUF-ADDR @ 144 + @ = 572662306)
+  PASS: slot start LBA correct (RD-BUF-ADDR @ 160 + @ = 2048)
+  PASS: slot end LBA correct (RD-BUF-ADDR @ 168 + @ = 4095)
+  PASS: neighbour slot 0 intact (RD-BUF-ADDR @ @ = -1583242847)
+  PASS: neighbour slot 0 last dword intact (RD-BUF-ADDR @ 124 + @ = -1583242847)
+  PASS: neighbour slot 2 intact (RD-BUF-ADDR @ 256 + @ = -1010580541)
+  PASS: neighbour slot 3 intact (RD-BUF-ADDR @ 384 + @ = -724249388)
+  PASS: alive after entry verify
+
+Test 38: backup entry sector is byte-identical
+  PASS: backup entry sector byte-identical to primary
+  PASS: alive after backup compare
+
+Test 39: header CRCs valid by readback
+  PASS: CHK-HDR defined
+  PASS: primary header CRC valid
+  PASS: backup header CRC valid
+  PASS: alive after header CRC checks
+
+Test 40: ADD-PARTITION refuses diverged backup array
+  PASS: re-arm for diverged test (GPT-ARM = -1)
+  PASS: ADD-PARTITION refuses diverged backup
+  PASS: alive after diverged test
+
+Test 41: ADD-PARTITION refuses bad HeaderSize
+  PASS: re-arm (bad hsiz) (GPT-ARM = -1)
+  PASS: refuses HeaderSize 0
+  PASS: re-arm (hsiz 1024) (GPT-ARM = -1)
+  PASS: refuses HeaderSize 1024
+  PASS: alive after HeaderSize tests
+
+Test 42: ABE-READY? control-then-one-variable
+  PASS: control: probe passes (ABE-READY? = -1)
+  PASS: refuses: reader unbound (ABE-READY? = 0)
+  PASS: refuses: no buffer (ABE-READY? = 0)
+  PASS: refuses: no memdisk source (ABE-READY? = 0)
+  PASS: refuses: read flag=1 (ABE-READY? = 0)
+  PASS: stack clean after probe matrix (DEPTH = 0)
+  PASS: alive after probe matrix
+
+Test 43: G1-R0 -- fail-open double-zero must error
+  PASS: capture refuses on flag=1 (LBA0-BASELINE = 0)
+  PASS: no trusted baseline stored (LBA0-OK? @ = 0)
+  PASS: compare refuses, not identical (LBA0-SAME? = 0)
+  PASS: broken gate WOULD pass (red) (NCMP = -1)
+  PASS: real gate still refuses (LBA0-SAME? = 0)
+  PASS: control: capture passes (LBA0-BASELINE = -1)
+  PASS: control: baseline trusted (LBA0-OK? @ = -1)
+  PASS: control: compare identical (LBA0-SAME? = -1)
+  PASS: stack clean after G1-R0 (DEPTH = 0)
+  PASS: alive after G1-R0
+
+Test 44: G1-R1 -- comparator detects one byte
+  PASS: pre-poke: identical (LBA0-SAME? = -1)
+  PASS: one byte poked: MISMATCH (LBA0-SAME? = 0)
+  PASS: restored: identical again (LBA0-SAME? = -1)
+  PASS: stack clean after G1-R1 (DEPTH = 0)
+  PASS: alive after G1-R1
+
+Test 45: G1-R2 -- captured baseline is real, not zero
+  PASS: baseline byte 510 is 0x55 (LBA0-SAVE 510 + C@ = 85)
+  PASS: baseline byte 511 is 0xAA (LBA0-SAVE 511 + C@ = 170)
+  PASS: baseline interior nonzero (LBA0-SAVE 440 + C@ = 238)
+  PASS: stack clean after G1-R2 (DEPTH = 0)
+  PASS: MEM-BASE restored (MEM-BASE @ MS-SAVE @ = = -1)
+  PASS: alive after step-0 suite
+
+Test 46: G5-R3 -- the bake fired (sentinel de-alias)
+  PASS: exactly one sentinel DAP in assembled vbr.bin
+  PASS: VBR-LBA-OFF matches assembled vbr.bin (VBR-LBA-OFF = 375)
+  PASS: unpatched image still reads the sentinel (VBR-IMG VBR-LBA-OFF + @ VBR-SENTINEL = = -1)
+  PASS: broken nonzero-check WOULD pass (red) (VBR-IMG VBR-LBA-OFF + @ 0= 0= = -1)
+  PASS: real gate refuses the unpatched image (VBR-BAKED? = 0)
+  PASS: BUILD-VBR succeeds (BUILD-VBR = -1)
+  PASS: baked field = OWN-BASE + KERNEL-OFFSET (VBR-IMG VBR-LBA-OFF + @ = 2049)
+  PASS: baked field is not the sentinel (VBR-IMG VBR-LBA-OFF + @ VBR-SENTINEL = = 0)
+  PASS: gate passes on the baked image (VBR-BAKED? = -1)
+  PASS: template still holds the sentinel (VBR-FIX VBR-LBA-OFF + @ VBR-SENTINEL = = -1)
+  PASS: refuses: no template (BUILD-VBR = 0)
+  PASS: refuses: extent not claimed (BUILD-VBR = 0)
+  PASS: refusals left the built image untouched (VBR-IMG VBR-LBA-OFF + @ = 2049)
+  PASS: stack clean after G5-R3 (DEPTH = 0)
+  PASS: alive after G5-R3
+
+Test 46b: proven loader frozen; loader DAPs disjoint
+  PASS: boot.bin: exactly one dd-1 DAP (proven loader intact)
+  PASS: boot.bin: DAP LBA still at frozen offset 467
+  PASS: boot.bin: zero sentinel DAPs
+  PASS: vbr.bin: zero dd-1 DAPs
+
+Test 47: G5-R4 -- built image is chainloadable (55 AA)
+  PASS: control: rebuild passes (BUILD-VBR = -1)
+  PASS: byte 510 is 0x55 (VBR-IMG 510 + C@ = 85)
+  PASS: byte 511 is 0xAA (VBR-IMG 511 + C@ = 170)
+  PASS: gate passes on the signed image (VBR-SIGNED? = -1)
+  PASS: unsigned image: gate refuses (VBR-SIGNED? = 0)
+  PASS: restored: gate passes again (VBR-SIGNED? = -1)
+  PASS: refuses: unsigned template (BUILD-VBR = 0)
+  PASS: control: signed template builds again (BUILD-VBR = -1)
+  PASS: stack clean after G5-R4 (DEPTH = 0)
+  PASS: alive after G5-R4
+
+Test 48: step 1 -- kernel fits the claimed extent
+  PASS: kernel.bin is whole sectors
+  PASS: KERNEL-SECTORS matches build/kernel.bin (KERNEL-SECTORS = 224)
+  PASS: exactly sufficient extent fits (ABE-FITS? = -1)
+  PASS: one sector short refuses (ABE-FITS? = 0)
+  PASS: unclaimed extent refuses (ABE-FITS? = 0)
+  PASS: stack clean after step-1 checks (DEPTH = 0)
+  PASS: alive after step-1 checks
+
+Test 49: G2 -- ESP sampled tripwire, red-first
+  PASS: control: baseline captures (ESP-BASELINE = -1)
+  PASS: control: samples identical (ESP-SAME? = -1)
+  PASS: sample 0 is the first sector
+  PASS: sample 1 is the last sector
+  PASS: interior samples inside the extent
+  PASS: samples reproducible (2 ESP-SAMPLE = 136)
+  PASS: poked sampled sector: MISMATCH (ESP-SAME? = 0)
+  PASS: restored: identical again (ESP-SAME? = -1)
+  PASS: unsampled poke passes (tripwire, by design) (ESP-SAME? = -1)
+  PASS: capture refuses on flag=1 (ESP-BASELINE = 0)
+  PASS: no trusted baseline stored (ESP-OK? @ = 0)
+  PASS: compare refuses, not identical (ESP-SAME? = 0)
+  PASS: refuses: ESP undeclared (ESP-BASELINE = 0)
+  PASS: refuses: ESP too small to sample (ESP-BASELINE = 0)
+  PASS: re-arm baseline for later tests (ESP-BASELINE = -1)
+  PASS: stack clean after G2 (DEPTH = 0)
+  PASS: alive after G2
+
+Test 50: G3 -- GPT CRC tripwire, red-first
+  PASS: control: baseline captures (GPT-BASELINE = -1)
+  PASS: control: sum stable (GPT-SAME? = -1)
+  PASS: poked entry sector: MISMATCH (GPT-SAME? = 0)
+  PASS: restored: identical again (GPT-SAME? = -1)
+  PASS: poked header sector: MISMATCH (GPT-SAME? = 0)
+  PASS: capture refuses on flag=1 (GPT-BASELINE = 0)
+  PASS: no trusted baseline stored (GPT-OK? @ = 0)
+  PASS: compare refuses, not identical (GPT-SAME? = 0)
+  PASS: re-arm baseline (GPT-BASELINE = -1)
+  PASS: stack clean after G3 (DEPTH = 0)
+  PASS: alive after G3
+
+Test 51: ADD-BOOT-ENTRY whole-word matrix
+  PASS: interior samples derivable
+  PASS: control: whole word returns -1
+  PASS: control: 225 writes (224 kernel + VBR) (O-CNT @ = 225)
+  PASS: control: VBR slot has the bake (O-WBUF VBR-LBA-OFF + @ = 2049)
+  PASS: control: VBR slot signed 55 (O-WBUF 510 + C@ = 85)
+  PASS: control: VBR slot signed AA (O-WBUF 511 + C@ = 170)
+  PASS: control: kernel slot matches source (O-WBUF 512 + C@ = 0)
+  PASS: stack clean after control (DEPTH = 0)
+  PASS: refuses: reader unbound (ADD-BOOT-ENTRY = 0)
+  PASS: refusal wrote nothing (O-CNT @ = 0)
+  PASS: refuses: extent too small (ADD-BOOT-ENTRY = 0)
+  PASS: small extent wrote nothing (O-CNT @ = 0)
+  PASS: refusals left OWN-BASE alone (OWN-BASE @ = 2048)
+  PASS: mid-write fault aborts loudly
+  PASS: alive after abort
+  PASS: writes stopped at the fault (O-CNT @ = 52)
+  PASS: VBR never written in this run (O-WBUF 510 + C@ = 0)
+  PASS: host untouched: G1 still -1 (LBA0-SAME? = -1)
+  PASS: host untouched: G2 still -1 (ESP-SAME? = -1)
+  PASS: host untouched: G3 still -1 (GPT-SAME? = -1)
+  PASS: stack clean after abort row (DEPTH = 0)
+  PASS: G1-live poke: returns 0
+  PASS: all writes had completed (O-CNT @ = 225)
+  PASS: G5-live poke: returns 0
+  PASS: control again after the matrix
+  PASS: stack clean after matrix (DEPTH = 0)
+  PASS: alive after matrix
+
+Test 52: canonical GUID constants (frozen 2026-08-05)
+  PASS: FOS-TG0 (FOS-TG0 = 1308695844)
+  PASS: FOS-TG1 (FOS-TG1 = 1172872736)
+  PASS: FOS-TG2 (FOS-TG2 = -343586372)
+  PASS: FOS-TG3 (FOS-TG3 = 847627796)
+  PASS: FOS-UG0 (FOS-UG0 = 851075323)
+  PASS: FOS-UG1 (FOS-UG1 = 1296844104)
+  PASS: FOS-UG2 (FOS-UG2 = -2131019356)
+  PASS: FOS-UG3 (FOS-UG3 = 824924110)
+  PASS: stack clean after constants (DEPTH = 0)
+
+Test 53: GUID-ABSENT? (scan discipline)
+  PASS: G6R defined
+  PASS: clean map: absent (GUID-ABSENT? = -1)
+  PASS: dup in slot 127: refuses (GUID-ABSENT? = 0)
+  PASS: fail-open read: refuses (GUID-ABSENT? = 0)
+  PASS: unbound reader: refuses (GUID-ABSENT? = 0)
+  PASS: stack clean after scan tests (DEPTH = 0)
+
+Test 54: MAKE-OWN-ENT composer
+  PASS: refuses unclaimed extent (MAKE-OWN-ENT = 0)
+  PASS: refuses when dup present (MAKE-OWN-ENT = 0)
+  PASS: composes on clean map (nonzero entry)
+  PASS: type cell 0 (MAKE-OWN-ENT @ = 1308695844)
+  PASS: type cell 3 (MAKE-OWN-ENT 12 + @ = 847627796)
+  PASS: uniq cell 0 (MAKE-OWN-ENT 16 + @ = 851075323)
+  PASS: uniq cell 3 (MAKE-OWN-ENT 28 + @ = 824924110)
+  PASS: start LBA lo (MAKE-OWN-ENT 32 + @ = 534528)
+  PASS: start LBA hi (MAKE-OWN-ENT 36 + @ = 0)
+  PASS: end LBA lo (MAKE-OWN-ENT 40 + @ = 534752)
+  PASS: end LBA hi (MAKE-OWN-ENT 44 + @ = 0)
+  PASS: name[0]=F (MAKE-OWN-ENT 56 + 0 + C@ = 70)
+  PASS: name[1]=O (MAKE-OWN-ENT 56 + 2 + C@ = 79)
+  PASS: name[2]=R (MAKE-OWN-ENT 56 + 4 + C@ = 82)
+  PASS: name[3]=T (MAKE-OWN-ENT 56 + 6 + C@ = 84)
+  PASS: name[4]=H (MAKE-OWN-ENT 56 + 8 + C@ = 72)
+  PASS: name[5]=O (MAKE-OWN-ENT 56 + 10 + C@ = 79)
+  PASS: name[6]=S (MAKE-OWN-ENT 56 + 12 + C@ = 83)
+  PASS: name terminator (MAKE-OWN-ENT 70 + C@ = 0)
+  PASS: attrs zero (MAKE-OWN-ENT 48 + @ = 0)
+  PASS: stack clean after composer (DEPTH = 0)
+
+Test 55: GPT-ARM refuses when FS-SLOT = -1 (sentinel)
+  PASS: GPT-ARM refuses sentinel FS-SLOT (GPT-ARM = 0)
+  PASS: permit fully disarmed (GW-ARMED @ = 0)
+  PASS: stack clean (DEPTH = 0)
+  PASS: alive after sentinel GPT-ARM
+
+Test 56: FREE-SLOT consistency gate
+  PASS: gate: all-free + survey N>0 -> refuses (FREE-SLOT = 0)
+  PASS: FS-SLOT untouched (gate refusal) (FS-SLOT @ = -777777)
+  PASS: stack clean (gate refusal) (DEPTH = 0)
+  PASS: alive after gate refusal
+  PASS: gate: all-free + survey empty -> succeeds (FREE-SLOT = -1)
+  PASS: FS-SLOT = 0 (empty disk) (FS-SLOT @ = 0)
+  PASS: stack clean (empty disk) (DEPTH = 0)
+  PASS: alive after empty disk
+  PASS: gate: untrusted survey -> refuses (FREE-SLOT = 0)
+  PASS: FS-SLOT untouched (untrusted) (FS-SLOT @ = -777777)
+  PASS: stack clean (untrusted) (DEPTH = 0)
+  PASS: alive after untrusted survey refusal
+
+Passed: 454/454
+Running VBR variant boot smoke...
+input sha256 b18e3cf953c96919ce6440a597d47774d0831ea79eaebd89a6e449accc4e607a  harness
+input sha256 4798ac22c3ee8d7b53aabe728e07fe72e6e82ce1b604d04d7428864a80d724ef  vbr.bin
+input sha256 f35d246f4797168cfba186a44af8d90e3f0de78703e9ca625ab1cfc950c7934d  kernel.bin
+input sha256 492c79814d10c182c29e4731b0a86a3feab5c04932f288d998be7db8cd44b053  bmforth.img
+  PASS: all declared inputs readable
+
+VBR smoke 1: baked variant boots the kernel
+  PASS: kernel reached ok prompt
+  PASS: interpreter alive (7 6 * = 42)
+
+VBR smoke 2: UNBAKED template dies loudly (sentinel)
+  PASS: DISK ERR on VGA (halted screen, via monitor)
+  PASS: variant banner on VGA (right loader ran)
+  PASS: unbaked never reaches ok (gated on smoke 1 seeing ok)
+
+Passed: 6/6
+Running GRUB cfg gates...
+input sha256 3e60967738516cb00a5d3806466322e00ea98a42903e7ac90b7e126fc4cbf1fb  harness
+input sha256 60331d58239701ff6834f5add173cb120e850f56a42702140ca31f37c21e1479  gen-grub-cfg
+input sha256 d213eac50689d7e4f7f4c486bb9630b02c635605d1a984935d070f9d3890f8de  install.fth
+input sha256 a23a811fce223cd09f45c64614f795666698b4bc3f71641484a2d2fdd10e7cfb  grub.cfg
+  PASS: all declared inputs readable
+Test 1: converter pin (independent-authority text forms)
+  PASS: type GUID text
+  PASS: uniq GUID text (lowercase, matches GRUB probe output)
+Test 2: install.fth scan
+  PASS: scan finds the four FOS-UG cells
+Test 3: scan fatality (zero and multiple hits)
+  PASS: zero hits fatal
+  PASS: duplicate hit fatal
+Test 4: drift gate (committed == generated)
+  PASS: generator exits 0
+  PASS: committed grub.cfg matches generator byte-for-byte
+Test 5: frozen shape pins
+  PASS: exactly two menuentries
+  PASS: entry 0 is memdisk
+  PASS: entry 1 is chainload
+  PASS: timeout=5
+  PASS: default=0
+  PASS: probe comparison with canonical GUID
+  PASS: no line continuations anywhere
+  PASS: insmod biosdisk explicit
+  PASS: insmod part_gpt explicit
+  PASS: insmod probe explicit
+  PASS: insmod regexp explicit
+  PASS: insmod chain explicit
+  PASS: chainloader +1 appears exactly once
+  PASS: chainloader only inside found-guard
+  PASS: no-match echo is distinctive
+Test 6: --override-guid (leg C producer, never a hand edit)
+  PASS: override exits 0
+  PASS: override guid present
+  PASS: canonical guid absent under override
+  PASS: override changes ONLY the comparison line
+Test 7: grub-script-check syntax validation
+  PASS: grub-script-check passes (SYNTAX ONLY, not bootability -- leg A is the bootability gate)
+
+Passed: 28/28
+Running doc drift gates...
+Gate A: chainload menuentry copies in prose
+  PASS: authority: menuentry found in tools/pxe/grub.cfg
+  PASS: docs/TASK_INSTALL_BOOT_ENTRY.md:646 carries exactly one marker
+  PASS: docs/TASK_INSTALL_BOOT_ENTRY.md:646 SUPERSEDED really differs
+  PASS: docs/TASK_INSTALL_BOOT_ENTRY.md:667 carries exactly one marker
+  PASS: docs/TASK_INSTALL_BOOT_ENTRY.md:667 SHIPPED-VERBATIM matches grub.cfg
+  PASS: docs/superpowers/specs/2026-08-05-g6-chain-design.md:208 carries exactly one marker
+  PASS: docs/superpowers/specs/2026-08-05-g6-chain-design.md:208 SUPERSEDED really differs
+  PASS: docs/superpowers/specs/2026-08-05-g6-chain-design.md:225 carries exactly one marker
+  PASS: docs/superpowers/specs/2026-08-05-g6-chain-design.md:225 SHIPPED-VERBATIM matches grub.cfg
+  PASS: gate A found at least one doc copy to check
+  PASS: docs/TASK_INSTALL_BOOT_ENTRY.md: every menuentry block terminated
+  PASS: docs/superpowers/specs/2026-08-05-g6-chain-design.md: every menuentry block terminated
+
+Gate B: RUNBOOK-G6.md 3e vs the green harness
+  PASS: exemption states a reason
+  PASS: exempt line carries exactly one call
+  PASS: exemption states a reason
+  PASS: exempt line carries exactly one call
+  PASS: exemption states a reason
+  PASS: exempt line carries exactly one call
+  PASS: exemption states a reason
+  PASS: exempt line carries exactly one call
+  PASS: exemption states a reason
+  PASS: exempt line carries exactly one call
+  PASS: exemption states a reason
+  PASS: exempt line carries exactly one call
+  PASS: harness carries RUNBOOK-3E markers
+  PASS: runbook 3e forth block located
+  PASS: gate B has a non-empty sequence to compare
+  PASS: gate B parsed every call in the region
+  PASS: all 17 typed steps agree, in order
+  PASS: F1: GPT-ARM precedes MAKE-OWN-ENT
+  PASS: F1: MAKE-OWN-ENT probes a COPY of its flag
+  PASS: F1: no bare -1 sanity line
+
+Gate B-3a: RUNBOOK-G6.md 3a vs the green harness
+  PASS: exemption states a reason
+  PASS: exempt line carries exactly one call
+  PASS: exemption states a reason
+  PASS: exempt line carries exactly one call
+  PASS: exemption states a reason
+  PASS: exempt line carries exactly one call
+  PASS: exemption states a reason
+  PASS: exempt line carries exactly one call
+  PASS: exemption states a reason
+  PASS: exempt line carries exactly one call
+  PASS: exemption states a reason
+  PASS: exempt line carries exactly one call
+  PASS: exemption states a reason
+  PASS: exempt line carries exactly one call
+  PASS: exemption states a reason
+  PASS: exempt line carries exactly one call
+  PASS: harness carries RUNBOOK-3A markers
+  PASS: runbook 3a forth block located
+  PASS: gate B-3a has a non-empty sequence to compare
+  PASS: gate B-3a parsed every call in the region
+  PASS: all 6 typed steps agree, in order
+  PASS: BASE: first typed line is DECIMAL-prefixed THRU
+  PASS: THRU precedes AHCI-INIT (order kept as typed)
+  PASS: DOVOC trap: ALSO SURVEYOR precedes USING INSTALL
+
+Passed: 56/56
+Staged build/tftp:
+  memdisk:   /usr/lib/syslinux/memdisk
+  forth.img: 2e1b7ef9b806fea4cc2429a78a3a44d0
+  manifest:  fe091e06ec897deb53af1d423a23874a
+Running G6 chain harness...
+input sha256 2f8dbb5cecdd4ab30774c87577dc12d5edd7f2ba950d2d98e31039046faaad14  harness
+input sha256 360613d3205f7cc0a0ca902e9fb810ea94b267b5055eedb3de89d8e7dd2a4e67  fixture
+input sha256 60331d58239701ff6834f5add173cb120e850f56a42702140ca31f37c21e1479  gen-grub-cfg
+input sha256 f28bc7d9268f834d4f339b53738128ce4eaef077da216864e723d3f498a0084f  catalog-layout
+input md5 fe091e06ec897deb53af1d423a23874a  tftp-tree
+  PASS: all code inputs readable
+  PASS: port argument supplied (invoke via `make test-g6`)
+G6 chain harness (port 4595)
+==================================================
+
+Stage 0: tree identity (one tree, both consumers)
+  PASS: staged tree exists
+  PASS: staged cfg == committed grub.cfg (drift gate, live)
+  PASS: manifest hash computed (push-grub provenance authority)
+
+Stage 1: fixture
+  PASS: fixture self-verify
+
+Stage 2: phase 1 -- live install (memdisk over GRUB)
+  PASS: GRUB menu up over TFTP
+  PASS: serial connected
+  PASS: memdisk instance alive (7 6 * = 42)
+  PASS: MEMDISK-VAR nonzero on memdisk boot
+  PASS: INSTALL catalog range found
+  PASS: alive after INSTALL THRU
+  PASS: BASE unchanged across AHCI-INIT (entered DECIMAL)
+  PASS: BASE unchanged across AHCI-INIT (entered HEX)
+  PASS: alive after AHCI-INIT
+  PASS: alive after arm
+  PASS: vbr.bin is one sector
+  PASS: ARM-VBR-TPL delivers template (ARM-VBR-TPL = -1)
+  PASS: template byte-sum matches host (TPL-SUM = 38891)
+  PASS: template 55AA low (VBR-RAW 510 + C@ = 85)
+  PASS: template 55AA high (VBR-RAW 511 + C@ = 170)
+  PASS: VBR-TPL armed (VBR-TPL @ VBR-RAW = = -1)
+  PASS: fixture has exactly one ESP
+  PASS: ESP-BASE declared (ESP-BASE @ = 2048)
+  PASS: ESP-LEN declared (ESP-LEN @ = 532480)
+  PASS: LBA0 read flag 0 (0 1 AHCI-READ = 0)
+  PASS: LBA0 55AA low byte (SEC-BUF 510 + C@ = 85)
+  PASS: LBA0 55AA high byte (SEC-BUF 511 + C@ = 170)
+  PARTITION-MAP output (mainline):
+    | === Partitions ===
+    | P1 : FAT32LBA 00000800
+    | P2 : UnknownLBA 00082C00
+    | P3 : UnknownLBA 0008A800
+    | P4 : RecoveryLBA 6E322000
+    | P5 : UnknownLBA 6E522000
+    | 5 partitions found
+    | ok
+  PASS: PARTITION-MAP renders ESP LBA as 8-digit hex
+  PASS: BASE unchanged across PARTITION-MAP (entered DECIMAL)
+  PASS: BASE unchanged across PARTITION-MAP (entered HEX)
+  PARTITION-MAP output (tripwire, entered DECIMAL):
+    | === Partitions ===
+    | P1 : FAT32LBA 00000800
+    | P2 : UnknownLBA 00082C00
+    | P3 : UnknownLBA 0008A800
+    | P4 : RecoveryLBA 6E322000
+    | P5 : UnknownLBA 6E522000
+    | 5 partitions found
+    | ok
+  PARTITION-MAP output (tripwire, entered HEX):
+    | === Partitions ===
+    | P1 : FAT32LBA 00000800
+    | P2 : UnknownLBA 00082C00
+    | P3 : UnknownLBA 0008A800
+    | P4 : RecoveryLBA 6E322000
+    | P5 : UnknownLBA 6E522000
+    | 5 partitions found
+    | ok
+  PASS: survey trusted (MAP-TRUSTED? = -1)
+  PASS: claim 225 sectors (225 FREE-EXTENT = -1)
+  PASS: OWN-BASE probed
+  OWN-BASE = 34
+  PASS: OWN-LEN = 225 (OWN-LEN @ = 225)
+  PASS: slot claimed (FREE-SLOT = -1)
+  PASS: FS-SLOT = 5 (first empty; ESP survives) (FS-SLOT @ = 5)
+  PASS: GPT-ARM (GPT-ARM = -1)
+  PASS: MAKE-OWN-ENT composed (nonzero entry) (MAKE-OWN-ENT DUP 0= 0= = -1)
+  PASS: ADD-PARTITION (ADD-PARTITION = -1)
+  PASS: ADD-BOOT-ENTRY (ADD-BOOT-ENTRY = -1)
+  PASS: stack clean after install (DEPTH = 0)
+
+Stage 3: host asserts (independent of the word gates)
+  PASS: (a) LBA 0 byte-identical to fixture
+  PASS: (b) exactly one GPT slot changed
+  PASS: (b) changed slot was empty in pristine
+  PASS: (c) backup array == primary
+  PASS: (f) type GUID field
+  PASS: (f) unique GUID field
+  PASS: (f) slot start == OWN-BASE
+  PASS: (f) slot end == OWN-BASE+224
+  PASS: (d) vbr.bin sentinel unique
+  PASS: (d) 55AA at 510
+  PASS: (d) baked OWN-BASE+1 at VBR-LBA-OFF
+  PASS: (d) VBR == template except the bake
+  PASS: (e) kernel is 224 sectors exactly
+  PASS: (e) kernel bytes on disk == build/kernel.bin
+
+Stage 4: leg A -- entry 1 chainloads the installed instance
+  PASS: leg A: GRUB menu up over TFTP
+  PASS: leg A: serial connected
+  PASS: leg A: installed instance alive (2 3 + = 5)
+  PASS: leg A: discriminator 0 (chainload, no memdisk) (HEX 28098 @ DECIMAL = 0)
+
+Stage 5: leg B -- timeout falls through to memdisk
+  PASS: leg B: GRUB menu up over TFTP
+  PASS: leg B: serial connected
+  PASS: leg B: memdisk instance alive (2 3 + = 5)
+  PASS: leg B: discriminator nonzero (memdisk boot)
+
+Stage 6: leg C -- wrong GUID: search fails loudly
+  PASS: leg C: scratch cfg carries the all-zeros GUID
+  PASS: leg C: serial attached before GRUB runs
+  PASS: leg C: GRUB menu up over TFTP
+  PASS: leg C: distinctive no-match echo visible (gated on leg A matching)
+  PASS: leg C: serial silent (gated on leg A seeing ok)
+
+Stage 7: leg D -- reverted bake dies in disk_error
+  PASS: leg D: sentinel readback at VBR-LBA-OFF
+  PASS: leg D: copy differs; installed disk VBR still baked
+  PASS: leg D: serial attached before GRUB runs
+  PASS: leg D: GRUB menu up
+  PASS: leg D: DISK ERR on halted screen
+  PASS: leg D: variant banner (right loader ran)
+  PASS: leg D: no ok (gated on leg A seeing ok)
+
+Passed: 76/76
+Running vocabulary tests...
+  test_editor (port 4510)...
+EDITOR blocks: 362-385
+
+Loading EDITOR (362 385 THRU)...
+  THRU response: '362 385 THRU\r\nok'
+
+Test 1: EDITOR vocabulary accessible
+  PASS: USING EDITOR succeeds
+
+Test 2: ED-BLK variable exists
+  ED-BLK @ . => 'DECIMAL ED-BLK @ .\r\n0 ok' (parsed: 0)
+  PASS: ED-BLK is accessible
+
+Test 3: ED-MODE variable exists
+  ED-MODE @ . => 'DECIMAL ED-MODE @ .\r\n0 ok' (parsed: 0)
+  PASS: ED-MODE is accessible
+
+Test 4: Block buffer accessible via ED-BUF
+  ED-BUF => 'HEX 2 ED-BLK ! ED-BUF DECIMAL .\r\n164352 ok' (parsed: 164352)
+  PASS: ED-BUF returns non-zero address
+
+Test 5: ED-SAVE-UNDO works
+  PASS: System responsive after ED-SAVE-UNDO
+
+Test 6: ED-DRAW-LINE works
+  PASS: System responsive after ED-DRAW-LINE
+
+Test 7: Stack is clean
+  .S => '.S\r\n<>ok'
+  PASS: Stack is clean after all tests
+
+Passed: 7/7
+  test_x86_asm (port 4511)...
+X86-ASM blocks: 1672-1695
+
+Loading X86-ASM (1672 1695 THRU)...
+  THRU response: '1672 1695 THRU\r\nok'
+
+Test 1: X86-ASM vocabulary accessible
+  PASS: USING X86-ASM succeeds
+
+Test 2: Target buffer setup
+  T-HERE @ . => 'T-HERE @ DECIMAL .\r\n391412 ok' (parsed: 391412)
+  PASS: T-HERE points to valid address
+
+Test 3: NOP, assembles 0x90
+  NOP byte => 'HEX NOP, T-HERE @ 1- C@ DECIMAL .\r\n144 ok' (parsed: 144)
+  PASS: NOP assembles to 0x90 (144)
+
+Test 4: PUSH %EAX assembles 0x50
+  PUSH EAX byte => 'HEX %EAX PUSH, T-HERE @ 1- C@ DECIMAL .\r\n80 ok' (parsed: 80)
+  PASS: PUSH EAX assembles to 0x50 (80)
+
+Test 5: RET, assembles 0xC3
+  RET byte => 'HEX RET, T-HERE @ 1- C@ DECIMAL .\r\n195 ok' (parsed: 195)
+  PASS: RET assembles to 0xC3 (195)
+
+Test 6: Register constants correct
+  PASS: %EAX = 0
+  PASS: %ESI = 6
+
+Test 7: Stack is clean
+  .S => '.S\r\n<>ok'
+  PASS: Stack is clean after all tests
+
+Passed: 8/8
+  test_driver_vocabs (port 4512)...
+
+Pre-loading PCI-ENUM (836-852 THRU)...
+  PASS: PCI-ENUM loads
+
+PCI-ENUM word tests:
+  PASS: USING PCI-ENUM succeeds
+  PASS: PCI-APORT = CF8
+  PASS: PCI-DPORT = CFC
+  PASS: PCI-COUNT > 0 (QEMU devices found)
+  PASS: PCI-LIST executes without crash
+  PASS: PCI-LIST shows device table
+  PASS: PCI-FIND 8086:1237 (i440FX) found
+  PASS: i440FX at bus 0 dev 0
+
+Loading HARDWARE (550-561 THRU)...
+  PASS: HARDWARE loads without crash
+
+Loading SERIAL-16550 (972-983 THRU)...
+  PASS: SERIAL-16550 loads without crash
+
+Loading PS2-KEYBOARD (898-911 THRU)...
+  PASS: PS2-KEYBOARD loads without crash
+
+Loading PS2-MOUSE (912-918 THRU)...
+  PASS: PS2-MOUSE loads without crash
+
+Loading NE2000 (723-744 THRU)...
+  PASS: NE2000 loads without crash
+
+Loading RTL8139 (919-937 THRU)...
+  PASS: RTL8139 loads without crash
+
+PS2-MOUSE word tests:
+  PASS: USING PS2-MOUSE succeeds
+  PASS: DEFAULT-XMAX = 280h (640d)
+  PASS: DEFAULT-YMAX = 1E0h (480d)
+  PASS: MOUSE-IRQ = C (12d)
+  PASS: MOUSE-X-VAR readable
+  PASS: MOUSE-XY returns two values
+
+NE2000 word tests:
+  PASS: USING NE2000 succeeds
+  PASS: NE-CMD = 0
+  PASS: NE-DATA = 10
+  PASS: NE-RESET = 1F
+  PASS: CMD-STOP = 1
+  PASS: CMD-START = 2
+  PASS: RX-START = 46
+  PASS: TX-START = 40
+  PASS: NE2K-INIT finds NIC via PCI
+  PASS: NE-BASE nonzero (PCI BAR0)
+  PASS: NE2K-MAC. executes
+  PASS: NE2K-STATS shows TX: 0
+
+Final check:
+  PASS: System alive after all loads
+  PASS: Stack clean
+  ORDER: 'ORDER\r\nSearch: 00060498 00060130 00028048 00028048  Compile: 00028048\r\nok'
+
+Passed: 35/35
+  test_disasm (port 4513)...
+DISASM blocks: 293-344
+
+Loading DISASM (293 344 THRU)...
+  PASS: DISASM vocab loads from blocks
+
+Test 2: USING DISASM
+  PASS: USING DISASM succeeds
+
+Test 3: DIS colon definition
+  PASS: DIS SQUARE shows DUP and *
+
+Test 4: DIS constant
+  PASS: DIS TC shows 42
+
+Test 5: DIS variable
+  PASS: DIS TV shows variable info
+
+Test 6: DIS CODE word
+  PASS: DIS DROP shows Code and NEXT
+
+Test 7: DIS vocabulary
+  PASS: DIS TVOC shows Vocabulary
+
+Test 8: >NAME ID.
+  PASS: >NAME ID. prints DUP
+
+Test 9: COLON? predicate
+  PASS: COLON? on SQUARE returns -1
+
+Test 10: CONST? predicate
+  PASS: CONST? on TC returns -1
+
+Test 11: DECOMP with branches
+  PASS: DECOMP BT shows 0BRANCH and BRANCH
+
+Test 12: DIS-X86 on DROP
+  PASS: DIS-X86 on DROP shows NEXT
+
+Test 13: DIS with string
+  PASS: DIS ST shows S" and hello
+
+Test 14: Stack clean
+  PASS: Stack clean after all tests
+
+Passed: 14/14
+  test_port_mapper (port 4514)...
+
+Pre-loading HARDWARE (550-561 THRU)...
+  PASS: HARDWARE loads
+
+Loading PORT-MAPPER (858-874 THRU)...
+  PASS: PORT-MAPPER loads from blocks
+
+PORT-MAPPER word tests:
+  PASS: USING PORT-MAPPER succeeds
+  PASS: PORT? on PIC1 (0x20) returns -1
+  PASS: PORT? on 0x200 executes without crash
+  PASS: PORT. prints port address
+  PASS: PORT-SCAN executes and finds ports
+  PASS: PORT-ID identifies COM1 at 0x3F8
+  PASS: PORT-ID identifies PIC1 at 0x20
+  PASS: PIC-STATUS prints PIC info
+  PASS: CMOS-DUMP executes without crash
+  PASS: PIT-STATUS prints PIT info
+
+Final check:
+  PASS: System alive after all tests
+  PASS: Stack clean
+
+Passed: 14/14
+  test_echoport (port 4515)...
+ECHOPORT tests (embedded vocab):
+  PASS: USING ECHOPORT succeeds
+  PASS: ECHOPORT-ON executes
+  PASS: TRACE-ENABLED = 1 after ON
+  PASS: ECHOPORT-OFF executes
+  PASS: TRACE-ENABLED = 0 after OFF
+  PASS: INB after ON executes
+  PASS: ECHOPORT-COUNT >= 1 after INB
+  PASS: ECHOPORT-DUMP shows INB
+  PASS: ECHOPORT-DUMP shows port 0020
+  PASS: ECHOPORT-SUMMARY shows unique ports
+  PASS: ECHOPORT-CLEAR resets count to 0
+  PASS: ECHOPORT-WATCH traces PIC-STATUS
+
+Final check:
+  PASS: System alive after all tests
+
+Passed: 13/13
+  test_catalog_complete (port 4516)...
+input sha256 f36be89d46b51bbc05c6a6e1bf43546d31d9c0edf206dd346968ccf8103c4e3b  harness
+input sha256 f28bc7d9268f834d4f339b53738128ce4eaef077da216864e723d3f498a0084f  catalog-layout
+input sha256 92229b406baf18c1035d43eefbfa3a1f80cd3af01bf0a3a5161b55a9a0884dfb  catalog-resolver.fth
+input sha256 fb57de0d95affd32f9956d7c610158fa71a002fc44347b39446435d18281b86c  blocks.img
+input sha256 21a7bc327de24d869e803e9c567091ecb20e676c77ed370d3a11f90724f62c53  combined.img
+  PASS: all declared inputs readable
+
+Host-side enumeration (independent authority)
+  PASS: catalog parses from the built image
+  PASS: catalog has >= 40 entries (no vacuous sweep)
+  65 entries enumerated from build/blocks.img
+  PASS: system alive before sweep
+
+Negative control (CATALOG-FIND must be able to say no)
+  PASS: absent name does not resolve (ZZ-NO-SUCH-VOCAB)
+
+Sweep: CATALOG-FIND every one of 65 entries
+  PASS: every catalog entry resolves
+  PASS: every block-resolved entry matches the catalogued range
+  PASS: block scan still exercised (>= 40 entries resolved via blocks, not the registry)
+  PASS: entries on the LAST catalog block (5) resolve -- 5 entries, incl. ZIP-READER
+  PASS: system alive after sweep
+  PASS: stack clean after sweep
+
+Passed: 11/11
+  test_stub_dispatch (port 4530)...
+
+Loading STUB-DISPATCH (1034-1040 THRU)...
+  PASS: STUB-DISPATCH loads from blocks
+  PASS: USING STUB-DISPATCH succeeds
+
+Stub detection tests:
+  PASS: STUB? on empty word returns TRUE
+  PASS: STUB? on real word returns FALSE
+
+Dispatch routing tests:
+  PASS: ROUTE-ADD increments DISPATCH-COUNT
+  PASS: ROUTE-CALL on stub executes replacement
+  PASS: ROUTE-CALL on non-stub executes directly
+  PASS: ROUTE-DUMP executes without crash
+
+Final check:
+  PASS: System alive after all tests
+  PASS: Stack clean
+
+Passed: 10/10
+  test_ui_core (port 4531)...
+
+Loading UI-CORE (1585-1616 THRU)...
+  PASS: UI-CORE loads from blocks
+  PASS: USING UI-CORE succeeds
+
+Constant tests:
+  PASS: WT-LABEL = 1
+  PASS: WT-BUTTON = 2
+
+VGA tests:
+  PASS: VGA-CLS no crash
+  PASS: CURSOR-AT no crash
+
+Widget table tests:
+  PASS: WT-COUNT starts at 0
+  PASS: ADD-LABEL increments WT-COUNT
+
+Event buffer tests:
+  PASS: EVENT-PUSH + EVENT-POP round trip
+
+Final check:
+  PASS: System alive after all tests
+  PASS: Stack clean
+
+Passed: 11/11
+  test_gui_harvest (port 4532)...
+Loading dependencies...
+  Loading CATALOG-RESOLVER (208-230 THRU)...
+  Loading UI-CORE (1585-1616 THRU)...
+
+Loading GUI-HARVEST...
+  Loading GUI-HARVEST (537-549 THRU)...
+  PASS: GUI-HARVEST loads from blocks
+  PASS: USING GUI-HARVEST succeeds
+
+Widget registry tests:
+  PASS: WIDGET-REGISTER 3 items, count=3
+  PASS: WIDGET-FIND returns non-zero xt
+  PASS: WIDGETS-LIST no crash
+
+Menu bar tests:
+  PASS: MENU-BAR executes without crash
+  PASS: GET-GRAPHICS-ELEMENTS stub runs
+
+Final check:
+  PASS: System alive after all tests
+  PASS: Stack clean
+
+Passed: 9/9
+  test_ui_parser (port 4533)...
+Loading dependencies...
+  Loading CATALOG-RESOLVER (208-230 THRU)...
+  Loading UI-CORE (1585-1616 THRU)...
+
+Loading UI-PARSER...
+  Loading UI-PARSER (1632-1646 THRU)...
+  PASS: UI-PARSER loads from blocks
+  PASS: USING UI-PARSER succeeds
+
+Parser utility tests:
+  PASS: P-INT parses "42"
+  PASS: P-QUOTED extracts content
+
+FORM-LOAD test:
+  PASS: FORM-LOAD completes without crash
+  PASS: WT-COUNT = 8 after FORM-LOAD
+
+Final check:
+  PASS: System alive after all tests
+  PASS: Stack clean
+
+Passed: 8/8
+  test_ui_events (port 4534)...
+Loading dependencies...
+  Loading CATALOG-RESOLVER (208-230 THRU)...
+  Loading UI-CORE (1585-1616 THRU)...
+  Loading UI-PARSER (1632-1646 THRU)...
+
+Loading UI-EVENTS...
+  Loading UI-EVENTS (1617-1631 THRU)...
+  PASS: UI-EVENTS loads from blocks
+  PASS: USING UI-EVENTS succeeds
+
+Render test:
+  PASS: FORM-RENDER on empty table no crash
+
+Event loop test:
+  PASS: FORM-LOAD succeeds
+  PASS: FORM-RENDER with widgets no crash
+  PASS: HANDLE-KEY q sets QUIT-FLAG
+
+Final check:
+  PASS: System alive after all tests
+  PASS: Stack clean
+
+Passed: 8/8
+  test_fe_strip_cr (port 4535)...
+
+Activating FILE-EDITOR...
+  PASS: USING FILE-EDITOR succeeds
+
+Test 1: Basic CRLF stripping
+  PASS: FE-STRIP-CR executes without crash
+  PASS: FE-SIZE = 6 after stripping 2 CRs
+  PASS: Byte 0 = 61 (a)
+  PASS: Byte 1 = 62 (b)
+  PASS: Byte 2 = A (LF)
+  PASS: Byte 3 = 63 (c)
+  PASS: Byte 4 = 64 (d)
+  PASS: Byte 5 = A (LF)
+
+Test 2: Lone CR preserved
+  PASS: FE-SIZE unchanged (lone CR kept)
+
+Test 3: Edge cases
+  PASS: FE-SIZE=0 does not crash
+  PASS: FE-SIZE=1 does not crash
+
+Final check:
+  PASS: System alive after all tests
+  PASS: Stack clean
+
+Passed: 14/14
+Running full integration test...
+EDITOR: blocks 362-385
+X86-ASM: blocks 1672-1695
+
+Test 1: Core Forth baseline
+  PASS: Arithmetic works
+
+Test 2: Load EDITOR
+  PASS: EDITOR loads
+
+Test 3: Load X86-ASM
+  PASS: X86-ASM loads
+
+Test 4: Access each vocabulary
+  PASS: USING EDITOR
+  PASS: USING X86-ASM
+
+Test 5: Words from each vocab work
+  PASS: EDITOR ED-BLK accessible
+  PASS: X86-ASM %EAX = 0
+
+Test 6: Core Forth unaffected
+  PASS: Addition works
+  PASS: Colon def works
+  PASS: VARIABLE works
+  PASS: BEGIN/WHILE/REPEAT works
+  PASS: DO/LOOP works
+
+Test 7: Stack is clean
+  PASS: Stack clean
+
+Passed: 13/13
+=== FILE-STREAM helpers (port 4555) ===
+  PASS: BE-W! high byte 0x12
+  PASS: BE-W! low byte 0x34
+  PASS: BE-W! 0x0001 high=0
+  PASS: BE-W! 0x0001 low=1
+  PASS: BE! byte0=0x12
+  PASS: BE! byte1=0x34
+  PASS: BE! byte2=0x56
+  PASS: BE! byte3=0x78
+  PASS: BE! 0xDE
+  PASS: BE! 0xAD
+  PASS: BE! 0xBE
+  PASS: BE! 0xEF
+  PASS: CRC32 empty=0
+  PASS: CRC32-TABLE[0]=0
+  PASS: CRC32-TABLE[1]=77073096
+  PASS: CRC32 "123456789"
+
+Passed: 16/16
+=== DISK-SURVEY layouts (ports 4600-4605) ===
+DISK-SURVEY placement gate
+==================================================
+
+L1: extent ends (two partitions, gap between)
+  PASS: L1 authored 2 GPT entries
+  PASS: L1 boots and inits AHCI
+  PASS: L1 finds 2 partitions
+  PASS: L1 P1 start (captured today) = 2048
+  PASS: L1 P1 end = 10239
+  PASS: L1 P2 end = 28671
+  PASS: L1 free sectors between P1 and P2 = 10240
+  PASS: L1 MAP-TRUSTED? = -1
+
+L2: entry cap (twelve partitions)
+  PASS: L2 authored 12 GPT entries
+  PASS: L2 boots and inits AHCI
+  PASS: L2 finds 12 partitions
+  PASS: L2 PART-N = 12
+  PASS: L2 P12 start = 24576
+  PASS: L2 P12 end = 26623
+  PASS: L2 MAP-TRUSTED? = -1
+
+L3: high slot (one partition in GPT slot 25)
+  PASS: L3 authored 1 GPT entry
+  PASS: L3 entry sits in slot 24 at LBA 8 (slot 24, LBA 8)
+  PASS: L3 boots and inits AHCI
+  PASS: L3 finds the slot-25 partition
+  PASS: L3 slot-25 start = 2048
+  PASS: L3 slot-25 end = 10239
+  PASS: L3 MAP-TRUSTED? = -1
+
+L4: 64-bit LBA (partition past 2 TiB)
+  PASS: L4 authored 1 GPT entry
+  PASS: L4 start 4999999488 is past 2 TiB (high dword 1)
+  PASS: L4 boots and inits AHCI
+  PASS: L4 MAP-TRUSTED? = 0
+  PASS: L4 prints no truncated start (0x2a05f000 for true 0x12a05f000)
+
+L4b: signed horizon (LBA >= 0x80000000, high dword 0)
+  PASS: L4b authored 1 GPT entry
+  PASS: L4b start 0x90000000 has high dword 0 and bit 31 set
+  PASS: L4b boots and inits AHCI
+  PASS: L4b MAP-TRUSTED? = 0
+  PASS: L4b presents no comparable address
+
+L5: empty map (valid GPT, zero partitions)
+  PASS: L5 authored 0 GPT entries
+  PASS: L5 boots and inits AHCI
+  PASS: L5 reports 0 partitions
+  PASS: L5 prints no phantom partition line
+  PASS: L5 PART-N = 0
+  PASS: L5 MAP-TRUSTED? = -1
+
+Passed: 38/38
+All tests passed!
