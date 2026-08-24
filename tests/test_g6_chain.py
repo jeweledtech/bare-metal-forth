@@ -766,29 +766,43 @@ check('alive after INSTALL THRU',
       val('1 2 +')[0] == 3)  # runbook-exempt: liveness only, blind to THRU content (see above)
 send('USING AHCI', 2)        # embedded vocab, no THRU needed
 send('AHCI-INIT', 5)
-# TRIPWIRE, asserts the KNOWN DEFECT on purpose: AHCI-INIT's
-# success path ends 'DECIMAL . HEX CR' and returns with BASE=16.
-# The root fix (caller-transparent BASE @ ... BASE ! in ahci.fth)
-# is deferred until AFTER iron G6 because it rebuilds
-# combined.img. When that fix lands, THIS goes red -- which is
-# the point: prose deferrals in three stores don't fire; this
-# does, and names the docs to update (this comment block, the
-# runbook's step-1 ⚠ block, the docket's 08-21 entry). The probe
-# CANNOT go through the expect/val helpers: both prefix DECIMAL,
-# overwriting the very state being measured. Raw send, and it
-# must run BEFORE the DECIMAL-prefixed liveness probe below, for
-# the same reason.
-# Side effect, named so nobody assumes it is load-bearing:
-# this probe sets DECIMAL -- the same ACCIDENTAL protection the
-# explicit DECIMAL on the THRU line just removed. Harmless today
-# because nothing downstream depends on it (the THRU carries its
-# own DECIMAL; every expect/val prefixes one), but it is an
-# accident, not a substitute for the driver fix.
-# A red here is NOT a broken suite. DO NOT delete this test to
-# make the suite green: update it to assert BASE *unchanged*
-# across AHCI-INIT, and update the three docs named above.
-raw_base = send('BASE @ DECIMAL .', 2)  # runbook-exempt: pins the known BASE=16 defect; a red here means the deferred ahci.fth fix landed
-check('BASE is 16 after AHCI-INIT (known defect, root fix post-iron)',
+# TRIPWIRE (inverted 2026-08-23, expected RED on the DECIMAL leg
+# until the ahci.fth fix lands): AHCI-INIT must be
+# base-transparent. Until the fix, its success path ended
+# 'DECIMAL . HEX CR' and returned with BASE=16 regardless of the
+# caller's base (measured on iron 2026-08-22; the defect behind
+# the 2026-08-06 INSTALL THRU incident and the OWN-LEN=549
+# install slack). The previous tripwire PINNED the defect
+# (asserted BASE==16) so the fix could not land silently; this
+# version asserts the invariant: BASE *unchanged across* the
+# word, in BOTH directions, so a regression to EITHER a blind
+# HEX or a blind DECIMAL restore is caught. DO NOT weaken to a
+# single direction and DO NOT delete: a word that always
+# returns in the base you happened to test from passes a
+# one-legged probe.
+# Re-running AHCI-INIT for the legs is allocation-free: the DMA
+# buffers -- CL-BUF, FIS-BUF, CT-BUF, SEC-BUF -- are load-time
+# PHYS-ALLOC CONSTANTs in ahci.fth (grep the names); the
+# word itself never calls PHYS-ALLOC. A second call is
+# idempotent enable bits + PORT-STOP/PORT-START re-pointing the
+# port at the SAME buffers -- spec-legal re-init, no leak, and
+# no in-flight I/O to disturb (every command in this driver is
+# synchronous; ISSUE-CMD polls completion). Verified by reading
+# ahci.fth 2026-08-23, not assumed.
+# The probe CANNOT go through the expect/val helpers: both
+# prefix DECIMAL, overwriting the very state being measured.
+# Raw sends only. Note 'BASE @ DECIMAL .' prints the entry base
+# rendered in decimal and leaves BASE=10.
+send('DECIMAL', 1)           # runbook-exempt: tripwire sets its own entry condition; not an operator step
+send('AHCI-INIT', 5)         # runbook-exempt: transparency-probe re-run, never typed by the operator; allocation-free (see evidence above)
+raw_base = send('BASE @ DECIMAL .', 2)  # runbook-exempt: interrogates BASE, which no DECIMAL-prefixed helper can measure
+check('BASE unchanged across AHCI-INIT (entered DECIMAL)',
+      re.findall(r'-?\d+', body_of(raw_base))[-1:] == ['10'],
+      raw_base.strip()[-90:])
+send('HEX', 1)               # runbook-exempt: second tripwire leg entry condition; not an operator step
+send('AHCI-INIT', 5)         # runbook-exempt: transparency-probe re-run, HEX leg (same allocation-free evidence)
+raw_base = send('BASE @ DECIMAL .', 2)  # runbook-exempt: interrogates BASE; leaves BASE=10 for the code below
+check('BASE unchanged across AHCI-INIT (entered HEX)',
       re.findall(r'-?\d+', body_of(raw_base))[-1:] == ['16'],
       raw_base.strip()[-90:])
 check('alive after AHCI-INIT',

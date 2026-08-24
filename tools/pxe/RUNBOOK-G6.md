@@ -346,13 +346,21 @@ Tick each:
 > loop-back case. The typed order is
 > unchanged: this page's only authority is agreeing with the green
 > harness, and the harness keeps the `THRU` first. The root fix —
-> caller-transparent `BASE @ … BASE !` inside `AHCI-INIT` — is
+> caller-transparent save/restore inside `AHCI-INIT` — was
 > deliberately deferred to **after** iron G6: it rebuilds
 > `combined.img`, invalidating the desk card's hash, the pushed
-> TFTP tree, and the QEMU-green commit this session rests on. The
-> deferral is pinned mechanically, not in prose: the harness
-> asserts `BASE is 16 after AHCI-INIT (known defect)` and goes red
-> the day the fix lands.
+> TFTP tree, and the QEMU-green commit that session rested on. The
+> deferral was pinned mechanically, not in prose: the harness
+> asserted `BASE is 16 after AHCI-INIT (known defect)`, to go red
+> the day the fix landed.
+>
+> **Fourth act (2026-08-23): the root fix LANDED.** `AHCI-INIT` is
+> now base-transparent. The §3a `DECIMAL` lines **stay** — the
+> invariant "BASE must be decimal when block numbers are typed" is
+> unconditional and does not lean on one word's manners; they are
+> now belt-and-braces, not the sole defense. Detail:
+> `docs/evidence/base-transparency-item1-2026-08-23.txt`, docket
+> 08-23 entry.
 
 ### 3a. Load and initialise
 
@@ -384,14 +392,16 @@ USING AHCI
 AHCI-INIT
 ALSO SURVEYOR
 USING INSTALL
-DECIMAL                    \ AHCI-INIT left BASE=16; restore it once
+DECIMAL                    \ belt-and-braces: BASE decimal for typed block numbers
 ```
 
 - [ ] **`DECIMAL` opens the `THRU` line and closes the block** —
       arming step 1. Boot base on this (GRUB-memdisk) path is HEX,
-      so a bare range misparses into the metacompiler blocks; and
-      `AHCI-INIT` exits with BASE=16, so the trailing `DECIMAL`
-      restores a sane base for §3b–§3e, which all type numerals.
+      so a bare range misparses into the metacompiler blocks. The
+      trailing `DECIMAL` is belt-and-braces since the 2026-08-23
+      fix (`AHCI-INIT` is now base-transparent — ⚠ fourth act);
+      it stays because §3b–§3e all type numerals and the invariant
+      must not lean on one word's manners.
       Unconditional — do not probe BASE and decide; type it.
 - [ ] **The `THRU` comes BEFORE `AHCI-INIT`** — order kept as
       typed; retired as mechanism (⚠ third act above). The

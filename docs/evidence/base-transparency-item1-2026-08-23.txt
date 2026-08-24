@@ -1,0 +1,72 @@
+Item 1 (G6 closeout): base-transparent AHCI-INIT -- red-first evidence
+Captured 2026-08-23. Full logs copied alongside this file:
+docs/evidence/g6-red-2026-08-23.log,
+docs/evidence/g6-green-2026-08-23.log (excerpts below verbatim).
+
+== RED RUN (inverted tripwire vs unfixed ahci.fth), make test-g6 ==
+  PASS: alive after INSTALL THRU
+  FAIL: BASE unchanged across AHCI-INIT (entered DECIMAL) -- BASE @ DECIMAL .
+16 ok
+  PASS: BASE unchanged across AHCI-INIT (entered HEX)
+  PASS: alive after AHCI-INIT
+Passed: 72/73
+(exit=2. The only failure in the run is the DECIMAL leg: probe
+printed 16, expected 10. HEX leg green against broken code is
+correct semantics -- a word that blindly sets HEX is transparent
+to a HEX caller.)
+
+== BASE-LIAR PROOF (HEX leg proven able to fail) ==
+One-off /tmp/base_liar_proof.py (deleted after run per plan):
+standalone QEMU, build/bmforth.img (right image HERE: proof needs
+only kernel primitives; wrong image for deliverables). Throwaway
+word ending in DECIMAL = blind-DECIMAL mirror of the defect.
+Verdict asserts the POSITIVE value ['10'] so a dead VM cannot
+read as success; liveness positive control asserted first.
+
+1 2 + .
+3 ok
+: BASE-LIAR DECIMAL ;
+ok
+HEX
+ok
+BASE-LIAR
+ok
+probe output: 'BASE @ DECIMAL .\r\n10 ok '
+HEX-leg check (expects ['16']): got ['10'] -> RED for the right reason: leg PROVEN able to fail
+proof exit=0
+
+== GREEN RUN (after ahci.fth fix: stack-carried base save/restore
+   around the port-number print; source is private-tier) ==
+  PASS: BASE unchanged across AHCI-INIT (entered DECIMAL)
+  PASS: BASE unchanged across AHCI-INIT (entered HEX)
+Passed: 73/73
+(exit=0. Headline count for test-g6 moved 72 -> 73 with the
+second tripwire leg; re-derive any headline from a run log.)
+
+== AUDIT (docket 08-21 deferral: words printing HEX-ambient) ==
+ahci.fth in-word BASE mutations: ONLY the fixed site (AHCI-INIT
+print). The other three BASE words in the file are load-time,
+outside any colon definition: the file-opening HEX parse-base
+directive, 'DECIMAL 1024 CONSTANT BLK-SIZE HEX' (constant
+defined in decimal so the literal reads true), and the
+file-closing DECIMAL restore. Hex printers >HEXCH/.H8 are
+arithmetic (RSHIFT/AND), base-independent.
+AHCI-INIT call path (FIND-AHCI, PCI-ENABLE, PCI-BAR@, FIND-PORT,
+PORT-STOP, PORT-START, MS-DELAY/US-DELAY): NO BASE mutations --
+the tripwire's net-effect measurement masks nothing.
+Two MORE sticky-BASE words found outside the path (item-2 audit
+inventory, not fixed in item 1):
+  CALIBRATE-DELAY  hardware.fth:36 (site :57)  -- auto-run at
+    load inside the file's HEX window (harmless there); a direct
+    interactive call returns BASE=16
+  PCI-LIST         pci-enum.fth:238 (site :257-258)
+
+Lazy-reachability check (owed before calling ahci.fth done):
+CALIBRATE-DELAY has exactly TWO references in the tree -- its
+definition and one caller, HARDWARE-INIT, which auto-runs once
+at hardware.fth load. US-DELAY is 'US-LOOPS @ *' plus a bare
+loop; MS-DELAY is '3E8 * US-DELAY'. Neither re-fires
+calibration on first use, so CALIBRATE-DELAY is NOT lazily
+reachable from AHCI-INIT's path and the green tripwire masks
+nothing. (Grep 2026-08-23: definition + HARDWARE-INIT, no
+other callers.)
