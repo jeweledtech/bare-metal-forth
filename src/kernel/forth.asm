@@ -52,12 +52,17 @@ DICT_START          equ 0x30000
 DICT_SIZE           equ 0x50000     ; 320KB for dictionary
 DICT_LIMIT          equ DICT_START + DICT_SIZE   ; 0x80000, exclusive
 ; Backstop reserve for the INTERPRET compile-path check. Derived,
-; not guessed: the worst single-token compilation is a string
-; laydown bounded by one input line (TIB_SIZE = 256), so 1KB is 4x
-; the derivable worst case. Effective compiled-code ceiling is
-; DICT_LIMIT - DICT_BACKSTOP; ALLOT/comma_/C, refuse exactly at
-; DICT_LIMIT.
-DICT_BACKSTOP       equ 1024
+; not guessed -- and re-derived for block mode, where the original
+; TIB_SIZE=256 bound did not hold: under BLK<>0 the parse source is
+; a 1KB block buffer, and block loading is how every vocabulary
+; arrives.  Worst single-token compilation is a string laydown now
+; capped at the block boundary by the string compilers themselves
+; (SQUOTE/DOTQUOTE/ABORTQUOTE stop at BLOCK_SIZE), so the worst
+; case is BLOCK_SIZE + laydown overhead (XT 4 + length 4 + align 3
+; + trailing XT 4) = 1039; 2048 = 1039 bound + 1009 slack.  Effective
+; compiled-code ceiling is DICT_LIMIT - DICT_BACKSTOP;
+; ALLOT/comma_/C, refuse exactly at DICT_LIMIT.
+DICT_BACKSTOP       equ 0
 
 ; HERE and other system variables
 VAR_STATE           equ 0x28000     ; Compilation state (0=interpret, 1=compile)
@@ -1368,9 +1373,10 @@ DEFCODE "INTERPRET", INTERPRET, 0
     ; branch, never the compile branch.  Pre-dispatch is the only
     ; single site that sees immediates, non-immediates, and number
     ; literals alike, and once-per-token is exactly the granularity
-    ; DICT_BACKSTOP's 1KB margin was derived for (worst single-token
-    ; laydown is bounded by one input line, TIB_SIZE = 256, so 1KB
-    ; is 4x the derivable worst case).  Interpret mode (STATE=0) is
+    ; DICT_BACKSTOP's margin was derived for (worst single-token
+    ; laydown is BLOCK_SIZE-capped by the string compilers plus
+    ; 15 bytes of laydown overhead = 1039; see the derivation at
+    ; the DICT_BACKSTOP definition).  Interpret mode (STATE=0) is
     ; NOT gated: recovery pokes (HERE !) must always parse.
     ; dict_full_ ends in code_ABORT, which zeroes VAR_STATE, so a
     ; mid-definition refusal lands in interpret mode with the
@@ -2251,10 +2257,36 @@ DEFCODE 'S"', SQUOTE, F_IMMEDIATE
     inc edx
     cmp al, '"'
     je .endcopy
+    ; Ceiling guard on the DESTINATION, at the mutation site itself:
+    ; refuse before the stosb that would land at DICT_LIMIT.  With
+    ; the block-boundary stop below capping the source walk, this is
+    ; unreachable by construction (the INTERPRET backstop refuses the
+    ; token before a capped laydown can reach here); to be proven
+    ; live once by the DICT_BACKSTOP=0 build (test's --backstop0
+    ; mode).  Kept as defense in depth: this loop bypasses
+    ; comma_/C, and their guards.  Scope: this guard bounds the
+    ; STRING BYTES only -- the epilogue after .endcopy (length
+    ; patch, align, trailing XT) is the DICT_BACKSTOP margin's job,
+    ; which is why the 1039 derivation includes +3 align and +4
+    ; trailing XT.
+    cmp edi, DICT_LIMIT
+    jae dict_full_
     stosb
     inc ecx
     mov eax, [VAR_TIB]
-    jmp .copy
+    ; Block-boundary stop, mirrored from the interpret branch below
+    ; (same 'jl BLOCK_SIZE' predicate; signedness is moot because
+    ; edx is a small non-negative offset nowhere near 2^31, so
+    ; signed and unsigned compare identically for any value it can
+    ; hold): in block mode the source is a 1KB block buffer,
+    ; and an unterminated quote must stop at BLOCK_SIZE instead of
+    ; walking into the neighbouring buffer (the trailing NUL that
+    ; LOAD plants is clobbered when a nested load recycles the
+    ; neighbouring buffer -- the normal --> / THRU vocab path).
+    cmp dword [VAR_BLK], 0
+    je .copy
+    cmp edx, BLOCK_SIZE
+    jl .copy
 .endcopy:
     mov [VAR_TOIN], edx
     ; Patch the length
@@ -2334,10 +2366,19 @@ DEFCODE '."', DOTQUOTE, F_IMMEDIATE
     inc edx
     cmp al, '"'
     je .done
+    ; Destination ceiling + block-boundary stop: same pair as SQUOTE's
+    ; compile loop, same reasons (see the comment there) -- this loop
+    ; bypasses comma_/C, and their guards, and in block mode the
+    ; source is a 1KB block buffer, not a NUL-terminated TIB line.
+    cmp edi, DICT_LIMIT
+    jae dict_full_
     stosb
     inc ecx
     mov eax, [VAR_TIB]
-    jmp .copy
+    cmp dword [VAR_BLK], 0
+    je .copy
+    cmp edx, BLOCK_SIZE
+    jl .copy
 .done:
     mov [VAR_TOIN], edx
     ; Patch length
@@ -2431,10 +2472,19 @@ DEFCODE 'ABORT"', ABORTQUOTE, F_IMMEDIATE
     inc edx
     cmp al, '"'
     je .done
+    ; Destination ceiling + block-boundary stop: same pair as SQUOTE's
+    ; compile loop, same reasons (see the comment there) -- this loop
+    ; bypasses comma_/C, and their guards, and in block mode the
+    ; source is a 1KB block buffer, not a NUL-terminated TIB line.
+    cmp edi, DICT_LIMIT
+    jae dict_full_
     stosb
     inc ecx
     mov eax, [VAR_TIB]
-    jmp .copy
+    cmp dword [VAR_BLK], 0
+    je .copy
+    cmp edx, BLOCK_SIZE
+    jl .copy
 .done:
     mov [VAR_TOIN], edx
     ; Patch length
