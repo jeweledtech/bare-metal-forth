@@ -50,6 +50,14 @@ RETURN_STACK_TOP    equ 0x28000     ; Dedicated region: 0x21E00-0x28000
 ; Dictionary
 DICT_START          equ 0x30000
 DICT_SIZE           equ 0x50000     ; 320KB for dictionary
+DICT_LIMIT          equ DICT_START + DICT_SIZE   ; 0x80000, exclusive
+; Backstop reserve for the INTERPRET compile-path check. Derived,
+; not guessed: the worst single-token compilation is a string
+; laydown bounded by one input line (TIB_SIZE = 256), so 1KB is 4x
+; the derivable worst case. Effective compiled-code ceiling is
+; DICT_LIMIT - DICT_BACKSTOP; ALLOT/comma_/C, refuse exactly at
+; DICT_LIMIT.
+DICT_BACKSTOP       equ 1024
 
 ; HERE and other system variables
 VAR_STATE           equ 0x28000     ; Compilation state (0=interpret, 1=compile)
@@ -1209,13 +1217,67 @@ DEFCODE ",", COMMA, 0       ; ( x -- ) Compile x to dictionary
 DEFCODE "C,", CCOMMA, 0     ; ( c -- ) Compile byte
     pop eax
     mov edi, [VAR_HERE]
+    ; Floor first (defense in depth against a HERE that arrived
+    ; below DICT_START -- C, only advances, so its own arithmetic
+    ; cannot breach the floor), then ceiling; both BEFORE the
+    ; store.
+    cmp edi, DICT_START
+    jb dict_under_
+    cmp edi, DICT_LIMIT - 1 ; byte must land below the exclusive
+    ja dict_full_           ; ceiling
     stosb
     mov [VAR_HERE], edi
     NEXT
 
 DEFCODE "ALLOT", ALLOT, 0   ; ( n -- ) Allocate n bytes
+    ; Refuse-before-mutate, both bounds: the new pointer is
+    ; computed in EDX and only stored if it stays inside
+    ; [DICT_START, DICT_LIMIT] (ceiling exclusive as a store
+    ; target: HERE == DICT_LIMIT means the last reserved byte was
+    ; 0x7FFFF, which is legal).  On refusal HERE is UNCHANGED --
+    ; this is the only unbounded path, and a check after the add
+    ; would leave the pointer out of bounds exactly when it
+    ; matters.
+    ;
+    ; Branch on the SIGN of the request so the refusal message
+    ; attributes the right bound (F1 defect class: a true refusal
+    ; carrying the wrong diagnosis).  A positive request cannot
+    ; wrap (n < 2^31, HERE < 2^20) so only the ceiling applies.
+    ; A negative request can only violate the floor -- but a LARGE
+    ; negative wraps EDX past zero to a huge unsigned value that
+    ; is NOT below DICT_START, so the floor needs BOTH conditions:
+    ; a legal dealloc must land below the old HERE (above = wrap)
+    ; AND at or above DICT_START.
+    ;
+    ; The asymmetry between the branches is not an omission: the
+    ; negative branch's first condition subsumes the ceiling
+    ; (anything above the old HERE is refused, and HERE <=
+    ; DICT_LIMIT by invariant), so adding a ceiling test there
+    ; would be redundant -- and would attach the wrong message.
+    ; Note 'add edx, eax' leaves EAX intact, which is what lets
+    ; 'test eax, eax' read the request afterward; reordering that
+    ; pair breaks the sign dispatch silently.
+    ;
+    ; Both paths assume HERE is in bounds on entry.  Nothing here
+    ; defends against a HERE poked out of range (HERE ! is
+    ; unguarded by design -- direct memory access is the point of
+    ; the system).  Scope: this guard makes ALLOT's arithmetic
+    ; safe, not the pointer it starts from.
     pop eax
-    add [VAR_HERE], eax
+    mov edx, [VAR_HERE]
+    add edx, eax
+    test eax, eax
+    js .neg
+    cmp edx, DICT_LIMIT
+    ja dict_full_
+    jmp .store
+.neg:
+    cmp edx, [VAR_HERE]     ; a legal dealloc lands BELOW here;
+    ja dict_under_          ; above = wrapped past zero
+    cmp edx, DICT_START
+    jb dict_under_          ; below the floor
+.store:
+    mov [VAR_HERE], edx
     NEXT
 
 DEFCODE "CREATE", CREATE, 0
@@ -1296,6 +1358,29 @@ DEFCODE "INTERPRET", INTERPRET, 0
     call word_
     test eax, eax
     jz .end_of_line          ; Empty = end of line, loop back for new prompt
+
+    ; Dictionary-bounds backstop, compile path only.  Placed HERE --
+    ; after word_ succeeds, before the find_/STATE dispatch -- and
+    ; NOT at the compile branch of the dispatch, deliberately: the
+    ; ~40 inline 'add [VAR_HERE], 4' sites this backstop exists to
+    ; cover live in IMMEDIATE words (IF ELSE DO LOOP S" ." ...),
+    ; which EXECUTE even when STATE=1 and so take the execute
+    ; branch, never the compile branch.  Pre-dispatch is the only
+    ; single site that sees immediates, non-immediates, and number
+    ; literals alike, and once-per-token is exactly the granularity
+    ; DICT_BACKSTOP's 1KB margin was derived for (worst single-token
+    ; laydown is bounded by one input line, TIB_SIZE = 256, so 1KB
+    ; is 4x the derivable worst case).  Interpret mode (STATE=0) is
+    ; NOT gated: recovery pokes (HERE !) must always parse.
+    ; dict_full_ ends in code_ABORT, which zeroes VAR_STATE, so a
+    ; mid-definition refusal lands in interpret mode with the
+    ; escape hatch open (see dict_full_'s header for the full
+    ; recovery-scope statement).
+    cmp dword [VAR_STATE], 0
+    je .no_dict_backstop
+    cmp dword [VAR_HERE], DICT_LIMIT - DICT_BACKSTOP
+    ja dict_full_
+.no_dict_backstop:
 
     ; Try to find it in the dictionary
     ; find_ returns: EAX = XT (or 0), ECX = flags+len byte
@@ -4726,11 +4811,68 @@ number_:
     ret
 
 ; ----------------------------------------------------------------------------
+; dict_full_ - shared refusal for the dictionary bounds guards
+;
+; Jump-only target (no ret): code_ABORT resets ESP/EBP and reloads
+; ESI with cold_start, so anything the caller pushed (comma_'s edi,
+; INTERPRET's frame) is discarded with the rest of the aborted
+; state -- same convention as (ABORT").  Note ESP here is the FORTH
+; DATA STACK (DTC convention: ESI=IP, EBP=RP, ESP=SP), so a
+; caller's push and print_string's return address land on the
+; user's data stack; the refusal path deliberately abandons them
+; for code_ABORT's ESP reset to sweep away.  Do NOT "fix" this by
+; popping before the jmp -- there is nothing to balance, the whole
+; stack is about to be discarded.
+;
+; code_ABORT also zeroes VAR_STATE (verified: 'mov dword
+; [VAR_STATE], 0' in its body), which is what makes a refusal
+; recoverable rather than terminal: a mid-definition refusal lands
+; the operator in interpret mode.  Without that clear, a backstop
+; firing on ';' would wedge the machine in compile mode -- the
+; guard would make a full dictionary WORSE.
+;
+; Recovery scope, stated precisely: the choke points (ALLOT,
+; comma_, C,, create_) fire in BOTH modes -- an interpret-mode ','
+; at the ceiling is still refused.  Only the INTERPRET backstop is
+; STATE-gated.  The actual escape hatch is that 'HERE !' is a
+; plain store with no guard on it, so the operator can always move
+; the pointer back down regardless of mode.  A refused
+; interpret-mode ALLOT at a full dictionary is the guard working,
+; not the guard broken.
+; ----------------------------------------------------------------------------
+; Two labels, one tail: each message is true about which bound was
+; hit (F1's cost was a true refusal carrying the wrong leg's
+; message; "DICT FULL" on an underflow is the same defect class).
+; Ceiling violations jump to dict_full_, floor violations to
+; dict_under_; both share dict_refuse_'s print + abort.
+dict_under_:
+    mov esi, dict_under_msg
+    jmp dict_refuse_
+dict_full_:                     ; MUST remain immediately above
+    mov esi, dict_full_msg      ; dict_refuse_ -- fallthrough is
+dict_refuse_:                   ; load-bearing
+    call print_string
+    jmp code_ABORT
+
+dict_full_msg  db 13, 10, "DICT FULL", 13, 10, 0
+dict_under_msg db 13, 10, "DICT UNDERFLOW", 13, 10, 0
+
+; ----------------------------------------------------------------------------
 ; comma_ - Compile cell in EAX to dictionary
 ; ----------------------------------------------------------------------------
 comma_:
     push edi
     mov edi, [VAR_HERE]
+    ; Floor check: comma_ only advances HERE, so its own
+    ; arithmetic cannot breach the floor.  This exists because a
+    ; HERE that ARRIVED below DICT_START (poked, or left there by
+    ; a bug outside the guard) would otherwise be written through
+    ; without complaint -- defense in depth against a corrupt
+    ; pointer, not against this routine's math.
+    cmp edi, DICT_START
+    jb dict_under_
+    cmp edi, DICT_LIMIT - 4     ; cell must fit entirely below the
+    ja dict_full_               ; ceiling; check BEFORE the store
     stosd
     mov [VAR_HERE], edi
     pop edi
@@ -4740,6 +4882,30 @@ comma_:
 ; create_ - Create dictionary header for word in word_buffer
 ; ----------------------------------------------------------------------------
 create_:
+    ; Bounds entry check BEFORE the first store: create_ writes the
+    ; header at HERE first and moves the pointer second, so a check
+    ; after the VAR_HERE update would be a check after the
+    ; corruption.  Margin derivation: worst header is [LINK:4]
+    ; [FLAGS+LEN:1][NAME:<=31][align to 4][CFA:4] = 36 bytes
+    ; aligned + 4 = 40; the guard uses 72 (40 + 32 slack) so the
+    ; defining word that called create_ (COLON, CONSTANT, CREATE)
+    ; has room to lay its own CFA/value cells without a second
+    ; check.  Generous on purpose -- refusing a few dozen bytes
+    ; early costs nothing; a header that half-writes costs a
+    ; corrupted chain.  Placed before the register pushes: reads
+    ; memory only, needs no scratch register, and dict_full_
+    ; discards the stack anyway.
+    cmp dword [VAR_HERE], DICT_LIMIT - 72
+    ja dict_full_
+    ; Floor (same placement discipline: ahead of the first store
+    ; AND the register pushes).  create_ only advances HERE; this
+    ; exists because a header written through a HERE that arrived
+    ; below DICT_START would land in the sysvar/TIB/block-buffer
+    ; region -- defense in depth against a corrupt pointer, not
+    ; against this routine's math.
+    cmp dword [VAR_HERE], DICT_START
+    jb dict_under_
+
     push eax
     push ebx
     push ecx

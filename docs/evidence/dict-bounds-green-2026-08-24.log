@@ -1,0 +1,32 @@
+Running dictionary bounds test...
+input sha256 b83802137a641a4db832ee5faac91d1a6c6f5ed22111e51a86cb03e3e6dc1b62  build/bmforth.img
+
+Test 1: positive controls
+  PASS: interpreter alive at start
+  PASS: STATE probe reads 0 in interpret mode
+  PASS: STATE probe reads 1 in compile mode
+  PASS: HERE plausible (in dict region)
+
+Test 2: small ALLOT round trip (guard must not tax legitimate use)
+  PASS: 8 ALLOT moved HERE by 8
+  PASS: HERE restored
+
+Test 3: overflow ALLOT is refused, before mutation
+  PASS: overflow ALLOT refused with a message
+  PASS: overflow ALLOT left HERE unchanged
+  PASS: interpreter alive after refused ALLOT
+
+Test 4: compile-path backstop fires (the guard covering the ~40 unedited inline sites)
+  PASS: compile-path backstop fired
+  PASS: backstop blocked the definition
+  PASS: interpreter alive after backstop
+  PASS: HERE below ceiling after backstop
+  PASS: STATE cleared by refusal (escape hatch open)
+  PASS: interpret-mode poke lands after refusal
+
+Test 5: recovered -- definitions work again below the ceiling
+  PASS: post-restore definition compiles
+  PASS: post-restore definition runs (BT-REC = 10)
+  PASS: interpreter alive at end
+
+Passed: 18/18

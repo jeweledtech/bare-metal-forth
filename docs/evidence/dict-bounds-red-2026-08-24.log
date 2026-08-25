@@ -1,0 +1,29 @@
+Running dictionary bounds test...
+input sha256 492c79814d10c182c29e4731b0a86a3feab5c04932f288d998be7db8cd44b053  build/bmforth.img
+
+Test 1: positive controls
+  PASS: interpreter alive at start
+  PASS: HERE plausible (in dict region)
+
+Test 2: small ALLOT round trip (guard must not tax legitimate use)
+  PASS: 8 ALLOT moved HERE by 8
+  PASS: HERE restored
+
+Test 3: overflow ALLOT is refused, before mutation
+  FAIL: overflow ALLOT refused with a message -- 'ok'
+  FAIL: overflow ALLOT left HERE unchanged -- before=0x5E1F0 after=528384 (moved = unguarded)
+  PASS: interpreter alive after refused ALLOT
+
+Test 4: compile-path backstop fires (the guard covering the ~40 unedited inline sites)
+  FAIL: compile-path backstop fired -- 'ok'
+  FAIL: backstop blocked the definition -- 'ok'
+  PASS: interpreter alive after backstop
+  PASS: HERE never crossed the ceiling
+
+Test 5: recovered -- definitions work again below the ceiling
+  PASS: post-restore definition compiles
+  PASS: post-restore definition runs (BT-REC = 10)
+  PASS: interpreter alive at end
+
+Passed: 10/14
+make: *** [Makefile:279: test-dict-bounds] Error 1

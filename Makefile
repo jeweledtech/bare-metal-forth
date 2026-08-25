@@ -269,6 +269,18 @@ test-abort: $(ACTIVE_IMAGE)
 	@python3 tests/test_abort.py $$(($(TEST_PORT_BASE)+2)); \
 		STATUS=$$?; pkill -9 -f "[q]emu.*$$(($(TEST_PORT_BASE)+2))" 2>/dev/null; exit $$STATUS
 
+# Dictionary bounds gate (no block storage needed). Kernel-tier:
+# proves HERE cannot silently cross DICT_START+DICT_SIZE, and that
+# interpret mode stays usable as the recovery hatch when it would.
+test-dict-bounds: $(ACTIVE_IMAGE)
+	@echo "Running dictionary bounds test..."
+	@$(QEMU) -drive file=$(ACTIVE_IMAGE),format=raw,if=floppy \
+		-serial tcp::$$(($(TEST_PORT_BASE)+97)),server=on,wait=off \
+		-display none -daemonize
+	@sleep 2
+	@python3 tests/test_dict_bounds.py $$(($(TEST_PORT_BASE)+97)) $(ACTIVE_IMAGE); \
+		STATUS=$$?; pkill -9 -f "[q]emu.*$$(($(TEST_PORT_BASE)+97))" 2>/dev/null; exit $$STATUS
+
 # Run all vocabulary tests (need block storage)
 test-vocabs: $(COMBINED)
 	@cp $(COMBINED) $(COMBINED_IDE)
@@ -602,7 +614,7 @@ test-meta: $(COMBINED)
 	@echo "Metacompiler tests complete!"
 
 # Run all tests (lint first, then functional tests)
-test: lint test-smoke test-loops test-abort test-install test-vbr test-grub-cfg test-doc-drift test-g6 test-vocabs test-gui test-integration test-file-stream test-survey
+test: lint test-smoke test-loops test-abort test-dict-bounds test-install test-vbr test-grub-cfg test-doc-drift test-g6 test-vocabs test-gui test-integration test-file-stream test-survey
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)

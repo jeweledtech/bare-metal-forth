@@ -797,3 +797,31 @@ substitute.
 
 Ports bound by bare-run defaults elsewhere in `tests/`:
 **4590–4594, 4598.** Avoid them.
+
+**pkill self-match trap.** `pkill -9 -f qemu` matches against every
+process's FULL command line — including the shell that is executing
+the pkill, whose own command string contains the word "qemu". The
+shell kills itself before the rest of the line runs, which presents
+as a command that "failed instantly with no output" (observed
+2026-08-24: two phantom failures, both traced to this). Always use
+the bracket form, `pkill -9 -f "[q]emu"` — the pattern `[q]emu`
+matches `qemu` but not its own literal text. The Makefile's
+per-suite cleanups already do this; the trap is hand-typed and
+script-embedded pkills. Related: a `make test` that is orphaned
+rather than killed (e.g. a tool timeout) keeps running invisibly,
+and two concurrent `make test` runs murder each other's QEMUs via
+the per-suite port cleanups.
+
+**The bracket form's limit** (the sharper version of the same
+trap): `[q]emu` only defeats self-match when the target string
+appears NOWHERE ELSE on the invoking command line. A compound
+command that both greps for `make test` and *runs* `make test`
+matches itself on the run clause no matter how the grep pattern is
+bracketed — no regex trick separates them, you need a different
+predicate. Concretely: guard a full run by checking for the thing
+that actually collides (`pgrep -af '[q]emu-system'`, a string that
+appears once), not for the make itself. And put the guard in
+`if/else`, not `&&`/`||` — the chain form lets the abort branch
+exit 0, a fail-open guard that skips the run while reporting
+success (observed as a rejected command 2026-08-25; the same
+defect class as a skip that reads like a pass).
