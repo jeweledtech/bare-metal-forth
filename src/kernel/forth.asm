@@ -62,7 +62,16 @@ DICT_LIMIT          equ DICT_START + DICT_SIZE   ; 0x80000, exclusive
 ; + trailing XT 4) = 1039; 2048 = 1039 bound + 1009 slack.  Effective
 ; compiled-code ceiling is DICT_LIMIT - DICT_BACKSTOP;
 ; ALLOT/comma_/C, refuse exactly at DICT_LIMIT.
-DICT_BACKSTOP       equ 0
+; Overridable ONLY from the build (-DDICT_BACKSTOP=N, see the
+; backstop0 Makefile target): experiment builds are a flag, never a
+; source edit.  A throwaway DICT_BACKSTOP=0 experiment build was
+; committed at 9ae68d5; this guard exists so that cannot recur.
+%ifndef DICT_BACKSTOP
+%define DICT_BACKSTOP (2048)
+%endif
+%if DICT_BACKSTOP == 0
+%warning Dictionary backstop DEFEATED (defined as 0) -- experiment build only
+%endif
 
 ; HERE and other system variables
 VAR_STATE           equ 0x28000     ; Compilation state (0=interpret, 1=compile)
@@ -5582,6 +5591,12 @@ save_here:      dd 0                ; Snapshot: dictionary HERE pointer
 save_latest:    dd 0                ; Snapshot: LATEST word pointer
 
 msg_welcome:    db 'Bare-Metal Forth v0.1 - Ship Builders System', 13, 10
+%if DICT_BACKSTOP == 0
+                ; Defeated-backstop images must announce themselves: an
+                ; unmarked experiment image is how the first backstop0
+                ; run got mistaken for a guard observation.
+                db '*** DICT_BACKSTOP=0 EXPERIMENT BUILD -- DO NOT SHIP ***', 13, 10
+%endif
                 db 'Type WORDS to see available commands', 13, 10, 0
 msg_stack:      db '<', 0
 msg_undefined:  db ' ? ', 13, 10, 0

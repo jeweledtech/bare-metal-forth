@@ -405,6 +405,25 @@ test-network: $(COMBINED)
 	@echo "Running NE2000 network test..."
 	@python3 tests/test_ne2000_network.py $$(($(TEST_PORT_BASE)+40))
 
+# --- Defeated-backstop experiment build ---
+# DICT_BACKSTOP=0 via -D so the in-loop string-laydown guard can be
+# observed firing (tests/test_squote_laydown.py --backstop0).  The
+# override is a build flag, never a source edit: a hand-edited
+# equ 0 got committed at 9ae68d5.  Distinct image name; the kernel
+# banner announces the defeated backstop at boot.
+
+BACKSTOP0_KERNEL = $(BUILD)/kernel-backstop0.bin
+BACKSTOP0_IMAGE = $(BUILD)/bmforth-backstop0.img
+
+$(BACKSTOP0_KERNEL): $(SRC_KERNEL)/forth.asm $(EMBEDDED) | $(BUILD)
+	$(NASM) -f bin -DDICT_BACKSTOP=0 -o $@ $<
+
+$(BACKSTOP0_IMAGE): $(BOOTLOADER) $(BACKSTOP0_KERNEL)
+	cat $(BOOTLOADER) $(BACKSTOP0_KERNEL) > $@
+
+backstop0: $(BACKSTOP0_IMAGE)
+	@echo "Defeated-backstop image: $(BACKSTOP0_IMAGE) ($$(stat -c%s $(BACKSTOP0_IMAGE)) bytes)"
+
 # --- Debug flush targets ---
 
 DEBUG_KERNEL = $(BUILD)/kernel-debug.bin
