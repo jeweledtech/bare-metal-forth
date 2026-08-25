@@ -30,3 +30,15 @@ Test 5: recovered -- definitions work again below the ceiling
   PASS: interpreter alive at end
 
 Passed: 18/18
+
+--- provenance (appended 2026-08-25) ---
+marker: SOURCE-UNRECOVERABLE
+source UNRECOVERABLE: image b8380213...dc1b62 was built from an uncommitted working
+tree (ceiling guard present, floor guard absent), since overwritten by the 2026-08-25
+01:21 floor-guard edits. Checked for recoverable objects: git stash list (one stash,
+pre-guard b4e9816-era) and git fsck dangling commits (2026-03-22, 2026-04-25, both
+pre-guard). No git object holds this source. The result stands as observed; it cannot
+be reproduced. Go-forward rule: every evidence capture records `git rev-parse HEAD`
+(or an anchored snapshot ref -- bare `git stash create` output is gc-bait, anchor it
+with `git stash store` or refs/evidence/*) beside the image hash, plus the
+untracked-EMBED_VOCABS fingerprint.

@@ -38,3 +38,18 @@ Test 5: recovered -- definitions work again below the ceiling
   PASS: interpreter alive at end
 
 Passed: 24/24
+
+--- provenance (appended 2026-08-25) ---
+marker: SOURCE-VERIFIED (rebuilt 2026-08-25, byte-identical)
+source: snapshot commit ecdf1185cf4d273951715902c912f80738e1d1f4
+  (refs/evidence/dict-bounds-floor-green-2026-08-25; = HEAD 79cdbb2 +
+  src/kernel/forth.asm + Makefile + tests/test_dict_bounds.py as-run)
+  + gitignored EMBED_VOCABS (private repo; NOT in the snapshot object,
+  deliberately -- open-core boundary)
+verified: fresh detached worktree of ecdf118 + the 8 gitignored .fth
+  rebuilt build/bmforth.img BYTE-IDENTICAL to this log's input hash
+  964674c7...ff0cfa.
+untracked-inputs fingerprint: sha256 of `sha256sum` over {ahci,rtl8168,
+ntfs,auto-detect,fat32,surveyor,file-editor-disk,file-stream}.fth
+(that order) = a0e391ffef7a5c48dfeec802a4921e51cf75c0cefdb99d5a0f080beb56c645f1
+(unchanged since the 08-24 red capture)

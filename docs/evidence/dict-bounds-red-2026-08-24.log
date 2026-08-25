@@ -27,3 +27,15 @@ Test 5: recovered -- definitions work again below the ceiling
 
 Passed: 10/14
 make: *** [Makefile:279: test-dict-bounds] Error 1
+
+--- provenance (appended 2026-08-25) ---
+marker: SOURCE-VERIFIED (rebuilt 2026-08-25, byte-identical)
+source: commit 79cdbb2 (tracked tree, clean at capture) + gitignored EMBED_VOCABS
+verified 2026-08-25: fresh detached worktree of 79cdbb2 + the gitignored .fth files
+rebuilt build/bmforth.img BYTE-IDENTICAL: sha256 492c7981...44b053 matches this log's
+input hash. Also proves the nasm build is deterministic (no embedded timestamps) and
+that the 8 gitignored embed inputs are unchanged since capture.
+untracked-inputs fingerprint: sha256 of `sha256sum` over {ahci,rtl8168,ntfs,
+auto-detect,fat32,surveyor,file-editor-disk,file-stream}.fth (that order)
+= a0e391ffef7a5c48dfeec802a4921e51cf75c0cefdb99d5a0f080beb56c645f1
+embedded.bin sha256 = 19ee3a3fc60887e8754ad7032533f7dbd9e363212d20297bb989e04aa71cebd7

@@ -33,6 +33,22 @@ Margins, derived not asserted:
     [align][CFA:4] = 40 bytes before alignment; the guard uses 72
     (40 + slack), generous on purpose.
 
+NOT covered by a green here (named so the pass count cannot be read
+as "the dictionary is bounded"; found 2026-08-24, own red-first gate
+owed, one cause / three sites / one commit):
+  - S" / ." / ABORT" compile-mode laydown (forth.asm labels SQUOTE,
+    DOTQUOTE, ABORTQUOTE -- grep the labels, line numbers rot)
+    copies stosb directly to HERE, bypassing comma_/C, and every
+    guard above.  The copy loop stops only on NUL or '"'; SQUOTE's
+    interpret branch has a `cmp edx, BLOCK_SIZE` cap -- the compile
+    branches have none.  (Do not confuse DOTQUOTE, the '."'
+    compiler, with DOSQUOTE, the runtime '(S")' all three compile.)
+  - The backstop's 1KB margin derivation above assumes TIB_SIZE=256;
+    under BLK<>0 the parse source is the 1KB block buffer, so the
+    "4x worst case" claim does not hold in block mode -- and block
+    loading is how every vocabulary arrives.  Margin re-derivation
+    (4x BLOCK_SIZE) belongs to the laydown fix, not this suite.
+
 Residue decision (deliberate, not a side effect): in the GREEN
 state test 4 manufactures exactly the defect class
 ARCHITECTURE-CUSTODIAN.md section 3.3 names -- create_ passes its

@@ -63,6 +63,12 @@ EMBED_VOCABS_FREE = forth/dict/hardware.fth forth/dict/port-mapper.fth forth/dic
 EMBEDDED_FREE = $(BUILD)/embedded-free.bin
 KERNEL_FREE = $(BUILD)/kernel-free.bin
 
+# For tools/evidence-snapshot.sh: make expands its own variable
+# (continuations and all), so no external parser exists to drift.
+.PHONY: print-embed-vocabs
+print-embed-vocabs:
+	@echo $(EMBED_VOCABS)
+
 $(EMBEDDED): $(EMBED_VOCABS) tools/embed-vocabs.py | $(BUILD)
 	python3 tools/embed-vocabs.py $@ $(EMBED_VOCABS)
 

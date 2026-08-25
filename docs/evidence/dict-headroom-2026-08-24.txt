@@ -1,0 +1,47 @@
+Dictionary headroom measurements -- 2026-08-24
+Context: G6 closeout follow-on, dictionary bounds check (the
+missing-HERE-overflow-guard item). Decision point A of that work:
+measure today's headroom before implementing, in case the region
+is already near-full (a larger finding than the missing check).
+
+== METHOD ==
+'HERE @' over serial (HERE is a DEFVAR: pushes the EQU address
+0x28004, so the value needs @; both forms printed 2026-08-24 to
+verify -- 'HERE .' -> 28004, 'HERE @ .' -> 5E1F0).
+Bare boot: build/bmforth.img, QEMU floppy, kernel + embedded
+vocabs only, nothing block-loaded or typed.
+Full load: the G6 chain harness's main VM at end of section 3e --
+full build + INSTALL THRU + every definition the harness types.
+Self-checking dashboard added permanently to the harness (prints
+IMPLAUSIBLE unless 0x30000 <= HERE < 0x80000, so a mis-specified
+probe announces itself). Full run log preserved alongside this
+file: docs/evidence/g6-headroom-2026-08-24.log (suite 76/76,
+exit 0).
+
+== FIGURES ==
+Region: DICT_START 0x30000, ceiling 0x80000 (320KB, forth.asm).
+
+  bare boot     HERE 0x5E1F0   used 188,912 (57.6%)   free 138,768
+  G6 full load  HERE 0x6221C   used 205,340 (62.7%)   free 122,340
+
+Delta bare->loaded is only ~16KB (~5% of region): the embedded
+vocabularies are compiled into the image at boot, so the bare-boot
+figure IS the loaded cost of everything shipped; INSTALL plus the
+harness's typed definitions are the small remainder.
+Tree-wide maximum is unmeasured; other suites load vocabs the G6
+harness does not (metacompiler in particular).
+
+== WHAT THIS RE-RATES ==
+1. The bounds check is a live defect fix, not hygiene: the ceiling
+   is reachable in normal use (57.6% gone before anything loads),
+   and the region above 0x80000 is unclaimed, so an overrun today
+   writes into nothing and appears to work.
+2. ARCHITECTURE-CUSTODIAN.md 3.2 (claude.ai Project store, not in
+   git -- needs mirroring there): "ten iterations on one moderately
+   large driver could exhaust the dictionary" was flagged as
+   unmeasured; against ~122KB free after a full load it now reads
+   as conservative/measured, not plausible.
+3. ARCHITECTURE-CUSTODIAN.md 9.7: the unclaimed 224KB above
+   0x80000 moves from "cheapest win" toward possibly necessary.
+   The ceiling raise remains a separate, measured decision -- it
+   does not ride inside the bounds-check fix.
