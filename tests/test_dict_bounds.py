@@ -26,28 +26,28 @@ shared refusal routine guarding four choke points:
                  wedges the machine it is protecting.
 
 Margins, derived not asserted:
-  - backstop reserve 1KB: the worst single-token compilation is a
-    string laydown bounded by one input line (TIB_SIZE = 256 at
-    0x28100), so 1KB is 4x the derivable worst case.
+  - backstop reserve: DICT_BACKSTOP is parsed from the kernel
+    source below and three-way gated against its own derivation
+    comment (marker DICT_BACKSTOP-DERIVATION in forth.asm; worst
+    single-token laydown = BLOCK_SIZE + 15 epilogue bytes = 1039,
+    the block-mode re-derivation that replaced the original
+    TIB_SIZE=256 bound).
   - create_ margin: header is [LINK:4][FLAGS+LEN:1][NAME:<=31]
     [align][CFA:4] = 40 bytes before alignment; the guard uses 72
     (40 + slack), generous on purpose.
 
 NOT covered by a green here (named so the pass count cannot be read
-as "the dictionary is bounded"; found 2026-08-24, own red-first gate
-owed, one cause / three sites / one commit):
+as "the dictionary is bounded"):
   - S" / ." / ABORT" compile-mode laydown (forth.asm labels SQUOTE,
     DOTQUOTE, ABORTQUOTE -- grep the labels, line numbers rot)
     copies stosb directly to HERE, bypassing comma_/C, and every
-    guard above.  The copy loop stops only on NUL or '"'; SQUOTE's
-    interpret branch has a `cmp edx, BLOCK_SIZE` cap -- the compile
-    branches have none.  (Do not confuse DOTQUOTE, the '."'
-    compiler, with DOSQUOTE, the runtime '(S")' all three compile.)
-  - The backstop's 1KB margin derivation above assumes TIB_SIZE=256;
-    under BLK<>0 the parse source is the 1KB block buffer, so the
-    "4x worst case" claim does not hold in block mode -- and block
-    loading is how every vocabulary arrives.  Margin re-derivation
-    (4x BLOCK_SIZE) belongs to the laydown fix, not this suite.
+    guard above.  Found 2026-08-24 as an open gap here; now owned
+    by its OWN red-first suite, tests/test_squote_laydown.py: the
+    loops carry an in-loop `cmp edi, DICT_LIMIT - 8` guard and a
+    NAMED block-boundary refusal (string_unterm_, "UNTERMINATED
+    STRING").  A green in THIS suite still says nothing about
+    them.  (Do not confuse DOTQUOTE, the '."' compiler, with
+    DOSQUOTE, the runtime '(S")' all three compile.)
 
 Residue decision (deliberate, not a side effect): in the GREEN
 state test 4 manufactures exactly the defect class
@@ -136,7 +136,20 @@ PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 4597
 
 CEILING = 0x80000
 DICT_START = 0x30000
-BACKSTOP_MARGIN = 1024
+
+# BACKSTOP_MARGIN is DERIVED from the kernel source, not asserted
+# here.  The parse and the three-way gate (equ value, the marker
+# line's own arithmetic, the bound re-derived from BLOCK_SIZE) live
+# in tests/kernel_constants.py -- one home, because this suite and
+# test_squote_laydown.py briefly grew identical regexes, the same
+# second-implementation drift species the gate itself polices.
+# History that earns the gate (full account in the module
+# docstring): a hardcoded 1024 here went stale when DICT_BACKSTOP
+# moved to 2048 (test 4 kept firing only by accident of direction),
+# and a --backstop0 fixture `equ 0` reached commit 9ae68d5.
+import kernel_constants
+kernel_constants.check_backstop_derivation()
+BACKSTOP_MARGIN = kernel_constants.DICT_BACKSTOP
 
 # Result-carries-input-hash: a quoted "Passed: N/N" must identify
 # the code it ran against.  The image path comes from the caller

@@ -1,0 +1,43 @@
+BACKSTOP0 2026-08-26 -- VALID run, 23/23; supersedes the 2026-08-25
+INVALID run (VAR_STR_CAP root cause, preserved separately).  Image is
+make backstop0 (-DDICT_BACKSTOP=0 on the build line, banner-marked);
+mode/image probe passed before any zero-reserve leg.  Observes the
+in-loop DICT_LIMIT-8 destination guard firing: DICT FULL, sentinels
+intact, HERE still at string start 0x7FE14.
+Run: make test-squote-laydown-backstop0.
+
+nasm -f bin -DDICT_BACKSTOP=0 -o build/kernel-backstop0.bin src/kernel/forth.asm
+src/kernel/forth.asm:83: warning: Dictionary backstop DEFEATED (defined as 0) -- experiment build only [-w+user]
+cat build/boot.bin build/kernel-backstop0.bin > build/bmforth-backstop0.img
+Running S"-laydown --backstop0 test...
+input sha256 a88798823ae2102e9bbb7dc075a06a87d75e786387c07c08c9069b61a2a392da  build/bmforth-backstop0.img
+MODE: --backstop0 (DICT_BACKSTOP defeated to 0; this run exists to observe the in-loop guard firing)
+
+Test 1: instruments
+  PASS: interpreter alive at start
+  PASS: STATE probe reads 0 in interpret mode
+  PASS: STATE probe reads 1 in compile mode
+  PASS: sentinels planted and read back
+  PASS: sentinel readback detects mutation
+  PASS: 100 BUFFER returns an address
+  PASS: block buffers adjacent (101 = 100 + 1024)
+  PASS: BF pokes X over the neighbour byte
+  PASS: craft: buffer stable
+  PASS: craft readback: delimiter space at 10, X at 11, quote at 1500, NUL at 1501
+  PASS: interactive S" round trip (len 2)
+  PASS: interactive ." round trip prints
+  PASS: interactive ABORT" false-flag round trip (77)
+  PASS: current-vocab latest cell readable
+  PASS: baseline HERE plausible
+
+Backstop0: in-loop guard alone must stop the crossing
+  PASS: mode/image probe: definition inside the would-be margin compiles (backstop truly absent in the booted image)
+  PASS: mode/image probe runs (BT-M0 = 5)
+  PASS: craft: buffer stable
+  PASS: in-loop guard refused with DICT FULL
+  PASS: STATE cleared by in-loop refusal (escape hatch open)
+  PASS: sentinels intact (guard stopped the walk)
+  PASS: HERE still at string start 0x7FE14 (VAR_HERE only moves at endcopy)
+  PASS: interpreter alive after in-loop refusal
+
+Passed: 23/23

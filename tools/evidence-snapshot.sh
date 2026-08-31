@@ -31,6 +31,19 @@ cd "$(git rev-parse --show-toplevel)"
 NAME=$1; shift
 [ $# -ge 1 ] || { echo "usage: $0 NAME FILE..." >&2; exit 2; }
 
+# HEAD-precondition gate: the tree-delta check below is only safe while
+# HEAD itself carries no PAID ignore-positive path -- delta-against-HEAD
+# deliberately trusts HEAD's contents as already-public.  That held by a
+# hand check once (git ls-files forth/dict/ -> clean); this makes it a
+# gate.  Scoped to the paid-bearing directories so the six tracked-then-
+# ignored docs/TASK_*.md (public in every clone, harmless) don't trip it.
+if TRACKED_PAID=$(git ls-files forth/dict/ tools/translator/ | git check-ignore --no-index --stdin); then
+    echo "REFUSED: HEAD tracks ignore-positive paths in paid-bearing dirs" >&2
+    echo "(delta-against-HEAD trust precondition broken -- fix the tree first):" >&2
+    echo "$TRACKED_PAID" >&2
+    exit 1
+fi
+
 # Fast, friendly input check (not the load-bearing one).
 if LEAK=$(printf '%s\n' "$@" | git check-ignore --no-index --stdin); then
     echo "REFUSED: gitignored (paid-side) paths given as inputs:" >&2

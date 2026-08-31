@@ -1,0 +1,32 @@
+Running S"-laydown --backstop0 test...
+input sha256 a88798823ae2102e9bbb7dc075a06a87d75e786387c07c08c9069b61a2a392da  build/bmforth-backstop0.img
+MODE: --backstop0 (DICT_BACKSTOP defeated to 0; this run exists to observe the in-loop guard firing)
+
+Test 1: instruments
+  PASS: interpreter alive at start
+  PASS: STATE probe reads 0 in interpret mode
+  PASS: STATE probe reads 1 in compile mode
+  PASS: sentinels planted and read back
+  PASS: sentinel readback detects mutation
+  PASS: 100 BUFFER returns an address
+  PASS: block buffers adjacent (101 = 100 + 1024)
+  PASS: BF pokes X over the neighbour byte
+  PASS: craft: buffer stable
+  PASS: craft readback: delimiter space at 10, X at 11, quote at 1500, NUL at 1501
+  PASS: interactive S" round trip (len 2)
+  PASS: interactive ." round trip prints
+  PASS: interactive ABORT" false-flag round trip (77)
+  PASS: current-vocab latest cell readable
+  PASS: baseline HERE plausible
+
+Backstop0: in-loop guard alone must stop the crossing
+  PASS: mode/image probe: definition inside the would-be margin compiles (backstop truly absent in the booted image)
+  PASS: mode/image probe runs (BT-M0 = 5)
+  PASS: craft: buffer stable
+  PASS: in-loop guard refused with DICT FULL (and not UNTERMINATED STRING -- destination guard won)
+  PASS: STATE cleared by in-loop refusal (escape hatch open)
+  PASS: sentinels intact (guard stopped the walk)
+  PASS: HERE still at string start 0x7FE14 (VAR_HERE only moves at endcopy)
+  PASS: interpreter alive after in-loop refusal
+
+Passed: 23/23

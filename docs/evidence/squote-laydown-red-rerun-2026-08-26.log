@@ -1,0 +1,90 @@
+RED RE-RUN 2026-08-26 -- current suite (post T2-rework / T4-rename)
+against the pre-fix kernel.  Image rebuilt from 9ae68d5's parent
+(17c7e89) in a clean worktree, paid vocabs copied from the working
+tree; its sha256 (line below) equals the 2026-08-25 original red
+log's input hash -- byte-identical artifact.  Owed because T2's
+discriminators and T4's HERE check changed after the original red:
+a check whose assertion changed after red has not demonstrated red
+until re-run.  Result: 24 FAILs, all in the pre-registered classes
+(suite docstring, EXPECTED RED); T4 observed HERE=0x7F820 = park+24
+exactly as derived.  Run: qemu-system-i386 floppy, serial tcp:4691;
+python3 tests/test_squote_laydown.py 4691 <image>.
+
+input sha256 964674c7ef002f07d2300d7dcdfd83669e10e2fc2ade810729ab10efd8ff0cfa  /tmp/forthos-red/build/bmforth.img
+
+Test 1: instruments
+  PASS: interpreter alive at start
+  PASS: STATE probe reads 0 in interpret mode
+  PASS: STATE probe reads 1 in compile mode
+  PASS: sentinels planted and read back
+  PASS: sentinel readback detects mutation
+  PASS: 100 BUFFER returns an address
+  PASS: block buffers adjacent (101 = 100 + 1024)
+  PASS: BF pokes X over the neighbour byte
+  PASS: craft: buffer stable
+  PASS: craft readback: delimiter space at 10, X at 11, quote at 1500, NUL at 1501
+  PASS: interactive S" round trip (len 2)
+  PASS: interactive ." round trip prints
+  PASS: interactive ABORT" false-flag round trip (77)
+  PASS: current-vocab latest cell readable
+  PASS: baseline HERE plausible
+
+Test 2: block-boundary exhaustion is a NAMED refusal (x3 words)
+  PASS: Q1 craft: buffer stable
+  FAIL: Q1 boundary refusal named (UNTERMINATED STRING) -- 'ok'
+  FAIL: Q1 STATE cleared by the refusal (ABORT ran) -- STATE=1 (red: 1, the runaway swallowed the closing quote)
+  FAIL: Q1 HERE at laydown start (refusal precedes endcopy) -- HERE=0x5E8B8 want 0x5E2DC (red: endcopy ran, len 1489 laid down)
+  PASS: Q1 alive after boundary-refusal leg
+  PASS: Q2 craft: buffer stable
+  FAIL: Q2 boundary refusal named (UNTERMINATED STRING) -- 'ok'
+  FAIL: Q2 STATE cleared by the refusal (ABORT ran) -- STATE=1 (red: 1, the runaway swallowed the closing quote)
+  FAIL: Q2 HERE at laydown start (refusal precedes endcopy) -- HERE=0x5E8B4 want 0x5E2DC (red: endcopy ran, len 1489 laid down)
+  PASS: Q2 alive after boundary-refusal leg
+  PASS: Q3 craft: buffer stable
+  FAIL: Q3 boundary refusal named (UNTERMINATED STRING) -- 'ok'
+  FAIL: Q3 STATE cleared by the refusal (ABORT ran) -- STATE=1 (red: 1, the runaway swallowed the closing quote)
+  FAIL: Q3 HERE at laydown start (refusal precedes endcopy) -- HERE=0x5E8B4 want 0x5E2DC (red: endcopy ran, len 1485 laid down)
+  PASS: Q3 alive after boundary-refusal leg
+
+Test 2b: derivation premise -- the worst laydown a block can TERMINATE fits the derived bound
+  PASS: T2b craft: buffer stable, space/semicolon at 1022/1023
+  PASS: T2b terminated worst-case string loads without refusal
+  PASS: T2b definition closed in-block (STATE 0)
+  PASS: T2b length cell 1013 (quote at 1021, copy from 8)
+  PASS: T2b laydown 1028 <= derived bound 1039
+  PASS: T2b alive
+
+Test 3: ceiling composite -- laydown must not cross DICT_LIMIT (x3 words)
+  PASS: Q1 craft: buffer stable
+  FAIL: Q1 ceiling composite refused -- 'ok'
+  FAIL: Q1 sentinel 0x80000 intact -- got 0x58585858 (red predicts 0x58585858)
+  FAIL: Q1 sentinel 0x80004 intact -- got 0x58585858 (red: Q1/Q2 0x58585858, Q3 the (ABORT") XT < 0x30000)
+  FAIL: Q1 sentinel 0x80008 intact -- got 0x88F0 (red: Q1 the TYPE XT < 0x30000; Q2/Q3 predicted intact even in red)
+  FAIL: Q1 HERE at park+12 (header laid, body refused) -- HERE=0x8000C (red predicts Q1 0x8000C, Q2/Q3 0x80008)
+  PASS: Q1 alive after ceiling leg
+  PASS: Q2 craft: buffer stable
+  FAIL: Q2 ceiling composite refused -- 'ok'
+  FAIL: Q2 sentinel 0x80000 intact -- got 0x58585858 (red predicts 0x58585858)
+  FAIL: Q2 sentinel 0x80004 intact -- got 0x58585858 (red: Q1/Q2 0x58585858, Q3 the (ABORT") XT < 0x30000)
+  PASS: Q2 sentinel 0x80008 intact
+  FAIL: Q2 HERE at park+12 (header laid, body refused) -- HERE=0x80008 (red predicts Q1 0x8000C, Q2/Q3 0x80008)
+  PASS: Q2 alive after ceiling leg
+  PASS: Q3 craft: buffer stable
+  FAIL: Q3 ceiling composite refused -- 'ok'
+  FAIL: Q3 sentinel 0x80000 intact -- got 0x58585858 (red predicts 0x58585858)
+  FAIL: Q3 sentinel 0x80004 intact -- got 0x98C8 (red: Q1/Q2 0x58585858, Q3 the (ABORT") XT < 0x30000)
+  PASS: Q3 sentinel 0x80008 intact
+  FAIL: Q3 HERE at park+12 (header laid, body refused) -- HERE=0x80008 (red predicts Q1 0x8000C, Q2/Q3 0x80008)
+  PASS: Q3 alive after ceiling leg
+
+Test 4: backstop margin covers the worst laydown
+  FAIL: margin park refused -- 'ok'
+  FAIL: margin park: header laid, body refused (HERE at park+12) -- HERE=0x7F820 want 0x7F814
+  PASS: control park compiles and runs (M2 = 2)
+
+Test 5: recovered -- definitions work again
+  PASS: post-suite definition compiles
+  PASS: post-suite definition runs (BT-REC = 42)
+  PASS: interpreter alive at end
+
+Passed: 39/63

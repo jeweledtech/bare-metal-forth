@@ -424,6 +424,28 @@ $(BACKSTOP0_IMAGE): $(BOOTLOADER) $(BACKSTOP0_KERNEL)
 backstop0: $(BACKSTOP0_IMAGE)
 	@echo "Defeated-backstop image: $(BACKSTOP0_IMAGE) ($$(stat -c%s $(BACKSTOP0_IMAGE)) bytes)"
 
+# S"/."/ABORT" laydown suite (crafts blocks in buffer memory; no
+# block storage image needed, same tier as test-dict-bounds).
+test-squote-laydown: $(ACTIVE_IMAGE)
+	@echo "Running S\"-laydown test..."
+	@$(QEMU) -drive file=$(ACTIVE_IMAGE),format=raw,if=floppy \
+		-serial tcp::$$(($(TEST_PORT_BASE)+98)),server=on,wait=off \
+		-display none -daemonize
+	@sleep 2
+	@python3 tests/test_squote_laydown.py $$(($(TEST_PORT_BASE)+98)) $(ACTIVE_IMAGE); \
+		STATUS=$$?; pkill -9 -f "[q]emu.*$$(($(TEST_PORT_BASE)+98))" 2>/dev/null; exit $$STATUS
+
+# Same suite against the defeated-backstop image: observes the
+# in-loop DICT_LIMIT guard firing (unreachable in normal builds).
+test-squote-laydown-backstop0: $(BACKSTOP0_IMAGE)
+	@echo "Running S\"-laydown --backstop0 test..."
+	@$(QEMU) -drive file=$(BACKSTOP0_IMAGE),format=raw,if=floppy \
+		-serial tcp::$$(($(TEST_PORT_BASE)+99)),server=on,wait=off \
+		-display none -daemonize
+	@sleep 2
+	@python3 tests/test_squote_laydown.py $$(($(TEST_PORT_BASE)+99)) $(BACKSTOP0_IMAGE) --backstop0; \
+		STATUS=$$?; pkill -9 -f "[q]emu.*$$(($(TEST_PORT_BASE)+99))" 2>/dev/null; exit $$STATUS
+
 # --- Debug flush targets ---
 
 DEBUG_KERNEL = $(BUILD)/kernel-debug.bin
@@ -639,7 +661,7 @@ test-meta: $(COMBINED)
 	@echo "Metacompiler tests complete!"
 
 # Run all tests (lint first, then functional tests)
-test: lint test-smoke test-loops test-abort test-dict-bounds test-install test-vbr test-grub-cfg test-doc-drift test-g6 test-vocabs test-gui test-integration test-file-stream test-survey
+test: lint test-smoke test-loops test-abort test-dict-bounds test-squote-laydown test-install test-vbr test-grub-cfg test-doc-drift test-g6 test-vocabs test-gui test-integration test-file-stream test-survey
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)

@@ -1,0 +1,26 @@
+INVALID RUN -- do not cite as a guard observation.
+The kernel under test (sha256 3a63fe94...) carried the first version of the
+block-boundary stop, which treated any VAR_BLK<>0 source as a 1KB block
+buffer. Boot-time embedded-vocab evaluation sets VAR_BLK=1 as a "not
+interactive" flag over a multi-KB continuous stream (forth.asm cold_start),
+so every compile-mode string past offset 1024 truncated and TOIN was
+clamped mid-string: the interpreter was dead before the first probe.
+Nothing in this log observes the in-loop DICT_LIMIT guard. Root cause and
+fix (source-identity cap, VAR_STR_CAP) recorded in the commit that
+supersedes this run. Preserved per the run-1 precedent: invalid artifacts
+are kept, not deleted.
+
+input sha256 3a63fe947c10ffaebab96150198ea7e8815a8e38e672091b9a91df5290a760a2  build/bmforth.img
+MODE: --backstop0 (DICT_BACKSTOP defeated to 0; this run exists to observe the in-loop guard firing)
+
+Test 1: instruments
+  FAIL: interpreter alive at start
+  FAIL: STATE probe reads 0 in interpret mode -- ''
+  FAIL: STATE probe reads 1 in compile mode -- ''
+  FAIL: sentinels planted and read back -- s0=None s1=None s2=None
+  FAIL: sentinel readback detects mutation -- got None
+  FAIL: 100 BUFFER returns an address -- ''
+  FAIL: block buffers adjacent (101 = 100 + 1024) -- b100=None b101=None
+
+Passed: cannot continue without adjacent buffers
+EXIT=1

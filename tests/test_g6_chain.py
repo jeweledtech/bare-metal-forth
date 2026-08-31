@@ -1020,6 +1020,31 @@ expect('ADD-PARTITION', 'ADD-PARTITION', -1, wait=30)
 expect('ADD-BOOT-ENTRY', 'ADD-BOOT-ENTRY', -1, wait=60)
 expect('stack clean after install', 'DEPTH', 0)
 # --8<-- RUNBOOK-3E-END
+# Dictionary headroom dashboard (measurement, not a gate -- it
+# becomes an assertion, HERE below ceiling-minus-margin, once the
+# dictionary bounds check lands; until then this is a number that
+# is visible and unenforced, on purpose and temporarily). This VM
+# holds THIS HARNESS's dictionary high-water mark -- full build
+# (embedded vocabs) + INSTALL THRU + every definition typed above.
+# The tree-wide maximum is unmeasured; other suites load vocabs
+# this one does not (metacompiler ones in particular).
+# Ceiling: DICT_START 0x30000 + DICT_SIZE 0x50000 = 0x80000
+# (forth.asm). HERE pushes the address of the dict pointer (DEFVAR
+# pushes the EQU address), so the value needs @ -- verified
+# 2026-08-24 on this kernel: 'HERE .' -> 28004 (the variable),
+# 'HERE @ .' -> 5E1F0 (the pointer, at bare boot). The range test
+# below makes a mis-specified probe announce itself instead of
+# producing a plausible-looking figure.
+hw, raw_hw = val('HERE @')
+if hw is None or not (0x30000 <= hw < 0x80000):
+    print(f'  dictionary headroom: IMPLAUSIBLE HERE='
+          f'{"None" if hw is None else hex(hw)} '
+          f'-- probe may be wrong (HERE vs HERE @); '
+          f'raw: {raw_hw[-60:]}')
+else:
+    print(f'  dictionary headroom: HERE=0x{hw:X} '
+          f'ceiling=0x80000 free={0x80000 - hw} bytes '
+          f'({(0x80000 - hw) * 100 // 0x50000}% of region)')
 close_ch(SER)
 qemu_kill()
 

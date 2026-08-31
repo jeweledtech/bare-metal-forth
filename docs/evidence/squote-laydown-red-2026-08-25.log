@@ -1,0 +1,65 @@
+input sha256 964674c7ef002f07d2300d7dcdfd83669e10e2fc2ade810729ab10efd8ff0cfa  build/bmforth.img
+
+Test 1: instruments
+  PASS: interpreter alive at start
+  PASS: STATE probe reads 0 in interpret mode
+  PASS: STATE probe reads 1 in compile mode
+  PASS: sentinels planted and read back
+  PASS: sentinel readback detects mutation
+  PASS: 100 BUFFER returns an address
+  PASS: block buffers adjacent (101 = 100 + 1024)
+  PASS: BF pokes X over the neighbour byte
+  PASS: craft: buffer stable
+  PASS: craft readback: delimiter space at 10, X at 11, quote at 1500, NUL at 1501
+  PASS: interactive S" round trip (len 2)
+  PASS: interactive ." round trip prints
+  PASS: interactive ABORT" false-flag round trip (77)
+  PASS: current-vocab latest cell readable
+  PASS: baseline HERE plausible
+
+Test 2: source stops at the block boundary (x3 words)
+  PASS: Q1 craft: buffer stable
+  FAIL: Q1 source stopped at block boundary (len 1013) -- len=1489 (red predicts 1489) 'DECIMAL 385752 @ .\r\n1489 ok'
+  PASS: Q1 alive after source-bound leg
+  PASS: Q2 craft: buffer stable
+  FAIL: Q2 source stopped at block boundary (len 1013) -- len=1489 (red predicts 1489) 'DECIMAL 385752 @ .\r\n1489 ok'
+  PASS: Q2 alive after source-bound leg
+  PASS: Q3 craft: buffer stable
+  FAIL: Q3 source stopped at block boundary (len 1009) -- len=1485 (red predicts 1485) 'DECIMAL 385752 @ .\r\n1485 ok'
+  PASS: Q3 alive after source-bound leg
+
+Test 3: ceiling composite -- laydown must not cross DICT_LIMIT (x3 words)
+  PASS: Q1 craft: buffer stable
+  FAIL: Q1 ceiling composite refused -- 'ok'
+  FAIL: Q1 sentinel 0x80000 intact -- got 0x58585858 (red predicts 0x58585858)
+  FAIL: Q1 sentinel 0x80004 intact -- got 0x58585858 (red: Q1/Q2 0x58585858, Q3 the (ABORT") XT < 0x30000)
+  FAIL: Q1 sentinel 0x80008 intact -- got 0x88F0 (red: Q1 the TYPE XT < 0x30000; Q2/Q3 predicted intact even in red)
+  FAIL: Q1 HERE at park+12 (header laid, body refused) -- HERE=0x8000C (red predicts Q1 0x8000C, Q2/Q3 0x80008)
+  PASS: Q1 alive after ceiling leg
+  PASS: Q2 craft: buffer stable
+  FAIL: Q2 ceiling composite refused -- 'ok'
+  FAIL: Q2 sentinel 0x80000 intact -- got 0x58585858 (red predicts 0x58585858)
+  FAIL: Q2 sentinel 0x80004 intact -- got 0x58585858 (red: Q1/Q2 0x58585858, Q3 the (ABORT") XT < 0x30000)
+  PASS: Q2 sentinel 0x80008 intact
+  FAIL: Q2 HERE at park+12 (header laid, body refused) -- HERE=0x80008 (red predicts Q1 0x8000C, Q2/Q3 0x80008)
+  PASS: Q2 alive after ceiling leg
+  PASS: Q3 craft: buffer stable
+  FAIL: Q3 ceiling composite refused -- 'ok'
+  FAIL: Q3 sentinel 0x80000 intact -- got 0x58585858 (red predicts 0x58585858)
+  FAIL: Q3 sentinel 0x80004 intact -- got 0x98C8 (red: Q1/Q2 0x58585858, Q3 the (ABORT") XT < 0x30000)
+  PASS: Q3 sentinel 0x80008 intact
+  FAIL: Q3 HERE at park+12 (header laid, body refused) -- HERE=0x80008 (red predicts Q1 0x8000C, Q2/Q3 0x80008)
+  PASS: Q3 alive after ceiling leg
+
+Test 4: backstop margin covers the worst laydown
+  FAIL: margin park refused -- 'ok'
+  FAIL: margin park left HERE unchanged -- HERE=0x7F820 want 0x7F808
+  PASS: control park compiles and runs (M2 = 2)
+
+Test 5: recovered -- definitions work again
+  PASS: post-suite definition compiles
+  PASS: post-suite definition runs (BT-REC = 42)
+  PASS: interpreter alive at end
+
+Passed: 33/51
+EXIT=1

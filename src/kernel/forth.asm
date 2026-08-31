@@ -59,9 +59,19 @@ DICT_LIMIT          equ DICT_START + DICT_SIZE   ; 0x80000, exclusive
 ; capped at the block boundary by the string compilers themselves
 ; (SQUOTE/DOTQUOTE/ABORTQUOTE stop at BLOCK_SIZE), so the worst
 ; case is BLOCK_SIZE + laydown overhead (XT 4 + length 4 + align 3
-; + trailing XT 4) = 1039; 2048 = 1039 bound + 1009 slack.  Effective
-; compiled-code ceiling is DICT_LIMIT - DICT_BACKSTOP;
-; ALLOT/comma_/C, refuse exactly at DICT_LIMIT.
+; + trailing XT 4) = 1039.  The 3+4 here is a CONSUMPTION BUDGET
+; (max bytes one token can take), not an overrun bound -- see the
+; SQUOTE guard comment for why those differ; do not "correct" 1039
+; down to 1036.
+; DICT_BACKSTOP-DERIVATION: 2048 = 1039 bound + 1009 slack
+; ^ that line is a machine-checked anchor, not prose:
+; tests/kernel_constants.py parses the marker, the arithmetic, and
+; the %define below and refuses if any pair disagrees (or if the
+; value is 0, the --backstop0 fixture value that once reached a
+; commit); the suites import it.  Reword freely EXCEPT the marker
+; line -- keep marker, N = M bound + K slack on one line.  Effective compiled-code
+; ceiling is DICT_LIMIT - DICT_BACKSTOP; ALLOT/comma_/C, refuse
+; exactly at DICT_LIMIT.
 ; Overridable ONLY from the build (-DDICT_BACKSTOP=N, see the
 ; backstop0 Makefile target): experiment builds are a flag, never a
 ; source edit.  A throwaway DICT_BACKSTOP=0 experiment build was
@@ -91,6 +101,16 @@ VAR_SEARCH_DEPTH    equ 0x28040     ; Number of entries in search order (1-8)
 VAR_CURRENT         equ 0x28044     ; Vocab that receives new definitions (addr of LATEST cell)
 VAR_FORTH_LATEST    equ 0x28048     ; FORTH vocabulary's own LATEST pointer
 VAR_BLOCK_LOADING   equ 0x2804C     ; Flag: 1 = LOAD just set up a block (skip first exhaustion check)
+; Per-parse source cap for the string compilers, set by the
+; STR_SOURCE_CAP macro before each quoted-string walk.  Exists
+; because VAR_BLK is a PUN, not a source-identity test: cold_start
+; sets BLK=1 over the multi-KB embed stream ("not interactive"),
+; while the string compilers used to read BLK<>0 as "source is a
+; 1KB block buffer" -- capping the embed walk at 1024 broke boot.
+; The cap is derived from WHERE VAR_TIB points (inside the block
+; buffer pool = BLOCK_SIZE, anywhere else = effectively unbounded),
+; which cannot be punned.
+VAR_STR_CAP         equ 0x28050     ; Source cap for one string parse (BLOCK_SIZE or 0x7FFFFFFF)
 
 ; Block buffer management
 BLK_BUF_HEADERS     equ 0x28060     ; 4 headers x 12 bytes = 48 bytes
@@ -227,6 +247,39 @@ TRACE_ENTRY_SZ      equ 12          ; 12 bytes per entry
     pop ebx
     pop edi
 %%skip:
+%endmacro
+
+; STR_SOURCE_CAP -- classify the parse source for ONE quoted-string
+; walk and set VAR_STR_CAP accordingly: BLOCK_SIZE when VAR_TIB
+; points inside the block buffer pool [BLK_BUF_DATA, BLK_BUF_GUARD),
+; 0x7FFFFFFF (no cap the walk can reach) for any other source --
+; the interactive TIB (NUL-terminated by read_line) and the boot
+; embed stream (NUL-terminated, multi-KB, runs with BLK=1: the pun
+; that made a VAR_BLK test wrong here, see VAR_STR_CAP's comment).
+; Clobbers EAX ONLY; run it before the loop's own VAR_TIB load.
+; Loop bottoms then test 'cmp edx, [VAR_STR_CAP] / jl .copy' --
+; edx is a small non-negative offset, so signed jl is exact.
+; The sentinel MUST be 0x7FFFFFFF (positive max), not 0xFFFFFFFF
+; or -1: the loop compare is SIGNED, so an all-ones "no cap" reads
+; as -1 and jl fails on the first byte -- every non-block string
+; parse would stop at length 0, looking like a string bug, not a
+; constant change.  Address compares below are unsigned (jb/jae),
+; correctly so.
+; VAR_STR_CAP is a single global with no save/restore: string
+; laydowns are sequential, never nested (a quoted string cannot
+; contain a word that starts another parse), so one cell per parse
+; is sufficient by construction.
+%macro STR_SOURCE_CAP 0
+    mov eax, [VAR_TIB]
+    cmp eax, BLK_BUF_DATA
+    jb %%unbounded
+    cmp eax, BLK_BUF_GUARD
+    jae %%unbounded
+    mov dword [VAR_STR_CAP], BLOCK_SIZE
+    jmp %%done
+%%unbounded:
+    mov dword [VAR_STR_CAP], 0x7FFFFFFF
+%%done:
 %endmacro
 
 ; ============================================================================
@@ -2252,6 +2305,7 @@ DEFCODE 'S"', SQUOTE, F_IMMEDIATE
     ; Copy string characters from TIB starting at TOIN
     mov edi, [VAR_HERE]
     xor ecx, ecx
+    STR_SOURCE_CAP                  ; clobbers eax; before VAR_TIB load
     ; Skip leading space after S" (word_ leaves TOIN at the delimiter)
     mov edx, [VAR_TOIN]
     mov eax, [VAR_TIB]
@@ -2273,29 +2327,46 @@ DEFCODE 'S"', SQUOTE, F_IMMEDIATE
     ; token before a capped laydown can reach here); to be proven
     ; live once by the DICT_BACKSTOP=0 build (test's --backstop0
     ; mode).  Kept as defense in depth: this loop bypasses
-    ; comma_/C, and their guards.  Scope: this guard bounds the
-    ; STRING BYTES only -- the epilogue after .endcopy (length
-    ; patch, align, trailing XT) is the DICT_BACKSTOP margin's job,
-    ; which is why the 1039 derivation includes +3 align and +4
-    ; trailing XT.
-    cmp edi, DICT_LIMIT
+    ; comma_/C, and their guards.  The -8 reserves the epilogue --
+    ; but for the SUCCESSFUL exit, not the refusal: this guard
+    ; jumps to dict_full_ (print + ABORT, no epilogue).  The path
+    ; that needs the reservation is a closing quote found with edi
+    ; just under the guard: .endcopy aligns HERE (adds nothing past
+    ; a 4-aligned bound) and ." / ABORT" then store a trailing XT
+    ; (4 bytes) with no guard of their own -- under a bare
+    ; DICT_LIMIT guard that XT lands up to 4 bytes past the limit.
+    ; Minimal reservation is 4; 8 = one spare cell, kept uniform
+    ; across all three sites (S" itself lays no trailing XT).
+    cmp edi, DICT_LIMIT - 8
     jae dict_full_
     stosb
     inc ecx
     mov eax, [VAR_TIB]
-    ; Block-boundary stop, mirrored from the interpret branch below
-    ; (same 'jl BLOCK_SIZE' predicate; signedness is moot because
-    ; edx is a small non-negative offset nowhere near 2^31, so
-    ; signed and unsigned compare identically for any value it can
-    ; hold): in block mode the source is a 1KB block buffer,
-    ; and an unterminated quote must stop at BLOCK_SIZE instead of
-    ; walking into the neighbouring buffer (the trailing NUL that
-    ; LOAD plants is clobbered when a nested load recycles the
-    ; neighbouring buffer -- the normal --> / THRU vocab path).
-    cmp dword [VAR_BLK], 0
-    je .copy
-    cmp edx, BLOCK_SIZE
+    ; Source-bound stop, same predicate at all four sites (three
+    ; compile loops + the interpret branch below): when the source
+    ; is a 1KB block buffer an unterminated quote must stop at
+    ; BLOCK_SIZE instead of walking into the neighbouring buffer
+    ; (the trailing NUL that LOAD plants is clobbered when a nested
+    ; load recycles the neighbour -- the normal --> / THRU vocab
+    ; path).  The cap comes from STR_SOURCE_CAP's source-identity
+    ; test, NOT from VAR_BLK: BLK=1 is also the boot embed stream's
+    ; state, and capping that multi-KB walk at 1024 broke boot
+    ; (see VAR_STR_CAP's comment).
+    cmp edx, [VAR_STR_CAP]
     jl .copy
+    ; Named refusal, not a silent fall-through to .endcopy: an
+    ; unterminated quote at the block boundary means the source is
+    ; malformed, and what a silent stop would compile -- a
+    ; truncated string -- persists into the loaded vocabulary and
+    ; surfaces later, far from its cause (bug_squote_blk_truncate).
+    ; The asymmetry with the interactive NUL-end (jz .endcopy
+    ; above), which stays a silent truncation, is deliberate and
+    ; has a reason: at the prompt the operator sees the truncated
+    ; string echo immediately and can retype the line; in block
+    ; source nobody is watching the laydown.  string_unterm_
+    ; shares dict_refuse_'s print+ABORT tail, so BLK/STATE reset
+    ; and the load stops here instead of compiling a lie.
+    jmp string_unterm_
 .endcopy:
     mov [VAR_TOIN], edx
     ; Patch the length
@@ -2310,6 +2381,7 @@ DEFCODE 'S"', SQUOTE, F_IMMEDIATE
     ; Interpret mode: read string to temp buffer from TIB
     mov edi, string_buffer
     xor ecx, ecx
+    STR_SOURCE_CAP                  ; clobbers eax; before VAR_TIB load
     ; Skip leading space after S"
     mov edx, [VAR_TOIN]
     mov eax, [VAR_TIB]
@@ -2327,10 +2399,14 @@ DEFCODE 'S"', SQUOTE, F_IMMEDIATE
     stosb
     inc ecx
     mov eax, [VAR_TIB]
-    ; In block mode, also check for end of block
-    cmp dword [VAR_BLK], 0
-    je .interp_copy
-    cmp edx, BLOCK_SIZE
+    ; Source-bound stop -- same source-identity predicate as the
+    ; compile loop above (see the comment there).  This branch stays
+    ; a SILENT stop, unlike the compile loops' string_unterm_
+    ; refusal: the interpret-mode truncation under BLK is the still-
+    ; open bug_squote_blk_truncate, whose own red-first fix is owed
+    ; separately -- this edit only removes the VAR_BLK pun from its
+    ; predicate, it does not close that bug.
+    cmp edx, [VAR_STR_CAP]
     jl .interp_copy
 .interp_done:
     mov [VAR_TOIN], edx
@@ -2361,6 +2437,7 @@ DEFCODE '."', DOTQUOTE, F_IMMEDIATE
     ; Copy string characters from TIB
     mov edi, [VAR_HERE]
     xor ecx, ecx
+    STR_SOURCE_CAP                  ; clobbers eax; before VAR_TIB load
     ; Skip leading space after ."
     mov edx, [VAR_TOIN]
     mov eax, [VAR_TIB]
@@ -2379,15 +2456,20 @@ DEFCODE '."', DOTQUOTE, F_IMMEDIATE
     ; compile loop, same reasons (see the comment there) -- this loop
     ; bypasses comma_/C, and their guards, and in block mode the
     ; source is a 1KB block buffer, not a NUL-terminated TIB line.
-    cmp edi, DICT_LIMIT
+    cmp edi, DICT_LIMIT - 8
     jae dict_full_
     stosb
     inc ecx
     mov eax, [VAR_TIB]
-    cmp dword [VAR_BLK], 0
-    je .copy
-    cmp edx, BLOCK_SIZE
+    ; Source-bound stop from STR_SOURCE_CAP's source-identity test,
+    ; not VAR_BLK -- same predicate, same reasons as SQUOTE's
+    ; compile loop (see the comment there).
+    cmp edx, [VAR_STR_CAP]
     jl .copy
+    ; Named refusal for block-boundary exhaustion -- same refusal,
+    ; same interactive/block asymmetry, same reasons as SQUOTE's
+    ; compile loop (see the comment there).
+    jmp string_unterm_
 .done:
     mov [VAR_TOIN], edx
     ; Patch length
@@ -2468,6 +2550,7 @@ DEFCODE 'ABORT"', ABORTQUOTE, F_IMMEDIATE
     ; Copy string characters from TIB
     mov edi, [VAR_HERE]
     xor ecx, ecx
+    STR_SOURCE_CAP                  ; clobbers eax; before VAR_TIB load
     ; Skip leading space after ABORT"
     mov edx, [VAR_TOIN]
     mov eax, [VAR_TIB]
@@ -2485,15 +2568,20 @@ DEFCODE 'ABORT"', ABORTQUOTE, F_IMMEDIATE
     ; compile loop, same reasons (see the comment there) -- this loop
     ; bypasses comma_/C, and their guards, and in block mode the
     ; source is a 1KB block buffer, not a NUL-terminated TIB line.
-    cmp edi, DICT_LIMIT
+    cmp edi, DICT_LIMIT - 8
     jae dict_full_
     stosb
     inc ecx
     mov eax, [VAR_TIB]
-    cmp dword [VAR_BLK], 0
-    je .copy
-    cmp edx, BLOCK_SIZE
+    ; Source-bound stop from STR_SOURCE_CAP's source-identity test,
+    ; not VAR_BLK -- same predicate, same reasons as SQUOTE's
+    ; compile loop (see the comment there).
+    cmp edx, [VAR_STR_CAP]
     jl .copy
+    ; Named refusal for block-boundary exhaustion -- same refusal,
+    ; same interactive/block asymmetry, same reasons as SQUOTE's
+    ; compile loop (see the comment there).
+    jmp string_unterm_
 .done:
     mov [VAR_TOIN], edx
     ; Patch length
@@ -4907,6 +4995,15 @@ number_:
 dict_under_:
     mov esi, dict_under_msg
     jmp dict_refuse_
+; string_unterm_ - block-boundary exhaustion in the S" / ." /
+; ABORT" compile loops: the source walk hit BLOCK_SIZE with no
+; closing quote.  A third message on the same tail because this
+; refusal is about the SOURCE, not the dictionary -- "DICT FULL"
+; here would be the F1 defect class again (true refusal, wrong
+; leg's message).
+string_unterm_:
+    mov esi, string_unterm_msg
+    jmp dict_refuse_
 dict_full_:                     ; MUST remain immediately above
     mov esi, dict_full_msg      ; dict_refuse_ -- fallthrough is
 dict_refuse_:                   ; load-bearing
@@ -4915,6 +5012,7 @@ dict_refuse_:                   ; load-bearing
 
 dict_full_msg  db 13, 10, "DICT FULL", 13, 10, 0
 dict_under_msg db 13, 10, "DICT UNDERFLOW", 13, 10, 0
+string_unterm_msg db 13, 10, "UNTERMINATED STRING", 13, 10, 0
 
 ; ----------------------------------------------------------------------------
 ; comma_ - Compile cell in EAX to dictionary
@@ -5698,6 +5796,21 @@ embed_size: dd (embed_end - embed_data)
 ; ============================================================================
 ; End of Kernel
 ; ============================================================================
+
+; Build-time adjacency asserts (unforgiving, both directions).
+; STR_SOURCE_CAP classifies the parse source by address range
+; [BLK_BUF_DATA, BLK_BUF_GUARD), so the map must hold exactly:
+; the TIB ends exactly at BLK_BUF_DATA (a TIB parse must NOT
+; classify as block source) and the 4-buffer pool ends exactly at
+; BLK_BUF_GUARD.  Each pair errors (negative TIMES) on ANY
+; inequality; when equal it emits zero bytes.  Placed here, ahead
+; of the padding directive, so a stray positive-side emission is
+; absorbed as padding instead of shifting kernel code -- failure
+; is loud (negative TIMES) or inert, never displacing.
+times (BLK_BUF_DATA - (TIB_START + TIB_SIZE)) db 0
+times ((TIB_START + TIB_SIZE) - BLK_BUF_DATA) db 0
+times (BLK_BUF_GUARD - (BLK_BUF_DATA + BLK_NUM_BUFFERS * BLOCK_SIZE)) db 0
+times ((BLK_BUF_DATA + BLK_NUM_BUFFERS * BLOCK_SIZE) - BLK_BUF_GUARD) db 0
 
 ; Pad kernel to match bootloader's KERNEL_SECTORS (KERNEL_PADDED_SIZE bytes)
 times KERNEL_PADDED_SIZE - ($ - $$) db 0

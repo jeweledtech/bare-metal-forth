@@ -1,0 +1,83 @@
+GREEN 2026-08-26 -- 63/63 after the T4 MODEL CORRECTION (prediction
+fixed, kernel untouched between runs; see the superseded run-1 log).
+Run: make test-squote-laydown (QEMU floppy, serial tcp).
+
+Running S"-laydown test...
+input sha256 6e990bdea7913011cdeb6aead840ad620264dcf1699a1c665d78b4b2ea5d7c2b  build/bmforth.img
+
+Test 1: instruments
+  PASS: interpreter alive at start
+  PASS: STATE probe reads 0 in interpret mode
+  PASS: STATE probe reads 1 in compile mode
+  PASS: sentinels planted and read back
+  PASS: sentinel readback detects mutation
+  PASS: 100 BUFFER returns an address
+  PASS: block buffers adjacent (101 = 100 + 1024)
+  PASS: BF pokes X over the neighbour byte
+  PASS: craft: buffer stable
+  PASS: craft readback: delimiter space at 10, X at 11, quote at 1500, NUL at 1501
+  PASS: interactive S" round trip (len 2)
+  PASS: interactive ." round trip prints
+  PASS: interactive ABORT" false-flag round trip (77)
+  PASS: current-vocab latest cell readable
+  PASS: baseline HERE plausible
+
+Test 2: block-boundary exhaustion is a NAMED refusal (x3 words)
+  PASS: Q1 craft: buffer stable
+  PASS: Q1 boundary refusal named (UNTERMINATED STRING)
+  PASS: Q1 STATE cleared by the refusal (ABORT ran)
+  PASS: Q1 HERE at laydown start (refusal precedes endcopy)
+  PASS: Q1 alive after boundary-refusal leg
+  PASS: Q2 craft: buffer stable
+  PASS: Q2 boundary refusal named (UNTERMINATED STRING)
+  PASS: Q2 STATE cleared by the refusal (ABORT ran)
+  PASS: Q2 HERE at laydown start (refusal precedes endcopy)
+  PASS: Q2 alive after boundary-refusal leg
+  PASS: Q3 craft: buffer stable
+  PASS: Q3 boundary refusal named (UNTERMINATED STRING)
+  PASS: Q3 STATE cleared by the refusal (ABORT ran)
+  PASS: Q3 HERE at laydown start (refusal precedes endcopy)
+  PASS: Q3 alive after boundary-refusal leg
+
+Test 2b: derivation premise -- the worst laydown a block can TERMINATE fits the derived bound
+  PASS: T2b craft: buffer stable, space/semicolon at 1022/1023
+  PASS: T2b terminated worst-case string loads without refusal
+  PASS: T2b definition closed in-block (STATE 0)
+  PASS: T2b length cell 1013 (quote at 1021, copy from 8)
+  PASS: T2b laydown 1028 <= derived bound 1039
+  PASS: T2b alive
+
+Test 3: ceiling composite -- laydown must not cross DICT_LIMIT (x3 words)
+  PASS: Q1 craft: buffer stable
+  PASS: Q1 ceiling composite refused
+  PASS: Q1 sentinel 0x80000 intact
+  PASS: Q1 sentinel 0x80004 intact
+  PASS: Q1 sentinel 0x80008 intact
+  PASS: Q1 HERE at park+12 (header laid, body refused)
+  PASS: Q1 alive after ceiling leg
+  PASS: Q2 craft: buffer stable
+  PASS: Q2 ceiling composite refused
+  PASS: Q2 sentinel 0x80000 intact
+  PASS: Q2 sentinel 0x80004 intact
+  PASS: Q2 sentinel 0x80008 intact
+  PASS: Q2 HERE at park+12 (header laid, body refused)
+  PASS: Q2 alive after ceiling leg
+  PASS: Q3 craft: buffer stable
+  PASS: Q3 ceiling composite refused
+  PASS: Q3 sentinel 0x80000 intact
+  PASS: Q3 sentinel 0x80004 intact
+  PASS: Q3 sentinel 0x80008 intact
+  PASS: Q3 HERE at park+12 (header laid, body refused)
+  PASS: Q3 alive after ceiling leg
+
+Test 4: backstop margin covers the worst laydown
+  PASS: margin park refused
+  PASS: margin park: header laid, body refused (HERE at park+12)
+  PASS: control park compiles and runs (M2 = 2)
+
+Test 5: recovered -- definitions work again
+  PASS: post-suite definition compiles
+  PASS: post-suite definition runs (BT-REC = 42)
+  PASS: interpreter alive at end
+
+Passed: 63/63
