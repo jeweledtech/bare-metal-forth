@@ -1,0 +1,83 @@
+test-make-wiring gate: red-first evidence, 2026-08-30
+Each assertion proven by its own red; gate/Makefile restored and
+re-run green between every red (git diff clean of fixtures).
+
+=== Red 1: collision check (one target in two classes) ===
+Fixture: test-network added to GRANDFATHERED while already in BROKEN.
+Output:
+  FAIL: a target appears in more than one exemption class
+  exit=1
+Refused with the collision message itself, not a downstream
+membership error.  Fixture removed; green confirmed.
+
+=== Folding proof (continuation branch) ===
+Baseline, unwrapped test: line:
+  test-make-wiring: 16 wired, 3 exempt, 4 grandfathered (review owed), 1 broken (repair owed); 24 test-* targets, 17 deps on `test:`
+
+Fixture: test: wrapped across two lines with a trailing backslash
+(space-indented continuation).  make -n test exit=0, so the fixture
+is a Makefile make itself accepts.
+
+FIRST folded run -- the branch was BROKEN:
+  test-make-wiring: 7 wired, ...; 24 test-* targets, 9 deps on `test:`
+  gate-exit=1
+Cause: the inline regex ^test:(.*(?:\\\n.*)*)$ succeeds greedily on
+the first physical line alone -- the continuation group legally
+matches zero times, multiline $ accepts the spot, and a successful
+match is never backtracked into.  The .replace('\\\n', ' ') after
+the search was folding a capture that never held a continuation.
+
+Fix: fold continuations across the whole source BEFORE the search
+(src.replace('\\\n', ' ')), regex reduced to ^test:(.*)$.
+
+Folded run after fix:
+  test-make-wiring: 16 wired, ...; 24 test-* targets, 17 deps on `test:`
+  gate-exit=0
+Unwrapped, re-run:
+  test-make-wiring: 16 wired, ...; 24 test-* targets, 17 deps on `test:`
+  gate-exit=0
+9 vs 17 was the signal; identical 17/16 folded and unwrapped is the
+proof.
+
+=== Red A: orphaned suite (wired target removed from test:) ===
+Fixture: test-survey deleted from the test: dependency line.
+Output:
+  FAIL: test-survey wired or exempt -- orphaned suite -- wire it into `test:` or exempt it WITH a true reason
+  Passed: 32/33
+  exit=1
+Names that target only.  Restored; green.
+
+=== Red B: empty exemption reason ===
+Fixture: GRANDFATHERED['test-cortexm'] reason set to ''.
+Output:
+  FAIL: test-cortexm grandfathered with reason -- empty reason -- an exemption without a reason is an orphan with paperwork
+  Passed: 32/33
+  exit=1
+Restored; green.
+
+=== Red C: exemption entry for a target that IS wired ===
+Fixture: test-survey (wired) added to GRANDFATHERED with a
+RED-ONLY reason.
+Output:
+  FAIL: grandfathered entry test-survey still unwired -- target is wired now -- the entry is stale, delete it (for BROKEN entries: the repair that wired it must also remove the entry, not leave a lie about a suite that now works)
+  Passed: 33/34
+  exit=1
+Staleness fires; the entry cannot accumulate as a lie.  Restored.
+
+=== Final green ===
+  input sha256 b9f097b98e4c3bdf240c2df38bbe81815f029bd57c5e755c848b46ea8cc02f15  Makefile
+  test-make-wiring: 16 wired, 3 exempt, 4 grandfathered (review owed), 1 broken (repair owed); 24 test-* targets, 17 deps on `test:`
+  Passed: 33/33
+  exit=0
+grep -c RED-ONLY tests/test_make_wiring.py -> 0 (no fixtures remain)
+
+=== Sweep (docs/evidence/make-test-2026-08-31.log) ===
+Runs 1 and 2 aborted at test-install: "Is another process using
+the image [build/combined-ide.img]?" -- a stale QEMU pair orphaned
+by the make test-network diagnostic (harness crashed on its
+NameError AFTER launching QEMU; nothing cleaned up).  The broken
+suite's breakage left the litter that broke the sweep.  Pair
+killed by PID; run 3 uncontested:
+  ^Passed: line count 27  (prior sweep 26; pre-registered 27, +1 for this gate)
+  ^Passed: sum 1001/1001  (read off the log; prior headline 968)
+  exit 0, "All tests passed!"

@@ -535,6 +535,13 @@ test-doc-drift:
 	@echo "Running doc drift gates..."
 	@python3 tests/test_doc_drift.py
 
+# Makefile wiring gate: every test-* target wired into test: or
+# exempted with a true reason (two orphans + one silently-broken
+# suite earned this; see tests/test_make_wiring.py docstring)
+test-make-wiring:
+	@echo "Running Makefile wiring gate..."
+	@python3 tests/test_make_wiring.py
+
 # UBT LLM validation (single-binary, requires NVIDIA_API_KEY)
 ubt-llm-validate:
 	@echo "Running UBT LLM validation on i8042prt.sys..."
@@ -661,7 +668,7 @@ test-meta: $(COMBINED)
 	@echo "Metacompiler tests complete!"
 
 # Run all tests (lint first, then functional tests)
-test: lint test-smoke test-loops test-abort test-dict-bounds test-squote-laydown test-install test-vbr test-grub-cfg test-doc-drift test-g6 test-vocabs test-gui test-integration test-file-stream test-survey
+test: lint test-smoke test-loops test-abort test-dict-bounds test-squote-laydown test-install test-vbr test-grub-cfg test-doc-drift test-make-wiring test-g6 test-vocabs test-gui test-integration test-file-stream test-survey
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)
