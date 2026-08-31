@@ -65,6 +65,24 @@ if not _def or not _der or not _blk:
 
 DICT_BACKSTOP = int(_def.group(1))
 BLOCK_SIZE = int(_blk.group(1))
+
+# Block buffer pool bounds -- load-bearing for STR_SOURCE_CAP since
+# the VAR_BLK phase-pun fix (6a2c64d): the macro classifies "block
+# source" by VAR_TIB in [BLK_BUF_DATA, BLK_BUF_GUARD).  The macro
+# uses the SYMBOLS, so the drift that matters is the allocator's:
+# if the pool moves, grows, or gains a fifth buffer and
+# BLK_BUF_GUARD is not moved with it, addresses in the new buffers
+# classify as interactive -- cap 0x7FFFFFFF, unbounded laydown
+# back, suite green.  Parse is fail-closed like everything above.
+_pd = re.search(r'^BLK_BUF_DATA\s+equ\s+0x([0-9A-Fa-f]+)', _src, re.M)
+_pg = re.search(r'^BLK_BUF_GUARD\s+equ\s+0x([0-9A-Fa-f]+)', _src, re.M)
+_pn = re.search(r'^BLK_NUM_BUFFERS\s+equ\s+(\d+)', _src, re.M)
+if not _pd or not _pg or not _pn:
+    _fail('could not parse BLK_BUF_DATA / BLK_BUF_GUARD / '
+          f'BLK_NUM_BUFFERS equs from {ASM}')
+BLK_BUF_DATA = int(_pd.group(1), 16)
+BLK_BUF_GUARD = int(_pg.group(1), 16)
+BLK_NUM_BUFFERS = int(_pn.group(1))
 DERIV_TOTAL, DERIV_BOUND, DERIV_SLACK = (int(g) for g in _der.groups())
 # Worst single-token laydown, derived the same way the kernel
 # comment derives it: BLOCK_SIZE source cap + 4 ((S") XT) + 4
@@ -95,3 +113,47 @@ def check_backstop_derivation():
     if not (DICT_BACKSTOP == DERIV_TOTAL == DERIV_BOUND + DERIV_SLACK):
         _fail(f'DICT_BACKSTOP drift -- equ {DICT_BACKSTOP}, comment '
               f'derives {DERIV_TOTAL} = {DERIV_BOUND} + {DERIV_SLACK}')
+
+
+def check_pool_bounds():
+    """STR_SOURCE_CAP pool gate (follow-on named in 6a2c64d).  The
+    invariant is the RELATIONSHIP, not the values: BLK_BUF_GUARD ==
+    BLK_BUF_DATA + BLK_NUM_BUFFERS * BLOCK_SIZE.  That is what
+    breaks when a fifth buffer is added and the guard is not moved
+    -- addresses in the new buffers classify as interactive, cap
+    0x7FFFFFFF, unbounded laydown back with the suite green.
+    Pinned literals would fail on every legitimate pool move and
+    teach the next person to update the expected numbers, which is
+    how a gate becomes a formality.
+
+    Also asserts the macro side: STR_SOURCE_CAP must compare
+    against the SYMBOLS (so its bounds are the allocator's by
+    identity, not coincidence) and its no-cap sentinel must be
+    0x7FFFFFFF -- the loop compare is signed jl, so an all-ones
+    sentinel reads as -1 and stops every non-block parse at
+    length 0."""
+    if BLK_BUF_GUARD != BLK_BUF_DATA + BLK_NUM_BUFFERS * BLOCK_SIZE:
+        _fail(f'pool-bounds drift -- BLK_BUF_GUARD 0x{BLK_BUF_GUARD:X}'
+              f' != BLK_BUF_DATA 0x{BLK_BUF_DATA:X} + BLK_NUM_BUFFERS '
+              f'{BLK_NUM_BUFFERS} * BLOCK_SIZE {BLOCK_SIZE} = '
+              f'0x{BLK_BUF_DATA + BLK_NUM_BUFFERS * BLOCK_SIZE:X}; '
+              f'STR_SOURCE_CAP now mis-classifies part of the pool '
+              f'as interactive (unbounded laydown)')
+    m = re.search(r'^%macro\s+STR_SOURCE_CAP\s+0\s*$(.*?)^%endmacro',
+                  _src, re.M | re.S)
+    if not m:
+        _fail('could not find the STR_SOURCE_CAP %macro block in '
+              f'{ASM} (the "%macro STR_SOURCE_CAP 0" header phrasing '
+              'is load-bearing, like the DICT_BACKSTOP-DERIVATION '
+              'marker -- restore it, do not relax this regex)')
+    body = m.group(1)
+    if not re.search(r'cmp\s+eax,\s*BLK_BUF_DATA\b', body) or \
+       not re.search(r'cmp\s+eax,\s*BLK_BUF_GUARD\b', body):
+        _fail('STR_SOURCE_CAP no longer compares against the '
+              'BLK_BUF_DATA/BLK_BUF_GUARD symbols -- a literal here '
+              'severs the macro from the allocator and this gate '
+              'checks the wrong thing')
+    if not re.search(r'\[VAR_STR_CAP\],\s*0x7FFFFFFF\b', body):
+        _fail('STR_SOURCE_CAP no-cap sentinel is not 0x7FFFFFFF -- '
+              'the loop compare is signed jl; -1/0xFFFFFFFF stops '
+              'every non-block parse at length 0')

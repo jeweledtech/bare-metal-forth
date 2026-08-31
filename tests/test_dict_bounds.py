@@ -149,6 +149,7 @@ DICT_START = 0x30000
 # and a --backstop0 fixture `equ 0` reached commit 9ae68d5.
 import kernel_constants
 kernel_constants.check_backstop_derivation()
+kernel_constants.check_pool_bounds()
 BACKSTOP_MARGIN = kernel_constants.DICT_BACKSTOP
 
 # Result-carries-input-hash: a quoted "Passed: N/N" must identify

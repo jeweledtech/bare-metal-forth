@@ -305,6 +305,7 @@ DICT_START = 0x30000
 # artifacts.
 import kernel_constants
 kernel_constants.check_backstop_derivation()
+kernel_constants.check_pool_bounds()
 # In backstop0 mode this is the WOULD-BE margin (geometry for the
 # probe placement), not the booted kernel's margin -- that is 0 by
 # construction and proven by the runtime probe.

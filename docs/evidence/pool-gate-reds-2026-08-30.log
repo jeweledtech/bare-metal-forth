@@ -1,0 +1,16 @@
+Pool-bounds gate (kernel_constants.check_pool_bounds) red-first, 2026-08-30
+Three separate reds, one per assertion; forth.asm perturbed then restored
+(git diff empty after; green on restored source below).
+
+RED A: BLK_NUM_BUFFERS 4 -> 5, guard not moved:
+FAIL: pool-bounds drift -- BLK_BUF_GUARD 0x29200 != BLK_BUF_DATA 0x28200 + BLK_NUM_BUFFERS 5 * BLOCK_SIZE 1024 = 0x29600; STR_SOURCE_CAP now mis-classifies part of the pool as interactive (unbounded laydown)
+
+RED B: macro 'cmp eax, BLK_BUF_GUARD' -> 'cmp eax, 0x29200' (literal equals
+current value -- only the symbol-identity assertion can catch it):
+FAIL: STR_SOURCE_CAP no longer compares against the BLK_BUF_DATA/BLK_BUF_GUARD symbols -- a literal here severs the macro from the allocator and this gate checks the wrong thing
+
+RED C: sentinel 0x7FFFFFFF -> 0xFFFFFFFF:
+FAIL: STR_SOURCE_CAP no-cap sentinel is not 0x7FFFFFFF -- the loop compare is signed jl; -1/0xFFFFFFFF stops every non-block parse at length 0
+
+GREEN (restored source):
+pool gate passes
