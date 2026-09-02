@@ -251,6 +251,18 @@ def survey(disk_img, port):
     Returns (session, map_output) or (None, reason).
     """
     sess = Session(disk_img, port)
+    # SURVEYOR is no longer embedded (unembedded 2026-09-01 to
+    # fit the physical allocator without growing the kernel pad);
+    # kernel USING is find-only, so load it off the catalog
+    # first.  LOAD-VOCAB resolves REQUIRES deps -- same proven
+    # pattern as test_install.py's INSTALL load.
+    # ORDER MATTERS: the resolver has no already-loaded check, so
+    # LOAD-VOCAB re-loads AHCI from blocks and SURVEYOR compiles
+    # against that fresh copy.  AHCI-INIT must run AFTER the load
+    # or its state lands in the embedded copy and PARTITION-MAP
+    # says "AHCI not init".  test_install.py inits after loading
+    # for the same reason.
+    sess.send('S" SURVEYOR" LOAD-VOCAB', 10)
     sess.send('USING AHCI', 2)
     r = sess.send('AHCI-INIT', 5)
     if 'AHCI ok' not in r:

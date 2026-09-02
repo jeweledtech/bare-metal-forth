@@ -1,0 +1,66 @@
+Physical allocator RED (official, run 6), 2026-09-01.
+Pre-registration drafted 2026-08-31, corrected before any run;
+run date is the filename date.
+
+Tree state: memory-map constants + static carve in
+forth/dict/hardware.fth (inert); NO CURRENT kernel word, NO
+PHYS-RELEASE, NO PHYS-AUDIT, no table logic.
+
+Inputs:
+  image  sha256 308121fda5c3ae3efd9aeca4d0a663c1776f777aa935c1593927be62dc5b72d4  build/bmforth.img
+  suite  sha256 2a7024c0ce20863ab3936d5b480d6e2ac2b439a7a527345d0b98dbc1f3f684cc  tests/test_phys_alloc.py
+
+Image hash is IDENTICAL to runs 4 and 5 -- third deterministic
+rebuild of the same red tree (this time reconstructed from the
+green tree by reverting: allocator splice in hardware.fth,
+CURRENT DEFVAR + KERNEL_ORG/RETURN_STACK_MIN assert in
+forth.asm, surveyor.fth back into EMBED_VOCABS).  Byte-exact
+reproduction is the revert proof.  The suite is RE-FROZEN as of
+this run: nothing changes between this red and the green except
+the code under test.  The green log must show a DIFFERENT image
+hash and the SAME suite hash.
+
+Run lineage (all instrument work, none of it gate-weakening):
+  run 1  INVALID -- ONLY FORTH dropped HARDWARE vocab; failure
+         mode indistinguishable from the expected reds; caught
+         by the pre-registered POSITIVE CONTROLS.  See
+         phys-alloc-red-run1-invalid-2026-09-01.log.
+  run 2  vocab fix; exposed None==None vacuous pass.
+  run 3  not-None guard; exposed check(...,True) tautology.
+  run 4  tautology converted to comment; SUPERSEDED after
+         deliberate unfreeze (membership-unanswerable leg +
+         calibrated drain-first timing).  See
+         phys-alloc-red-run4-superseded-2026-09-01.log.
+  run 5  SUPERSEDED after second deliberate unfreeze: Phase 7
+         comment described the DEADBEEF clobber but the store
+         was never sent -- three corruption checks were
+         unreachable-green.  They failed rather than passed
+         vacuously (the audit truthfully reported a healthy
+         list): the suite caught its own missing fixture.  See
+         phys-alloc-red-run5-superseded-2026-09-01.log.
+  run 6  THIS RUN.  One line added (the store the comment
+         already specified); suite re-frozen at the hash above.
+
+Result: Passed 19/42, exit nonzero.  Reds by name, all
+pre-registered:
+  - CURRENT kernel word exists / CURRENT @ is FORTH cell
+  - PHYS-AUDIT exists + all audit-derived checks (live,
+    unattributed, sum closes, flat occupancy, extents ==)
+  - PHYS-RELEASE exists + all release behaviour (reuse of freed
+    extent, size mismatch by name, rounding rule, double
+    release, never-allocated, membership unanswerable)
+  - Phase 7 corruption legs (audit refusal by name, release on
+    corrupt list) -- red for ABSENCE of the words, and this
+    suite now actually plants the corruption it tests for.
+
+Positive controls, green on this red run (proving the
+instrument): interpreter alive at every phase boundary; all
+SEVEN boot allocations at their pre-registered addresses
+(CL-BUF 103000 ... MFT-BUF 109000 -- the static carve shifted
+the pool before any allocator behaviour changed); fresh alloc
+at pre-registered 10A000 (bump path unchanged); 10-cycle
+calibration + 200 churn cycles completed inside the measured
+budget; oversize alloc returns bare 0 with no table-full text.
+
+Raw output: /tmp/phys_red6.log (full transcript captured the
+day of the run).

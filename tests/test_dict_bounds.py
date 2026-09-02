@@ -150,6 +150,7 @@ DICT_START = 0x30000
 import kernel_constants
 kernel_constants.check_backstop_derivation()
 kernel_constants.check_pool_bounds()
+kernel_constants.check_phys_table()
 BACKSTOP_MARGIN = kernel_constants.DICT_BACKSTOP
 
 # Result-carries-input-hash: a quoted "Passed: N/N" must identify

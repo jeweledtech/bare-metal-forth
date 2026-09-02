@@ -1,0 +1,58 @@
+# Surveyor-unembed sweep — pre-registration and result
+# Date: 2026-09-02 (red/green pair for test_phys_alloc remain 2026-09-01)
+
+## Pre-registration (written BEFORE the run)
+
+Baseline: sweep run 2 (2026-09-01, /tmp/make_test_sweep2.log) was
+1028/1045 across 28 "^Passed:" lines, make exit 1. The only failing
+suite was test-survey at 21/38 (17 failures), all one mechanism:
+PARTITION-MAP printed "AHCI not init" because the harness ran
+AHCI-INIT against the embedded AHCI before S" SURVEYOR" LOAD-VOCAB
+re-loaded AHCI from blocks — SURVEYOR compiled against the fresh
+copy, whose init state was zero.
+
+Fix under test: reorder only — LOAD-VOCAB first, then USING AHCI /
+AHCI-INIT / USING SURVEYOR (test_install.py's proven order). No
+kernel, vocab, or Makefile change.
+
+Prediction: if the reorder is the whole fix, the next full sweep is
+  1045/1045 across 28 "^Passed:" lines, exit 0.
+Anything else is a finding.
+
+## Product defect recorded (deferred list, not fixed here)
+
+LOAD-VOCAB resolves REQUIRES with no already-loaded check
+(catalog-resolver.fth LOAD-VOCAB-INNER: LOADING-PUSH guards only
+the current resolution pass). On a build where a dependency is
+already embedded, it compiles a SECOND copy of that vocabulary;
+find_ walks to the newer one, nothing errors, and "initialized"
+silently becomes a property of which copy you last spoke to.
+Two-representations-of-one-fact at the vocabulary level. This bites
+operators, not just harnesses.
+
+The G6 runbook §3a is safe BY ACCIDENT: it uses THRU of catalog
+ranges, which loads the named blocks only and never re-resolves
+dependencies. That is protection nobody chose — recorded here so
+the eventual fix (an already-loaded check in LOAD-VOCAB-INNER, or
+an explicit ruling that re-load-and-shadow is the intended
+semantics) is made deliberately.
+
+## Result (appended after the run)
+
+Sweep run 3 (2026-09-02, /tmp/make_test_sweep3.log):
+  1045/1045 across 28 "^Passed:" lines, exit 0, zero FAIL lines.
+Prediction confirmed exactly. test-survey verified alone first:
+38/38, exit 0.
+
+Image under test: bmforth.img sha256
+  b498360d5e382b5b5009be907312bb5e488d58737c12d5347891610cc6acd178
+  (same image as the phys-alloc green run, 2026-09-01 — the sweep
+  is the same tree, no rebuild between green and sweep).
+Modified suite: tests/test_survey_layouts.py sha256
+  08a70b7bdc24178816468bbb8179a695de1fabd9fe6d2416fa4e194fb191ba91
+
+Sweep lineage for this arc: run 1 aborted at test-g6 13/34
+(install.fth load-time ALSO SURVEYOR, SURVEYOR unembedded); run 2
+after the G6/runbook/desk-card THRU fixes: 1028/1045, only
+test-survey 21/38 (AHCI shadow-copy aliasing); run 3 after the
+LOAD-VOCAB-before-AHCI-INIT reorder: 1045/1045.

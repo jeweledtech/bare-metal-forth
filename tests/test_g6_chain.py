@@ -722,9 +722,15 @@ fatal('MEMDISK-VAR nonzero on memdisk boot', v == -1, raw[-90:])
 # memdisk RAM image on this boot path). Three as-built facts
 # (all observed over serial, 2026-08-06) reshape the spec's
 # original AHCI-THRU + LOAD-VOCAB sequence:
-#   1. AHCI and SURVEYOR are EMBEDDED in the full build
-#      (Makefile EMBED_VOCABS) -- re-THRUing AHCI from blocks
-#      is redundant, so only INSTALL needs a block load.
+#   1. AHCI is EMBEDDED in the full build (Makefile
+#      EMBED_VOCABS) -- re-THRUing it from blocks is redundant.
+#      SURVEYOR was embedded when this was written but was
+#      UNEMBEDDED 2026-09-01 (to make room for the physical
+#      allocator), so BOTH SURVEYOR and INSTALL need block
+#      loads now, SURVEYOR first: install.fth does ALSO
+#      SURVEYOR at load time, and ALSO <undefined> corrupts
+#      the dictionary (the 2026-05 lesson).  Its own deps
+#      (AHCI NTFS FAT32 HARDWARE) are all still embedded.
 #   2. S" INSTALL" LOAD-VOCAB dies ('F ?' / 'FF ?' then wedge)
 #      on this boot path -- the known LOAD-VOCAB bug; THRU of
 #      the catalog range is the documented workaround.
@@ -753,9 +759,12 @@ fatal('MEMDISK-VAR nonzero on memdisk boot', v == -1, raw[-90:])
 #      Root fix (BASE-transparent AHCI-INIT via BASE @ ... BASE !)
 #      is deferred until AFTER iron G6 -- it rebuilds
 #      combined.img and invalidates deployment provenance.
+sa, sb = get_vocab_blocks('SURVEYOR')
+fatal('SURVEYOR catalog range found', sa is not None)
 a, b = get_vocab_blocks('INSTALL')
 fatal('INSTALL catalog range found', a is not None)
 # --8<-- RUNBOOK-3A-BEGIN
+send(f'DECIMAL {sa} {sb} THRU', 25)
 send(f'DECIMAL {a} {b} THRU', 25)
 # The exemption below is measured, not assumed: the 2026-08-20
 # red-first run (HEX injected before a bare THRU) took the suite

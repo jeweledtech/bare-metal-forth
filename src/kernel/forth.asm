@@ -37,7 +37,8 @@
 ; ============================================================================
 
 [BITS 32]
-[ORG 0x7E00]
+KERNEL_ORG          equ 0x7E00
+[ORG KERNEL_ORG]
 
 ; ============================================================================
 ; Constants
@@ -45,7 +46,26 @@
 
 ; Stack locations
 DATA_STACK_TOP      equ 0x7C00      ; Below kernel, in free conventional memory
-RETURN_STACK_TOP    equ 0x28000     ; Dedicated region: 0x21E00-0x28000
+; Return stack region: padded-kernel-end..RETURN_STACK_TOP
+; (0x23E00-0x28000, 16.5KB).  The floor is ORG + KERNEL_PADDED_SIZE
+; -- one fact, not restated as a second constant.  (The previous
+; comment claimed 0x21E00-0x28000 -- stale since the 2026-05-11
+; pad growth 0x1A000->0x1C000; the region was quietly 4.2KB
+; smaller than documented for four months, with no assert.)
+;
+; RETURN_STACK_MIN is the headroom budget a build must preserve,
+; enforced by a one-direction TIMES assert at the end of this
+; file (shrink refused; growth needs no ceremony).  Derivation:
+; 0x4200 = 16,896 bytes = 4,224 nesting levels at 4 bytes/cell.
+; This is the ENVELOPE figure, not a measured peak: it equals
+; today's actual headroom (0x28000 - 0x23E00), within which every
+; proven workload -- metacompiler self-host, GUI panels, G6
+; installer, iron sessions -- has run since 2026-05-11.  Actual
+; peak return-stack depth has never been measured (owed, with the
+; runtime overflow check); until it is, the budget may only be
+; lowered on the strength of a measurement, not an estimate.
+RETURN_STACK_TOP    equ 0x28000
+RETURN_STACK_MIN    equ 0x4200
 
 ; Dictionary
 DICT_START          equ 0x30000
@@ -1228,6 +1248,7 @@ DEFVAR "STATE", STATE, VAR_STATE
 DEFVAR "HERE", HERE, VAR_HERE
 DEFVAR "LATEST", LATEST, VAR_LATEST
 DEFVAR "BASE", BASE, VAR_BASE
+DEFVAR "CURRENT", CURRENT, VAR_CURRENT
 
 DEFCONST "VERSION", VERSION, 1
 DEFCONST "CELL", CELL, 4
@@ -5811,6 +5832,20 @@ times (BLK_BUF_DATA - (TIB_START + TIB_SIZE)) db 0
 times ((TIB_START + TIB_SIZE) - BLK_BUF_DATA) db 0
 times (BLK_BUF_GUARD - (BLK_BUF_DATA + BLK_NUM_BUFFERS * BLOCK_SIZE)) db 0
 times ((BLK_BUF_DATA + BLK_NUM_BUFFERS * BLOCK_SIZE) - BLK_BUF_GUARD) db 0
+
+; Return-stack minimum-headroom assert (one direction: a shrink
+; below RETURN_STACK_MIN goes negative and fails the build;
+; growth above the minimum emits pad-absorbed zeros and needs no
+; ceremony).  Guards the headroom itself, not a boundary value --
+; an equality pin here would invite the mechanical fix of bumping
+; the pinned constant to match a grown pad, shrinking the stack
+; again with the assert green.  Owed since the +2KB embed
+; regression; the region it guards was quietly violated for four
+; months before that (2026-05-11 pad growth moved the kernel end
+; from 0x21E00 to 0x23E00 with nothing to catch it).  The return
+; stack has NO runtime overflow check: this margin is the only
+; protection that structure has.
+times (RETURN_STACK_TOP - (KERNEL_ORG + KERNEL_PADDED_SIZE) - RETURN_STACK_MIN) db 0
 
 ; Pad kernel to match bootloader's KERNEL_SECTORS (KERNEL_PADDED_SIZE bytes)
 times KERNEL_PADDED_SIZE - ($ - $$) db 0

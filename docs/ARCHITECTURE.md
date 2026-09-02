@@ -145,9 +145,11 @@ DOCOL:                          EXIT:
 
 ## Embedded Vocabularies
 
-25 vocabularies are compiled directly into the kernel binary by `tools/embed-vocabs.py`. The tool strips comments, collapses whitespace, and produces a NUL-terminated ASCII blob. At boot, the kernel evaluates this blob through INTERPRET before entering the interactive REPL.
+24 vocabularies are compiled directly into the kernel binary by `tools/embed-vocabs.py`. The tool strips comments, collapses whitespace, and produces a NUL-terminated ASCII blob. At boot, the kernel evaluates this blob through INTERPRET before entering the interactive REPL.
 
-Embedded vocabs (full build): HARDWARE, PORT-MAPPER, ECHOPORT, PCI-ENUM, CATALOG-RESOLVER, AHCI, RTL8168, NTFS, AUTO-DETECT, FAT32, SURVEYOR, UI-CORE, UI-PARSER, UI-EVENTS, GUI-HARVEST, PS2-KEYBOARD, FILE-EDITOR-CORE, FILE-EDITOR-DISK, NOTEPAD-FORM, NOTEPAD, HELLO-FORM, HELLO-APP, FILE-STREAM, FILE-BROWSER-FORM, FILE-BROWSER.
+Embedded vocabs (full build): HARDWARE, PORT-MAPPER, ECHOPORT, PCI-ENUM, CATALOG-RESOLVER, AHCI, RTL8168, NTFS, AUTO-DETECT, FAT32, UI-CORE, UI-PARSER, UI-EVENTS, GUI-HARVEST, PS2-KEYBOARD, FILE-EDITOR-CORE, FILE-EDITOR-DISK, NOTEPAD-FORM, NOTEPAD, HELLO-FORM, HELLO-APP, FILE-STREAM, FILE-BROWSER-FORM, FILE-BROWSER.
+
+SURVEYOR is block-loaded (unembedded 2026-09-01 to fit the physical allocator without growing the kernel pad); its dependents load it via `LOAD-VOCAB` or a catalog `THRU` before `ALSO SURVEYOR`.
 
 ## Block Storage
 

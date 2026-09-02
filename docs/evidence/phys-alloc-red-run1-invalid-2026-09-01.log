@@ -1,0 +1,84 @@
+Physical allocator RED, run 1 -- INVALID (instrument defect),
+2026-09-01.  Run date is the filename date; the pre-registration
+was drafted 2026-08-31.
+
+Defect: after Phase 1's closing ONLY FORTH DEFINITIONS the suite
+never restored ALSO HARDWARE.  PHYS-ALLOC/PHYS-RELEASE/PHYS-AUDIT
+live in the HARDWARE vocabulary and find_'s FORTH fallback does
+not reach vocab words, so every PHYS-* send read '?'.  The
+pre-registered positive control 'fresh alloc at 10A000' failed
+for a SCOPE reason, not an allocator reason -- green would have
+failed identically, which is what marks this as a harness defect
+and not a gate.  The failed ': PACYC' compile then wedged the
+session (empty responses, Phases 6-7).
+
+What the run still established (and run 2 must reproduce):
+  - all 7 boot allocations at pre-registered addresses
+    (103000..109000): the static carve positive control held.
+  - word-level reds fired BY NAME: CURRENT, PHYS-AUDIT,
+    PHYS-RELEASE.
+
+Fix applied before run 2: single ALSO HARDWARE after Phase 1's
+final ONLY FORTH DEFINITIONS (tests/test_phys_alloc.py).  Gate
+logic, expected strings, and pre-registered values unchanged.
+
+=== raw output ===
+Running physical allocator test...
+input sha256 308121fda5c3ae3efd9aeca4d0a663c1776f777aa935c1593927be62dc5b72d4  build/bmforth.img
+
+=== Phase 0: instrument controls ===
+  PASS: interpreter alive
+  FAIL: CURRENT kernel word exists -- no CURRENT word -- kernel change absent
+  FAIL: CURRENT @ at prompt is FORTH cell (28048) -- got: 'CURRENT ? \r\n0 ok '
+
+=== Phase 1: boot-state allocations (pre-registered) ===
+  PASS: CL-BUF at pre-registered 0x103000
+  PASS: FIS-BUF at pre-registered 0x104000
+  PASS: CT-BUF at pre-registered 0x105000
+  PASS: SEC-BUF at pre-registered 0x106000
+  PASS: TX-DESC at pre-registered 0x107000
+  PASS: TX-BUF at pre-registered 0x108000
+  PASS: MFT-BUF at pre-registered 0x109000 (400 rounds up)
+  FAIL: PHYS-AUDIT exists -- no parseable summary: 'PHYS-AUDIT ? \r\nok '
+  FAIL: boot audit: live 7 -- got None
+  FAIL: boot audit: unattributed 0 (all 7 tagged by owner) -- got None
+  FAIL: boot audit sum closes to 300000 -- total=None
+
+=== Phase 2: release and reuse ===
+  FAIL: fresh alloc at pre-registered 10A000 -- got: 'PHYS-ALLOC ? \r\n1000 ok '
+  FAIL: PHYS-RELEASE exists -- no PHYS-RELEASE word -- free path absent
+  FAIL: re-alloc reuses freed extent (10A000 again) -- got: 'PHYS-ALLOC ? \r\n1000 ok '
+  FAIL: live == 8 (7 boot + 1 held) -- got None
+
+=== Phase 3: refusals, each by name ===
+  FAIL: size mismatch refused by name (full prefixed string) -- got: 'PHYS-RELEASE ? \r\nok '
+  FAIL: mismatched release left the allocation live -- got None
+  FAIL: release with unrounded size (rounding rule) -- got: 'PHYS-RELEASE ? \r\nok '
+  FAIL: rounding-rule release took effect (live 8 -> 7) -- got None
+  FAIL: double release refused by name -- got: 'PHYS-RELEASE ? \r\nok '
+  FAIL: never-allocated refused by name -- got: 'PHYS-RELEASE ? \r\nok '
+  PASS: the two membership refusals are distinct strings
+
+=== Phase 4: 200 varying alloc/release cycles ===
+  FAIL: 200 cycles completed (interpreter alive)
+  PASS: no refusal fired during cycles
+  PASS: flat occupancy across 200 cycles
+  FAIL: audit sum still closes after churn -- total=None
+  FAIL: free list stayed coalesced across churn (extents bounded) -- None -> None extents
+
+=== Phase 5: unattributed detection ===
+  FAIL: prompt-side run-time alloc counted unattributed -- got None
+  FAIL: boot allocations still attributed (unat exactly 1) -- live=None unat=None
+
+=== Phase 6: exhaustion is bare 0, not table-full ===
+  FAIL: oversize alloc returns 0 -- got: ''
+  PASS: OOM did NOT say table full (distinct refusals)
+
+=== Phase 7 (destructive, last): corrupted free list ===
+  FAIL: corruption-victim alloc succeeded -- got: ''
+  FAIL: audit refused with "free list corrupt" (in-pool check) -- got: ''
+  PASS: walk did NOT misreport as too-long (wrong discriminator)
+  FAIL: interpreter alive after refusal -- walk hung or crashed -- refusal must be loud AND survivable
+
+Passed: 13/38
+make: *** [Makefile:297: test-phys-alloc] Error 1

@@ -115,6 +115,94 @@ def check_backstop_derivation():
               f'derives {DERIV_TOTAL} = {DERIV_BOUND} + {DERIV_SLACK}')
 
 
+HARDWARE_FTH = os.path.normpath(os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    '..', 'forth', 'dict', 'hardware.fth'))
+
+
+def _fth_const(src, name):
+    """Parse `<hex> CONSTANT <name>` from a .fth source, allowing
+    an ordinary trailing `\\ comment`.  The file is HEX from its
+    preamble, so the literal is base-16 with no 0x prefix -- a
+    decimal int() here would silently misread 300 as three hundred
+    instead of 768, the HEX/DECIMAL trap (bug #20) reproduced
+    inside the gate built to prevent drift."""
+    m = re.search(r'^([0-9A-F]+) CONSTANT ' + re.escape(name)
+                  + r'(?:\s+\\.*)?\s*$', src, re.M)
+    return int(m.group(1), 16) if m else None
+
+
+def check_phys_table():
+    """Owner-table sizing gate (Task B, 2026-08-31).  Same shape as
+    check_backstop_derivation: a derived, load-bearing, invisible-
+    if-drifted number, machine-checked against its own derivation
+    three ways.  The capacity claim 'hot-plug cannot grow the
+    table' holds only if capacity >= max possible live allocations;
+    if OWN-CAP were a chosen literal, many small allocations could
+    exhaust the table while pages remain free, and table-full would
+    stop being a backstop.  NOTE the base: capacity is derived from
+    the pool ORIGIN (0x100000), not the post-carve POOL-BASE -- the
+    carve leaves fewer allocatable pages, so the spare entries are
+    rounding slack on the safe side.
+
+    Also gates: the FORTH-CELL sentinel (unattributed-allocation
+    detection) against the kernel's VAR_FORTH_LATEST equ -- identity,
+    not coincidence -- and the DMA-ALLOC ISA delegation claim
+    PHYS-TOP <= 0x1000000 as arithmetic, not prose."""
+    try:
+        fsrc = open(HARDWARE_FTH).read()
+    except OSError as e:
+        _fail(f'cannot read {HARDWARE_FTH}: {e}')
+    origin = _fth_const(fsrc, 'POOL-ORIGIN')
+    top = _fth_const(fsrc, 'PHYS-TOP')
+    cap = _fth_const(fsrc, 'OWN-CAP')
+    rec = _fth_const(fsrc, 'OWN-REC')
+    tbytes = _fth_const(fsrc, 'OWN-BYTES')
+    fcell = _fth_const(fsrc, 'FORTH-CELL')
+    if None in (origin, top, cap, rec, tbytes, fcell):
+        _fail('could not parse POOL-ORIGIN / PHYS-TOP / OWN-CAP / '
+              f'OWN-REC / OWN-BYTES / FORTH-CELL constants from '
+              f'{HARDWARE_FTH} (hex literals, optional trailing '
+              '\\ comment -- restore the constants, do not relax '
+              'this regex)')
+    page = 0x1000
+    if rec != 3 * 4:
+        _fail(f'owner-record shape drift -- OWN-REC 0x{rec:X} != '
+              f'3 cells (base, size, tag); if the record grew a '
+              f'field, this gate\'s field count must grow with it '
+              f'CONSCIOUSLY, not silently validate the old size')
+    if cap * page < top - origin:
+        _fail(f'owner-table capacity drift -- OWN-CAP 0x{cap:X} * '
+              f'page < pool 0x{top - origin:X} from ORIGIN; a full '
+              f'pool can outrun the table and table-full stops '
+              f'being a backstop')
+    if tbytes != ((cap * rec + page - 1) // page) * page:
+        _fail(f'owner-table carve drift -- OWN-BYTES 0x{tbytes:X} != '
+              f'page-rounded OWN-CAP*OWN-REC = '
+              f'0x{((cap * rec + page - 1) // page) * page:X}')
+    if not re.search(r'^POOL-ORIGIN OWN-BYTES \+ CONSTANT POOL-BASE'
+                     r'(?:\s+\\.*)?\s*$', fsrc, re.M):
+        _fail('POOL-BASE is not derived as POOL-ORIGIN OWN-BYTES + '
+              '-- a literal or moved base can overlap the first '
+              'allocation with the table; derivation by the SYMBOLS '
+              'is what makes overlap impossible by identity')
+    _fl = re.search(r'^VAR_FORTH_LATEST\s+equ\s+0x([0-9A-Fa-f]+)',
+                    _src, re.M)
+    if not _fl:
+        _fail(f'could not parse VAR_FORTH_LATEST equ from {ASM}')
+    if fcell != int(_fl.group(1), 16):
+        _fail(f'FORTH-CELL sentinel drift -- hardware.fth says '
+              f'0x{fcell:X}, kernel VAR_FORTH_LATEST equ is '
+              f'0x{int(_fl.group(1), 16):X}; unattributed detection '
+              f'now compares against the wrong cell and every '
+              f'run-time allocation reads as attributed')
+    if top > 0x1000000:
+        _fail(f'DMA-ALLOC delegation broken -- PHYS-TOP 0x{top:X} > '
+              f'16MB ISA limit 0x1000000; DMA-ALLOC = PHYS-ALLOC '
+              f'only holds below that line (the comment saying so '
+              f'is now a lie)')
+
+
 def check_pool_bounds():
     """STR_SOURCE_CAP pool gate (follow-on named in 6a2c64d).  The
     invariant is the RELATIONSHIP, not the values: BLK_BUF_GUARD ==

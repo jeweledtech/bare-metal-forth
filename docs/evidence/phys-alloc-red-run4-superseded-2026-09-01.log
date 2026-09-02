@@ -1,0 +1,109 @@
+SUPERSEDED by phys-alloc-red-2026-09-01.log (run 5).  Reason:
+the suite was unfrozen DELIBERATELY after this run (mentor
+directive): (a) Phase 7 gained the membership-unanswerable leg
+so the PHYS-RELEASE walk-verdict branch added in review does
+not ship untested inside a guard; (b) Phase 4 gained measured
+calibrated timing (drain-first send_timed) so a slow run fails
+by name instead of impersonating a coalescing defect.  Same
+disposition as run 1 invalid: recorded, not deleted.
+
+Physical allocator RED (official), 2026-09-01.
+Pre-registration drafted 2026-08-31; corrected before any run
+(CL-BUF reclassified positive control when the carve moved ahead
+of the red).  Run date is the filename date.
+
+Tree state: memory-map constants + static carve landed in
+forth/dict/hardware.fth (inert declarations); NO CURRENT kernel
+word, NO PHYS-RELEASE, NO PHYS-AUDIT, no table logic.
+
+Inputs:
+  image  sha256 308121fda5c3ae3efd9aeca4d0a663c1776f777aa935c1593927be62dc5b72d4  build/bmforth.img
+  suite  sha256 d6ad1e1e024aa58cfc3821fe4c0262897c6b53a90d34ea6cf0100e4c5e994fbb  tests/test_phys_alloc.py
+The suite is FROZEN as of this run: nothing changes between this
+red and the green except the code under test.  The green log must
+show a DIFFERENT image hash and the SAME suite hash.
+
+Run lineage (instrument fixes, all before this run):
+  run 1  INVALID -- ONLY FORTH dropped HARDWARE vocab; every
+         PHYS-* read '?', indistinguishable from the expected
+         reds.  Caught by the pre-registered POSITIVE CONTROLS
+         (seven boot addresses + fresh alloc), not by the reds.
+         See phys-alloc-red-run1-invalid-2026-09-01.log.
+  run 2  vocab fix applied; exposed None==None vacuous pass in
+         the flat-occupancy check.
+  run 3  not-None tightening; exposed check(...,True) tautology.
+  run 4  tautology converted to comment, extents bound derived
+         and tightened to equality.  THIS RUN.
+
+Result: Passed 15/37, exit 1.
+  Reds, each by name: CURRENT (x2), PHYS-AUDIT + 3 audit parses,
+  PHYS-RELEASE, reuse, live-count, all 6 Phase 3 refusal checks,
+  3 churn audit checks, 2 unattributed checks, 2 Phase 7 checks.
+  Positive controls, all green: liveness; ALL SEVEN boot
+  allocations at pre-registered carved addresses
+  (103000..109000, MFT-BUF 400 rounding up); fresh bump alloc at
+  10A000; 200 cycles alive; OOM bare 0 with no 'table full'.
+  The two remaining negative-check passes (no 'table full', no
+  'free list too long') sit paired with named FAILs of their
+  positive twins -- read as pairs, per the delivery-vs-content
+  rule.
+
+=== raw output ===
+Running physical allocator test...
+input sha256 308121fda5c3ae3efd9aeca4d0a663c1776f777aa935c1593927be62dc5b72d4  build/bmforth.img
+
+=== Phase 0: instrument controls ===
+  PASS: interpreter alive
+  FAIL: CURRENT kernel word exists -- no CURRENT word -- kernel change absent
+  FAIL: CURRENT @ at prompt is FORTH cell (28048) -- got: 'CURRENT ? \r\n0 ok '
+
+=== Phase 1: boot-state allocations (pre-registered) ===
+  PASS: CL-BUF at pre-registered 0x103000
+  PASS: FIS-BUF at pre-registered 0x104000
+  PASS: CT-BUF at pre-registered 0x105000
+  PASS: SEC-BUF at pre-registered 0x106000
+  PASS: TX-DESC at pre-registered 0x107000
+  PASS: TX-BUF at pre-registered 0x108000
+  PASS: MFT-BUF at pre-registered 0x109000 (400 rounds up)
+  FAIL: PHYS-AUDIT exists -- no parseable summary: 'PHYS-AUDIT ? \r\nok '
+  FAIL: boot audit: live 7 -- got None
+  FAIL: boot audit: unattributed 0 (all 7 tagged by owner) -- got None
+  FAIL: boot audit sum closes to 300000 -- total=None
+
+=== Phase 2: release and reuse ===
+  PASS: fresh alloc at pre-registered 10A000
+  FAIL: PHYS-RELEASE exists -- no PHYS-RELEASE word -- free path absent
+  FAIL: re-alloc reuses freed extent (10A000 again) -- got: '10B000 ok '
+  FAIL: live == 8 (7 boot + 1 held) -- got None
+
+=== Phase 3: refusals, each by name ===
+  FAIL: size mismatch refused by name (full prefixed string) -- got: 'PHYS-RELEASE ? \r\nok '
+  FAIL: mismatched release left the allocation live -- got None
+  FAIL: release with unrounded size (rounding rule) -- got: 'PHYS-RELEASE ? \r\nok '
+  FAIL: rounding-rule release took effect (live 8 -> 7) -- got None
+  FAIL: double release refused by name -- got: 'PHYS-RELEASE ? \r\nok '
+  FAIL: never-allocated refused by name -- got: 'PHYS-RELEASE ? \r\nok '
+
+=== Phase 4: 200 varying alloc/release cycles ===
+  PASS: 200 cycles completed (interpreter alive)
+  PASS: no refusal fired during cycles
+  FAIL: flat occupancy across 200 cycles -- None -> None
+  FAIL: audit sum still closes after churn -- total=None
+  FAIL: free list returned to pre-churn shape (extents ==) -- None -> None extents
+
+=== Phase 5: unattributed detection ===
+  FAIL: prompt-side run-time alloc counted unattributed -- got None
+  FAIL: boot allocations still attributed (unat exactly 1) -- live=None unat=None
+
+=== Phase 6: exhaustion is bare 0, not table-full ===
+  PASS: oversize alloc returns 0
+  PASS: OOM did NOT say table full (distinct refusals)
+
+=== Phase 7 (destructive, last): corrupted free list ===
+  FAIL: corruption-victim alloc succeeded -- got: '239000 ok '
+  FAIL: audit refused with "free list corrupt" (in-pool check) -- got: 'PHYS-AUDIT ? \r\nok '
+  PASS: walk did NOT misreport as too-long (wrong discriminator)
+  PASS: interpreter alive after refusal
+
+Passed: 15/37
+make: *** [Makefile:297: test-phys-alloc] Error 1

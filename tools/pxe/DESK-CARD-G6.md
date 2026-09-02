@@ -23,6 +23,13 @@ the numbers and the exact lines to type.
 combined.img MD5        ______________________________________
   $ md5sum build/combined.img
 
+SURVEYOR catalog range  ______  ______   ( "<n> <m> THRU" )
+  $ python3 tools/catalog_layout.py SURVEYOR
+  Run against the SAME build/blocks.img you are about to boot.
+  (SURVEYOR unembedded 2026-09-01; it loads from blocks now,
+  BEFORE the INSTALL range -- install.fth does ALSO SURVEYOR
+  at load time.)
+
 INSTALL catalog range   ______  ______   ( "<n> <m> THRU" )
   $ python3 tools/catalog_layout.py INSTALL
   Run against the SAME build/blocks.img you are about to boot.
@@ -103,7 +110,8 @@ like a pass.
 ### 3a — load and init (harness: `RUNBOOK-3A` markers, drift-gated)
 
 ```forth
-DECIMAL ______ ______ THRU   \ the two numbers from section A
+DECIMAL ______ ______ THRU   \ SURVEYOR numbers from section A
+DECIMAL ______ ______ THRU   \ INSTALL numbers from section A
 USING AHCI
 AHCI-INIT
 ALSO SURVEYOR

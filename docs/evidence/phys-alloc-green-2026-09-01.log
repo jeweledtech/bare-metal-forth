@@ -1,0 +1,94 @@
+Physical allocator GREEN, 2026-09-01.  Pairs with
+phys-alloc-red-2026-09-01.log (run 6).
+
+Inputs:
+  image  sha256 b498360d5e382b5b5009be907312bb5e488d58737c12d5347891610cc6acd178  build/bmforth.img
+  suite  sha256 2a7024c0ce20863ab3936d5b480d6e2ac2b439a7a527345d0b98dbc1f3f684cc  tests/test_phys_alloc.py
+
+Different image hash from the red, SAME suite hash: nothing
+changed between red and green except the code under test.
+
+Result: Passed 42/42, exit 0.  All pre-registered addresses hit
+(CL-BUF 103000 ... MFT-BUF 109000, fresh 10A000, reuse 10A000);
+boot audit live 7 / unattributed 0 / sum closes to 300000;
+Phase 3 refusals each by full "PHYS: " prefixed name; Phase 4
+200 varying cycles inside the calibrated budget with flat
+occupancy, closing sum, and free-list extent shape EQUAL to
+pre-churn (merge-on-insert coalescing proven under churn);
+Phase 5 prompt-side alloc counted unattributed, boot allocs
+still attributed; Phase 6 OOM is bare 0, not table-full;
+Phase 7 planted DEADBEEF corruption caught by the IN-POOL check
+by name (not the length cap), interpreter alive, and release on
+the corrupt list answers "PHYS: membership unanswerable" with
+NO membership verdict printed.
+
+Kernel delta vs red tree: DEFVAR CURRENT (240 -> 241 words);
+hardware.fth gains owner side table + free list + PHYS-RELEASE
++ PHYS-AUDIT; DMA-ALLOC bare delegation retained (pool below
+16MB, machine-checked in kernel_constants).
+
+---- Embed overflow and the surveyor unembed (mentor ruling) ----
+
+Landing the allocator overflowed KERNEL_PADDED_SIZE by 3,158
+bytes (TIMES value -3158).  Measured, not estimated:
+  hardware.fth token stream: 1,579 bytes (HEAD) -> 6,429 bytes
+  (green), +4,850.  Pre-registered estimate was 1.5-2KB -- off
+  by 2.5x.  METHOD NOTE: measure the comment-stripped token
+  stream BEFORE the build next time; the strip pipeline makes
+  this a one-liner.
+
+Options on the table, disposition:
+  (a) grow KERNEL_PADDED_SIZE 0x1C000 -> 0x1E000: REJECTED --
+      would shrink the return stack (which has NO runtime
+      overflow check and abuts VAR_STATE with no gap) from
+      16.5KB to 12.5KB, and 224 sectors is baked LITERALLY
+      into the chainload path (see below), so the G6 iron leg
+      would truncate the kernel.
+  (fourth) block-loaded companion holding only the free path:
+      REJECTED -- the allocator would have two behaviours
+      depending on load state, PHYS-AUDIT reporting differently
+      in each; the phase-pun species this project was bitten by
+      twice in ten days.
+  (b) SHIPPED, scoped narrowly: unembed forth/dict/surveyor.fth
+      only (20,185 stripped bytes freed vs 3,158 needed).
+      Memory map and boot contract untouched.
+      embedded.bin: 105,879 -> 85,902 bytes.
+
+KERNEL_SECTORS literal-or-derived (reported either way, per
+ruling):
+  src/boot/vbr.asm:39   KERNEL_SECTORS equ 224 -- LITERAL, and
+      doubly rigid: CHUNK_SECTORS equ 32 with "224 = 7 x 32,
+      exact", so 232 would not divide the chunked EDD read.
+  forth/dict/install.fth:1060   224 CONSTANT KERNEL-SECTORS --
+      LITERAL, but tripwired: test_install.py derives the
+      expected value from build/kernel.bin size at runtime and
+      goes red on drift.
+  A pad growth would therefore have truncated the G6 iron
+  chainload silently at boot-medium level; the ruling to leave
+  it alone was correct.
+
+Return-stack assert (landed regardless of option, per ruling):
+  forth.asm now pins RETURN_STACK_MIN equ 0x4200 and TIMES-
+  asserts minimum headroom in ONE direction (shrink refused,
+  growth free).  0x4200 = 16,896 bytes = 4,224 nesting levels
+  at 4 bytes/cell -- the ENVELOPE figure (today's actual
+  headroom), not a measured peak.  Stale forth.asm comment
+  ("0x21E00-0x28000", false since the 2026-05-11 pad growth)
+  corrected with the reason it was wrong.
+
+Deferred (recorded, picked up deliberately or never):
+  - Runtime return-stack overflow check + measured peak depth;
+    RETURN_STACK_MIN may only be lowered on a measurement.
+  - EMBED_VOCABS is not a prerequisite of the embed rule:
+    editing the list does not trigger a rebuild (bit this
+    session -- stale embedded.bin needed a manual rm).  Path to
+    a silently stale image.
+  - Boot-time SURVEYOR dependents observed during the audit:
+    kernel USING/ALSO are find-only (no block load), and
+    test_install.py:422 + RUNBOOK-G6 §3a rely on SURVEYOR being
+    embedded.  The sweep (make test) is the instrument that
+    decides whether anything actually breaks.
+
+Raw output: /tmp/phys_green2.log (green run 2; green run 1 was
+39/42 against the run-5 suite and triggered the second
+unfreeze, see the run-5 superseded log).

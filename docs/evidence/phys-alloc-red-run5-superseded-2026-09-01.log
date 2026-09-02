@@ -1,0 +1,122 @@
+SUPERSEDED by phys-alloc-red-2026-09-01.log (run 6).  Reason:
+second deliberate unfreeze.  Green run 1 against this suite came
+back 39/42: Phase 7 described the DEADBEEF clobber of the freed
+node next pointer in a comment but never sent the store, so the
+free list stayed healthy and the three corruption checks were
+unreachable-green.  They did not pass vacuously -- they FAILED,
+because the audit correctly reported a healthy list: the suite
+caught its own missing fixture.  Fix is the one store the
+comment already specified.  Same disposition as runs 1 and 4:
+recorded, not deleted.
+
+Physical allocator RED (official, run 5), 2026-09-01.
+Pre-registration drafted 2026-08-31, corrected before any run;
+run date is the filename date.
+
+Tree state: memory-map constants + static carve in
+forth/dict/hardware.fth (inert); NO CURRENT kernel word, NO
+PHYS-RELEASE, NO PHYS-AUDIT, no table logic.
+
+Inputs:
+  image  sha256 308121fda5c3ae3efd9aeca4d0a663c1776f777aa935c1593927be62dc5b72d4  build/bmforth.img
+  suite  sha256 62a650d2f6bee1299239e2ca8a70ad2fb0598eba32afff2f999849d259e70465  tests/test_phys_alloc.py
+Image hash is IDENTICAL to run 4's -- deterministic rebuild of
+the same red tree, which is itself evidence the revert for this
+re-run reproduced the run-4 state exactly.  The suite is
+RE-FROZEN as of this run: nothing changes between this red and
+the green except the code under test.  The green log must show a
+DIFFERENT image hash and the SAME suite hash.
+
+Run lineage (all instrument work, none of it gate-weakening):
+  run 1  INVALID -- ONLY FORTH dropped HARDWARE vocab; failure
+         mode indistinguishable from the expected reds; caught
+         by the pre-registered POSITIVE CONTROLS.  See
+         phys-alloc-red-run1-invalid-2026-09-01.log.
+  run 2  vocab fix; exposed None==None vacuous pass.
+  run 3  not-None tightening; exposed check(...,True) tautology.
+  run 4  tautology removed, extents bound derived to equality.
+         SUPERSEDED by deliberate unfreeze -- see
+         phys-alloc-red-run4-superseded-2026-09-01.log.
+  run 5  Phase 7 membership-unanswerable leg (both halves:
+         named refusal present AND no membership verdict);
+         Phase 4 measured calibration timing, drain-first.
+         THIS RUN.
+
+Result: Passed 19/42, exit 1.
+  Reds, each by name: CURRENT (x2), PHYS-AUDIT + 3 audit
+  parses, PHYS-RELEASE, reuse, live-count, all 6 Phase 3
+  refusal checks, 3 churn audit checks, 2 unattributed checks,
+  2 Phase 7 corruption checks, membership-unanswerable.
+  Positive controls, all green: liveness; ALL SEVEN boot
+  allocations at pre-registered carved addresses
+  (103000..109000); fresh bump alloc at 10A000; calibration and
+  200 cycles within measured budget; OOM bare 0, no
+  'table full'.
+  Negative-check passes on '?' bodies (no 'table full', no
+  'too long', no membership verdict) each sit paired with a
+  named FAIL of their positive twin -- read as pairs.
+
+=== raw output ===
+Running physical allocator test...
+input sha256 308121fda5c3ae3efd9aeca4d0a663c1776f777aa935c1593927be62dc5b72d4  build/bmforth.img
+
+=== Phase 0: instrument controls ===
+  PASS: interpreter alive
+  FAIL: CURRENT kernel word exists -- no CURRENT word -- kernel change absent
+  FAIL: CURRENT @ at prompt is FORTH cell (28048) -- got: 'CURRENT ? \r\n0 ok '
+
+=== Phase 1: boot-state allocations (pre-registered) ===
+  PASS: CL-BUF at pre-registered 0x103000
+  PASS: FIS-BUF at pre-registered 0x104000
+  PASS: CT-BUF at pre-registered 0x105000
+  PASS: SEC-BUF at pre-registered 0x106000
+  PASS: TX-DESC at pre-registered 0x107000
+  PASS: TX-BUF at pre-registered 0x108000
+  PASS: MFT-BUF at pre-registered 0x109000 (400 rounds up)
+  FAIL: PHYS-AUDIT exists -- no parseable summary: 'PHYS-AUDIT ? \r\nok '
+  FAIL: boot audit: live 7 -- got None
+  FAIL: boot audit: unattributed 0 (all 7 tagged by owner) -- got None
+  FAIL: boot audit sum closes to 300000 -- total=None
+
+=== Phase 2: release and reuse ===
+  PASS: fresh alloc at pre-registered 10A000
+  FAIL: PHYS-RELEASE exists -- no PHYS-RELEASE word -- free path absent
+  FAIL: re-alloc reuses freed extent (10A000 again) -- got: '10B000 ok '
+  FAIL: live == 8 (7 boot + 1 held) -- got None
+
+=== Phase 3: refusals, each by name ===
+  FAIL: size mismatch refused by name (full prefixed string) -- got: 'PHYS-RELEASE ? \r\nok '
+  FAIL: mismatched release left the allocation live -- got None
+  FAIL: release with unrounded size (rounding rule) -- got: 'PHYS-RELEASE ? \r\nok '
+  FAIL: rounding-rule release took effect (live 8 -> 7) -- got None
+  FAIL: double release refused by name -- got: 'PHYS-RELEASE ? \r\nok '
+  FAIL: never-allocated refused by name -- got: 'PHYS-RELEASE ? \r\nok '
+
+=== Phase 4: 200 varying alloc/release cycles ===
+  PASS: 10-cycle calibration completed
+  PASS: 200 cycles completed, not exceeded time budget
+  PASS: interpreter alive after churn (before audit read)
+  PASS: no refusal fired during cycles
+  FAIL: flat occupancy across 200 cycles -- None -> None
+  FAIL: audit sum still closes after churn -- total=None
+  FAIL: free list returned to pre-churn shape (extents ==) -- None -> None extents
+
+=== Phase 5: unattributed detection ===
+  FAIL: prompt-side run-time alloc counted unattributed -- got None
+  FAIL: boot allocations still attributed (unat exactly 1) -- live=None unat=None
+
+=== Phase 6: exhaustion is bare 0, not table-full ===
+  PASS: oversize alloc returns 0
+  PASS: OOM did NOT say table full (distinct refusals)
+
+=== Phase 7 (destructive, last): corrupted free list ===
+  FAIL: corruption-victim alloc succeeded -- got: '247000 ok '
+  FAIL: audit refused with "free list corrupt" (in-pool check) -- got: 'PHYS-AUDIT ? \r\nok '
+  PASS: walk did NOT misreport as too-long (wrong discriminator)
+  PASS: interpreter alive after refusal
+  FAIL: release on corrupt list: membership unanswerable by name -- got: 'PHYS-RELEASE ? \r\nok '
+  PASS: release on corrupt list: NO membership verdict printed
+  PASS: interpreter alive after unanswerable refusal
+
+Passed: 19/42
+make: *** [Makefile:297: test-phys-alloc] Error 1
