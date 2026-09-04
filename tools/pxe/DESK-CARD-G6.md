@@ -26,6 +26,8 @@ iron loop (execute leg), and takes the step-2 BAR reading.
 ```bash
 git status                      # clean, or explain before proceeding
 git log --oneline -1            # commit: ______________________
+make && make test               # green tree FIRST -- this rebuilds; anything
+                                # staged before it can be clobbered
 make combined
 # stage the translated i8042prt vocabulary (execute leg):
 tools/translator/bin/translator \
@@ -47,7 +49,7 @@ SURVEYOR catalog range  ______  ______   ( "<n> <m> THRU" )
   Against the SAME build/blocks.img you just staged into.
 
 make test headline      Passed: ______  over ______ "Passed:" lines
-  $ make && make test    # then sum the ^Passed: lines
+  Already run, see top — sum the ^Passed: lines from THAT run.
   Re-derive after any tree change. Do NOT carry 1065/29 forward —
   it is pinned to f325ec5.
 
