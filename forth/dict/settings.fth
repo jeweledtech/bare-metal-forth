@@ -87,8 +87,15 @@ CREATE SC-SN-ON 2 C,
 
 \ ---- Status initial match string ----------
 DECIMAL
+\ 40 = '(' -- literal, not CHAR (:
+\ the embed stripper reads a bare (
+\ as an unclosed comment and the
+\ build gate refuses it (2026-09-03;
+\ before the gate it silently
+\ truncated this line in the free
+\ embed, corrupting this string).
 CREATE SC-INIT-STAT 8 C,
-  CHAR ( C, CHAR s C, CHAR t C,
+  40 C, CHAR s C, CHAR t C,
   CHAR a C, CHAR t C, CHAR u C,
   CHAR s C, CHAR ) C,
 HEX

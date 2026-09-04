@@ -26,12 +26,24 @@ import re
 STRIP_INIT_CALLS = {'HARDWARE-INIT', 'PM-INFO'}
 
 
-def strip_comments(source):
-    """Strip comments and standalone init calls from Forth source."""
+def strip_comments(source, fname='<source>'):
+    """Strip comments and standalone init calls from Forth source.
+
+    An unclosed ( on a line is a hard build error, not a silent
+    truncation.  Two real failure shapes route through that path:
+    a ( ) stack comment wrapped across lines leaks its continuation
+    into the boot token stream as live tokens (2026-09-03: leaked
+    '-- b d f -1 | 0 )' wedged boot before the prompt), and a (
+    used as a word argument (CHAR ( / ' () gets the rest of its
+    line silently dropped.  The same source text has two parsers
+    with different comment rules -- only failing closed here keeps
+    them agreeing.  ( inside ." / S" strings is exempt: the string
+    state machine below passes it verbatim.
+    """
     lines = source.split('\n')
     result_lines = []
 
-    for line in lines:
+    for lineno, line in enumerate(lines, 1):
         stripped = line.strip()
 
         # Skip standalone auto-init calls (but keep colon defs like ": HARDWARE-INIT")
@@ -73,7 +85,13 @@ def strip_comments(source):
                         i = j + 1
                         continue
                     else:
-                        break  # Unclosed ( — skip rest of line
+                        sys.exit(
+                            f"embed-vocabs: {fname}:{lineno}: "
+                            f"unclosed ( -- wrapped stack comment "
+                            f"or ( as word argument; both diverge "
+                            f"from interpreter semantics when "
+                            f"embedded. Close it on one line or "
+                            f"restructure.\n  {line.rstrip()}")
             elif in_dot_quote:
                 if line[i] == '"':
                     in_dot_quote = False
@@ -109,7 +127,7 @@ def main():
     for fpath in input_files:
         with open(fpath, 'r') as f:
             source = f.read()
-        tokens = strip_comments(source)
+        tokens = strip_comments(source, fname=fpath)
         if tokens:
             all_tokens.append(tokens)
 

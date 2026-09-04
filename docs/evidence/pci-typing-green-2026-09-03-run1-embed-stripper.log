@@ -1,0 +1,39 @@
+FAILED GREEN (run 1): dead session at boot -- embed stripper leaks line 2 of a
+multi-line ( ) stack comment as live tokens ('-- b d f -1 | 0 )'), unknown word
+at boot evaluation wedged the prompt. Fix: single-line comment. Valid green is
+pci-typing-green-2026-09-03.log.
+
+Running PCI class-code typing test...
+input sha256 af9f67cad03f29c25cd5a968904087374e0d6ec6cc8efb4981570f452fc8fb97  build/bmforth.img
+
+=== Phase 0: instrument controls (green both runs) ===
+  FAIL: interpreter alive
+  FAIL: PCI-COUNT nonzero (boot auto-scan populated PCI-TBL) -- got None: ''
+  FAIL: qemu-xhci 1B36:000D found via OLD PCI-FIND (control) -- got None: ''
+  probe sanity: DEF? PCI-FIND=None ZZZ-NEVER-DEFINED=None -> BROKEN
+
+=== Phase 1: prog-IF read ===
+  FAIL: PCI-PROGIF@ defined (DEF? nonzero)
+  FAIL: prog-IF of 1B36:000D is 30 (xHCI, known nonzero) -- got None: ''
+
+=== Phase 2: find-by-class ===
+  FAIL: PCI-FIND-CLASS defined (DEF? nonzero)
+  FAIL: class 0C sub 03 found (xHCI present by construction) -- got None: ''
+  FAIL: round-trip: found b/d/f reads back class 0C sub 03 -- got: ''
+  FAIL: negative control: class 0F sub 00 returns 0 -- got None: ''
+
+=== Phase 3: typed find (prog-IF discriminates) ===
+  FAIL: FIND-XHCI finds the controller -- got None: ''
+  FAIL: typed find landed on prog-IF 30 -- got None: ''
+  FAIL: negative: prog-IF 10 (OHCI) on this machine returns 0 -- got None: ''
+  FAIL: BAR0 at found function nonzero -- got None: ''
+  FAIL: BAR0 bit 0 clear (MMIO, not I/O) -- bar=None bit0=None: ''
+
+=== Phase 4: PCI-TYPES, both BASE legs ===
+  FAIL: entered DECIMAL: typed listing names USB host (xHCI) + MMIO -- got: ''
+  FAIL: entered DECIMAL: BASE untouched by the listing (reads 10) -- got: ''
+  FAIL: entered HEX: typed listing names USB host (xHCI) + MMIO -- got: ''
+  FAIL: entered HEX: BASE untouched by the listing (reads 16) -- got: ''
+
+Passed: 0/18
+make: *** [Makefile:313: test-pci-typing] Error 1

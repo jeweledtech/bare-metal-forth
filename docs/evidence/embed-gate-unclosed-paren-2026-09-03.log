@@ -1,0 +1,28 @@
+Embed-stripper unclosed-( gate, red-first (2026-09-03)
+
+RED (before gate) -- stripper silently leaks a wrapped ( ) comment:
+  fixture: ': FOO ( a b' / '  -- c ) + ;'
+  output token stream: ': FOO -- c ) + ;'  exit=0   <- live tokens leaked
+
+GREEN (after gate):
+  fixture: exit=1, 'embed-vocabs: /tmp/wrapped.fth:1: unclosed ( -- wrapped
+  stack comment or ( as word argument; both diverge from interpreter
+  semantics when embedded. Close it on one line or restructure.'
+
+Real tree: gate run against the full EMBED_VOCABS list (24 files) exits 0;
+output blob byte-identical to build/embedded.bin (cmp: IDENTICAL).
+Image hash unchanged: 5d55efe0a857e023053d8eace699b4660677121bf12ebaab0c88d0443d957e93
+
+Bounding grep across forth/dict/*.fth: zero unclosed comment-( in the
+embedded set. Two armed instances OUTSIDE it (block-loaded, not embedded
+today): settings.fth:91 'CHAR (' and target-x86.fth:1347 "' (" -- the gate
+now refuses both if they are ever added to EMBED_VOCABS.
+
+CARRIED DEBT (named 2026-09-03, not fixed in this commit -- sweep was
+mid-flight and pre-registered at 1064/29): the red fixture was deleted
+after the demonstration, so the gate's sys.exit branch executes only in
+a state nobody has produced -- the 02dd9bf wiring-gate finding turned
+around. Owed: tests/fixtures/unclosed-paren.fth + one check in an
+existing suite asserting embed-vocabs.py exits nonzero on it (+1 check,
+no new ^Passed: line). Until then a refactor of strip_comments that
+drops the exit passes every build and sweep silently.
