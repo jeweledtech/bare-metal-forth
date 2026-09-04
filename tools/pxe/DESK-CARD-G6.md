@@ -15,8 +15,9 @@ iron loop (execute leg), and takes the step-2 BAR reading.
 > how F1 happened.
 
 **ONE physical session, TWO boots, in this order:**
-1. Linux live USB — the xHCI BAR0 reading (decides step-2 scope)
+1. Linux live USB — the xHCI BAR0 reading (the CONTROL, taken first)
 2. PXE — deploy verification, execute leg, ForthOS-side reading
+   (the PRIMARY — D2 decides step-2 scope)
 
 ---
 
@@ -36,6 +37,8 @@ cat build/bmforth.img build/blocks.img > build/combined.img
 ```
 i8042 block range       1600  ______   ( 1600 + ceil(lines/16) - 1;
                                          was 1606 at card-cut time )
+  $ wc -l build/demo_i8042.fth
+
 combined.img MD5        ______________________________________
   $ md5sum build/combined.img          # ONLY after the cat above
 
@@ -44,6 +47,7 @@ SURVEYOR catalog range  ______  ______   ( "<n> <m> THRU" )
   Against the SAME build/blocks.img you just staged into.
 
 make test headline      Passed: ______  over ______ "Passed:" lines
+  $ make && make test    # then sum the ^Passed: lines
   Re-derive after any tree change. Do NOT carry 1065/29 forward —
   it is pinned to f325ec5.
 
@@ -90,7 +94,9 @@ python3 tools/hp-portread-capture.py --boot-path pxe --port 6666 \
 ## C. Boot 1 — Linux live USB: xHCI BAR0 type bits
 
 ```bash
-lspci | grep -i usb                    # xHCI BDF: ______ (expect 00:14.0)
+lspci -nn | grep -i usb                # xHCI BDF: ______ (expect 00:14.0)
+                                       # confirm class [0c03], not some
+                                       # other USB device
 sudo setpci -s <bdf> BASE_ADDRESS_0    # BAR0 dword: ______________
 sudo lspci -xxx -s <bdf>               # full dump — photo or file
 ```
@@ -125,27 +131,44 @@ NET-CON-ENABLED C@ .        \ must print 1
 DECIMAL 1600 ______ THRU    \ i8042 range from section A
 USING I8042PRT
 PORT-FN-16FCC
+DEPTH .                     \ FIRST — we do not know whether the word
+                            \ prints or leaves; this tells you which
+\ ONLY if DEPTH printed > 0: type `.` once per value.
+\ A bare `.` after DEPTH 0 underflows.
 ```
 - [ ] `DECIMAL` opens the THRU line — boot base traps apply here too
 - [ ] **SUCCESS = the word loaded, executed, returned a value, and the
       interpreter is alive after.** That is the entire claim.
-- [ ] Value returned: ______________ — recorded as DATA. The July
+- [ ] DEPTH: ______   Value(s): ______________ — recorded as DATA. The July
       reading (0x3FD → 0x60) came from QEMU's emulated device and is
       evidence about QEMU, **not** the pass criterion here. A different
       value from working hardware is not a failed translation.
 
-### D2. ForthOS-side BAR reading — corroborates Boot 1
+### D2. ForthOS-side BAR reading — the PRIMARY measurement
+
+This is the address and type bits ForthOS actually inherits, read by
+the words that shipped 2026-09-03 and have never run on iron. Boot 1
+(section C) is the *control* on those words, not the reference — if
+the two disagree, the finding is about the new Forth words.
 
 ```forth
+USING PCI-ENUM         \ vocab ends FORTH DEFINITIONS — without this
+                       \ every probe below prints ? (fd67765 shape:
+                       \ invalid red, looks like the thing under test)
 HEX
 FIND-XHCI .            \ must print -1 (b d f remain on stack)
+\ STOP if it printed 0 — stack is empty, PCI-READ would underflow.
 10 PCI-READ .H8        \ RAW BAR0 dword: ______________
+\ ONLY if bits 2:1 = 10 (64-bit BAR0), type:
+\   FIND-XHCI . 14 PCI-READ .H8      upper dword: ______________
+\ On a 32-bit BAR0, offset 14 is BAR1 — a DIFFERENT register, and a
+\ plausible-looking number under the wrong label in the evidence log.
 DECIMAL                \ not optional
 ```
 - [ ] **Do NOT use PCI-BAR@ here** — it masks the type bits
       (`FFFFFFF0 AND`). PCI-READ or the reading is worthless.
-- [ ] Matches Boot 1 dword?  YES / NO — a NO is the finding, not a
-      retry.
+- [ ] Matches Boot 1 dword?  YES / NO — a NO is the finding (about
+      the Forth words), not a retry.
 
 ### D3. If time remains
 
@@ -166,7 +189,10 @@ DECIMAL                \ not optional
 
 ## What each reading settles
 
-- **C (Boot 1):** whether step 2 (xHCI) needs PCI-BAR64@/ECAM at all
+- **D2 (primary):** the BAR type and address ForthOS actually
+  inherits — this is what sets step-2 (xHCI) scope: PCI-BAR64@/ECAM
+  or not
+- **C (control):** Linux's reading of the same read-only bits; a
+  disagreement with D2 is a finding about the 2026-09-03 Forth
+  words, not about the hardware
 - **D1:** iron loop closed — machine-translated Forth ran on the HP
-- **D2:** ForthOS's own PCI view agrees with Linux's — or the
-  disagreement is the next session's finding
