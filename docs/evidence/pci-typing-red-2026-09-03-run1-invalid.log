@@ -1,0 +1,32 @@
+INVALID RED (run 1, 2026-09-03): instrument failure, not a measurement.
+Capture words printed their own flag AND val() appended '.' (stack underflow);
+': CCAP .. PCI-FIND-CLASS ..' compiled against a missing word -> failed mid-definition,
+STATE stuck at 1 (Bug #31), session wedged. Retained per gate discipline; the valid
+red is pci-typing-red-2026-09-03.log.
+
+Running PCI class-code typing test...
+input sha256 b498360d5e382b5b5009be907312bb5e488d58737c12d5347891610cc6acd178  build/bmforth.img
+
+=== Phase 0: instrument controls (green both runs) ===
+  PASS: interpreter alive
+  PASS: PCI-COUNT nonzero (boot auto-scan populated PCI-TBL)
+  FAIL: qemu-xhci 1B36:000D found via OLD PCI-FIND (control) -- got -1900006918: '-1 -1900006918 ok '
+
+=== Phase 1: prog-IF read ===
+  FAIL: PCI-PROGIF@ defined -- got: 'PCI-PROGIF@ ? \r\n0 ok '
+  FAIL: prog-IF of 1B36:000D is 30 (xHCI, known nonzero) -- got None: 'PCI-PROGIF@ ? \r\n0 ok '
+
+=== Phase 2: find-by-class ===
+  PASS: PCI-FIND-CLASS defined (CCAP compiled and ran)
+  FAIL: class 0C sub 03 found (xHCI present by construction) -- got None: ''
+  FAIL: round-trip: found b/d/f reads back class 0C sub 03 -- got: ''
+  FAIL: negative control: class 0F sub 00 returns 0 -- got None: ''
+
+=== Phase 3: typed find (prog-IF discriminates) ===
+Traceback (most recent call last):
+  File "/home/bbrown/projects/forthos/tests/test_pci_typing.py", line 189, in <module>
+    send(': TCAP FIND-XHCI IF TF ! TD ! TB ! -1 ELSE 0 THEN . ;')
+  File "/home/bbrown/projects/forthos/tests/test_pci_typing.py", line 83, in send
+    s.sendall((cmd + '\r').encode())
+BrokenPipeError: [Errno 32] Broken pipe
+make: *** [Makefile:313: test-pci-typing] Error 1

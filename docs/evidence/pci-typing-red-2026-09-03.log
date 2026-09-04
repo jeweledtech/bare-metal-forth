@@ -1,0 +1,34 @@
+Running PCI class-code typing test...
+input sha256 b498360d5e382b5b5009be907312bb5e488d58737c12d5347891610cc6acd178  build/bmforth.img
+
+=== Phase 0: instrument controls (green both runs) ===
+  PASS: interpreter alive
+  PASS: PCI-COUNT nonzero (boot auto-scan populated PCI-TBL)
+  PASS: qemu-xhci 1B36:000D found via OLD PCI-FIND (control)
+  probe sanity: DEF? PCI-FIND=211124 ZZZ-NEVER-DEFINED=0 -> OK
+
+=== Phase 1: prog-IF read ===
+  FAIL: PCI-PROGIF@ defined (DEF? nonzero)
+  FAIL: prog-IF of 1B36:000D is 30 (xHCI, known nonzero) -- got None: 'PCI-PROGIF@ ? \r\n0 ok '
+
+=== Phase 2: find-by-class ===
+  FAIL: PCI-FIND-CLASS defined (DEF? nonzero)
+  FAIL: class 0C sub 03 found (xHCI present by construction) -- got None: 'CCAP ? \r\n-1900006918 ok '
+  FAIL: round-trip: found b/d/f reads back class 0C sub 03 -- got: '0 6 ok '
+  FAIL: negative control: class 0F sub 00 returns 0 -- got None: 'NCAP ? \r\n-1900006918 ok '
+
+=== Phase 3: typed find (prog-IF discriminates) ===
+  FAIL: FIND-XHCI finds the controller -- got None: 'TCAP ? \r\n-1374254526 ok '
+  FAIL: typed find landed on prog-IF 30 -- got None: 'TB ? \r\nTD ? \r\nTF ? \r\nPCI-PROGIF@ ? \r\n0 ok '
+  FAIL: negative: prog-IF 10 (OHCI) on this machine returns 0 -- got None: 'OCAP ? \r\n1920144333 ok '
+  FAIL: BAR0 at found function nonzero -- got None: 'TB ? \r\nTD ? \r\nTF ? \r\nPCI-BAR@ ? \r\n0 ok '
+  FAIL: BAR0 bit 0 clear (MMIO, not I/O) -- bar=None bit0=None: 'TB ? \r\nTD ? \r\nTF ? \r\nPCI-BAR@ ? \r\n0 ok '
+
+=== Phase 4: PCI-TYPES, both BASE legs ===
+  FAIL: entered DECIMAL: typed listing names USB host (xHCI) + MMIO -- got: 'PCI-TYPES ? \r\nok '
+  FAIL: entered DECIMAL: BASE untouched by the listing (reads 10) -- got: '10 ok '
+  FAIL: entered HEX: typed listing names USB host (xHCI) + MMIO -- got: 'PCI-TYPES ? \r\nok '
+  FAIL: entered HEX: BASE untouched by the listing (reads 16) -- got: '16 ok '
+
+Passed: 3/18
+make: *** [Makefile:313: test-pci-typing] Error 1

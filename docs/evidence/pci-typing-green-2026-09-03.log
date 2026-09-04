@@ -1,0 +1,33 @@
+Running PCI class-code typing test...
+input sha256 5d55efe0a857e023053d8eace699b4660677121bf12ebaab0c88d0443d957e93  build/bmforth.img
+
+=== Phase 0: instrument controls (green both runs) ===
+  PASS: interpreter alive
+  PASS: PCI-COUNT nonzero (boot auto-scan populated PCI-TBL)
+  PASS: qemu-xhci 1B36:000D found via OLD PCI-FIND (control)
+  probe sanity: DEF? PCI-FIND=211124 ZZZ-NEVER-DEFINED=0 -> OK
+
+=== Phase 1: prog-IF read ===
+  PASS: PCI-PROGIF@ defined (DEF? nonzero)
+  PASS: prog-IF of 1B36:000D is 30 (xHCI, known nonzero)
+
+=== Phase 2: find-by-class ===
+  PASS: PCI-FIND-CLASS defined (DEF? nonzero)
+  PASS: class 0C sub 03 found (xHCI present by construction)
+  PASS: round-trip: found b/d/f reads back class 0C sub 03
+  PASS: negative control: class 0F sub 00 returns 0
+
+=== Phase 3: typed find (prog-IF discriminates) ===
+  PASS: FIND-XHCI finds the controller
+  PASS: typed find landed on prog-IF 30
+  PASS: negative: prog-IF 10 (OHCI) on this machine returns 0
+  PASS: BAR0 at found function nonzero
+  PASS: BAR0 bit 0 clear (MMIO, not I/O)
+
+=== Phase 4: PCI-TYPES, both BASE legs ===
+  PASS: entered DECIMAL: typed listing names USB host (xHCI) + MMIO
+  PASS: entered DECIMAL: BASE untouched by the listing (reads 10)
+  PASS: entered HEX: typed listing names USB host (xHCI) + MMIO
+  PASS: entered HEX: BASE untouched by the listing (reads 16)
+
+Passed: 18/18

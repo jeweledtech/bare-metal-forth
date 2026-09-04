@@ -299,6 +299,23 @@ test-phys-alloc: $(ACTIVE_IMAGE)
 	@python3 tests/test_phys_alloc.py $$(($(TEST_PORT_BASE)+98)) $(ACTIVE_IMAGE); \
 		STATUS=$$?; pkill -9 -f "[q]emu.*$$(($(TEST_PORT_BASE)+98))" 2>/dev/null; exit $$STATUS
 
+# PCI class-code typing gate: PCI-PROGIF@/PCI-FIND-CLASS/
+# PCI-FIND-TYPE/FIND-XHCI/PCI-TYPES (docket step 1).
+# -device qemu-xhci exists to place the target hardware: class
+# 0C/03/30 (1b36:000d), the exact function typed discovery must
+# find; i440FX has no USB controller otherwise.  -M pc pins the
+# machine type so a future QEMU default flip to q35 cannot
+# silently change the bus the suite characterizes.
+test-pci-typing: $(ACTIVE_IMAGE)
+	@echo "Running PCI class-code typing test..."
+	@$(QEMU) -M pc -device qemu-xhci \
+		-drive file=$(ACTIVE_IMAGE),format=raw,if=floppy \
+		-serial tcp::$$(($(TEST_PORT_BASE)+96)),server=on,wait=off \
+		-display none -daemonize
+	@sleep 2
+	@python3 tests/test_pci_typing.py $$(($(TEST_PORT_BASE)+96)) $(ACTIVE_IMAGE); \
+		STATUS=$$?; pkill -9 -f "[q]emu.*$$(($(TEST_PORT_BASE)+96))" 2>/dev/null; exit $$STATUS
+
 # Run all vocabulary tests (need block storage)
 test-vocabs: $(COMBINED)
 	@cp $(COMBINED) $(COMBINED_IDE)
@@ -680,7 +697,7 @@ test-meta: $(COMBINED)
 	@echo "Metacompiler tests complete!"
 
 # Run all tests (lint first, then functional tests)
-test: lint test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-squote-laydown test-install test-vbr test-grub-cfg test-doc-drift test-make-wiring test-g6 test-vocabs test-gui test-integration test-file-stream test-survey
+test: lint test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-squote-laydown test-install test-vbr test-grub-cfg test-doc-drift test-make-wiring test-g6 test-vocabs test-gui test-integration test-file-stream test-survey
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)

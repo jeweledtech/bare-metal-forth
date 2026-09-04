@@ -14,7 +14,13 @@
 \   USING PCI-ENUM
 \   PCI-LIST
 \   HEX 8086 1237 PCI-FIND
+\   PCI-TYPES
+\   FIND-XHCI ( -- b d f -1 | 0 )
 \
+\ Callers: FIND-XHCI + 0 PCI-BAR@ is the
+\ xHCI driver's (step 2) entry point;
+\ PCI-TYPES feeds the adaptive shell's
+\ USING offers.
 \ ============================================
 
 VOCABULARY PCI-ENUM
@@ -256,6 +262,175 @@ VARIABLE PCI-F
     THEN
     CR DECIMAL PCI-COUNT @ .
     HEX ." devices" CR
+;
+
+\ ---- Read prog-IF ----
+\ Config offset 8 dword:
+\ class(31:24) sub(23:16)
+\ progIF(15:8) rev(7:0)
+: PCI-PROGIF@
+    ( bus dev func -- progif )
+    8 PCI-READ 8 RSHIFT FF AND
+;
+
+\ ---- Find by class/subclass ----
+\ Table bytes +8/+9 are a pre-filter;
+\ the live config dword is the
+\ authority (one 8 PCI-READ confirms).
+\ PICK idiom per PCI-FIND: params
+\ stay on the data stack, no residue.
+: PCI-FIND-CLASS
+    ( class sub -- b d f -1 | 0 )
+    PCI-COUNT @ DUP 0<> IF
+        0 DO
+            I PCI-ENTRY
+            DUP 8 + C@
+            3 PICK = IF
+                DUP 9 + C@
+                2 PICK = IF
+                    DUP C@
+                    OVER 1+ C@
+                    2 PICK 2 + C@
+                    8 PCI-READ
+                    DUP 18 RSHIFT
+                    FF AND
+                    4 PICK = IF
+                        DUP 10 RSHIFT
+                        FF AND
+                        3 PICK = IF
+                            DROP
+                            NIP NIP
+                            DUP C@
+                            OVER 1+ C@
+                            ROT 2 + C@
+                            -1
+                            UNLOOP EXIT
+                        THEN
+                    THEN
+                    DROP
+                THEN
+            THEN
+            DROP
+        LOOP
+    ELSE
+        DROP
+    THEN
+    2DROP 0
+;
+
+\ ---- Find by class/sub/prog-IF ----
+\ Same walk; on a pre-filter hit ONE
+\ live 8 PCI-READ yields class, sub
+\ and progif -- all three compared
+\ from that single dword.
+\ ( class sub progif -- b d f -1 | 0 )
+: PCI-FIND-TYPE
+    PCI-COUNT @ DUP 0<> IF
+        0 DO
+            I PCI-ENTRY
+            DUP 8 + C@
+            4 PICK = IF
+                DUP 9 + C@
+                3 PICK = IF
+                    DUP C@
+                    OVER 1+ C@
+                    2 PICK 2 + C@
+                    8 PCI-READ
+                    DUP 18 RSHIFT
+                    FF AND
+                    5 PICK = IF
+                        DUP 10 RSHIFT
+                        FF AND
+                        4 PICK = IF
+                            DUP 8 RSHIFT
+                            FF AND
+                            3 PICK = IF
+                                DROP
+                                NIP NIP NIP
+                                DUP C@
+                                OVER 1+ C@
+                                ROT 2 + C@
+                                -1
+                                UNLOOP EXIT
+                            THEN
+                        THEN
+                    THEN
+                    DROP
+                THEN
+            THEN
+            DROP
+        LOOP
+    ELSE
+        DROP
+    THEN
+    2DROP DROP 0
+;
+
+\ ---- Typed finders ----
+: FIND-USB ( -- b d f -1 | 0 )
+    0C 03 PCI-FIND-CLASS
+;
+: FIND-XHCI ( -- b d f -1 | 0 )
+    0C 03 30 PCI-FIND-TYPE
+;
+
+\ ---- USB kind from prog-IF ----
+: .USB-KIND ( progif -- )
+    DUP 00 = IF
+        DROP ." UHCI" EXIT THEN
+    DUP 10 = IF
+        DROP ." OHCI" EXIT THEN
+    DUP 20 = IF
+        DROP ." EHCI" EXIT THEN
+    DUP 30 = IF
+        DROP ." xHCI" EXIT THEN
+    DUP 40 = IF
+        DROP ." USB4" EXIT THEN
+    DROP ." USB?"
+;
+
+\ ---- 8-digit hex print ----
+\ .H2/.H4 route every nibble through
+\ >HEXCH's F AND, so the unmasked
+\ original is safe for the low half.
+: .H8 ( u -- )
+    DUP 10 RSHIFT .H4 .H4
+;
+
+\ ---- Typed device listing ----
+\ Base-transparent by construction:
+\ prints only via ." and .H2/.H8
+\ (pure EMIT).  Do NOT add the
+\ PCI-LIST DECIMAL/HEX tail here --
+\ it clobbers the caller's BASE.
+: PCI-TYPES ( -- )
+    PCI-COUNT @ DUP 0<> IF
+        0 DO
+            I PCI-ENTRY
+            DUP 8 + C@ 0C =
+            OVER 9 + C@ 3 = AND IF
+                CR ." USB host ("
+                DUP C@
+                OVER 1+ C@
+                2 PICK 2 + C@
+                PCI-PROGIF@
+                .USB-KIND
+                ." ) at "
+                DUP C@ .H2 SPACE
+                DUP 1+ C@ .H2 SPACE
+                DUP 2 + C@ .H2
+                ."  MMIO "
+                DUP C@
+                OVER 1+ C@
+                2 PICK 2 + C@
+                0 PCI-BAR@ .H8
+            THEN
+            DROP
+        LOOP
+    ELSE
+        DROP
+    THEN
+    CR
 ;
 
 \ Auto-scan on vocabulary load
