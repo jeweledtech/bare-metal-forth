@@ -1,0 +1,7 @@
+\ RED FIXTURE -- deliberately malformed, do NOT load or embed.
+\ Pins the unclosed-( refusal in tools/embed-vocabs.py (348912b).
+\ Shape is the real 2026-09-03 failure: a ( ) stack comment wrapped
+\ across lines, whose continuation leaked into the boot token
+\ stream as live tokens and wedged boot before the prompt.
+: FIXTURE-WRAPPED ( a b c
+  -- d ) + + ;

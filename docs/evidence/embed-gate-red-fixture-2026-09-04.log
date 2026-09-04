@@ -1,0 +1,29 @@
+Embed-gate red fixture: constructed red + green, 2026-09-04
+==========================================================
+
+The gate (348912b) predates the check, so the red was CONSTRUCTED:
+tools/embed-vocabs.py unclosed-( branch temporarily reverted to
+pre-348912b silent truncation (break), suite run, then sys.exit
+restored and verified mechanically (git diff --quiet -> RESTORED)
+before anything else ran. make was never invoked while neutered.
+
+--- RED (gate neutered) ---
+Self-application
+  PASS: this gate (test-make-wiring) is itself in test:
+
+Embed-stripper red fixture: unclosed ( refuses the build
+input sha256 a4e9f0bab3c8945218b919ba34e403fd3c148c683f41dc856a0fda13c10d2def  /home/bbrown/projects/forthos/tests/fixtures/unclosed-paren.fth-broken
+  FAIL: embed-vocabs.py refuses unclosed ( with named diagnostic -- rc=0 stderr='' -- the refusal branch is gone or no longer names its evidence
+
+Passed: 35/36
+
+--- RESTORE VERIFICATION ---
+git diff --quiet tools/embed-vocabs.py && echo RESTORED -> RESTORED
+
+--- GREEN (gate restored) ---
+
+Embed-stripper red fixture: unclosed ( refuses the build
+input sha256 a4e9f0bab3c8945218b919ba34e403fd3c148c683f41dc856a0fda13c10d2def  /home/bbrown/projects/forthos/tests/fixtures/unclosed-paren.fth-broken
+  PASS: embed-vocabs.py refuses unclosed ( with named diagnostic
+
+Passed: 36/36

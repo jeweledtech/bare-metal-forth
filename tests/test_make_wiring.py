@@ -23,11 +23,22 @@ explicitly: skip must not read like a pass (gate discipline,
 This gate is subject to its own rule: test-make-wiring must appear
 in `test:`.  A gate absent from the aggregate is the exact defect
 it polices.
+
+SCOPE NOTE (2026-09-04): this suite is the host-side build-tooling
+gate generally, not just Makefile wiring.  The embed-stripper red
+fixture below is an embed-vocabs.py behavior check; it lives here
+because this is the sweep's only pure-Python no-QEMU gate suite,
+and because it is this suite's own finding applied once more: the
+stripper's sys.exit branch executes only in a state the tree never
+contains, so without a pinned red a refactor that drops it passes
+every build in silence.
 """
 import hashlib
 import os
 import re
+import subprocess
 import sys
+import tempfile
 
 MAKEFILE = os.path.normpath(os.path.join(
     os.path.dirname(os.path.abspath(__file__)), '..', 'Makefile'))
@@ -165,6 +176,46 @@ print('\nSelf-application')
 check('this gate (test-make-wiring) is itself in test:',
       'test-make-wiring' in wired,
       'a gate absent from the aggregate is the defect it polices')
+
+print('\nEmbed-stripper red fixture: unclosed ( refuses the build')
+# The stripper's sys.exit branch (348912b) executes only in a state
+# the tree never contains -- every build and every sweep passes
+# whether the branch exists or not.  This pins it: the fixture is
+# the real 2026-09-03 failure shape (wrapped stack comment), and
+# the assertion requires the SPECIFIC refusal -- exit non-zero AND
+# stderr naming the fixture AND 'unclosed' -- so a misspelled path,
+# a traceback, or a missing interpreter fails loudly instead of
+# satisfying a bare rc != 0.  Success requires presence of
+# evidence, not absence of trouble.
+#
+# The diagnostic's wording is CONTRACTUAL: naming the file and the
+# unclosed ( is what the gate is for.  If this goes red after a
+# message reword, restore the naming in embed-vocabs.py -- do not
+# loosen the assertion to whatever the code happens to say.
+#
+# A missing fixture kills the suite before its Passed: line
+# (open() below is unguarded) -- a STATED choice: the fixture is
+# this check's evidence, and running without it would be the gate
+# passing in a state nobody produced.  Cost: the wiring checks
+# above die with it, and the sweep drops to 28 Passed: lines,
+# which is itself the loud signal.
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+FIXTURE = os.path.join(ROOT, 'tests', 'fixtures',
+                       'unclosed-paren.fth-broken')
+STRIPPER = os.path.join(ROOT, 'tools', 'embed-vocabs.py')
+with open(FIXTURE, 'rb') as f:
+    print(f'input sha256 {hashlib.sha256(f.read()).hexdigest()}'
+          f'  {FIXTURE}')
+with tempfile.NamedTemporaryFile(suffix='.bin') as tmp:
+    proc = subprocess.run(
+        [sys.executable, STRIPPER, tmp.name, FIXTURE],
+        capture_output=True, text=True)
+check('embed-vocabs.py refuses unclosed ( with named diagnostic',
+      proc.returncode != 0
+      and 'unclosed' in proc.stderr
+      and 'unclosed-paren.fth-broken' in proc.stderr,
+      f'rc={proc.returncode} stderr={proc.stderr.strip()!r} -- '
+      f'the refusal branch is gone or no longer names its evidence')
 
 print(f'\nPassed: {passed}/{passed + failed}')
 sys.exit(0 if failed == 0 else 1)
