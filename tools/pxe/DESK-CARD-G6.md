@@ -21,54 +21,62 @@ iron loop (execute leg), and takes the step-2 BAR reading.
 
 ---
 
-## A. Desk prep — IN ORDER (the MD5 comes AFTER block staging)
+## A. Desk prep — IN ORDER (nothing below moves up)
 
 ```bash
 git status                      # clean, or explain before proceeding
 git log --oneline -1            # commit: ______________________
-make && make test               # green tree FIRST -- this rebuilds; anything
-                                # staged before it can be clobbered
+make && make test               # green tree FIRST -- it rebuilds, and would
+                                # clobber anything staged before it
 make combined
+
 # stage the translated i8042prt vocabulary (execute leg):
 tools/translator/bin/translator \
     tools/translator/tests/data/i8042prt.sys -t forth -o build/demo_i8042.fth
-python3 tools/write-block.py build/blocks.img 1600 build/demo_i8042.fth
-cat build/bmforth.img build/blocks.img > build/combined.img
+wc -l build/demo_i8042.fth                       # lines: ______
+grep -n 'VOCABULARY' build/demo_i8042.fth        # the USING name: ____________
+
+python3 tools/write-block.py build/blocks.img 1800 build/demo_i8042.fth
+
+make grub-net                   # regenerates blocks 0-1740, re-cats combined,
+                                # re-stages build/tftp. DO NOT hand-cat.
+md5sum build/combined.img build/tftp/forth.img   # must MATCH each other
+make pxe-push-grub
 ```
 
-```
-i8042 block range       1600  ______   ( 1600 + ceil(lines/16) - 1;
-                                         was 1606 at card-cut time )
-  $ wc -l build/demo_i8042.fth
+**Why 1800 and not 1600.** `write-catalog.py` (run by `make grub-net`)
+rewrites blocks **0 through the catalog total** — 1740 at last count, and
+it prints `Total: N blocks used` every run. Anything staged inside that
+span is silently erased. On 2026-09-05, 1600 was staged, wiped, and would
+have landed inside `THUMB2-ASM` (blocks 1578-1612) had the catalog not been
+regenerated. **Stage above the printed total, and read the total from that
+run — do not trust this paragraph's 1740.**
 
+```
+i8042 block range       1800  ______   ( 1800 + ceil(lines/16) - 1;
+                                         112 lines -> 1806 on 2026-09-05 )
 combined.img MD5        ______________________________________
-  $ md5sum build/combined.img          # ONLY after the cat above
-
+  $ md5sum build/combined.img      # ONLY after `make grub-net`, which re-cats
 SURVEYOR catalog range  ______  ______   ( "<n> <m> THRU" )
-  $ python3 tools/catalog_layout.py SURVEYOR
+  $ python3 tools/catalog_layout.py SURVEYOR      # 1107 1178 on 2026-09-05
   Against the SAME build/blocks.img you just staged into.
-
+i8042 vocabulary name   ______________   ( I8042PRT on 2026-09-05 -- this is
+                                           the D1 `USING` target; a mismatch
+                                           types ? and kills the leg )
 make test headline      Passed: ______  over ______ "Passed:" lines
-  Already run, see top — sum the ^Passed: lines from THAT run.
-  Re-derive after any tree change. Do NOT carry 1065/29 forward —
-  it is pinned to f325ec5.
-
+  Already run, see top -- sum the ^Passed: lines from THAT run.
+  Re-derive after any tree change. Do NOT carry 1065/29 forward.
 dnsmasq revert line     dhcp-boot=pxelinux.0
   ON PAPER. The rollback cannot live on a netbooted machine.
 ```
 
-Push and listener:
-
-```bash
-make grub-net && make pxe-push-grub
-```
-- [ ] `forth.img` MD5 **equals** combined.img MD5 above
+- [ ] `forth.img` MD5 **equals** `combined.img` MD5 above
 - [ ] `Deployed OK: our-files hash …` printed. On mismatch: rerun;
       **do not cut over until it passes**
 
 ```bash
 python3 tools/hp-portread-capture.py --boot-path pxe --port 6666 \
-    --out docs/EVIDENCE_G6_NETCON.log        # start BEFORE leaving desk
+    --out docs/EVIDENCE_G6_NETCON.log        # second terminal, blocks
 ```
 - [ ] Listener up (its hash gate re-checks deployed vs build/combined.img)
 
@@ -130,8 +138,8 @@ NET-CON-ENABLED C@ .        \ must print 1
 ### D1. Execute leg — closes the iron loop
 
 ```forth
-DECIMAL 1600 ______ THRU    \ i8042 range from section A
-USING I8042PRT
+DECIMAL 1800 ______ THRU    \ i8042 range from section A
+USING I8042PRT              \ name confirmed at the desk, section A
 PORT-FN-16FCC
 DEPTH .                     \ FIRST — we do not know whether the word
                             \ prints or leaves; this tells you which
