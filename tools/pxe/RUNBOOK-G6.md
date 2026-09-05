@@ -22,7 +22,9 @@ weeks for exactly that reason.)
       once, here, now. An unbootable stick discovered at the HP
       turns G4 into a skip for want of ten minutes of prep.
 - [ ] **`build/combined.img` MD5 noted** (write it down; you will
-      compare against what the server prints in step 1):
+      compare against what the server prints in step 1) — if this
+      session stages anything into `blocks.img`, take this MD5
+      after step 1's `make grub-net`, not here:
       ```bash
       md5sum build/combined.img
       ```
@@ -60,6 +62,17 @@ equality later from a baseline you never took.
 ```bash
 make grub-net && make pxe-push-grub
 ```
+
+> **⚠ `make grub-net` REGENERATES `build/blocks.img`.** It runs
+> `write-catalog.py`, which rewrites blocks 0 through the catalog
+> total (`Total: N blocks used`, printed every run — 1740 on
+> 2026-09-05). Anything staged inside that span is erased without
+> a word. This step was written when the install session staged
+> nothing; sessions that pre-stage translated vocabularies must
+> stage **above** the printed total and take the `combined.img`
+> MD5 **after** this command, not before. Observed 2026-09-05:
+> blocks staged at 1600 were wiped by this line and would have
+> landed inside `THUMB2-ASM` (1578-1612); 1800 survived it.
 
 `push-grub.sh` prints a per-file manifest, a `manifest:` hash, and
 `forth.img`'s MD5, then verifies the DEPLOYED tree hash equals the
