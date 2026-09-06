@@ -453,6 +453,17 @@ $(BACKSTOP0_IMAGE): $(BOOTLOADER) $(BACKSTOP0_KERNEL)
 backstop0: $(BACKSTOP0_IMAGE)
 	@echo "Defeated-backstop image: $(BACKSTOP0_IMAGE) ($$(stat -c%s $(BACKSTOP0_IMAGE)) bytes)"
 
+# Block-cache reload gate (Bug #34): a cache HIT must not corrupt
+# the neighbouring slot's cached block.  The script stages its own
+# blocks into scratch copies of $(COMBINED) and launches QEMU
+# itself (it must poke the image BEFORE boot).
+test-block-reload: $(COMBINED)
+	@echo "Running block-cache reload test (Bug #34)..."
+	@PORT=$$(($(TEST_PORT_BASE)+95)); \
+	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null; sleep 1; \
+	python3 tests/test_block_reload.py $$PORT $(COMBINED); \
+	STATUS=$$?; pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null; exit $$STATUS
+
 # S"/."/ABORT" laydown suite (crafts blocks in buffer memory; no
 # block storage image needed, same tier as test-dict-bounds).
 test-squote-laydown: $(ACTIVE_IMAGE)
@@ -697,7 +708,7 @@ test-meta: $(COMBINED)
 	@echo "Metacompiler tests complete!"
 
 # Run all tests (lint first, then functional tests)
-test: lint test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-squote-laydown test-install test-vbr test-grub-cfg test-doc-drift test-make-wiring test-g6 test-vocabs test-gui test-integration test-file-stream test-survey
+test: lint test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-block-reload test-squote-laydown test-install test-vbr test-grub-cfg test-doc-drift test-make-wiring test-g6 test-vocabs test-gui test-integration test-file-stream test-survey
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)

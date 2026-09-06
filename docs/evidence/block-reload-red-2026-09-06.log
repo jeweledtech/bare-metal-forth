@@ -1,0 +1,113 @@
+# Reconstructed red run, captured 2026-09-06 07:18 (AFTER the green of
+# 2026-09-05).  The original red run of 2026-09-05 preceded the fix but
+# its log died with tmpfs in a power outage.  This run reproduces the
+# PRE-REGISTERED 2026-09-05 predictions on a stashed pre-fix tree
+# (git stash of the forth.asm fix only; restored byte-identical after):
+# R2 FAIL got 0, R3 FAIL got 1, R3a PASS (the silent no-op), R5/R6 PASS
+# (characterization pins hold on the broken kernel too).
+
+cat build/bmforth.img build/blocks.img > build/combined.img
+Combined image: build/combined.img
+  Kernel: 115200 bytes (LBA 0-224)
+  Blocks: 2097152 bytes (LBA 225+)
+  Total:  2212352 bytes
+Running block-cache reload test (Bug #34)...
+input sha256 e5b38e120c107330a3c385d5d298826dee2ca041d24a85c325222002589eb49c  build/test-blkreload.img
+input sha256 e5b38e120c107330a3c385d5d298826dee2ca041d24a85c325222002589eb49c  build/test-blkreload-ide.img
+>>> ZZZNEVERWAS
+ZZZNEVERWAS
+ZZZNEVERWAS ? 
+ok
+------------------------------------------------------------
+[PASS] never-existed control -> exactly one signature (got {'ZZZNEVERWAS': 1})
+>>> DEPTH .
+DEPTH .
+0 ok
+------------------------------------------------------------
+[PASS] found control clean 
+>>> VARIABLE BCOUNT
+VARIABLE BCOUNT
+ok
+------------------------------------------------------------
+>>> 0 BCOUNT !
+0 BCOUNT !
+ok
+------------------------------------------------------------
+>>> EMPTY-BUFFERS
+EMPTY-BUFFERS
+ok
+------------------------------------------------------------
+>>> DECIMAL 1900 LOAD
+DECIMAL 1900 LOAD
+ok
+------------------------------------------------------------
+>>> DECIMAL 1901 LOAD
+DECIMAL 1901 LOAD
+ok
+------------------------------------------------------------
+>>> DECIMAL 1902 LOAD
+DECIMAL 1902 LOAD
+ok
+------------------------------------------------------------
+>>> DECIMAL 1903 LOAD
+DECIMAL 1903 LOAD
+ok
+------------------------------------------------------------
+[PASS] staged blocks load without error signatures (got {})
+>>> BCOUNT @ .
+BCOUNT @ .
+1 ok
+------------------------------------------------------------
+[PASS] BCOUNT == 1 after first 1903 load 
+>>> HEX 28E00 C@ . DECIMAL
+HEX 28E00 C@ . DECIMAL
+31 ok
+------------------------------------------------------------
+[PASS] R1: slot-3 byte 0 == '1' after cold loads (instrument) (got 31)
+>>> 1902 LOAD
+1902 LOAD
+ok
+------------------------------------------------------------
+>>> HEX 28E00 C@ . DECIMAL
+HEX 28E00 C@ . DECIMAL
+0 ok
+------------------------------------------------------------
+[FAIL] R2: slot-3 byte 0 still '1' after 1902 cache hit (got 0)
+>>> 1903 LOAD
+1903 LOAD
+ok
+------------------------------------------------------------
+[PASS] R3a: 1903 reload has no error signatures 
+>>> BCOUNT @ .
+BCOUNT @ .
+1 ok
+------------------------------------------------------------
+[FAIL] R3: BCOUNT == 2 (1903 reload was effective) (got 1)
+>>> DEPTH .
+DEPTH .
+0 ok
+------------------------------------------------------------
+[PASS] R4: DEPTH == 0 after all loads 
+>>> DECIMAL 1904 LOAD
+DECIMAL 1904 LOAD
+AAAAAAAAAABBBBBBBBBBCCCCCCCCCCZ ? 
+ZYXWVUTSRQ ? 
+ok
+------------------------------------------------------------
+[PASS] R5: 40-char token -> exactly the two pinned signatures (got {'AAAAAAAAAABBBBBBBBBBCCCCCCCCCCZ': 1, 'ZYXWVUTSRQ': 1}, want {'AAAAAAAAAABBBBBBBBBBCCCCCCCCCCZ': 1, 'ZYXWVUTSRQ': 1})
+>>> DECIMAL 1905 LOAD
+DECIMAL 1905 LOAD
+ZZZENDBYTE ? 
+ok
+------------------------------------------------------------
+[PASS] R6: byte-1023 token errors under its FULL name (got {'ZZZENDBYTE': 1})
+>>> DEPTH .
+DEPTH .
+0 ok
+------------------------------------------------------------
+[PASS] R5/R6 leave DEPTH == 0 
+============================================================
+FAILURES: 2
+  - R2: slot-3 byte 0 still '1' after 1902 cache hit
+  - R3: BCOUNT == 2 (1903 reload was effective)
+make: *** [Makefile:462: test-block-reload] Error 1

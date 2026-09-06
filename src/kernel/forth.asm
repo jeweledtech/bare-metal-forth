@@ -3172,11 +3172,11 @@ DEFCODE "LOAD", LOAD, 0
     pop eax
 
 .have_data:
-    ; Normalize block content: place NUL at end for word_ termination
-    ; (The NUL guard at BLK_BUF_GUARD handles this for the last buffer,
-    ;  but we also need it within the 1024-byte region)
+    ; No NUL stamp here: block parsing is terminated by word_'s
+    ; source-identity bound (TIB+BLOCK_SIZE), not by a planted NUL.
+    ; The old stamp at [edi + BLOCK_SIZE] wrote byte 0 of the
+    ; NEIGHBOURING slot's cached data on every cache hit (Bug #34).
     push eax
-    mov byte [edi + BLOCK_SIZE], 0  ; NUL terminator after block data
 
     ; Save current input state on return stack
     PUSHRSP esi                 ; Save Forth IP
@@ -3233,7 +3233,8 @@ DEFCODE "-->", CHAIN, F_IMMEDIATE
     pop edi
 
 .have_next:
-    mov byte [edi + BLOCK_SIZE], 0
+    ; No NUL stamp (Bug #34 -- see LOAD's .have_data comment);
+    ; word_'s source-identity bound terminates block parsing.
     mov [VAR_TIB], edi
     mov dword [VAR_TOIN], 0
 .not_loading:
@@ -4690,12 +4691,38 @@ word_:
     push ecx
     push edi
     push esi
-    
+
+    ; Source-identity bound in EBX (same test as STR_SOURCE_CAP,
+    ; same reason: VAR_BLK is a PUN -- the boot embed stream runs
+    ; with BLK=1 over a multi-KB NUL-terminated source that must
+    ; NOT be capped at BLOCK_SIZE).  A source inside the block
+    ; buffer pool is bounded at TIB+BLOCK_SIZE; every other source
+    ; (interactive TIB, embed stream) is NUL-terminated by its
+    ; producer and gets the address sentinel.  The sentinel is
+    ; 0xFFFFFFFF and BOTH bound compares below are UNSIGNED address
+    ; compares (jae), so no reachable ESI equals it -- this is not
+    ; the signed-sentinel trap (see VAR_STR_CAP's 0x7FFFFFFF note):
+    ; nothing here reads EBX as a signed quantity.
+    ; This bound is what TERMINATES block parsing: LOAD/--> no
+    ; longer plant a NUL at [buffer+BLOCK_SIZE].  That stamp landed
+    ; on byte 0 of the NEIGHBOURING slot's cached data on every
+    ; cache HIT, turning that block's next reload into a silent
+    ; no-op (Bug #34, tests/test_block_reload.py -- the HP
+    ; second-THRU 14-error spew, 2026-09-05).
     mov esi, [VAR_TIB]
+    mov ebx, 0xFFFFFFFF
+    cmp esi, BLK_BUF_DATA
+    jb .unbounded
+    cmp esi, BLK_BUF_GUARD
+    jae .unbounded
+    lea ebx, [esi + BLOCK_SIZE]
+.unbounded:
     add esi, [VAR_TOIN]
-    
+
     ; Skip leading spaces
 .skip_space:
+    cmp esi, ebx
+    jae .empty                  ; bound reached = source exhausted
     lodsb
     cmp al, ' '
     je .skip_space
@@ -4715,6 +4742,8 @@ word_:
     xor ecx, ecx
     
 .copy_word:
+    cmp esi, ebx
+    jae .word_at_bound          ; bound mid-word: word ends here
     lodsb
     cmp al, ' '
     je .end_word
@@ -4738,7 +4767,20 @@ word_:
     inc ecx
     cmp ecx, 31             ; Max word length
     jl .copy_word
-    
+    jmp .end_word           ; max-length cutoff keeps its OLD fall-through
+                            ; (.end_word, dec esi and all) -- preserved
+                            ; verbatim, quirk included, so the bound fix
+                            ; changes nothing for >31-char words
+
+.word_at_bound:
+    ; Bound reached mid-word: NO delimiter was consumed, so skip
+    ; the .end_word back-up (its dec would point back INTO the
+    ; word's last character).  ESI == bound here, so the NEXT word_
+    ; call trips the .skip_space bound check and reports source
+    ; exhaustion via .empty.
+    mov byte [edi], 0       ; Null terminate
+    jmp .update_toin
+
 .end_word:
     mov byte [edi], 0       ; Null terminate
 
@@ -4749,6 +4791,7 @@ word_:
     ; the next word_ call will simply skip it in .skip_space.
     dec esi
 
+.update_toin:
     ; Update >IN
     mov eax, esi
     sub eax, [VAR_TIB]

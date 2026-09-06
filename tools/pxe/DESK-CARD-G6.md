@@ -138,6 +138,11 @@ NET-CON-ENABLED C@ .        \ must print 1
 ### D1. Execute leg — closes the iron loop
 
 ```forth
+EMPTY-BUFFERS               \ MANDATORY before ANY same-boot re-LOAD/
+                            \ re-THRU (Bug #34: a cache hit NUL-kills
+                            \ the neighbouring slot's cached block —
+                            \ the reload silently skips a block).
+                            \ Harmless on a cold cache; type it always.
 DECIMAL 1800 ______ THRU    \ i8042 range from section A
 USING I8042PRT              \ name confirmed at the desk, section A
 PORT-FN-16FCC
@@ -147,6 +152,9 @@ DEPTH .                     \ FIRST — we do not know whether the word
 \ A bare `.` after DEPTH 0 underflows.
 ```
 - [ ] `DECIMAL` opens the THRU line — boot base traps apply here too
+- [ ] `EMPTY-BUFFERS` typed before EVERY re-THRU of this range in the same
+      boot — the 2026-09-05 second-THRU 14-error spew was Bug #34, not a
+      search-order problem; `ALSO`-based recovery masks it without fixing it
 - [ ] **SUCCESS = the word loaded, executed, returned a value, and the
       interpreter is alive after.** That is the entire claim.
 - [ ] DEPTH: ______   Value(s): ______________ — recorded as DATA. The July
