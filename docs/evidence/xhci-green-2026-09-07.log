@@ -1,0 +1,35 @@
+Running xHCI vocab test...
+input sha256 f8e377cd379a2046534ed6d5d305de25466f161132b98fc2385557b8ba6f6df7  build/combined.img
+
+=== Phase 0: instrument controls (fatal on failure) ===
+  PASS: interpreter alive
+  PASS: qemu-xhci found via FIND-XHCI (control)
+  PASS: host catalog resolver resolves RTL8139 (control)
+  probe sanity: DEF? PCI-FIND=211124 ZZZ-NEVER-DEFINED=0 -> OK
+
+=== Phase 1: block-load XHCI (pre-registered red) ===
+  PASS: XHCI has catalog placement
+  loading XHCI (1724-1727 THRU)...
+  PASS: XHCI blocks load (interpreter alive after THRU)
+  PASS: XHCI vocabulary defined (DEF? nonzero)
+  PASS: BAR64-MASK defined (DEF? nonzero)
+  PASS: PCI-BAR64@ defined (DEF? nonzero)
+
+=== Phase 2: BAR64-MASK logic (pushed literals) ===
+  PASS: iron literal: B1210004/0 masks to B1210000
+  PASS: refusal: nonzero upper dword -> 0
+  PASS: refusal: I/O BAR (bit 0 set) -> 0
+  PASS: refusal: reserved type 01 -> 0
+  PASS: 32-bit type: lo masked, hi ignored
+
+=== Phase 3: hardware path (qemu-xhci) ===
+  PASS: BAR0 type bits read (instrument; predicted 4=64-bit)
+  type bits 2:1 = 10 (64-bit)
+  PASS: PCI-BAR64@ at qemu-xhci nonzero
+  PASS: agrees with PCI-BAR@ (upper dword zero here)
+  PASS: result 16-byte aligned (low 4 bits clear)
+  PASS: 64-bit leg consistent: type 10 + upper 0 (A) or type 00 (B, named alternative)
+  branch A: 64-bit BAR, upper dword 0 (matches iron)
+  PASS: BASE tripwire: reads 10 at exit
+
+Passed: 19/19

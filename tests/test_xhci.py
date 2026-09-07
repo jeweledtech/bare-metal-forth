@@ -1,0 +1,349 @@
+#!/usr/bin/env python3
+"""xHCI vocab gate, step 2a: BAR64-MASK + PCI-BAR64@ block-load.
+
+Docket step 2 (BUS-USB-XHCI) opens here.  The 2026-09-05 iron trip
+read BAR0 = 0xB1210004 at the HP's xHCI function: type bits 2:1 =
+10 (64-bit BAR), upper dword at config offset 0x14 = 0.  Ruling:
+PCI-BAR64@ is a correctness word -- read the upper dword, refuse
+the device if nonzero.  It is NOT an enabler for >4GB MMIO
+(reading 3 ruled out); ECAM stays deferred.
+
+Placement: forth/dict/xhci.fth, BLOCK-LOADED, not embedded.  Grep
+proved no boot-time caller exists (ahci.fth uses PCI-BAR@ and is
+untouched); per the embed-placement rule the word lives with its
+only caller.  Loading is by catalog placement + THRU, computed
+host-side from the same scan write-catalog uses (the
+test_driver_vocabs precedent), so the suite exercises the real
+delivery path.
+
+Word contracts under test:
+  BAR64-MASK ( lo hi -- addr|0 )   pure logic, exposed for the
+    refusal paths no QEMU device can produce: I/O bit set -> 0;
+    type 00 -> lo FFFFFFF0 AND (hi ignored -- for a 32-bit BAR
+    config offset +4 is the NEXT BAR and must never enter the
+    decision); type 10 -> hi 0<> IF 0 ELSE lo FFFFFFF0 AND THEN;
+    reserved types (01/11) -> 0.  FFFFFFF0 matches PCI-BAR@'s
+    MMIO leg exactly (pci-enum.fth:195, read from source), which
+    is what grounds the check-16 equality.
+  PCI-BAR64@ ( bus dev func bar# -- addr|0 )   reads the low
+    dword, branches on the type bits BEFORE touching +4, feeds
+    BAR64-MASK.
+
+Instrument controls are FATAL: liveness (1), FIND-XHCI capture
+(2), host catalog resolver on RTL8139 (3), and the DEF? sanity
+brackets each sys.exit(3) with a named diagnostic on failure
+(3, not 2: make already uses exit 2 for a failed recipe, so the
+two can never be confused in a log).  A
+broken instrument on this suite produces the predicted red's
+exact shape (DEF_OK False fails 6-8; a missed FIND-XHCI leaves
+TB/TD/TF at 0:0.0 and RAWLO reads the host bridge), so per the
+instrument rule a dead instrument must produce NO score rather
+than a plausible one.
+
+Bug-#31 fencing per test_pci_typing.py: no colon definition names
+a new word until DEF? (compiled WORD FIND NIP) proves it
+nameable.  ALSO XHCI is sent only after DEF? XHCI reads nonzero
+-- ALSO of an undefined name corrupts the dictionary
+(lesson_also_undefined_corruption).  ZAP is a counted drain
+(BEGIN/WHILE/REPEAT + a countdown variable, never dropping on an
+empty stack): the red run underflows the stack five times
+(undefined L1-L5 print '?' but the trailing '.' still executes --
+the interpreter does not ABORT, yesterday's Finding 5), an
+unbounded BEGIN..DEPTH 0<> loop never terminates on a negative
+depth, and Forth-83 LEAVE does not transfer control so a
+DO..LEAVE..DROP..LOOP shape drops once on an already-empty stack.
+
+Pre-registered red (2026-09-07, corrected in review before the
+red run, on the tree WITHOUT forth/dict/xhci.fth): checks 4-13
+and 15-17 red; checks 1-3, 14, 18 and 19 green.  14 and 18 read
+type bits/upper dword with phase-0 machinery only and never touch
+the new words; 19 is the BASE tripwire and nothing in a red run
+enters HEX.  Red totals 6/19, exit 1.
+
+Named prediction for the hardware leg: qemu-xhci BAR0 type bits
+read 10 (matching iron) and the upper dword reads 0 -- check 18
+branch A.  Named alternative: type bits 00 (32-bit BAR in QEMU),
+check 18 branch B -- then the 64-bit refusal coverage rests
+entirely on the BAR64-MASK literal checks 9-13, and 2e iron is
+the only 64-bit-path hardware exercise.  Either branch passes 18;
+type 01/11 or type 10 with nonzero upper fails it.
+
+BASE discipline: every guest compile block brackets HEX..DECIMAL;
+check 19 asserts BASE reads 10 at exit (the AHCI BASE=16 escape,
+finding_thru_before_ahci_unexplained, is the precedent).
+"""
+import hashlib
+import os
+import re
+import socket
+import subprocess
+import sys
+import time
+
+PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 4594
+
+IMG = sys.argv[2] if len(sys.argv) > 2 else 'build/combined.img'
+with open(IMG, 'rb') as f:
+    print(f'input sha256 {hashlib.sha256(f.read()).hexdigest()}  {IMG}')
+
+PROJECT_DIR = os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__)))
+
+
+def get_vocab_blocks(vocab_name):
+    """Host-side catalog placement, same scan write-catalog uses
+    (test_driver_vocabs precedent; exec_module not the removed
+    load_module -- Python 3.12)."""
+    try:
+        result = subprocess.run(
+            [sys.executable, '-c', f"""
+import os
+import importlib.util
+spec = importlib.util.spec_from_file_location('wc', os.path.join(
+    '{PROJECT_DIR}', 'tools', 'write-catalog.py'))
+wc = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(wc)
+vocabs = wc.scan_vocabs(os.path.join(
+    '{PROJECT_DIR}', 'forth', 'dict'))
+_nc = (len(vocabs) + wc.CATALOG_DATA_LINES - 1) // wc.CATALOG_DATA_LINES
+nb = 1 + _nc
+for v in vocabs:
+    nb = wc.place_vocab(nb, v['blocks_needed'])
+    if v['name'] == '{vocab_name}':
+        print(f"{{nb}} {{nb + v['blocks_needed'] - 1}}")
+        break
+    nb += v['blocks_needed']
+"""],
+            capture_output=True, text=True, timeout=10
+        )
+        if result.returncode != 0:
+            print(f'  resolver stderr: {result.stderr.strip()[:200]}')
+        if result.stdout.strip():
+            parts = result.stdout.strip().split()
+            return int(parts[0]), int(parts[1])
+    except Exception as e:
+        print(f'  resolver exception: {e!r}')
+    return None, None
+
+
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.settimeout(10)
+for attempt in range(20):
+    try:
+        s.connect(('127.0.0.1', PORT))
+        break
+    except (ConnectionRefusedError, OSError):
+        time.sleep(0.5)
+else:
+    print("FAIL: connect")
+    sys.exit(1)
+
+time.sleep(2)
+try:
+    while True:
+        s.recv(4096)
+except Exception:
+    pass
+
+
+def send(cmd, wait=1.0):
+    s.sendall((cmd + '\r').encode())
+    time.sleep(wait)
+    s.settimeout(2)
+    resp = b''
+    while True:
+        try:
+            d = s.recv(4096)
+            if not d:
+                break
+            resp += d
+        except Exception:
+            break
+    return resp.decode('ascii', errors='replace')
+
+
+def body_of(raw):
+    """Drop the echoed input line (the echo contains the command's
+    own characters, which would satisfy substring checks)."""
+    return raw.split('\n', 1)[1] if '\n' in raw else raw
+
+
+def val(expr, wait=1.5):
+    """Read one value in DECIMAL.  The DECIMAL prefix protects the
+    probe only (typed-numeral invariant)."""
+    raw = send(f'DECIMAL {expr} .', wait)
+    body = body_of(raw)
+    if '?' in body:
+        return None, raw
+    nums = re.findall(r'-?\d+', body)
+    return (int(nums[-1]) if nums else None), raw
+
+
+PASS = FAIL = 0
+
+
+def check(name, ok, detail=''):
+    global PASS, FAIL
+    if ok:
+        PASS += 1
+        print(f'  PASS: {name}')
+    else:
+        FAIL += 1
+        print(f'  FAIL: {name} -- {detail}' if detail else
+              f'  FAIL: {name}')
+    return ok
+
+
+def instrument(name, ok, detail=''):
+    """A failed instrument control aborts the run (exit 3 --
+    distinct from make's exit 2 for a failed recipe): no score
+    beats a plausible one."""
+    if not check(name, ok, detail):
+        print(f'INSTRUMENT FAIL: {name} -- aborting, no score')
+        sys.exit(3)
+
+
+def alive():
+    v, _ = val('7 6 *')
+    return v == 42
+
+
+print('\n=== Phase 0: instrument controls (fatal on failure) ===')
+instrument('interpreter alive', alive())                     # 1
+send('ONLY FORTH DEFINITIONS')
+send('ALSO PCI-ENUM')
+# Capture instrument: FIND-XHCI is embedded pci-enum (d9ce54a),
+# present on both trees.  Stores b/d/f; val prints the flag.
+send('VARIABLE TB  VARIABLE TD  VARIABLE TF')
+send(': XCAP FIND-XHCI IF TF ! TD ! TB ! -1 ELSE 0 THEN ;')
+v, raw = val('XCAP')
+instrument('qemu-xhci found via FIND-XHCI (control)',        # 2
+           v == -1, f'got {v}: {body_of(raw)!r}')
+rs, re_ = get_vocab_blocks('RTL8139')
+instrument('host catalog resolver resolves RTL8139 (control)',  # 3
+           rs is not None, 'resolver instrument broken')
+# Nameability probe + sanity brackets (fatal instrument: DEF_OK
+# False would fail checks 6-8 in the predicted red's exact shape).
+send(': DEF? WORD FIND NIP ;')
+# Counted drain: the red run leaves a NEGATIVE depth (five
+# underflows from undefined L1-L5), where an unbounded
+# BEGIN..DEPTH 0<> loop spins forever.  BEGIN/WHILE/REPEAT only:
+# Forth-83 LEAVE does not transfer control (it runs the rest of
+# the loop body -- one extra DROP on an empty stack), and this
+# kernel's LEAVE semantics are unprobed.
+send('VARIABLE ZN')
+send(': ZAP 64 ZN !  BEGIN DEPTH 0<> ZN @ 0> AND '
+     'WHILE DROP -1 ZN +! REPEAT ;')
+_pos, _ = val('DEF? PCI-FIND')
+_neg, _ = val('DEF? ZZZ-NEVER-DEFINED')
+DEF_OK = (_pos is not None and _pos != 0 and _neg == 0)
+print(f'  probe sanity: DEF? PCI-FIND={_pos} '
+      f'ZZZ-NEVER-DEFINED={_neg} -> {"OK" if DEF_OK else "BROKEN"}')
+if not DEF_OK:
+    print('INSTRUMENT FAIL: DEF? sanity bracket -- aborting, '
+          'no score')
+    sys.exit(3)
+# Raw type-bit instrument: old words only, compiles on both trees.
+send('HEX')
+send(': RAWLO TB @ TD @ TF @ 10 PCI-READ ;')
+send(': RAWHI TB @ TD @ TF @ 14 PCI-READ ;')
+send('DECIMAL')
+
+
+def defined(name):
+    v, _ = val(f'DEF? {name}')
+    return v is not None and v != 0
+
+
+print('\n=== Phase 1: block-load XHCI (pre-registered red) ===')
+send('ZAP')
+xs, xe = get_vocab_blocks('XHCI')
+check('XHCI has catalog placement',                          # 4
+      xs is not None, 'forth/dict/xhci.fth absent from scan')
+if xs is not None:
+    print(f'  loading XHCI ({xs}-{xe} THRU)...')
+    send(f'{xs} {xe} THRU', 10)
+    check('XHCI blocks load (interpreter alive after THRU)',  # 5
+          alive())
+else:
+    check('XHCI blocks load (interpreter alive after THRU)',  # 5
+          False, 'no placement -- THRU not attempted')
+send('ONLY FORTH DEFINITIONS')
+send('ALSO PCI-ENUM')
+d_vocab = defined('XHCI')
+check('XHCI vocabulary defined (DEF? nonzero)', d_vocab)     # 6
+if d_vocab:
+    # Guarded: ALSO of an undefined name corrupts the dictionary.
+    send('ALSO XHCI')
+d_mask = defined('BAR64-MASK')
+check('BAR64-MASK defined (DEF? nonzero)', d_mask)           # 7
+d_bar = defined('PCI-BAR64@')
+check('PCI-BAR64@ defined (DEF? nonzero)', d_bar)            # 8
+
+print('\n=== Phase 2: BAR64-MASK logic (pushed literals) ===')
+send('ZAP')
+if d_mask:
+    send('HEX')
+    send(': L1 B1210004 0 BAR64-MASK B1210000 = ;')
+    send(': L2 B1210004 1 BAR64-MASK 0= ;')
+    send(': L3 E001 0 BAR64-MASK 0= ;')
+    send(': L4 12 0 BAR64-MASK 0= ;')
+    send(': L5 FEBC0008 DEADBEEF BAR64-MASK FEBC0000 = ;')
+    send('DECIMAL')
+v, raw = val('L1')
+check('iron literal: B1210004/0 masks to B1210000',          # 9
+      v == -1, f'got {v}: {body_of(raw)!r}')
+v, raw = val('L2')
+check('refusal: nonzero upper dword -> 0',                   # 10
+      v == -1, f'got {v}: {body_of(raw)!r}')
+v, raw = val('L3')
+check('refusal: I/O BAR (bit 0 set) -> 0',                   # 11
+      v == -1, f'got {v}: {body_of(raw)!r}')
+v, raw = val('L4')
+check('refusal: reserved type 01 -> 0',                      # 12
+      v == -1, f'got {v}: {body_of(raw)!r}')
+v, raw = val('L5')
+check('32-bit type: lo masked, hi ignored',                  # 13
+      v == -1, f'got {v}: {body_of(raw)!r}')
+
+print('\n=== Phase 3: hardware path (qemu-xhci) ===')
+send('ZAP')
+# Type bits via old machinery: (lo >> 1) & 3 doubled = lo 6 AND.
+tbits, raw = val('RAWLO 6 AND')
+check('BAR0 type bits read (instrument; predicted 4=64-bit)',  # 14
+      tbits in (0, 4), f'got {tbits}: {body_of(raw)!r}')
+print(f'  type bits 2:1 = {"10 (64-bit)" if tbits == 4 else tbits}')
+if d_bar:
+    send('HEX')
+    send(': XB TB @ TD @ TF @ 0 PCI-BAR64@ ;')
+    send('DECIMAL')
+v, raw = val('XB 0<>')
+xb_nonzero = (v == -1)
+check('PCI-BAR64@ at qemu-xhci nonzero', xb_nonzero,         # 15
+      f'got {v}: {body_of(raw)!r}')
+v, raw = val('XB TB @ TD @ TF @ 0 PCI-BAR@ =')
+# Same FFFFFFF0 mask on both sides (pci-enum.fth:195): equality
+# holds whenever the upper dword is 0, fails when PCI-BAR64@
+# refuses (returns 0) or masks differently.
+check('agrees with PCI-BAR@ (upper dword zero here)',        # 16
+      xb_nonzero and v == -1, f'got {v}: {body_of(raw)!r}')
+v, raw = val('XB 15 AND')
+check('result 16-byte aligned (low 4 bits clear)',           # 17
+      xb_nonzero and v == 0, f'got {v}: {body_of(raw)!r}')
+hi, raw = val('RAWHI')
+check('64-bit leg consistent: type 10 + upper 0 (A) '        # 18
+      'or type 00 (B, named alternative)',
+      (tbits == 4 and hi == 0) or tbits == 0,
+      f'type={tbits} upper={hi}: {body_of(raw)!r}')
+if tbits == 4:
+    print('  branch A: 64-bit BAR, upper dword 0 (matches iron)')
+elif tbits == 0:
+    print('  branch B: 32-bit BAR in QEMU -- 64-bit coverage '
+          'rests on checks 9-13 + 2e iron')
+raw = send('BASE @ DECIMAL .')
+check('BASE tripwire: reads 10 at exit',                     # 19
+      re.search(r'\b10\b', body_of(raw)) is not None,
+      f'got: {body_of(raw)!r}')
+
+print(f'\nPassed: {PASS}/{PASS + FAIL}')
+sys.exit(0 if FAIL == 0 else 1)

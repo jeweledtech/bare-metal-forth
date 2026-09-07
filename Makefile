@@ -464,6 +464,24 @@ test-block-reload: $(COMBINED)
 	python3 tests/test_block_reload.py $$PORT $(COMBINED); \
 	STATUS=$$?; pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null; exit $$STATUS
 
+# xHCI vocab gate (docket step 2a): BAR64-MASK + PCI-BAR64@,
+# block-loaded from forth/dict/xhci.fth via catalog THRU.  Needs
+# block storage (combined image) AND the target device: -M pc
+# pinned + -device qemu-xhci, same rationale as test-pci-typing
+# (i440FX has no USB controller otherwise; the pin stops a q35
+# default flip from silently changing the characterized bus).
+test-xhci: $(COMBINED)
+	@cp $(COMBINED) $(COMBINED_IDE)
+	@echo "Running xHCI vocab test..."
+	@$(QEMU) -M pc -device qemu-xhci \
+		-drive file=$(COMBINED),format=raw,if=floppy \
+		-drive file=$(COMBINED_IDE),format=raw,if=ide,index=1 \
+		-serial tcp::$$(($(TEST_PORT_BASE)+94)),server=on,wait=off \
+		-display none -daemonize
+	@sleep 2
+	@python3 tests/test_xhci.py $$(($(TEST_PORT_BASE)+94)) $(COMBINED); \
+		STATUS=$$?; pkill -9 -f "[q]emu.*$$(($(TEST_PORT_BASE)+94))" 2>/dev/null; exit $$STATUS
+
 # S"/."/ABORT" laydown suite (crafts blocks in buffer memory; no
 # block storage image needed, same tier as test-dict-bounds).
 test-squote-laydown: $(ACTIVE_IMAGE)
@@ -708,7 +726,7 @@ test-meta: $(COMBINED)
 	@echo "Metacompiler tests complete!"
 
 # Run all tests (lint first, then functional tests)
-test: lint test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-block-reload test-squote-laydown test-install test-vbr test-grub-cfg test-doc-drift test-make-wiring test-g6 test-vocabs test-gui test-integration test-file-stream test-survey
+test: lint test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-block-reload test-squote-laydown test-install test-vbr test-grub-cfg test-doc-drift test-make-wiring test-g6 test-vocabs test-gui test-integration test-file-stream test-survey
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)

@@ -1,0 +1,45 @@
+# Red run, captured 2026-09-07 AFTER the first green, on a tree with
+# forth/dict/xhci.fth moved aside (restored byte-identical after).
+# Reproduces the pre-registered red written and reviewed BEFORE the
+# implementation existed: 6/19 green (checks 1-3, 14, 18, 19), exit 1.
+# Exit-code note: the "Error 1" on the last line is make reporting
+# the SUITE's exit status (1 = checks failed).  The EXIT=2 observed
+# at the invoking shell is MAKE's own failed-recipe code, not a suite
+# code.  The suite's instrument-abort code is 3 (changed from 2
+# post-run so the two can never collide with make's 2); no instrument
+# aborted in this run.
+Running xHCI vocab test...
+input sha256 f8e377cd379a2046534ed6d5d305de25466f161132b98fc2385557b8ba6f6df7  build/combined.img
+
+=== Phase 0: instrument controls (fatal on failure) ===
+  PASS: interpreter alive
+  PASS: qemu-xhci found via FIND-XHCI (control)
+  PASS: host catalog resolver resolves RTL8139 (control)
+  probe sanity: DEF? PCI-FIND=211124 ZZZ-NEVER-DEFINED=0 -> OK
+
+=== Phase 1: block-load XHCI (pre-registered red) ===
+  FAIL: XHCI has catalog placement -- forth/dict/xhci.fth absent from scan
+  FAIL: XHCI blocks load (interpreter alive after THRU) -- no placement -- THRU not attempted
+  FAIL: XHCI vocabulary defined (DEF? nonzero)
+  FAIL: BAR64-MASK defined (DEF? nonzero)
+  FAIL: PCI-BAR64@ defined (DEF? nonzero)
+
+=== Phase 2: BAR64-MASK logic (pushed literals) ===
+  FAIL: iron literal: B1210004/0 masks to B1210000 -- got None: 'L1 ? \r\n-1900006918 ok '
+  FAIL: refusal: nonzero upper dword -> 0 -- got None: 'L2 ? \r\n-1899983144 ok '
+  FAIL: refusal: I/O BAR (bit 0 set) -> 0 -- got None: 'L3 ? \r\n2080423120 ok '
+  FAIL: refusal: reserved type 01 -> 0 -- got None: 'L4 ? \r\n2108561032 ok '
+  FAIL: 32-bit type: lo masked, hi ignored -- got None: 'L5 ? \r\n2108931835 ok '
+
+=== Phase 3: hardware path (qemu-xhci) ===
+  PASS: BAR0 type bits read (instrument; predicted 4=64-bit)
+  type bits 2:1 = 10 (64-bit)
+  FAIL: PCI-BAR64@ at qemu-xhci nonzero -- got None: 'XB ? \r\n-1 ok '
+  FAIL: agrees with PCI-BAR@ (upper dword zero here) -- got None: 'XB ? \r\n0 ok '
+  FAIL: result 16-byte aligned (low 4 bits clear) -- got None: 'XB ? \r\n0 ok '
+  PASS: 64-bit leg consistent: type 10 + upper 0 (A) or type 00 (B, named alternative)
+  branch A: 64-bit BAR, upper dword 0 (matches iron)
+  PASS: BASE tripwire: reads 10 at exit
+
+Passed: 6/19
+make: *** [Makefile:478: test-xhci] Error 1
