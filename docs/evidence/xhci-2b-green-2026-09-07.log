@@ -1,0 +1,217 @@
+Populating catalog into build/blocks.img...
+make write-catalog && touch build/.catalog.stamp
+make[1]: Entering directory '/home/bbrown/projects/forthos'
+python3 tools/write-catalog.py build/blocks.img forth/dict/ \
+        --raw VBR-TEMPLATE=build/vbr.bin
+  Lint OK: ahci.fth (57 BASE note(s))
+  Lint OK: arm64-asm.fth (27 BASE note(s))
+  Lint OK: asm-vocab.fth (20 BASE note(s))
+  Lint OK: atapi-ahci.fth (32 BASE note(s))
+  Lint OK: audio.fth (27 BASE note(s))
+  Lint OK: auto-detect.fth (15 BASE note(s))
+  Lint OK: cab-extract.fth (27 BASE note(s))
+  Lint OK: catalog-resolver.fth (26 BASE note(s))
+  Lint OK: cd-atapi.fth
+  Lint OK: deflate.fth (23 BASE note(s))
+  Lint OK: dict_system.fth
+  Lint OK: disasm.fth (6 BASE note(s))
+  Lint OK: disk-survey-form.fth
+  Lint OK: echoport.fth (2 BASE note(s))
+  Lint OK: editor.fth (32 BASE note(s))
+  Lint OK: fat32.fth (25 BASE note(s))
+  Lint OK: file-browser-form.fth (4 BASE note(s))
+  Lint OK: file-browser.fth (11 BASE note(s))
+  Lint OK: file-editor-core.fth (72 BASE note(s))
+  Lint OK: file-editor-disk.fth (3 BASE note(s))
+  Lint OK: file-stream.fth
+  Lint OK: graphics.fth
+  Lint OK: gui-harvest.fth
+  Lint OK: hardware.fth (15 BASE note(s))
+  Lint OK: hello-app.fth
+  Lint OK: hello-form.fth (4 BASE note(s))
+  Lint OK: install.fth
+  Lint OK: meta-compiler.fth (3 BASE note(s))
+  Lint OK: mirror.fth (32 BASE note(s))
+  Lint OK: msi-reader.fth (28 BASE note(s))
+  Lint OK: ne2000.fth (4 BASE note(s))
+  Lint OK: net-dict.fth (14 BASE note(s))
+  Lint OK: notepad-form.fth (4 BASE note(s))
+  Lint OK: notepad.fth
+  Lint OK: ntfs.fth (33 BASE note(s))
+  Lint OK: pci-enum.fth (22 BASE note(s))
+  Lint OK: pit-timer.fth
+  Lint OK: port-mapper.fth (22 BASE note(s))
+  Lint OK: port-monitor-form.fth
+  Lint OK: port-monitor.fth
+  Lint OK: ps2-keyboard.fth (3 BASE note(s))
+  Lint OK: ps2-mouse.fth
+  Lint OK: rtl8139.fth (10 BASE note(s))
+  Lint OK: rtl8168.fth (42 BASE note(s))
+  Lint OK: serial-16550.fth (3 BASE note(s))
+  Lint OK: settings-dash.fth
+  Lint OK: settings-form.fth (4 BASE note(s))
+  Lint OK: settings.fth (21 BASE note(s))
+  Lint OK: shutdown.fth (40 BASE note(s))
+  Lint OK: stub-dispatch.fth
+  Lint OK: surveyor-deep.fth (18 BASE note(s))
+  Lint OK: surveyor-detail.fth (4 BASE note(s))
+  Lint OK: surveyor.fth (26 BASE note(s))
+  Lint OK: target-arm64.fth (77 BASE note(s))
+  Lint OK: target-cortex-m.fth (40 BASE note(s))
+  Lint OK: target-x86.fth (212 BASE note(s))
+  Lint OK: thumb2-asm.fth (40 BASE note(s))
+  Lint OK: ui-core.fth (7 BASE note(s))
+  Lint OK: ui-events.fth (1 BASE note(s))
+  Lint OK: ui-parser.fth (1 BASE note(s))
+  Lint OK: vga-graphics.fth (2 BASE note(s))
+  Lint OK: video.fth (7 BASE note(s))
+  Lint OK: x86-asm.fth (57 BASE note(s))
+  Lint OK: xhci.fth (9 BASE note(s))
+  Lint OK: zip-reader.fth (9 BASE note(s))
+Vocabulary Catalog written to build/blocks.img
+  Block 0: (reserved)
+  Block 1: VOCAB-CATALOG (1/5)
+  Block 2: VOCAB-CATALOG (2/5)
+  Block 3: VOCAB-CATALOG (3/5)
+  Block 4: VOCAB-CATALOG (4/5)
+  Block 5: VOCAB-CATALOG (5/5)
+  Blocks 6-45: AHCI (ahci.fth, 40 blocks)
+  Blocks 46-78: ARM64-ASM (arm64-asm.fth, 33 blocks)
+  Blocks 79-95: ASM-VOCAB (asm-vocab.fth, 17 blocks)
+  Blocks 96-117: ATAPI-AHCI (atapi-ahci.fth, 22 blocks)
+  Blocks 118-146: AUDIO (audio.fth, 29 blocks)
+  Blocks 147-161: AUTO-DETECT (auto-detect.fth, 15 blocks)
+  Blocks 162-181: CAB-EXTRACT (cab-extract.fth, 20 blocks)
+  Blocks 192-207: (reserved: settings, SET-BLK=199)
+  Blocks 208-230: CATALOG-RESOLVER (catalog-resolver.fth, 23 blocks)
+  Blocks 231-236: CD-ATAPI (cd-atapi.fth, 6 blocks)
+  Blocks 237-263: DEFLATE (deflate.fth, 27 blocks)
+  Blocks 264-292: DICT-SYSTEM (dict_system.fth, 29 blocks)
+  Blocks 293-344: DISASM (disasm.fth, 52 blocks)
+  Blocks 345-346: DISK-SURVEY-FORM (disk-survey-form.fth, 2 blocks)
+  Blocks 347-361: ECHOPORT (echoport.fth, 15 blocks)
+  Blocks 362-385: EDITOR (editor.fth, 24 blocks)
+  Blocks 386-414: FAT32 (fat32.fth, 29 blocks)
+  Blocks 415-419: FILE-BROWSER-FORM (file-browser-form.fth, 5 blocks)
+  Blocks 420-455: FILE-BROWSER (file-browser.fth, 36 blocks)
+  Blocks 456-497: FILE-EDITOR (file-editor-core.fth, 42 blocks)
+  Blocks 498-501: FILE-EDITOR-DISK (file-editor-disk.fth, 4 blocks)
+  Blocks 502-520: FILE-STREAM (file-stream.fth, 19 blocks)
+  Blocks 521-536: GRAPHICS (graphics.fth, 16 blocks)
+  Blocks 537-549: GUI-HARVEST (gui-harvest.fth, 13 blocks)
+  Blocks 550-578: HARDWARE (hardware.fth, 29 blocks)
+  Blocks 579-586: HELLO-APP (hello-app.fth, 8 blocks)
+  Blocks 587-591: HELLO-FORM (hello-form.fth, 5 blocks)
+  Blocks 592-670: INSTALL (install.fth, 79 blocks)
+  Blocks 671-697: META-COMPILER (meta-compiler.fth, 27 blocks)
+  Blocks 698-717: MIRROR (mirror.fth, 20 blocks)
+  Blocks 718-739: MSI-READER (msi-reader.fth, 22 blocks)
+  Blocks 740-761: NE2000 (ne2000.fth, 22 blocks)
+  Blocks 762-776: NET-DICT (net-dict.fth, 15 blocks)
+  Blocks 777-783: NOTEPAD-FORM (notepad-form.fth, 7 blocks)
+  Blocks 784-796: NOTEPAD (notepad.fth, 13 blocks)
+  Blocks 797-852: NTFS (ntfs.fth, 56 blocks)
+  Blocks 853-880: PCI-ENUM (pci-enum.fth, 28 blocks)
+  Blocks 881-885: PIT-TIMER (pit-timer.fth, 5 blocks)
+  Blocks 886-902: PORT-MAPPER (port-mapper.fth, 17 blocks)
+  Blocks 903-904: PORT-MONITOR-FORM (port-monitor-form.fth, 2 blocks)
+  Blocks 905-925: PORT-MONITOR (port-monitor.fth, 21 blocks)
+  Blocks 926-939: PS2-KEYBOARD (ps2-keyboard.fth, 14 blocks)
+  Blocks 940-946: PS2-MOUSE (ps2-mouse.fth, 7 blocks)
+  Blocks 947-965: RTL8139 (rtl8139.fth, 19 blocks)
+  Blocks 966-999: RTL8168 (rtl8168.fth, 34 blocks)
+  Blocks 1000-1011: SERIAL-16550 (serial-16550.fth, 12 blocks)
+  Blocks 1012-1017: SETTINGS-DASH (settings-dash.fth, 6 blocks)
+  Blocks 1018-1023: SETTINGS-FORM (settings-form.fth, 6 blocks)
+  Blocks 1024-1049: SETTINGS (settings.fth, 26 blocks)
+  Blocks 1050-1061: SHUTDOWN (shutdown.fth, 12 blocks)
+  Blocks 1062-1068: STUB-DISPATCH (stub-dispatch.fth, 7 blocks)
+  Blocks 1069-1085: SURVEYOR-DEEP (surveyor-deep.fth, 17 blocks)
+  Blocks 1086-1106: SURVEYOR-DETAIL (surveyor-detail.fth, 21 blocks)
+  Blocks 1107-1178: SURVEYOR (surveyor.fth, 72 blocks)
+  Blocks 1179-1333: TARGET-ARM64 (target-arm64.fth, 155 blocks)
+  Blocks 1334-1459: TARGET-CORTEX-M (target-cortex-m.fth, 126 blocks)
+  Blocks 1460-1577: TARGET-X86 (target-x86.fth, 118 blocks)
+  Blocks 1578-1612: THUMB2-ASM (thumb2-asm.fth, 35 blocks)
+  Blocks 1613-1644: UI-CORE (ui-core.fth, 32 blocks)
+  Blocks 1645-1659: UI-EVENTS (ui-events.fth, 15 blocks)
+  Blocks 1660-1674: UI-PARSER (ui-parser.fth, 15 blocks)
+  Blocks 1675-1683: VGA-GRAPHICS (vga-graphics.fth, 9 blocks)
+  Blocks 1684-1699: VIDEO (video.fth, 16 blocks)
+  Blocks 1700-1723: X86-ASM (x86-asm.fth, 24 blocks)
+  Blocks 1724-1732: XHCI (xhci.fth, 9 blocks)
+  Blocks 1733-1748: ZIP-READER (zip-reader.fth, 16 blocks)
+  Block 1749: VBR-TEMPLATE (RAW 512 bytes from vbr.bin, zero-filled to 1024)
+  Total: 1750 blocks used
+make[1]: Leaving directory '/home/bbrown/projects/forthos'
+cat build/bmforth.img build/blocks.img > build/combined.img
+Combined image: build/combined.img
+  Kernel: 115200 bytes (LBA 0-224)
+  Blocks: 2097152 bytes (LBA 225+)
+  Total:  2212352 bytes
+Running xHCI vocab test...
+input sha256 81d1844b07dd66b18dbc2b781672461975ddbede6871caa0d2cffcd00df9e479  build/combined.img
+
+=== Phase 0: instrument controls (fatal on failure) ===
+  PASS: interpreter alive
+  PASS: qemu-xhci found via FIND-XHCI (control)
+  PASS: host catalog resolver resolves RTL8139 (control)
+  probe sanity: DEF? PCI-FIND=211124 ZZZ-NEVER-DEFINED=0 -> OK
+
+=== Phase 1: block-load XHCI (pre-registered red) ===
+  PASS: XHCI has catalog placement
+  loading XHCI (1724-1732 THRU)...
+  PASS: XHCI blocks load (interpreter alive after THRU)
+  PASS: XHCI vocabulary defined (DEF? nonzero)
+  PASS: BAR64-MASK defined (DEF? nonzero)
+  PASS: PCI-BAR64@ defined (DEF? nonzero)
+
+=== Phase 2: BAR64-MASK logic (pushed literals) ===
+  PASS: iron literal: B1210004/0 masks to B1210000
+  PASS: refusal: nonzero upper dword -> 0
+  PASS: refusal: I/O BAR (bit 0 set) -> 0
+  PASS: refusal: reserved type 01 -> 0
+  PASS: 32-bit type: lo masked, hi ignored
+
+=== Phase 3: hardware path (qemu-xhci) ===
+  PASS: BAR0 type bits read (instrument; predicted 4=64-bit)
+  type bits 2:1 = 10 (64-bit)
+  PASS: PCI-BAR64@ at qemu-xhci nonzero
+  PASS: agrees with PCI-BAR@ (upper dword zero here)
+  PASS: result 16-byte aligned (low 4 bits clear)
+  PASS: 64-bit leg consistent: type 10 + upper 0 (A) or type 00 (B, named alternative)
+  branch A: 64-bit BAR, upper dword 0 (matches iron)
+
+=== Phase 4 (2b): bind/caps/halt/reset/handoff ===
+  PASS: MS-DELAY available after ALSO HARDWARE (control)
+  PASS: MMIO window live at XB (control; 2a words only)
+  PASS: POLL-UNTIL defined (DEF? nonzero)
+  PASS: POLL-CLEAR defined (DEF? nonzero)
+  PASS: XHCI-BIND defined (DEF? nonzero)
+  PASS: XHCI-HALT defined (DEF? nonzero)
+  PASS: XHCI-RESET defined (DEF? nonzero)
+  PASS: XHCI-OWNER defined (DEF? nonzero)
+  PASS: POLL-UNTIL timeout fires (never-set cell -> 0)
+  PASS: POLL-UNTIL prompt success (pre-set cell -> -1)
+  PASS: POLL-CLEAR timeout fires (stuck-set cell -> 0)
+  PASS: POLL-CLEAR prompt success (pre-clear cell -> -1)
+  PASS: XHCI-BIND returns -1
+  PASS: XHCI-BASE matches PCI-BAR64@ (XB)
+  PASS: CAP-LEN in 0x20..0x7F
+  CAP-LEN = 0x40 (predicted 0x40)
+  PASS: HCIVERSION 0x100 (predicted) or 0x110 (named alt)
+  HCIVERSION = 0x100
+  PASS: MAX-SLOTS > 0
+  PASS: MAX-PORTS in 1..255
+  pre-halt HCH = 1 (already halted -- predicted)
+  PASS: XHCI-HALT returns -1
+  PASS: HCH=1 after halt
+  PASS: XHCI-RESET returns -1 (HCRST+CNR clear in bound)
+  PASS: post-reset R/S=0
+  PASS: post-reset HCH=1
+  PASS: handoff skeleton: cap absent (0, predicted) or present, BIOS bit clear (2, named alt); BIOS-owned (1) fails
+  handoff code = 0: legacy cap absent (predicted)
+  xECP caps visited = 2 (bounded walk; a runaway is visible here even when check 42 passes)
+  PASS: BASE tripwire: reads 10 at exit
+
+Passed: 43/43

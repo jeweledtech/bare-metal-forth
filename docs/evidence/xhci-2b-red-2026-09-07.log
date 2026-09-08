@@ -1,0 +1,69 @@
+# 2b red run, captured 2026-09-07 BEFORE any 2b Forth was written.
+# Red tree = HEAD d558668 (2a committed -- no file moves needed).
+# Pre-registered: 21/43 green (1-18 via 2a, instruments 19-20, 43
+# tripwire), 21-42 red, suite exit 1.  The make 'Error 1' is the
+# suite's exit status; instrument-abort would be exit 3 (none fired).
+Running xHCI vocab test...
+input sha256 f8e377cd379a2046534ed6d5d305de25466f161132b98fc2385557b8ba6f6df7  build/combined.img
+
+=== Phase 0: instrument controls (fatal on failure) ===
+  PASS: interpreter alive
+  PASS: qemu-xhci found via FIND-XHCI (control)
+  PASS: host catalog resolver resolves RTL8139 (control)
+  probe sanity: DEF? PCI-FIND=211124 ZZZ-NEVER-DEFINED=0 -> OK
+
+=== Phase 1: block-load XHCI (pre-registered red) ===
+  PASS: XHCI has catalog placement
+  loading XHCI (1724-1727 THRU)...
+  PASS: XHCI blocks load (interpreter alive after THRU)
+  PASS: XHCI vocabulary defined (DEF? nonzero)
+  PASS: BAR64-MASK defined (DEF? nonzero)
+  PASS: PCI-BAR64@ defined (DEF? nonzero)
+
+=== Phase 2: BAR64-MASK logic (pushed literals) ===
+  PASS: iron literal: B1210004/0 masks to B1210000
+  PASS: refusal: nonzero upper dword -> 0
+  PASS: refusal: I/O BAR (bit 0 set) -> 0
+  PASS: refusal: reserved type 01 -> 0
+  PASS: 32-bit type: lo masked, hi ignored
+
+=== Phase 3: hardware path (qemu-xhci) ===
+  PASS: BAR0 type bits read (instrument; predicted 4=64-bit)
+  type bits 2:1 = 10 (64-bit)
+  PASS: PCI-BAR64@ at qemu-xhci nonzero
+  PASS: agrees with PCI-BAR@ (upper dword zero here)
+  PASS: result 16-byte aligned (low 4 bits clear)
+  PASS: 64-bit leg consistent: type 10 + upper 0 (A) or type 00 (B, named alternative)
+  branch A: 64-bit BAR, upper dword 0 (matches iron)
+
+=== Phase 4 (2b): bind/caps/halt/reset/handoff ===
+  PASS: MS-DELAY available after ALSO HARDWARE (control)
+  PASS: MMIO window live at XB (control; 2a words only)
+  FAIL: POLL-UNTIL defined (DEF? nonzero)
+  FAIL: POLL-CLEAR defined (DEF? nonzero)
+  FAIL: XHCI-BIND defined (DEF? nonzero)
+  FAIL: XHCI-HALT defined (DEF? nonzero)
+  FAIL: XHCI-RESET defined (DEF? nonzero)
+  FAIL: XHCI-OWNER defined (DEF? nonzero)
+  FAIL: POLL-UNTIL timeout fires (never-set cell -> 0) -- got None: 'PT0 ? \r\n-1900006918 ok '
+  FAIL: POLL-UNTIL prompt success (pre-set cell -> -1) -- got None: 'PT1 ? \r\n-1899983144 ok '
+  FAIL: POLL-CLEAR timeout fires (stuck-set cell -> 0) -- got None: 'PC0 ? \r\n2080423120 ok '
+  FAIL: POLL-CLEAR prompt success (pre-clear cell -> -1) -- got None: 'PC1 ? \r\n2108561032 ok '
+  FAIL: XHCI-BIND returns -1 -- got None: 'XHCI-BIND ? \r\n-930912576 ok '
+  FAIL: XHCI-BASE matches PCI-BAR64@ (XB) -- got None: 'XHCI-BASE ? \r\n0 ok '
+  FAIL: CAP-LEN in 0x20..0x7F -- got None: 'CAP-LEN ? \r\n142440682 ok '
+  FAIL: HCIVERSION 0x100 (predicted) or 0x110 (named alt) -- got None: 'HCI-VER ? \r\n-1269411840 ok '
+  FAIL: MAX-SLOTS > 0 -- got None: 'MAX-SLOTS ? \r\n-1065047026 ok '
+  FAIL: MAX-PORTS in 1..255 -- got None: 'MAX-PORTS ? \r\n281871476 ok '
+  pre-halt HCH = None (unreadable on this tree)
+  FAIL: XHCI-HALT returns -1 -- got None: 'XHCI-HALT ? \r\n-1899983144 ok '
+  FAIL: HCH=1 after halt -- got None: 'USBSTS@ ? \r\n0 ok '
+  FAIL: XHCI-RESET returns -1 (HCRST+CNR clear in bound) -- got None: 'XHCI-RESET ? \r\n2108561032 ok '
+  FAIL: post-reset R/S=0 -- got None: 'USBCMD@ ? \r\n1 ok '
+  FAIL: post-reset HCH=1 -- got None: 'USBSTS@ ? \r\n0 ok '
+  FAIL: handoff skeleton: cap absent (0, predicted) or present+OS/released (2, named alt); BIOS-owned (1) fails -- got None: 'XHCI-OWNER ? \r\n-1374254526 ok '
+  xECP caps visited = None (bounded walk; a runaway is visible here even when check 42 passes)
+  PASS: BASE tripwire: reads 10 at exit
+
+Passed: 21/43
+make: *** [Makefile:478: test-xhci] Error 1

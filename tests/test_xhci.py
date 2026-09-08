@@ -69,8 +69,50 @@ the only 64-bit-path hardware exercise.  Either branch passes 18;
 type 01/11 or type 10 with nonzero upper fails it.
 
 BASE discipline: every guest compile block brackets HEX..DECIMAL;
-check 19 asserts BASE reads 10 at exit (the AHCI BASE=16 escape,
-finding_thru_before_ahci_unexplained, is the precedent).
+the final check asserts BASE reads 10 at exit (the AHCI BASE=16
+escape, finding_thru_before_ahci_unexplained, is the precedent).
+Guard rule (2b review): every send('HEX') and its matching
+send('DECIMAL') live inside the same guard or outside all guards,
+verified mechanically (indent-paired scan), not by reading.
+
+--- Step 2b: bind / caps decode / halt / reset / handoff skeleton
+
+Pre-registered red (2026-09-07, written before any 2b Forth; red
+tree = HEAD d558668, which HAS the committed 2a xhci.fth -- no
+file moves this time): 43 checks per run (44 call sites; the
+placement check has an if/else pair of which one executes).
+Green on red: 1-18 (2a, proven), instruments 19-20 (kernel + 2a
+machinery only), 43 (BASE tripwire; no unguarded HEX on the red
+path).  Red: 21-42 (every one executes a 2b word).  Red totals
+21/43, exit 1.
+
+Poll-loop failing controls (checks 27-30): the hardware
+prediction is that the controller is ALREADY halted on entry, so
+a poll loop that exits after zero iterations (wrong limit,
+inverted mask, condition tested before first read) would pass
+every hardware check.  POLL-UNTIL/POLL-CLEAR are therefore
+exercised against a suite-owned VARIABLE: never-satisfied cell ->
+0 after the counted limit (timeout path fires), pre-satisfied
+cell -> -1 (success path reads the cell).  Halt-before-reset
+ordering is enforced by suite construction (HCRST on a running
+controller is undefined per spec).
+
+Named hardware predictions (branch discipline): CAP-LEN 0x40
+(range 0x20..0x7F accepted, actual printed); HCIVERSION 0x100
+(named alt 0x110); pre-halt HCH=1 already-halted (named alt:
+running, halt does real work; either passes, branch printed);
+handoff XHCI-OWNER = 0 cap-absent (named alt 2 = present with
+BIOS Owned Semaphore clear -- NOT "OS-owned", bit 24 is never
+checked; 1 BIOS-owned FAILS -- that is a finding, and the
+fail-closed sequence belongs to 2e).  Reset polls carry a
+1000 ms budget (real silicon holds HCRST/CNR far longer than
+QEMU's instant reset) and print the unmasked register on
+timeout so iron can tell stuck-bit from dead-window.  XECP-FIND's visited-cap count is
+printed so a runaway walk is visible even when the check passes.
+
+Sweep arithmetic (read off sweep-2026-09-07.log, not recalled):
+test-xhci line 19 -> 43 (+24), lines stay 31 (no new target, no
+wiring +1), total 1098 -> 1122.
 """
 import hashlib
 import os
@@ -340,8 +382,117 @@ if tbits == 4:
 elif tbits == 0:
     print('  branch B: 32-bit BAR in QEMU -- 64-bit coverage '
           'rests on checks 9-13 + 2e iron')
+print('\n=== Phase 4 (2b): bind/caps/halt/reset/handoff ===')
+send('ZAP')
+send('ALSO HARDWARE')
+# 2b instruments (fatal).  Both run on 2a-or-later machinery only,
+# so they are GREEN on the 2b red run (red tree = HEAD with 2a).
+v, raw = val('DEF? MS-DELAY')
+instrument('MS-DELAY available after ALSO HARDWARE (control)',  # 19
+           v is not None and v != 0, f'got {v}: {body_of(raw)!r}')
+# Cap dword at base+0 is CAPLENGTH | HCIVERSION<<16 -- nonzero and
+# never all-ones (all-ones = dead MMIO window, which would fail
+# every 2b check in the predicted red's shape).
+v, raw = val('XB @ DUP 0<> SWAP -1 = 0= AND')
+instrument('MMIO window live at XB (control; 2a words only)',  # 20
+           v == -1, f'got {v}: {body_of(raw)!r}')
+d_poll = defined('POLL-UNTIL')
+check('POLL-UNTIL defined (DEF? nonzero)', d_poll)           # 21
+d_pollc = defined('POLL-CLEAR')
+check('POLL-CLEAR defined (DEF? nonzero)', d_pollc)          # 22
+d_bind = defined('XHCI-BIND')
+check('XHCI-BIND defined (DEF? nonzero)', d_bind)            # 23
+d_halt = defined('XHCI-HALT')
+check('XHCI-HALT defined (DEF? nonzero)', d_halt)            # 24
+d_reset = defined('XHCI-RESET')
+check('XHCI-RESET defined (DEF? nonzero)', d_reset)          # 25
+d_owner = defined('XHCI-OWNER')
+check('XHCI-OWNER defined (DEF? nonzero)', d_owner)          # 26
+
+# Poll-loop failing controls against memory the suite owns: the
+# hardware is predicted ALREADY in the target state (halted), so a
+# loop that exits after zero iterations would pass every hardware
+# check.  Only these four prove the timeout path fires and the
+# success path reads the cell.
+send('VARIABLE PV')
+if d_poll:
+    send(': PT0 0 PV !  PV 1 8 POLL-UNTIL ;')
+    send(': PT1 1 PV !  PV 1 8 POLL-UNTIL ;')
+if d_pollc:
+    send(': PC0 1 PV !  PV 1 8 POLL-CLEAR ;')
+    send(': PC1 0 PV !  PV 1 8 POLL-CLEAR ;')
+v, raw = val('PT0', 2.0)
+check('POLL-UNTIL timeout fires (never-set cell -> 0)',      # 27
+      v == 0, f'got {v}: {body_of(raw)!r}')
+v, raw = val('PT1')
+check('POLL-UNTIL prompt success (pre-set cell -> -1)',      # 28
+      v == -1, f'got {v}: {body_of(raw)!r}')
+v, raw = val('PC0', 2.0)
+check('POLL-CLEAR timeout fires (stuck-set cell -> 0)',      # 29
+      v == 0, f'got {v}: {body_of(raw)!r}')
+v, raw = val('PC1')
+check('POLL-CLEAR prompt success (pre-clear cell -> -1)',    # 30
+      v == -1, f'got {v}: {body_of(raw)!r}')
+
+send('ZAP')
+v, raw = val('XHCI-BIND')
+bind_ok = (v == -1)
+check('XHCI-BIND returns -1', bind_ok,                       # 31
+      f'got {v}: {body_of(raw)!r}')
+v, raw = val('XHCI-BASE @ XB =')
+check('XHCI-BASE matches PCI-BAR64@ (XB)',                   # 32
+      bind_ok and v == -1, f'got {v}: {body_of(raw)!r}')
+cl, raw = val('CAP-LEN')
+check('CAP-LEN in 0x20..0x7F', cl is not None and            # 33
+      32 <= cl <= 127, f'got {cl}: {body_of(raw)!r}')
+if cl is not None:
+    print(f'  CAP-LEN = {cl:#04x} (predicted 0x40)')
+hv, raw = val('HCI-VER')
+check('HCIVERSION 0x100 (predicted) or 0x110 (named alt)',   # 34
+      hv in (256, 272), f'got {hv}: {body_of(raw)!r}')
+if hv is not None:
+    print(f'  HCIVERSION = {hv:#05x}')
+v, raw = val('MAX-SLOTS')
+check('MAX-SLOTS > 0', v is not None and v > 0,              # 35
+      f'got {v}: {body_of(raw)!r}')
+v, raw = val('MAX-PORTS')
+check('MAX-PORTS in 1..255', v is not None and               # 36
+      1 <= v <= 255, f'got {v}: {body_of(raw)!r}')
+
+send('ZAP')
+pre, raw = val('USBSTS@ 1 AND')
+print(f'  pre-halt HCH = {pre} '
+      + ('(already halted -- predicted)' if pre == 1 else
+         '(running -- named alternative, halt does real work)'
+         if pre == 0 else '(unreadable on this tree)'))
+v, raw = val('XHCI-HALT')
+check('XHCI-HALT returns -1', v == -1,                       # 37
+      f'got {v}: {body_of(raw)!r}')
+v, raw = val('USBSTS@ 1 AND')
+check('HCH=1 after halt', v == 1, f'got {v}: {body_of(raw)!r}')  # 38
+v, raw = val('XHCI-RESET', 3.0)
+check('XHCI-RESET returns -1 (HCRST+CNR clear in bound)',    # 39
+      v == -1, f'got {v}: {body_of(raw)!r}')
+v, raw = val('USBCMD@ 1 AND')
+check('post-reset R/S=0', v == 0, f'got {v}: {body_of(raw)!r}')  # 40
+v, raw = val('USBSTS@ 1 AND')
+check('post-reset HCH=1', v == 1, f'got {v}: {body_of(raw)!r}')  # 41
+
+send('ZAP')
+oc, raw = val('XHCI-OWNER')
+check('handoff skeleton: cap absent (0, predicted) or '      # 42
+      'present, BIOS bit clear (2, named alt); BIOS-owned (1) fails',
+      oc in (0, 2), f'got {oc}: {body_of(raw)!r}')
+print('  handoff code = ' + ('0: legacy cap absent (predicted)'
+      if oc == 0 else '2: present, BIOS bit clear (named alt; '
+      'OS semaphore bit 24 NOT checked)'
+      if oc == 2 else f'{oc}'))
+nc, raw = val('XCAPS @')
+print(f'  xECP caps visited = {nc} (bounded walk; a runaway '
+      'is visible here even when check 42 passes)')
+
 raw = send('BASE @ DECIMAL .')
-check('BASE tripwire: reads 10 at exit',                     # 19
+check('BASE tripwire: reads 10 at exit',                     # 43
       re.search(r'\b10\b', body_of(raw)) is not None,
       f'got: {body_of(raw)!r}')
 
