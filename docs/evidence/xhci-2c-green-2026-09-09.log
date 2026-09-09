@@ -1,0 +1,101 @@
+input sha256 7e22905720632937cbcc9eb8eaa6e519dd67432ee28235708c71644e476b0531  /tmp/cg.img
+
+=== Phase 0: instrument controls (fatal on failure) ===
+  PASS: interpreter alive
+  PASS: qemu-xhci found via FIND-XHCI (control)
+  PASS: host catalog resolver resolves RTL8139 (control)
+  probe sanity: DEF? PCI-FIND=211124 ZZZ-NEVER-DEFINED=0 -> OK
+
+=== Phase 1: block-load XHCI (pre-registered red) ===
+  continuity: nonce OK (phase 1)
+  PASS: XHCI has catalog placement
+  loading XHCI (1724-1743 THRU)...
+  PASS: XHCI blocks load (interpreter alive after THRU)
+  PASS: XHCI vocabulary defined (DEF? nonzero)
+  PASS: BAR64-MASK defined (DEF? nonzero)
+  PASS: PCI-BAR64@ defined (DEF? nonzero)
+
+=== Phase 2: BAR64-MASK logic (pushed literals) ===
+  continuity: nonce OK (phase 2)
+  PASS: iron literal: B1210004/0 masks to B1210000
+  PASS: refusal: nonzero upper dword -> 0
+  PASS: refusal: I/O BAR (bit 0 set) -> 0
+  PASS: refusal: reserved type 01 -> 0
+  PASS: 32-bit type: lo masked, hi ignored
+
+=== Phase 3: hardware path (qemu-xhci) ===
+  continuity: nonce OK (phase 3)
+  PASS: BAR0 type bits read (instrument; predicted 4=64-bit)
+  type bits 2:1 = 10 (64-bit)
+  PASS: PCI-BAR64@ at qemu-xhci nonzero
+  PASS: agrees with PCI-BAR@ (upper dword zero here)
+  PASS: result 16-byte aligned (low 4 bits clear)
+  PASS: 64-bit leg consistent: type 10 + upper 0 (A) or type 00 (B, named alternative)
+  branch A: 64-bit BAR, upper dword 0 (matches iron)
+
+=== Phase 4 (2b): bind/caps/halt/reset/handoff ===
+  continuity: nonce OK (phase 4)
+  PASS: MS-DELAY available after ALSO HARDWARE (control)
+  PASS: MMIO window live at XB (control; 2a words only)
+  PASS: POLL-UNTIL defined (DEF? nonzero)
+  PASS: POLL-CLEAR defined (DEF? nonzero)
+  PASS: XHCI-BIND defined (DEF? nonzero)
+  PASS: XHCI-HALT defined (DEF? nonzero)
+  PASS: XHCI-RESET defined (DEF? nonzero)
+  PASS: XHCI-OWNER defined (DEF? nonzero)
+  PASS: POLL-UNTIL timeout fires (never-set cell -> 0)
+  PASS: POLL-UNTIL prompt success (pre-set cell -> -1)
+  PASS: POLL-CLEAR timeout fires (stuck-set cell -> 0)
+  PASS: POLL-CLEAR prompt success (pre-clear cell -> -1)
+  PASS: XHCI-BIND returns -1
+  PASS: XHCI-BASE matches PCI-BAR64@ (XB)
+  PASS: CAP-LEN in 0x20..0x7F
+  CAP-LEN = 0x40 (predicted 0x40)
+  PASS: HCIVERSION 0x100 (predicted) or 0x110 (named alt)
+  HCIVERSION = 0x100
+  PASS: MAX-SLOTS > 0
+  PASS: MAX-PORTS in 1..255
+  pre-halt HCH = 1 (already halted -- predicted)
+  PASS: XHCI-HALT returns -1
+  PASS: HCH=1 after halt
+  PASS: XHCI-RESET returns -1 (HCRST+CNR clear in bound)
+  PASS: post-reset R/S=0
+  PASS: post-reset HCH=1
+  PASS: handoff skeleton: cap absent (0, predicted) or present, BIOS bit clear (2, named alt); BIOS-owned (1) fails
+  handoff code = 0: legacy cap absent (predicted)
+  xECP caps visited = 2 (bounded walk; a runaway is visible here even when check 42 passes)
+
+=== Phase 5 (2c): DCBAA/rings/Running/NOP round-trip ===
+  continuity: nonce OK (phase 5)
+  PASS: HCH=1 at phase-5 entry (control; 2b words only)
+  PASS: HARDWARE allocator internals visible (control)
+  PASS: AVAIL sane at snapshot (walk clean, >= 0)
+  phase-5 snapshot: NLIVE=7 AVAIL=3104768
+  PASS: XHCI-UP defined (DEF? nonzero)
+  PASS: XHCI-RUN defined (DEF? nonzero)
+  PASS: NOP-TEST defined (DEF? nonzero)
+  PASS: XHCI-DOWN defined (DEF? nonzero)
+  PASS: .H8 fixed-base: 255 prints 000000FF from DECIMAL
+  PASS: XHCI-UP returns -1
+  scratchpads: none demanded (XSPA=0, predicted)
+  PASS: XHCI-UP allocated something (NLIVE delta > 0)
+  PASS: DCBAAP readback matches XDCBAA record
+  PASS: ERSTBA readback matches XERST record
+  PASS: XHCI-RUN returns -1 (HCH cleared in budget)
+  PASS: running proof: HCH 1 -> 0 transition
+  PASS: 32 NOPs complete 32/32 (16-TRB ring wrapped twice, link-toggle executed)
+  completions = 32, XENQ = 2 (predicted 2), XEDQ = 32 (predicted 32) -- a link-toggle stall pins the count near 15; an ERDP stall pins XEDQ short
+  PASS: XHCI-DOWN (clean arm) returns -1 (all released)
+  PASS: HCH=1 after XHCI-DOWN (stopped before release)
+  PASS: second XHCI-DOWN returns 0 (nothing to tear down)
+  PASS: XHCI-UP (refusal arm) returns -1
+  PASS: XHCI-DOWN after direct release returns 1 (partial: vanished record skipped, rest released)
+  PASS: refusal arm emitted no "PHYS: double release" (cross-check skipped, did not re-release)
+  continuity: nonce OK (presence control (check 64))
+  PASS: presence control: direct double release DOES print "PHYS: double release"
+  PASS: owner table restored (NLIVE back to snapshot)
+  PASS: free bytes restored (AVAIL back to snapshot)
+  PASS: BASE tripwire: reads 10 at exit
+  continuity: nonce OK (final score)
+
+Passed: 67/67

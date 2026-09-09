@@ -105,9 +105,9 @@ VARIABLE XHCI-BASE
 : XHCI-RESET ( -- flag )
     USBCMD@ 2 OR USBCMD!
     OP-BASE 2 3E8 POLL-CLEAR
-    DUP 0= IF ." HCRST poll timeout, cmd=" PA @ @ . CR THEN
+    DUP 0= IF ." HCRST poll timeout, cmd=" PA @ @ .H8 CR THEN
     OP-BASE 4 + 800 3E8 POLL-CLEAR
-    DUP 0= IF ." CNR poll timeout, sts=" PA @ @ . CR THEN
+    DUP 0= IF ." CNR poll timeout, sts=" PA @ @ .H8 CR THEN
     AND ;
 
 \ Handoff SKELETON: locate + classify only.  The request/
@@ -135,6 +135,184 @@ VARIABLE XCAPS  VARIABLE XCID  VARIABLE XCP
 : XHCI-OWNER ( -- code )
     1 XECP-FIND DUP 0= IF EXIT THEN
     @ 10000 AND IF 1 ELSE 2 THEN ;
+
+\ ---- Step 2c: DCBAA / rings / Running / NOP ----
+\ Timeout prints above go through PCI-ENUM's .H8
+\ (base-transparent), closing the 2b render debt.
+\ Allocation records: 0 = not held.  All pages come
+\ from PHYS-ALLOC; XHCI-DOWN cross-checks each record
+\ against the owner table (OWN-FIND + size match)
+\ BEFORE releasing, so a record freed behind our back
+\ is SKIPPED (code 1, partial), never double-released.
+VARIABLE XDCBAA  VARIABLE XCRING
+VARIABLE XERING  VARIABLE XERST
+VARIABLE XSPA    VARIABLE XSPN   VARIABLE SPB
+VARIABLE XENQ    VARIABLE XCCS
+VARIABLE XEDQ    VARIABLE XECS
+
+\ Runtime + doorbell bases (RTSOFF cap+18 mask E0;
+\ DBOFF cap+14 mask FC).  Interrupter 0 lives at
+\ runtime +20: ERSTSZ +28, ERSTBA +30, ERDP +38.
+: RT-BASE ( -- addr )
+    XHCI-BASE @ 18 + @ FFFFFFE0 AND
+    XHCI-BASE @ + ;
+: DB-BASE ( -- addr )
+    XHCI-BASE @ 14 + @ FFFFFFFC AND
+    XHCI-BASE @ + ;
+: DOORBELL0 ( -- ) 0 DB-BASE ! ;
+
+: PG0 ( addr -- )   \ zero one page
+    1000 0 DO 0 OVER I + ! 4 +LOOP DROP ;
+
+\ Scratchpad count: HCSPARAMS2 (cap+8) Hi bits 25:21,
+\ Lo bits 31:27, count = Hi*32 + Lo.  Predicted 0 in
+\ QEMU (named alt >0 -> array + 1 contiguous block).
+: SP-COUNT ( -- n )
+    XHCI-BASE @ 8 + @
+    DUP 15 RSHIFT 1F AND 20 *
+    SWAP 1B RSHIFT 1F AND OR ;
+
+: SP-SETUP ( -- flag )
+    1000 PHYS-ALLOC DUP XSPA ! 0= IF 0 EXIT THEN
+    XSPN @ 1000 * PHYS-ALLOC DUP SPB ! 0= IF
+        XSPA @ 1000 PHYS-RELEASE 0 XSPA !
+        0 EXIT THEN
+    XSPA @ PG0
+    XSPN @ 0 DO
+        SPB @ I 1000 * + XSPA @ I 8 * + !
+    LOOP
+    XSPA @ XDCBAA @ !  0 XDCBAA @ 4 + !  -1 ;
+
+: XUP-FAIL ( -- 0 )
+    XERST @ 0<> IF
+        XERST @ 1000 PHYS-RELEASE 0 XERST ! THEN
+    XERING @ 0<> IF
+        XERING @ 1000 PHYS-RELEASE 0 XERING ! THEN
+    XCRING @ 0<> IF
+        XCRING @ 1000 PHYS-RELEASE 0 XCRING ! THEN
+    XDCBAA @ 0<> IF
+        XDCBAA @ 1000 PHYS-RELEASE 0 XDCBAA ! THEN
+    0 ;
+
+\ XHCI-UP: allocate DCBAA + 16-TRB command ring page +
+\ event ring segment + 1-entry ERST, program DCBAAP /
+\ CONFIG / CRCR (RCS=1) / ERSTSZ / ERSTBA / ERDP, init
+\ producer (XENQ/XCCS) and consumer (XEDQ/XECS).
+\ Fail-closed: any refused allocation releases the
+\ rest and returns 0.
+: XHCI-UP ( -- flag )
+    XHCI-BASE @ 0= IF 0 EXIT THEN
+    XDCBAA @ 0<> IF 0 EXIT THEN
+    1000 PHYS-ALLOC DUP XDCBAA ! 0= IF
+        XUP-FAIL EXIT THEN
+    1000 PHYS-ALLOC DUP XCRING ! 0= IF
+        XUP-FAIL EXIT THEN
+    1000 PHYS-ALLOC DUP XERING ! 0= IF
+        XUP-FAIL EXIT THEN
+    1000 PHYS-ALLOC DUP XERST ! 0= IF
+        XUP-FAIL EXIT THEN
+    XDCBAA @ PG0  XCRING @ PG0
+    XERING @ PG0  XERST @ PG0
+    SP-COUNT XSPN !
+    XSPN @ 0<> IF
+        SP-SETUP 0= IF XUP-FAIL EXIT THEN THEN
+    XDCBAA @ OP-BASE 30 + !  0 OP-BASE 34 + !
+    MAX-SLOTS OP-BASE 38 + !
+    XCRING @ 1 OR OP-BASE 18 + !  0 OP-BASE 1C + !
+    1 RT-BASE 28 + !
+    XERING @ XERST @ !  0 XERST @ 4 + !
+    100 XERST @ 8 + !  0 XERST @ C + !
+    XERST @ RT-BASE 30 + !  0 RT-BASE 34 + !
+    XERING @ RT-BASE 38 + !  0 RT-BASE 3C + !
+    0 XENQ !  1 XCCS !  0 XEDQ !  1 XECS !  -1 ;
+
+: XHCI-RUN ( -- flag )
+    XHCI-BASE @ 0= IF 0 EXIT THEN
+    USBCMD@ 1 OR USBCMD!
+    OP-BASE 4 + 1 3E8 POLL-CLEAR ;
+
+\ Command ring producer.  16 TRBs; slot 15 is the link
+\ TRB (type 6, Toggle Cycle) written AT the wrap with
+\ the pre-toggle cycle so the controller follows it,
+\ then XCCS flips -- the riskiest word in 2c, and 32
+\ NOPs cross it twice.  NOP command = type 17 (hex),
+\ control 5C00 OR cycle.
+VARIABLE TRA
+: CR-TRB ( -- addr ) XCRING @ XENQ @ 10 * + ;
+: TRB-NOP! ( -- )
+    CR-TRB TRA !
+    0 TRA @ !  0 TRA @ 4 + !  0 TRA @ 8 + !
+    5C00 XCCS @ OR TRA @ C + !
+    1 XENQ +!
+    XENQ @ F = IF
+        XCRING @ F0 + TRA !
+        XCRING @ TRA @ !
+        0 TRA @ 4 + !  0 TRA @ 8 + !
+        1802 XCCS @ OR TRA @ C + !
+        0 XENQ !  XCCS @ 1 XOR XCCS ! THEN ;
+
+\ Event ring consumer.  Own counter (EVN): POLL-UNTIL/
+\ POLL-CLEAR are NOT re-entrant (PN/PA/PM globals) and
+\ are never nested here.  Budget 100 (hex) ms.
+VARIABLE EVN
+: EV-TRB ( -- addr ) XERING @ XEDQ @ 10 * + ;
+: EV-RDY? ( -- flag )
+    EV-TRB C + @ 1 AND XECS @ = ;
+: EV-POLL ( -- flag )
+    100 EVN !
+    BEGIN EV-RDY? 0= EVN @ 0> AND
+    WHILE 1 MS-DELAY -1 EVN +! REPEAT
+    EV-RDY? ;
+: EV-NEXT ( -- )   \ consume + publish ERDP (EHB set)
+    1 XEDQ +!
+    XEDQ @ 100 = IF
+        0 XEDQ !  XECS @ 1 XOR XECS ! THEN
+    EV-TRB 8 OR RT-BASE 38 + !  0 RT-BASE 3C + ! ;
+
+\ One NOP round-trip: enqueue, ring, await completion.
+\ Per-NOP doorbell keeps the producer from overrunning
+\ the 15 usable slots per cycle.
+: NOP1 ( -- flag )
+    TRB-NOP! DOORBELL0
+    EV-POLL DUP IF EV-NEXT THEN ;
+VARIABLE NTC  VARIABLE NTN
+: NOP-TEST ( n -- count )
+    0 NTC !  NTN !
+    BEGIN NTC @ NTN @ < DUP IF DROP NOP1 THEN
+    WHILE 1 NTC +! REPEAT
+    NTC @ ;
+
+\ Cross-checked release: OWN-FIND miss or size
+\ mismatch -> skip (partial), never a blind
+\ PHYS-RELEASE that would double-release a page freed
+\ behind our back.
+VARIABLE XDP
+: XREL1 ( addr size -- )
+    OVER OWN-FIND DUP 0= IF
+        DROP 2DROP 1 XDP ! EXIT THEN
+    @ OVER = 0= IF 2DROP 1 XDP ! EXIT THEN
+    PHYS-RELEASE ;
+
+\ Codes: -1 all released / 0 nothing held / 1 partial
+\ (some record vanished; the rest were released).
+: XHCI-DOWN ( -- code )
+    XDCBAA @ XCRING @ OR XERING @ OR
+    XERST @ OR XSPA @ OR 0= IF 0 EXIT THEN
+    XHCI-HALT DROP
+    0 XDP !
+    XSPA @ 0<> IF
+        XSPA @ @ XSPN @ 1000 * XREL1
+        XSPA @ 1000 XREL1
+        0 XSPA !  0 XSPN ! THEN
+    XERST @ 0<> IF
+        XERST @ 1000 XREL1 0 XERST ! THEN
+    XERING @ 0<> IF
+        XERING @ 1000 XREL1 0 XERING ! THEN
+    XCRING @ 0<> IF
+        XCRING @ 1000 XREL1 0 XCRING ! THEN
+    XDCBAA @ 0<> IF
+        XDCBAA @ 1000 XREL1 0 XDCBAA ! THEN
+    XDP @ IF 1 ELSE -1 THEN ;
 
 ." XHCI vocab loaded" CR
 

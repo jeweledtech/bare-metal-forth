@@ -1,0 +1,93 @@
+XCAP: -1
+BIND: -1
+HALT: -1
+RESET: -1
+[                    baseline] PHYS-RELEASE=-1 NLIVE=0 DEPTH=0
+step ZAP entry: ok
+[                   ZAP entry] PHYS-RELEASE=-1 NLIVE=0 DEPTH=0
+step instr43 USBSTS@ 1 AND: 1 raw='1 ok'
+[       instr43 USBSTS@ 1 AND] PHYS-RELEASE=-1 NLIVE=0 DEPTH=0
+step instr44 DEF? internals: -1 raw='-1 ok'
+[      instr44 DEF? internals] PHYS-RELEASE=-1 NLIVE=0 DEPTH=0
+step VARIABLE NLV: ok
+[                VARIABLE NLV] PHYS-RELEASE=-1 NLIVE=0 DEPTH=0
+step def NLIVE: ok
+[                   def NLIVE] PHYS-RELEASE=-1 NLIVE=-1 DEPTH=0
+step def AVAIL: ok
+[                   def AVAIL] PHYS-RELEASE=-1 NLIVE=-1 DEPTH=0
+step instr45 val AVAIL: 3104768 raw='3104768 ok'
+[           instr45 val AVAIL] PHYS-RELEASE=-1 NLIVE=-1 DEPTH=0
+step snapshot val NLIVE: 7 raw='7 ok'
+[          snapshot val NLIVE] PHYS-RELEASE=-1 NLIVE=-1 DEPTH=0
+step DEF? XHCI-UP: 0 raw='0 ok'
+[                DEF? XHCI-UP] PHYS-RELEASE=-1 NLIVE=-1 DEPTH=0
+step DEF? XHCI-RUN: 0 raw='0 ok'
+[               DEF? XHCI-RUN] PHYS-RELEASE=-1 NLIVE=-1 DEPTH=0
+step DEF? NOP-TEST: 0 raw='0 ok'
+[               DEF? NOP-TEST] PHYS-RELEASE=-1 NLIVE=-1 DEPTH=0
+step DEF? XHCI-DOWN: 0 raw='0 ok'
+[              DEF? XHCI-DOWN] PHYS-RELEASE=-1 NLIVE=-1 DEPTH=0
+step DEF? .H8: 213724 raw='213724 ok'
+[                    DEF? .H8] PHYS-RELEASE=-1 NLIVE=-1 DEPTH=0
+step def H8T: ok
+[                     def H8T] PHYS-RELEASE=-1 NLIVE=-1 DEPTH=0
+step send H8T: 000000FFok
+[                    send H8T] PHYS-RELEASE=-1 NLIVE=-1 DEPTH=0
+step ZAP 2: ok
+[                       ZAP 2] PHYS-RELEASE=-1 NLIVE=-1 DEPTH=0
+step val XHCI-UP: None raw='XHCI-UP ? \r\n-1900006918 ok'
+[                 val XHCI-UP] PHYS-RELEASE=-1 NLIVE=-1 DEPTH=1073741823
+step val XSPA @: None raw='XSPA ? \r\n0 ok'
+[                  val XSPA @] PHYS-RELEASE=-1 NLIVE=-1 DEPTH=1073741822
+step val NLIVE (delta): 7 raw='7 ok'
+[           val NLIVE (delta)] PHYS-RELEASE=-1 NLIVE=-1 DEPTH=1073741822
+step val QDCB XDCBAA @ =: None raw='QDCB ? \r\nXDCBAA ? \r\n0 ok'
+[         val QDCB XDCBAA @ =] PHYS-RELEASE=-1 NLIVE=-1 DEPTH=1073741820
+step val QERB XERST @ =: None raw='QERB ? \r\nXERST ? \r\n0 ok'
+[          val QERB XERST @ =] PHYS-RELEASE=-1 NLIVE=-1 DEPTH=1073741818
+step val XHCI-RUN: None raw='XHCI-RUN ? \r\n-1374254526 ok'
+[                val XHCI-RUN] PHYS-RELEASE=-1 NLIVE=-1 DEPTH=1073741817
+step val USBSTS@ 1 AND: 1 raw='1 ok'
+[           val USBSTS@ 1 AND] PHYS-RELEASE=-1 NLIVE=-1 DEPTH=1073741817
+step ZAP 3: ok
+[                       ZAP 3] PHYS-RELEASE=-1 NLIVE=-1 DEPTH=1073741753
+step val 32 NOP-TEST: None raw='NOP-TEST ? \r\n32 ok'
+[             val 32 NOP-TEST] PHYS-RELEASE=-1 NLIVE=-1 DEPTH=1073741753
+step val XENQ @: None raw='XENQ ? \r\n0 ok'
+[                  val XENQ @] PHYS-RELEASE=-1 NLIVE=-1 DEPTH=1073741752
+step val XEDQ @: None raw='XEDQ ? \r\n0 ok'
+[                  val XEDQ @] PHYS-RELEASE=-1 NLIVE=-1 DEPTH=1073741751
+step val XHCI-DOWN: None raw='XHCI-DOWN ? \r\n281871476 ok'
+[               val XHCI-DOWN] PHYS-RELEASE=-1 NLIVE=-1 DEPTH=1073741750
+step val USBSTS@ 1 AND (2): 1 raw='1 ok'
+[       val USBSTS@ 1 AND (2)] PHYS-RELEASE=-1 NLIVE=-1 DEPTH=1073741750
+step val XHCI-DOWN (2): None raw='XHCI-DOWN ? \r\n1482618859 ok'
+[           val XHCI-DOWN (2)] PHYS-RELEASE=-1 NLIVE=-1 DEPTH=1073741749
+step ZAP 4: ok Bare-Metal Forth v0.1 - Ship Builders System
+Type WORDS to see available commands
+
+ok
+[                       ZAP 4] PHYS-RELEASE=None NLIVE=None DEPTH=1073741822   <<< BROKEN
+
+BREAKAGE AT STEP: ZAP 4
+  DEF? PHYS-ALLOC -> None
+  DEF? OWN-SLOT -> None
+  DEF? FL-WALK -> None
+  DEF? MS-DELAY -> None
+  DEF? USBSTS@ -> None
+  DEF? XHCI-BIND -> None
+  DEF? ZAP -> None
+  DEF? DEF? -> None
+  DEF? PCI-FIND -> None
+  DEF? NLV -> None
+  DEF? AVAIL -> None
+  DEF? H8T -> None
+  DEF? PPG -> None
+  DEF? PGRAB -> None
+  PHYS-HEAP=None
+  PHYS-HEAP-END=None
+  HERE @ (dict ptr)=375776 = 0x5bbe0
+  FL-HEAD=None
+  dict ptr inside pool (>=0x100000): False
+  ORDER (unverified word, ? = absent, not evidence): Search: 00028048  Compile: 00028048
+ok

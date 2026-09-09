@@ -113,6 +113,97 @@ printed so a runaway walk is visible even when the check passes.
 Sweep arithmetic (read off sweep-2026-09-07.log, not recalled):
 test-xhci line 19 -> 43 (+24), lines stay 31 (no new target, no
 wiring +1), total 1098 -> 1122.
+
+--- Step 2c: DCBAA / command+event rings / Running / NOP round-trip
+
+Pre-registered red (2026-09-07, written before any 2c Forth; red
+tree = HEAD 5cf99a2, which has 2a+2b live): 67 checks per run
+(68 call sites; the phase-1 placement pair is unchanged).  Green
+on red: 1-42 (2a/2b, proven), instruments 43-45 (2b + HARDWARE
+machinery only), 63 (absence check -- vacuously, which is exactly
+why 64 exists), 64 (presence control, HARDWARE machinery only),
+65-66 (restore pair -- nothing net-allocated on red), 67 (BASE
+tripwire).  Red: 46-62, every one executing a 2c word or
+measuring its allocation effect (52's NLIVE delta is 0 on red
+because the failed XHCI-UP allocates nothing).  Red totals
+50/67, exit 1.
+
+RED RE-REGISTERED 2026-09-09 (first red run 49/67, a mismatch
+= a finding; bisect /tmp/bisect_2c_run2.log): (1) check 50 was
+GREEN on red -- .H8 already exists (pci-enum.fth:396,
+base-transparent by construction), a pre-registration walk
+error; the 2b debt shrinks to rerouting XHCI-RESET's prints
+through it.  (2) checks 64-66 were RED on red -- NOT an
+allocator bug: sending the absent 2c words underflowed SP
+('?' does not abort the line), DEPTH then read ~2^30, and the
+old DEPTH-trusting ZAP marched SP past the stack floor until
+the target WARM-RESET silently (Bug #35, kernel debt), scoring
+plausible FAILs against a kernel-only dictionary.  Remedies in
+this file: DEF?-guard scores 51-63 red WITHOUT sending them
+when any of 46-49 is absent (one guard-loop call site; 69 call
+sites total, still 67 checks/run); ZAP refuses an implausible
+DEPTH via ZBAD + fatal zap() wrapper; SESS-NONCE continuity
+probe (unscored, fatal) at every phase boundary and before the
+score.  Corrected red: green 1-45, 50, 64-67; red 46-49 and
+51-63 (17).  Red totals 50/67, exit 1.  Named alternative: if
+64-66 fail again WITH the guards in place, the reset
+explanation is incomplete -- stop and investigate.
+
+ALLOCATOR-INTERNALS DEPENDENCY (read this before changing
+hardware.fth): the suite probes NLIVE and AVAIL walk HARDWARE's
+owner table (OWN-CAP / OWN-SLOT, size at record offset 0) and
+free list (FL-ADDR / FL-WALK / FL-TOT, plus the PHYS-HEAP /
+PHYS-HEAP-END bump tail) DIRECTLY.  This suite depends on
+allocator internals, not just its API: a change to the owner
+record layout, the free-list node shape, or FL-WALK's side
+variables breaks these probes first.  Update them together with
+hardware.fth.  AVAIL returns -1 (impossible as a real byte
+count) when FL-WALK refuses, so a corrupt list cannot alias a
+valid total.
+
+Refusal legs (three, and only together do they say anything):
+(a) clean arm -- XHCI-UP, run, 32-NOP round-trip, XHCI-DOWN ->
+-1, then a second XHCI-DOWN -> 0 (nothing to tear down);
+(b) refusal arm -- XHCI-UP again, the SUITE releases the DCBAA
+page directly (valid base+size, so it succeeds silently), then
+XHCI-DOWN must cross-check each record against the owner table
+(OWN-FIND + size match) BEFORE releasing, skip the vanished
+record, release the rest, and return 1 (partial).  The log must
+NOT contain "PHYS: double release" -- an absence assertion,
+vacuous alone;
+(c) presence control -- the suite double-releases a page
+DIRECTLY (not through XHCI-DOWN) and asserts the message DOES
+appear, proving the guard text is live and the transcript
+carries it.  Net allocation effect of all three legs is zero,
+so the restore pair (65-66) closes over everything since the
+phase-5 snapshot.
+
+Named hardware predictions: scratchpad count 0 in QEMU (named
+alt >0 -- XHCI-UP then allocates the array page plus one
+contiguous buffer block, two more owner records, XSPA nonzero;
+actual printed either way); 32 NOPs complete 32/32 with the
+16-TRB ring (link TRB slot 15, toggle-cycle) wrapped twice --
+XENQ predicted 2 and XEDQ predicted 32 are printed alongside
+the count, because a link-toggle stall dies at the first wrap
+(count pins near 15) while an ERDP stall pins XEDQ with the
+count short -- the pair localizes which; running proof is the
+HCH 1->0 transition (CRCR reads back ~0 by spec, so it proves
+nothing); XHCI-DOWN codes: -1 all released / 0 nothing to tear
+down / 1 partial refusal.  Word/variable contract with
+xhci.fth: XDCBAA XCRING XERING XERST XSPA (allocation records,
+0 = not held), XENQ XCCS (command ring producer), XEDQ XECS
+(event ring consumer), XHCI-UP XHCI-RUN NOP-TEST XHCI-DOWN.
+Event-ring polling honors POLL non-re-entrancy: single-level
+only, never nested.
+
+.H8 fold-in (2b debt): XHCI-RESET's two timeout prints rendered
+in the caller's BASE; 2c lands .H8 ( x -- ) -- fixed 8-digit hex
+regardless of BASE -- and reroutes both prints through it.
+Check 50 proves the fixed-base property from DECIMAL.
+
+Sweep arithmetic (read off sweep-2026-09-07b.log, not
+recalled): test-xhci line 43 -> 67 (+24), lines stay 31 (no new
+target, no wiring), total 1122 -> 1146.
 """
 import hashlib
 import os
@@ -267,15 +358,30 @@ instrument('host catalog resolver resolves RTL8139 (control)',  # 3
 # Nameability probe + sanity brackets (fatal instrument: DEF_OK
 # False would fail checks 6-8 in the predicted red's exact shape).
 send(': DEF? WORD FIND NIP ;')
-# Counted drain: the red run leaves a NEGATIVE depth (five
-# underflows from undefined L1-L5), where an unbounded
-# BEGIN..DEPTH 0<> loop spins forever.  BEGIN/WHILE/REPEAT only:
-# Forth-83 LEAVE does not transfer control (it runs the rest of
-# the loop body -- one extra DROP on an empty stack), and this
-# kernel's LEAVE semantics are unprobed.
+# Counted drain, DEPTH-sanity-bounded (2026-09-09 correction):
+# an underflowed stack does NOT read as negative DEPTH -- it
+# reads ~2^30 (observed 0x3FFFFFFF, Bug #35), so a drain that
+# trusts DEPTH marches SP 256 bytes past the floor per call and
+# the FOURTH call warm-resets the target silently.  ZAP now
+# refuses an implausible reading (negative OR > 1024) and flags
+# ZBAD; the zap() wrapper aborts the run on refusal -- no score
+# beats a plausible one scored against a rebooted machine.
+# BEGIN/WHILE/REPEAT only: Forth-83 LEAVE does not transfer
+# control, and this kernel's LEAVE semantics are unprobed.
 send('VARIABLE ZN')
-send(': ZAP 64 ZN !  BEGIN DEPTH 0<> ZN @ 0> AND '
+send('VARIABLE ZBAD')
+send(': ZAP 0 ZBAD !  DEPTH DUP 0< SWAP 1024 > OR '
+     'IF -1 ZBAD ! EXIT THEN '
+     '64 ZN !  BEGIN DEPTH 0<> ZN @ 0> AND '
      'WHILE DROP -1 ZN +! REPEAT ;')
+# Session nonce (2026-09-09): a warm reset reverts the dictionary
+# to kernel-only and every later check scores a PLAUSIBLE fail
+# against the wrong machine (it forged the mid-chain-break
+# signature for a day).  Re-probed at every phase boundary; if it
+# is gone the target rebooted -- named diagnostic, exit 3, no
+# score.  Continuity probes are unscored (not check()), so the
+# 67-check numbering is unchanged.
+send(': SESS-NONCE 20260909 ;')
 _pos, _ = val('DEF? PCI-FIND')
 _neg, _ = val('DEF? ZZZ-NEVER-DEFINED')
 DEF_OK = (_pos is not None and _pos != 0 and _neg == 0)
@@ -297,8 +403,33 @@ def defined(name):
     return v is not None and v != 0
 
 
+def zap():
+    """Drain the stack; abort (no score) if ZAP refused an
+    implausible DEPTH -- the Bug-#35 underflow shape."""
+    send('ZAP')
+    v, raw = val('ZBAD @')
+    if v != 0:
+        print('INSTRUMENT FAIL: ZAP refused -- DEPTH implausible '
+              f'(underflow, Bug #35 shape), ZBAD={v}: '
+              f'{body_of(raw)!r} -- aborting, no score')
+        sys.exit(3)
+
+
+def continuity(where):
+    """Session-continuity probe: SESS-NONCE gone = the target
+    warm-reset underneath the suite.  Unscored; fatal."""
+    v, raw = val('SESS-NONCE')
+    if v != 20260909:
+        print(f'CONTINUITY FAIL: target rebooted before {where} '
+              f'(SESS-NONCE={v}: {body_of(raw)!r}) -- aborting, '
+              'no score')
+        sys.exit(3)
+    print(f'  continuity: nonce OK ({where})')
+
+
 print('\n=== Phase 1: block-load XHCI (pre-registered red) ===')
-send('ZAP')
+continuity('phase 1')
+zap()
 xs, xe = get_vocab_blocks('XHCI')
 check('XHCI has catalog placement',                          # 4
       xs is not None, 'forth/dict/xhci.fth absent from scan')
@@ -323,7 +454,8 @@ d_bar = defined('PCI-BAR64@')
 check('PCI-BAR64@ defined (DEF? nonzero)', d_bar)            # 8
 
 print('\n=== Phase 2: BAR64-MASK logic (pushed literals) ===')
-send('ZAP')
+continuity('phase 2')
+zap()
 if d_mask:
     send('HEX')
     send(': L1 B1210004 0 BAR64-MASK B1210000 = ;')
@@ -349,7 +481,8 @@ check('32-bit type: lo masked, hi ignored',                  # 13
       v == -1, f'got {v}: {body_of(raw)!r}')
 
 print('\n=== Phase 3: hardware path (qemu-xhci) ===')
-send('ZAP')
+continuity('phase 3')
+zap()
 # Type bits via old machinery: (lo >> 1) & 3 doubled = lo 6 AND.
 tbits, raw = val('RAWLO 6 AND')
 check('BAR0 type bits read (instrument; predicted 4=64-bit)',  # 14
@@ -383,7 +516,8 @@ elif tbits == 0:
     print('  branch B: 32-bit BAR in QEMU -- 64-bit coverage '
           'rests on checks 9-13 + 2e iron')
 print('\n=== Phase 4 (2b): bind/caps/halt/reset/handoff ===')
-send('ZAP')
+continuity('phase 4')
+zap()
 send('ALSO HARDWARE')
 # 2b instruments (fatal).  Both run on 2a-or-later machinery only,
 # so they are GREEN on the 2b red run (red tree = HEAD with 2a).
@@ -434,7 +568,7 @@ v, raw = val('PC1')
 check('POLL-CLEAR prompt success (pre-clear cell -> -1)',    # 30
       v == -1, f'got {v}: {body_of(raw)!r}')
 
-send('ZAP')
+zap()
 v, raw = val('XHCI-BIND')
 bind_ok = (v == -1)
 check('XHCI-BIND returns -1', bind_ok,                       # 31
@@ -459,7 +593,7 @@ v, raw = val('MAX-PORTS')
 check('MAX-PORTS in 1..255', v is not None and               # 36
       1 <= v <= 255, f'got {v}: {body_of(raw)!r}')
 
-send('ZAP')
+zap()
 pre, raw = val('USBSTS@ 1 AND')
 print(f'  pre-halt HCH = {pre} '
       + ('(already halted -- predicted)' if pre == 1 else
@@ -478,7 +612,7 @@ check('post-reset R/S=0', v == 0, f'got {v}: {body_of(raw)!r}')  # 40
 v, raw = val('USBSTS@ 1 AND')
 check('post-reset HCH=1', v == 1, f'got {v}: {body_of(raw)!r}')  # 41
 
-send('ZAP')
+zap()
 oc, raw = val('XHCI-OWNER')
 check('handoff skeleton: cap absent (0, predicted) or '      # 42
       'present, BIOS bit clear (2, named alt); BIOS-owned (1) fails',
@@ -491,10 +625,194 @@ nc, raw = val('XCAPS @')
 print(f'  xECP caps visited = {nc} (bounded walk; a runaway '
       'is visible here even when check 42 passes)')
 
+print('\n=== Phase 5 (2c): DCBAA/rings/Running/NOP round-trip ===')
+continuity('phase 5')
+zap()
+# Entry instrument (user ruling): the pre-run HCH=1 premise is
+# ASSERTED here, not assumed from check 41 -- 2b words only, so
+# green on the 2c red tree.
+v, raw = val('USBSTS@ 1 AND')
+instrument('HCH=1 at phase-5 entry (control; 2b words only)',  # 43
+           v == 1, f'got {v}: {body_of(raw)!r}')
+# Internals-visibility instrument: NLIVE/AVAIL walk HARDWARE's
+# owner table and free list directly (see docstring).  DEF?
+# results are XTs, so normalize each with 0<> before AND.
+v, raw = val('DEF? OWN-SLOT 0<> DEF? FL-WALK 0<> AND '
+             'DEF? PHYS-RELEASE 0<> AND')
+instrument('HARDWARE allocator internals visible (control)',  # 44
+           v == -1, f'got {v}: {body_of(raw)!r}')
+# Probes compile on both trees (HARDWARE words only).  AVAIL's
+# -1 leg makes a refused walk visible instead of aliasing 0.
+send('VARIABLE NLV')
+send(': NLIVE 0 NLV !  OWN-CAP 0 DO '
+     'I OWN-SLOT @ 0= 0= IF NLV @ 1+ NLV ! THEN '
+     'LOOP NLV @ ;')
+send(': AVAIL 0 FL-ADDR !  FL-WALK 0= IF -1 EXIT THEN '
+     'FL-TOT @ PHYS-HEAP-END @ PHYS-HEAP @ - + ;')
+AV0, raw = val('AVAIL', 2.0)
+instrument('AVAIL sane at snapshot (walk clean, >= 0)',       # 45
+           AV0 is not None and AV0 >= 0,
+           f'got {AV0}: {body_of(raw)!r}')
+NL0, _ = val('NLIVE', 2.0)
+print(f'  phase-5 snapshot: NLIVE={NL0} AVAIL={AV0}')
+
+d_up = defined('XHCI-UP')
+check('XHCI-UP defined (DEF? nonzero)', d_up)                # 46
+d_run = defined('XHCI-RUN')
+check('XHCI-RUN defined (DEF? nonzero)', d_run)              # 47
+d_nop = defined('NOP-TEST')
+check('NOP-TEST defined (DEF? nonzero)', d_nop)              # 48
+d_down = defined('XHCI-DOWN')
+check('XHCI-DOWN defined (DEF? nonzero)', d_down)            # 49
+# .H8 fold-in (2b debt): fixed 8-digit hex regardless of BASE.
+d_h8 = defined('.H8')
+if d_h8:
+    send(': H8T 255 .H8 ;')
+raw = send('H8T')
+check('.H8 fixed-base: 255 prints 000000FF from DECIMAL',    # 50
+      '000000FF' in body_of(raw), f'got: {body_of(raw)!r}')
+
+# Bug-#35 execution guard (2026-09-09): on a tree where the 2c
+# words are absent, sending them anyway underflows SP ('?' does
+# not abort the line, the trailing ops still pop), DEPTH then
+# reads ~2^30, and a drained march past the stack floor
+# warm-resets the target -- which then scores plausible FAILs
+# against a kernel-only dictionary.  Checks 51-63 are scored
+# red WITHOUT being sent when any DEF? probe came back absent.
+ALL_2C = d_up and d_run and d_nop and d_down
+if ALL_2C:
+    zap()
+    v, raw = val('XHCI-UP', 3.0)
+    up_ok = (v == -1)
+    check('XHCI-UP returns -1', up_ok,                           # 51
+          f'got {v}: {body_of(raw)!r}')
+    sc, _ = val('XSPA @')
+    print('  scratchpads: ' + ('none demanded (XSPA=0, predicted)'
+          if sc == 0 else f'XSPA={sc} (named alternative: HCSPARAMS2 '
+          'demanded buffers)' if sc is not None else
+          'unreadable on this tree'))
+    nl1, raw = val('NLIVE', 2.0)
+    check('XHCI-UP allocated something (NLIVE delta > 0)',       # 52
+          nl1 is not None and NL0 is not None and nl1 - NL0 > 0,
+          f'NLIVE {NL0} -> {nl1}: {body_of(raw)!r}')
+    if up_ok:
+        # Readback probes: DCBAAP at OP-BASE+30, ERSTBA at runtime
+        # base (RTSOFF = cap+18, mask FFFFFFE0) + interrupter-0
+        # +10 past its +20 origin = +30.  Reserved low bits masked
+        # inside the guard so the DECIMAL probes stay literal-free.
+        send('HEX')
+        send(': QDCB OP-BASE 30 + @ FFFFFFC0 AND ;')
+        send(': QERB XHCI-BASE @ 18 + @ FFFFFFE0 AND '
+             'XHCI-BASE @ + 30 + @ FFFFFFC0 AND ;')
+        send('DECIMAL')
+    v, raw = val('QDCB XDCBAA @ =')
+    check('DCBAAP readback matches XDCBAA record', v == -1,      # 53
+          f'got {v}: {body_of(raw)!r}')
+    v, raw = val('QERB XERST @ =')
+    check('ERSTBA readback matches XERST record', v == -1,       # 54
+          f'got {v}: {body_of(raw)!r}')
+
+    v, raw = val('XHCI-RUN', 3.0)
+    check('XHCI-RUN returns -1 (HCH cleared in budget)',         # 55
+          v == -1, f'got {v}: {body_of(raw)!r}')
+    v, raw = val('USBSTS@ 1 AND')
+    check('running proof: HCH 1 -> 0 transition', v == 0,        # 56
+          f'got {v}: {body_of(raw)!r}')
+
+    zap()
+    v, raw = val('32 NOP-TEST', 6.0)
+    check('32 NOPs complete 32/32 (16-TRB ring wrapped twice, '  # 57
+          'link-toggle executed)', v == 32,
+          f'got {v}: {body_of(raw)!r}')
+    enq, _ = val('XENQ @')
+    edq, _ = val('XEDQ @')
+    print(f'  completions = {v}, XENQ = {enq} (predicted 2), '
+          f'XEDQ = {edq} (predicted 32) -- a link-toggle stall '
+          'pins the count near 15; an ERDP stall pins XEDQ short')
+
+    v, raw = val('XHCI-DOWN', 3.0)
+    check('XHCI-DOWN (clean arm) returns -1 (all released)',     # 58
+          v == -1, f'got {v}: {body_of(raw)!r}')
+    v, raw = val('USBSTS@ 1 AND')
+    check('HCH=1 after XHCI-DOWN (stopped before release)',      # 59
+          v == 1, f'got {v}: {body_of(raw)!r}')
+    v, raw = val('XHCI-DOWN')
+    check('second XHCI-DOWN returns 0 (nothing to tear down)',   # 60
+          v == 0, f'got {v}: {body_of(raw)!r}')
+
+    # Refusal arm: the suite releases the DCBAA page directly
+    # (valid base + size -> silent success), then XHCI-DOWN must
+    # skip the vanished record via its owner-table cross-check.
+    zap()
+    v, raw = val('XHCI-UP', 3.0)
+    up2 = (v == -1)
+    check('XHCI-UP (refusal arm) returns -1', up2,               # 61
+          f'got {v}: {body_of(raw)!r}')
+    if up2:
+        send('XDCBAA @ 4096 PHYS-RELEASE')
+    v, down_raw = val('XHCI-DOWN', 3.0)
+    check('XHCI-DOWN after direct release returns 1 (partial: '  # 62
+          'vanished record skipped, rest released)', v == 1,
+          f'got {v}: {body_of(down_raw)!r}')
+    # Absence assertion -- vacuous alone (passes on red, passes if
+    # the message text drifted); check 64 is its presence control.
+    check('refusal arm emitted no "PHYS: double release" '        # 63
+          '(cross-check skipped, did not re-release)',
+          'PHYS: double release' not in body_of(down_raw),
+          f'got: {body_of(down_raw)!r}')
+else:
+    for _name in (
+        'XHCI-UP returns -1',                            # 51
+        'XHCI-UP allocated something (NLIVE delta > 0)', # 52
+        'DCBAAP readback matches XDCBAA record',         # 53
+        'ERSTBA readback matches XERST record',          # 54
+        'XHCI-RUN returns -1 (HCH cleared in budget)',   # 55
+        'running proof: HCH 1 -> 0 transition',          # 56
+        '32 NOPs complete 32/32 (16-TRB ring wrapped '
+        'twice, link-toggle executed)',                  # 57
+        'XHCI-DOWN (clean arm) returns -1 (all released)',  # 58
+        'HCH=1 after XHCI-DOWN (stopped before release)',   # 59
+        'second XHCI-DOWN returns 0 (nothing to tear down)',  # 60
+        'XHCI-UP (refusal arm) returns -1',              # 61
+        'XHCI-DOWN after direct release returns 1 (partial: '
+        'vanished record skipped, rest released)',       # 62
+        'refusal arm emitted no "PHYS: double release" '
+        '(cross-check skipped, did not re-release)',     # 63
+    ):
+        check(_name, False,
+              'red by guard: 2c words absent, not executed')
+# Presence control: double-release DIRECTLY -- not through
+# XHCI-DOWN -- and the message MUST appear.  Net effect zero.
+# Continuity first: on the first red run the target had warm-
+# reset by this point and 64-66 scored plausible FAILs against
+# a kernel-only dictionary.
+continuity('presence control (check 64)')
+send('VARIABLE PPG')
+send(': PGRAB 4096 PHYS-ALLOC PPG ! ;')
+send('PGRAB')
+send('PPG @ 4096 PHYS-RELEASE')
+raw = send('PPG @ 4096 PHYS-RELEASE', 1.5)
+check('presence control: direct double release DOES print '   # 64
+      '"PHYS: double release"',
+      'PHYS: double release' in body_of(raw),
+      f'got: {body_of(raw)!r}')
+
+# Restore pair (user ruling: split -- as one check it is
+# vacuous).  Closes over all three legs since the snapshot.
+nl2, raw = val('NLIVE', 2.0)
+check('owner table restored (NLIVE back to snapshot)',       # 65
+      nl2 is not None and nl2 == NL0,
+      f'NLIVE {NL0} -> {nl2}: {body_of(raw)!r}')
+av2, raw = val('AVAIL', 2.0)
+check('free bytes restored (AVAIL back to snapshot)',        # 66
+      av2 is not None and av2 == AV0,
+      f'AVAIL {AV0} -> {av2}: {body_of(raw)!r}')
+
 raw = send('BASE @ DECIMAL .')
-check('BASE tripwire: reads 10 at exit',                     # 43
+check('BASE tripwire: reads 10 at exit',                     # 67
       re.search(r'\b10\b', body_of(raw)) is not None,
       f'got: {body_of(raw)!r}')
 
+continuity('final score')
 print(f'\nPassed: {PASS}/{PASS + FAIL}')
 sys.exit(0 if FAIL == 0 else 1)
