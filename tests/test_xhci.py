@@ -204,6 +204,61 @@ are constants proving the decoders, not state claims.  Red
 re-run owed after the name changes; red arithmetic unchanged
 (68/99, exit 1).
 
+2E PREP (2026-09-10): phase 7 adds the trip machinery -- the
+handoff request (the third outcome's missing code), the
+SMI-clear, the HCRST elapsed capture, the fixed-base display
+reroute, and the memdisk-gate discriminator.  qemu-xhci has NO
+legacy cap (handoff code 0, measured in 2b), so (CLAIM) and
+(SMI-OFF) take an ADDRESS (the 2b poll-control pattern) and run
+against suite-owned cells; the wrappers XHCI-CLAIM / SMI-OFF
+are the card's exact lines and prove outcome A in the QEMU
+habitat.  Rulings encoded: uniform claim on cap-present (105
+asserts the OS-owned bit is written even when BIOS never held
+it -- "yielded" vs "never held" stay distinguishable only as
+the OWNER/CLAIM pair, which the desk card records adjacently);
+SMI-clear is read-record-conditional-write (111: an
+already-clear cell is BYTE-IDENTICAL afterwards, which proves
+no write happened, because any write ORs 0xE0000000 in); .PSC
+renders '15 pls' while BASE=16 (123 -- the exact ambiguity that
+opened the debt), and .PORTS -- the looped display that
+actually goes to iron -- must emit MAX-PORTS lines (127).
+SMI masks were VERIFIED against Linux xhci-ext-caps.h fetched
+2026-09-10 (the header cites spec section 7.1.2), not recalled:
+preserve mask 0xE1FEE, RW1C events 0xE0000000, enable-detect
+0xE011 including bit 4 (SMI on Host System Error); the
+bit-4-only control (114-115) exists because both bulk fixtures
+would pass under a detect mask that silently misses it.  .D
+avoids >R/R> (BASE @ SWAP DECIMAL . BASE !) because .PORTS
+calls it inside DO..LOOP and this project deliberately keeps
+>R out of DO..LOOP bodies.  MEMDISK-BASE@ = 0 in QEMU proves
+the card gate's REFUSAL side (128); the iron pass side is
+pre-registered from measurement, not assumption: nonzero AND
+4KiB-aligned, prior reading 0x37BB7000 on the HP 2026-09-05
+(the then-unnamed page-aligned pointer probed at 0x28098 --
+the mystery cell now has a name; a different boot may relocate
+it, alignment and nonzero are the invariant).  PN is shared
+(2b), so HRST-LEFT is the only surviving copy of the HCRST
+figure; the card must read CNR's 3E8 PN @ - on the same line
+as XHCI-RESET or the next poll destroys it.  Untestable in
+this habitat, named: (CLAIM)'s released-after-held timing (no
+concurrent BIOS to clear the bit mid-poll) and (SMI-OFF)'s
+code-2 write-didn't-stick arm (RAM always sticks) -- both are
+iron-only branches and the card treats code 2 as a STOP.
+
+Pre-registered red for 2e prep (tree = b912a37 with the suite
+extension only, 2e-prep words absent): 130 checks per run (113
+check call sites by AST, same site-counting rule as 2d's 82,
+plus a ninth instrument; the 2c guard contributes 13, the 2d
+guard 27, the 2e guard 26, each either way).  Green on red:
+1-98 (unchanged tree and fixture -- the 2d green), 99
+(control-cell instrument, kernel machinery only), 130 (BASE
+tripwire: phase 7's HEX sends are bracketed by explicit DECIMAL
+restores, and .D's own restore is under test).  Red: 100-103
+(presence) and 104-129 (guarded, not sent -- Bug #35 rule).
+Red totals 100/130, exit 1.  Named alternative: any of 1-98 red
+means the 2d green was unstable on an unchanged tree -- stop
+and re-run a plain green at HEAD before touching anything.
+
 ALLOCATOR-INTERNALS DEPENDENCY (read this before changing
 hardware.fth): the suite probes NLIVE and AVAIL walk HARDWARE's
 owner table (OWN-CAP / OWN-SLOT, size at record offset 0) and
@@ -1004,8 +1059,220 @@ else:
         check(_name, False,
               'red by guard: 2d words absent, not executed')
 
+print('\n=== Phase 7 (2e prep): claim / SMI-clear / elapsed / '
+      'fixed-base display / memdisk gate ===')
+continuity('phase 7')
+zap()
+# The iron trip's machinery, QEMU-proven first.  qemu-xhci has
+# no legacy cap (2b: handoff code 0), so the claim and SMI-clear
+# logic runs against suite-owned cells via the address-taking
+# inner words -- the 2b poll-control pattern -- while the
+# hardware wrappers exercise the cap-absent (outcome A) arm,
+# which is exactly the card's dry run.  Control cells are
+# kernel machinery only, so the instrument is GREEN on red.
+send('VARIABLE C1  VARIABLE C2  VARIABLE C3')
+send('VARIABLE C4  VARIABLE C5  VARIABLE C6')
+v, raw = val('12345 C1 !  C1 @')
+instrument('control cells round-trip (kernel machinery only)',  # 99
+           v == 12345, f'got {v}: {body_of(raw)!r}')
+d_clm = defined('(CLAIM)') and defined('XHCI-CLAIM')
+check('(CLAIM) + XHCI-CLAIM defined', d_clm)                 # 100
+d_smi = defined('(SMI-OFF)') and defined('SMI-OFF')
+check('(SMI-OFF) + SMI-OFF defined', d_smi)                  # 101
+d_aux = defined('HRST-LEFT') and defined('MEMDISK-BASE@')
+check('HRST-LEFT + MEMDISK-BASE@ defined', d_aux)            # 102
+d_dsp = defined('.D') and defined('.PSC')
+check('.D + .PSC defined', d_dsp)                            # 103
+
+# Decimal literals for the control dwords (no HEX sends except
+# the two .D/.PSC base tests, each bracketed by DECIMAL).
+# Masks VERIFIED against Linux xhci-ext-caps.h (fetched
+# 2026-09-10; the header cites spec section 7.1.2):
+#   XHCI_LEGACY_DISABLE_SMI = (0x7<<1)+(0xff<<5)+(0x7<<17)
+#     = 0xE1FEE preserve mask ("bits 1:3, 5:12, and 17:19
+#     need to be preserved; bits 21:28 should be zero")
+#   XHCI_LEGACY_SMI_EVENTS  = 0x7<<29 = 0xE0000000 (RW1C)
+#   enable bits (RW, written zero) = 0, 4, 13, 14, 15
+#     -> detect mask 0xE011.  Bit 4 is SMI-on-Host-System-
+#     Error Enable: a fixture without it set cannot catch a
+#     detect mask that misses it, hence the bit-4-only pair.
+#   0x1000000 OS-owned bit 24        = 16777216
+#   0x10000   BIOS-owned bit 16      = 65536
+#   0x1010000 both                   = 16842752
+#   0x1FE0    reserved set, en clear = 8160
+#   0xE011    all five SMI enables   = 57361
+#   0x10      bit-4-only (HSE SMI)   = 16
+#   0xFFFFF   both preserve groups   = 1048575
+#   0xE0000000 signed                = -536870912
+#   0xE00E1FEE signed                = -535945234
+E_NAMES = [
+    '(CLAIM) released: code -1 when BIOS bit already clear',  # 104
+    '(CLAIM) released: OS-owned bit 24 written even when '    # 105
+    'BIOS never held it (uniform-claim ruling)',
+    '(CLAIM) stuck: code 1 after the full 1000 ms budget',    # 106
+    "(CLAIM) stuck: unmasked print 'handoff stuck, "          # 107
+    "legsup=01010000' (our bit 24 visible in it proves "
+    'set-before-poll ordering)',
+    '(CLAIM) stuck: cell = OS bit + BIOS bit (0x1010000)',    # 108
+    'XHCI-CLAIM hardware: 0 in QEMU (outcome A, cap absent '  # 109
+    '-- the card dry-run)',
+    '(SMI-OFF) already-clear: code -1, write path not taken',  # 110
+    '(SMI-OFF) already-clear: cell byte-identical (0x1FE0) '  # 111
+    '-- proves NO write occurred (any write ORs 0xE0000000)',
+    '(SMI-OFF) all five enables (0xE011): code 1',            # 112
+    '(SMI-OFF) all five enables: cell = 0xE0000000 '          # 113
+    '(enables cleared, RW1C status bits written to clear)',
+    '(SMI-OFF) bit-4-only (HSE SMI): code 1 -- the enable '   # 114
+    'a 0xE001-style mask would silently leave armed',
+    '(SMI-OFF) bit-4-only: cell = 0xE0000000',                # 115
+    '(SMI-OFF) mixed 0xFFFFF: code 1',                        # 116
+    '(SMI-OFF) mixed: cell = 0xE00E1FEE (preserve mask '      # 117
+    'keeps 17:19 AND 12:5, 3:1 -- Linux-shaped write, not '
+    'write-zero)',
+    'SMI-OFF hardware: 0 in QEMU (outcome A -- card '         # 118
+    'dry-run)',
+    'HCRST elapsed 0..1 ms in QEMU (instant reset); the '     # 119
+    'iron figure is the 2e payload',
+    ".D renders decimal under HEX ('15' for F)",              # 120
+    ".D restores caller BASE (BASE @ renders '10' = 16 "      # 121
+    'in hex)',
+    '.PSC occupied synthetic: raw dword via .H8 '             # 122
+    '(000013E3)',
+    ".PSC occupied synthetic: '15 pls' while BASE=16 "        # 123
+    '(the base-transparency debt)',
+    ".PSC occupied synthetic: 'conn' + ' en ' + '4 spd' "     # 124
+    'all render',
+    ".PSC empty synthetic: 000202A0 + '5 pls', no 'conn'",    # 125
+    ".PORT on occupied port: 'conn' without ' en ' "          # 126
+    '(post-HCRST hardware)',
+    '.PORTS emits MAX-PORTS lines (the looped display '       # 127
+    'going to iron)',
+    'memdisk gate: MEMDISK-BASE@ = 0 in QEMU (refusal '       # 128
+    'side); iron pass side pre-registered nonzero + 4KiB-'
+    'aligned, prior reading 0x37BB7000 (2026-09-05)',
+    'no-touch bracket: occupied PORTSC byte-identical '       # 129
+    'across phase 7',
+]
+ALL_2E = d_clm and d_smi and d_aux and d_dsp
+if ALL_2E:
+    # No-touch bracket open: phase 7's controls write suite
+    # cells only, and the wrappers are no-ops in this habitat
+    # (cap absent) -- the close at 126 proves it.
+    pt0, raw = val('FIRST-CCS PORTSC@')
+    # (CLAIM) released path: BIOS bit already clear, poll
+    # returns immediately -- the code-2 uniform-claim case.
+    v, raw = val('0 C1 !  C1 (CLAIM)')
+    check(E_NAMES[0], v == -1, f'got {v}: {body_of(raw)!r}')
+    v, raw = val('C1 @')
+    check(E_NAMES[1], v == 16777216,
+          f'got {v}: {body_of(raw)!r}')
+    # (CLAIM) stuck path: bit 16 held, full budget elapses in
+    # real time.  Green-1 was 128/130: this send's 4.0 s window
+    # missed the output while the CELL check passed -- the word
+    # completed, late.  Isolating probe (2026-09-10, echo-proof
+    # marker): full-budget poll = 8.09 s wall under QEMU TCG
+    # (MS-DELAY iterations run ~8x wall here).  Window widened
+    # to 15 s with the mechanism recorded; the expectations
+    # themselves are unchanged (re-pin rule: instrument window,
+    # not prediction, moved).
+    send('65536 C2 !')
+    v, raw = val('C2 (CLAIM)', 15.0)
+    body = body_of(raw)
+    check(E_NAMES[2], v == 1, f'got {v}: {body!r}')
+    check(E_NAMES[3],
+          'handoff stuck, legsup=01010000' in body,
+          f'got: {body!r}')
+    v, raw = val('C2 @')
+    check(E_NAMES[4], v == 16842752,
+          f'got {v}: {body_of(raw)!r}')
+    v, raw = val('XHCI-CLAIM', 4.0)
+    check(E_NAMES[5], v == 0, f'got {v}: {body_of(raw)!r}')
+    # (SMI-OFF) already-clear: reserved bits set, enables
+    # clear.  Byte-identity afterwards is the no-write proof.
+    v, raw = val('8160 C3 !  C3 (SMI-OFF)')
+    check(E_NAMES[6], v == -1, f'got {v}: {body_of(raw)!r}')
+    v, raw = val('C3 @')
+    check(E_NAMES[7], v == 8160, f'got {v}: {body_of(raw)!r}')
+    v, raw = val('57361 C4 !  C4 (SMI-OFF)')
+    check(E_NAMES[8], v == 1, f'got {v}: {body_of(raw)!r}')
+    v, raw = val('C4 @')
+    check(E_NAMES[9], v == -536870912,
+          f'got {v}: {body_of(raw)!r}')
+    # Bit-4-only: with a detect mask that misses bit 4 this
+    # returns -1 (already clear) and HSE SMI stays armed on
+    # iron -- during the reset leg, the exact wrong moment.
+    v, raw = val('16 C6 !  C6 (SMI-OFF)')
+    check(E_NAMES[10], v == 1, f'got {v}: {body_of(raw)!r}')
+    v, raw = val('C6 @')
+    check(E_NAMES[11], v == -536870912,
+          f'got {v}: {body_of(raw)!r}')
+    v, raw = val('1048575 C5 !  C5 (SMI-OFF)')
+    check(E_NAMES[12], v == 1, f'got {v}: {body_of(raw)!r}')
+    v, raw = val('C5 @')
+    check(E_NAMES[13], v == -535945234,
+          f'got {v}: {body_of(raw)!r}')
+    v, raw = val('SMI-OFF', 2.0)
+    check(E_NAMES[14], v == 0, f'got {v}: {body_of(raw)!r}')
+    # HRST elapsed: set during the last XHCI-RESET (phase 4).
+    # PN is shared and long since clobbered; HRST-LEFT is the
+    # only surviving copy of the HCRST figure.
+    v, raw = val('1000 HRST-LEFT @ -')
+    check(E_NAMES[15], v is not None and 0 <= v <= 1,
+          f'got {v}: {body_of(raw)!r}')
+    print(f'  HCRST elapsed = {v} ms (incidental here; the '
+          'iron reading is what 2e is for)')
+    # .D base transparency: the two HEX sends in this phase,
+    # each closed with an explicit DECIMAL.
+    send('HEX')
+    raw = send('F .D')
+    check(E_NAMES[16],
+          re.search(r'\b15\b', body_of(raw)) is not None,
+          f'got: {body_of(raw)!r}')
+    raw = send('BASE @ .')
+    check(E_NAMES[17],
+          re.search(r'\b10\b', body_of(raw)) is not None,
+          f'got: {body_of(raw)!r}')
+    send('DECIMAL')
+    # .PSC synthetics: value pushed in DECIMAL, displayed with
+    # BASE=16 -- the discriminating condition for the debt.
+    # 5091 = 0x13E3: CCS|PED|PLS=15|PP|speed=4.
+    raw = send('DECIMAL 5091 HEX .PSC', 2.0)
+    body = body_of(raw)
+    send('DECIMAL')
+    check(E_NAMES[18], '000013E3' in body, f'got: {body!r}')
+    check(E_NAMES[19], '15 pls' in body, f'got: {body!r}')
+    check(E_NAMES[20],
+          'conn' in body and ' en ' in body and '4 spd' in body,
+          f'got: {body!r}')
+    raw = send('DECIMAL 131744 HEX .PSC', 2.0)
+    body = body_of(raw)
+    send('DECIMAL')
+    check(E_NAMES[21],
+          '000202A0' in body and '5 pls' in body
+          and 'conn' not in body,
+          f'got: {body!r}')
+    raw = send('FIRST-CCS .PORT', 2.0)
+    body = body_of(raw)
+    check(E_NAMES[22],
+          'conn' in body and ' en ' not in body,
+          f'got: {body!r}')
+    raw = send('.PORTS', 3.0)
+    body = body_of(raw)
+    check(E_NAMES[23], mp is not None and body.count('pls') == mp,
+          f"{body.count('pls')} 'pls' lines for MAX-PORTS={mp}: "
+          f'{body!r}')
+    v, raw = val('MEMDISK-BASE@')
+    check(E_NAMES[24], v == 0, f'got {v}: {body_of(raw)!r}')
+    pt1, raw = val('FIRST-CCS PORTSC@')
+    check(E_NAMES[25], pt0 is not None and pt0 == pt1,
+          f'{pt0} -> {pt1}: {body_of(raw)!r}')
+else:
+    for _name in E_NAMES:
+        check(_name, False,
+              'red by guard: 2e-prep words absent, not executed')
+
 raw = send('BASE @ DECIMAL .')
-check('BASE tripwire: reads 10 at exit',                     # 99
+check('BASE tripwire: reads 10 at exit',                     # 130
       re.search(r'\b10\b', body_of(raw)) is not None,
       f'got: {body_of(raw)!r}')
 

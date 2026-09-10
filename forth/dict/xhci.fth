@@ -102,9 +102,15 @@ VARIABLE XHCI-BASE
 \ and the UNMASKED register so 2e can tell "stuck after the
 \ full budget" (bit still set) from a dead window (all-ones,
 \ prints -1) -- a masked print would show both the same.
+\ HRST-LEFT: PN's leftover count after the HCRST poll,
+\ captured before the CNR poll clobbers PN (shared cell).
+\ Elapsed ms = 1000 HRST-LEFT @ - ; turns the reasoned 1000 ms
+\ budget into a measurement on iron.
+VARIABLE HRST-LEFT
 : XHCI-RESET ( -- flag )
     USBCMD@ 2 OR USBCMD!
     OP-BASE 2 3E8 POLL-CLEAR
+    PN @ HRST-LEFT !
     DUP 0= IF ." HCRST poll timeout, cmd=" PA @ @ .H8 CR THEN
     OP-BASE 4 + 800 3E8 POLL-CLEAR
     DUP 0= IF ." CNR poll timeout, sts=" PA @ @ .H8 CR THEN
@@ -135,6 +141,45 @@ VARIABLE XCAPS  VARIABLE XCID  VARIABLE XCP
 : XHCI-OWNER ( -- code )
     1 XECP-FIND DUP 0= IF EXIT THEN
     @ 10000 AND IF 1 ELSE 2 THEN ;
+
+\ ---- Step 2e prep: claim + SMI-clear (address-taking) ----
+\ (CLAIM) requests ownership on ANY cap-present outcome
+\ (uniform-claim ruling): set OS Owned Semaphore (bit 24,
+\ 1000000 hex), poll BIOS bit (10000) clear for the full
+\ 1000 ms budget.  -1 = released (or never held -- the
+\ OWNER/CLAIM pair adjacent in the log preserves which);
+\ 1 = stuck past budget, unmasked print, card STOPS.
+\ Address-taking (2b poll-control pattern): QEMU's cap is
+\ absent, so claim/stuck paths run on suite-owned cells.
+\ Untestable in habitat: released-AFTER-held timing.
+: (CLAIM) ( addr -- code )
+    DUP @ 1000000 OR OVER !
+    DUP 10000 3E8 POLL-CLEAR
+    IF DROP -1 ELSE
+        ." handoff stuck, legsup=" @ .H8 CR 1 THEN ;
+: XHCI-CLAIM ( -- code ) 1 XECP-FIND DUP IF (CLAIM) THEN ;
+\ SMI-clear on USBLEGCTLSTS (legsup + 4): read first --
+\ enables mask E011 (bits 0,4,13,14,15; bit 4 = SMI on Host
+\ System Error, armed during the reset leg).  Already clear
+\ => code -1, NO write (that is a finding, not a failure).
+\ Else write (old AND E1FEE) OR E0000000: E1FEE preserves
+\ RsvdP groups 3:1, 12:5, 19:17; E0000000 writes 1 to the
+\ RW1C status bits (clears them).  Masks verified against
+\ Linux xhci-ext-caps.h / spec 7.1.2 -- NOT recalled.
+\ code 1 = enables read back clear; 2 = write did not stick
+\ (card treats as STOP; untestable in habitat).
+: (SMI-OFF) ( addr -- code )
+    DUP @ E011 AND 0= IF DROP -1 EXIT THEN
+    DUP @ E1FEE AND E0000000 OR OVER !
+    @ E011 AND 0= IF 1 ELSE 2 THEN ;
+: SMI-OFF ( -- code ) 1 XECP-FIND DUP IF 4 + (SMI-OFF) THEN ;
+\ Memdisk safety gate (card Section 4.5): kernel sysvar
+\ MEMDISK_BASE at 28098 selects the RAM-vs-ATA block path at
+\ boot.  0 = not memdisk-resident => card STOPS before the
+\ reset leg (XHCI-RESET kills the controller behind a USB
+\ boot stick).  Iron pre-registration: nonzero + 4 KiB-
+\ aligned; prior HP reading 37BB7000 (2026-09-05).
+: MEMDISK-BASE@ ( -- x ) 28098 @ ;
 
 \ ---- Step 2c: DCBAA / rings / Running / NOP ----
 \ Timeout prints above go through PCI-ENUM's .H8
@@ -346,12 +391,21 @@ VARIABLE XDP
         I PORTSC@ P-CCS OVER 0= AND IF DROP I THEN
     LOOP ;
 \ Survey display for the 2e iron trip (unscored output).
-: .PORT ( port# -- )
-    DUP . PORTSC@
+\ .D: fixed-base decimal print, closing the base-transparency
+\ debt (P-PLS 15 rendered "F" under HEX = the F-vs-15
+\ ambiguity, 3rd appearance of the class).  No >R/R>: .PORTS
+\ calls this inside DO..LOOP and the project keeps the return
+\ stack untouched in loop bodies.
+: .D ( n -- ) BASE @ SWAP DECIMAL . BASE ! ;
+\ .PSC takes the VALUE (suite feeds synthetics); raw dword
+\ via .H8 first so the iron log carries every bit.
+: .PSC ( x -- )
+    DUP .H8 ."  "
     DUP P-CCS IF ." conn " THEN
     DUP P-PED IF ." en " THEN
-    DUP P-SPEED . ." spd "
-    P-PLS . ." pls " CR ;
+    DUP P-SPEED .D ." spd "
+    P-PLS .D ." pls " CR ;
+: .PORT ( port# -- ) DUP .D PORTSC@ .PSC ;
 : .PORTS ( -- ) MAX-PORTS 1+ 1 DO I .PORT LOOP ;
 
 ." XHCI vocab loaded" CR
