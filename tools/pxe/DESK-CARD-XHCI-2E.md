@@ -60,6 +60,12 @@ netcon listener          tools/hp-portread-capture.py --boot-path usb
 - [ ] **Internal i8042 keyboard ONLY** for this whole session — the
       trip resets the controller behind every USB port
 - [ ] Net console live, or photo protocol declared now
+- [ ] **Listener is CAPTURING, not just running:** the boot banner is
+      visible in the listener output on the dev box. If not, fix it or
+      declare photo protocol NOW — discovering a silent listener at
+      Section 8 means the whole trip went unrecorded. (Instrument
+      liveness applied to the recorder itself; the 09-05 trip has a
+      transcript because this was checked live.)
 
 ## 2. Load + gate
 
@@ -104,7 +110,10 @@ OWNER/CLAIM recorded ADJACENTLY above — "BIOS yielded" (1 then -1) vs
 | 1  | **stuck past 1000 ms (outcome C)** — unmasked `legsup=` printed | **STOP card.** Record the dword. Follow-ups (longer budget, UEFI-native leg) are NOT this trip |
 
 Then SMI-clear — its own step, invoked AFTER you have seen the claim
-result. Read-record-conditional-write:
+result. Read-record-conditional-write. **ONLY if OWNER ≠ 0** — on
+outcome A, `XECP-FIND` returns 0 and `4 + @` reads address 4 (the
+real-mode IVT): a plausible dword under a false "LEGCTL" label in the
+record. Cap absent ⇒ write "LEGCTL: cap absent" and skip both lines:
 
 ```forth
 HEX 1 XECP-FIND DUP . 4 + @ .H8 DECIMAL
@@ -179,6 +188,10 @@ Survey #2 vs #1, interpreted AT THE MACHINE:
 XHCI-DOWN .                    \ -1 (or 1 = partial: record which)
 PHYS-AUDIT                     \ must be clean
 ```
+
+**The machine needs a POWER CYCLE after this session.** The controller
+is halted and every USB port stays disabled until a cold boot. "USB is
+dead" after teardown is the expected state, not damage.
 
 ## 8. Closeout
 
