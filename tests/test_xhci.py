@@ -149,6 +149,61 @@ score.  Corrected red: green 1-45, 50, 64-67; red 46-49 and
 64-66 fail again WITH the guards in place, the reset
 explanation is incomplete -- stop and investigate.
 
+--- Step 2d: PORTSC decode + port survey (READ-ONLY)
+
+Pre-registered red (2026-09-09, written before any 2d Forth; red
+tree = HEAD 48e2404, 2a-2c live).  Fixture adds -device usb-kbd;
+neutrality was MEASURED first, decoupling the two variables: the
+unmodified 67 ran 67/67 under the new fixture with zero PASS-line
+diffs (xhci-2d-neutrality log; the one info-line change is
+pre-halt HCH=0 -- SeaBIOS starts the controller to drive the
+keyboard, which hardware-proves XHCI-HALT's does-real-work branch
+for free).  PSCE question settled with DATA, not inheritance:
+recon part 2 dumped the event ring after UP/RUN/32 NOPs under the
+fixture -- 32 consumed TRBs, all type-33 command-completions
+cc=1, zero port-status-change events, beyond-slots zeroed
+(xhci-2d-recon log).  NOP1 never inspects TRB type, so 2c's 32/32
+alone proved tolerance, not absence; the dump proves absence.
+
+Decoder controls (72-83) feed the two dwords measured in recon --
+occupied 0x0E03, empty 0x202A0 -- as decimal literals (3587,
+131744): decode proven with hardware never consulted, and no HEX
+send exists anywhere in phase 6.  Invariant-vs-incidental rule:
+#CONNECTED=1 and the FIRST-CCS identity are asserted; WHICH port
+(recon: 5) and its speed code (recon: 3) are printed, not pinned
+-- a QEMU attach-order reshuffle is a log line, not a red.
+Bounds guard on PORTSC-ADDR is tested on both sides (84-85) --
+the guard-with-no-test lesson.  Read-only is proven twice: the
+source-side no-write rule (weak: catches writes that look like
+writes) and check 98's twice-read byte-identity (load-bearing:
+catches a leaked RW1C clear from anywhere).
+
+Pre-registered red: 99 checks per run (82 check call sites by
+AST; the 2c guard contributes 13 either way, the 2d guard 27
+either way, loops counted as one site each).  Green on red:
+1-66 (proven under the fixture by the neutrality run), 71
+(MAX-PORTS pin, 2b machinery only), 99 (BASE tripwire; phase 6
+sends no HEX).  Red: 67-70 (presence) and 72-98 (guarded, not
+sent -- Bug #35 rule).  Red totals 68/99, exit 1.  Named
+alternative: any of 1-66 red under the unchanged fixture means
+the neutrality measurement was unstable -- stop, re-run
+neutrality twice before touching anything.
+
+AMENDED 2026-09-09 after green 1 (97/99): checks 89 and 92
+failed exactly as the occupied-port named alternative allowed
+-- the recon measured COLD-BOOT port state (SeaBIOS had enabled
+the port to drive the keyboard), but phase 6 reads POST-HCRST
+state.  Stage probe (xhci-2d-stages log) pinned the transition
+to XHCI-RESET alone: 0x0E03 -> 0x20EE1 at HCRST (PED 1->0,
+CSC 0->1, PLS 0->7 Polling, CCS and speed preserved), stable
+through UP/RUN/NOP/DOWN.  Corrected expectations: 89 = PED
+false (HCRST cleared the enable; re-enable is a step-3 port
+reset), 92 = CSC true (re-detection set the change bit).  The
+decode controls 72-83 still carry the cold-boot dwords -- they
+are constants proving the decoders, not state claims.  Red
+re-run owed after the name changes; red arithmetic unchanged
+(68/99, exit 1).
+
 ALLOCATOR-INTERNALS DEPENDENCY (read this before changing
 hardware.fth): the suite probes NLIVE and AVAIL walk HARDWARE's
 owner table (OWN-CAP / OWN-SLOT, size at record offset 0) and
@@ -808,8 +863,149 @@ check('free bytes restored (AVAIL back to snapshot)',        # 66
       av2 is not None and av2 == AV0,
       f'AVAIL {AV0} -> {av2}: {body_of(raw)!r}')
 
+print('\n=== Phase 6 (2d): PORTSC decode + port survey '
+      '(READ-ONLY) ===')
+continuity('phase 6')
+zap()
+# Read-only invariant: every change bit in PORTSC (CSC/PEC/PRC/
+# ...) is RW1C -- a read-modify-write clears them silently.  No
+# 2d word writes a port register; port reset belongs to step 3.
+# The load-bearing proof is check 98 (twice-read byte-identical,
+# catches a leaked write from ANYWHERE); the source-side grep for
+# ! near PORTSC-ADDR only catches writes that look like writes.
+d_pa = defined('PORTSC-ADDR')
+check('PORTSC-ADDR defined (DEF? nonzero)', d_pa)            # 67
+d_pq = defined('PORTSC@')
+check('PORTSC@ defined (DEF? nonzero)', d_pq)                # 68
+v, raw = val('DEF? P-CCS 0<> DEF? P-PED 0<> AND '
+             'DEF? P-PR 0<> AND DEF? P-PP 0<> AND '
+             'DEF? P-SPEED 0<> AND DEF? P-PLS 0<> AND '
+             'DEF? P-CSC 0<> AND')
+d_dec = (v == -1)
+check('all seven PORTSC field decoders defined', d_dec,      # 69
+      f'got {v}: {body_of(raw)!r}')
+v, raw = val('DEF? #CONNECTED 0<> DEF? FIRST-CCS 0<> AND '
+             'DEF? .PORT 0<> AND DEF? .PORTS 0<> AND')
+d_srv = (v == -1)
+check('survey + display words defined', d_srv,               # 70
+      f'got {v}: {body_of(raw)!r}')
+# Fixture pin -- 2b machinery only, so GREEN on red: proves the
+# usb-kbd fixture is the one the recon measured even before any
+# 2d code exists.  A QEMU bump moving this is fixture drift,
+# not a 2d defect.
+mp, raw = val('MAX-PORTS')
+check('fixture pin: MAX-PORTS = 8 (qemu-xhci default)',      # 71
+      mp == 8, f'got {mp}: {body_of(raw)!r}')
+
+# Decoder controls feed the two dwords MEASURED in recon
+# (xhci-2d-recon-2026-09-09.log): occupied 0x0E03 = 3587,
+# empty 0x202A0 = 131744.  Decimal literals -- no HEX sends
+# anywhere in phase 6.  Decoders take the VALUE, not the port,
+# so these prove decode with the hardware never consulted.
+DEC_2D = [
+    ('decode 0x0E03 (occupied, measured): P-CCS true',       # 72
+     '3587 P-CCS', -1),
+    ('decode 0x0E03: P-PED true', '3587 P-PED', -1),         # 73
+    ('decode 0x0E03: P-PR false', '3587 P-PR', 0),           # 74
+    ('decode 0x0E03: P-PP true', '3587 P-PP', -1),           # 75
+    ('decode 0x0E03: P-SPEED = 3 (HS)', '3587 P-SPEED', 3),  # 76
+    ('decode 0x0E03: P-PLS = 0 (U0)', '3587 P-PLS', 0),      # 77
+    ('decode 0x0E03: P-CSC false', '3587 P-CSC', 0),         # 78
+    ('decode 0x202A0 (empty, measured): P-CCS false',        # 79
+     '131744 P-CCS', 0),
+    ('decode 0x202A0: P-PP true', '131744 P-PP', -1),        # 80
+    ('decode 0x202A0: P-SPEED = 0', '131744 P-SPEED', 0),    # 81
+    ('decode 0x202A0: P-PLS = 5 (RxDetect)',                 # 82
+     '131744 P-PLS', 5),
+    ('decode 0x202A0: P-CSC true (QEMU quirk, measured)',    # 83
+     '131744 P-CSC', -1),
+    ('bounds: 0 PORTSC-ADDR refused (0) -- the dword below '  # 84
+     'the array reads plausibly', '0 PORTSC-ADDR', 0),
+    ('bounds: MAX-PORTS 1+ PORTSC-ADDR refused (0)',         # 85
+     'MAX-PORTS 1+ PORTSC-ADDR', 0),
+    ('address identity: 1 PORTSC-ADDR = OP-BASE + 0x400',    # 86
+     '1 PORTSC-ADDR OP-BASE 1024 + =', -1),
+]
+HW_2D_NAMES = [
+    'invariant: #CONNECTED = 1 (usb-kbd fixture)',           # 87
+    'FIRST-CCS identity: in 1..MAX-PORTS and its own CCS '   # 88
+    'reads set',
+    'occupied port: P-PED false post-HCRST (controller '     # 89
+    'reset cleared the enable; re-enable = port reset, '
+    'step 3)',
+    'occupied port: P-PR false (no reset in flight)',        # 90
+    'occupied port: P-PP true (powered)',                    # 91
+    'occupied port: P-CSC true post-HCRST (re-detection '    # 92
+    'set the change bit)',
+    'occupied port: P-SPEED valid (1..4); value printed, '   # 93
+    'not asserted',
+    'empty port: P-CCS false',                               # 94
+    'empty port: P-PP true (powered, PPC=0)',                # 95
+    'empty port: P-PLS = 5 (RxDetect)',                      # 96
+    'empty port: P-CSC true (QEMU quirk, measured)',         # 97
+    'read-only proof: occupied and empty PORTSC each read '  # 98
+    'twice byte-identical (catches a leaked RW1C write '
+    'from anywhere)',
+]
+ALL_2D = d_pa and d_pq and d_dec and d_srv
+if ALL_2D:
+    for _name, _expr, _want in DEC_2D:
+        v, raw = val(_expr)
+        check(_name, v == _want, f'got {v}: {body_of(raw)!r}')
+    # Hardware leg.  Controller is HALTED here (post-DOWN),
+    # and the occupied port is in POST-HCRST state, not the
+    # cold-boot state recon measured: HCRST clears PED (and
+    # only a step-3 port reset restores it) and the re-detect
+    # sets CSC (stage probe xhci-2d-stages log; the original
+    # cold-state prediction failed on green 1 exactly as the
+    # named alternative said it might).
+    nconn, raw = val('#CONNECTED')
+    check(HW_2D_NAMES[0], nconn == 1,
+          f'got {nconn}: {body_of(raw)!r}')
+    fp, raw = val('FIRST-CCS')
+    v, raw2 = val('FIRST-CCS PORTSC@ P-CCS')
+    check(HW_2D_NAMES[1],
+          fp is not None and mp is not None and 1 <= fp <= mp
+          and v == -1,
+          f'FIRST-CCS={fp}, its P-CCS={v}: {body_of(raw2)!r}')
+    print(f'  connected port = {fp} (incidental: recon read 5; '
+          'a reshuffle is a log line, not a failure)')
+    v, raw = val('FIRST-CCS PORTSC@ P-PED')
+    check(HW_2D_NAMES[2], v == 0, f'got {v}: {body_of(raw)!r}')
+    v, raw = val('FIRST-CCS PORTSC@ P-PR')
+    check(HW_2D_NAMES[3], v == 0, f'got {v}: {body_of(raw)!r}')
+    v, raw = val('FIRST-CCS PORTSC@ P-PP')
+    check(HW_2D_NAMES[4], v == -1, f'got {v}: {body_of(raw)!r}')
+    v, raw = val('FIRST-CCS PORTSC@ P-CSC')
+    check(HW_2D_NAMES[5], v == -1, f'got {v}: {body_of(raw)!r}')
+    spd, raw = val('FIRST-CCS PORTSC@ P-SPEED')
+    check(HW_2D_NAMES[6], spd is not None and 1 <= spd <= 4,
+          f'got {spd}: {body_of(raw)!r}')
+    print(f'  occupied speed = {spd} (incidental: recon read '
+          '3 = HS)')
+    ep = 1 if fp != 1 else 2
+    print(f'  empty-port probe uses port {ep}')
+    v, raw = val(f'{ep} PORTSC@ P-CCS')
+    check(HW_2D_NAMES[7], v == 0, f'got {v}: {body_of(raw)!r}')
+    v, raw = val(f'{ep} PORTSC@ P-PP')
+    check(HW_2D_NAMES[8], v == -1, f'got {v}: {body_of(raw)!r}')
+    v, raw = val(f'{ep} PORTSC@ P-PLS')
+    check(HW_2D_NAMES[9], v == 5, f'got {v}: {body_of(raw)!r}')
+    v, raw = val(f'{ep} PORTSC@ P-CSC')
+    check(HW_2D_NAMES[10], v == -1, f'got {v}: {body_of(raw)!r}')
+    v, raw = val('FIRST-CCS PORTSC@ FIRST-CCS PORTSC@ = '
+                 f'{ep} PORTSC@ {ep} PORTSC@ = AND')
+    check(HW_2D_NAMES[11], v == -1, f'got {v}: {body_of(raw)!r}')
+else:
+    for _name, _expr, _want in DEC_2D:
+        check(_name, False,
+              'red by guard: 2d words absent, not executed')
+    for _name in HW_2D_NAMES:
+        check(_name, False,
+              'red by guard: 2d words absent, not executed')
+
 raw = send('BASE @ DECIMAL .')
-check('BASE tripwire: reads 10 at exit',                     # 67
+check('BASE tripwire: reads 10 at exit',                     # 99
       re.search(r'\b10\b', body_of(raw)) is not None,
       f'got: {body_of(raw)!r}')
 

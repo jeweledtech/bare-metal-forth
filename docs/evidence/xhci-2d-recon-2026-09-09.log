@@ -1,0 +1,66 @@
+# xHCI 2d recon -- 2026-09-09
+# Provenance: captured BEFORE any 2d Forth existed.  Image = HEAD
+# 48e2404 build (sha256 below), fixture = qemu-xhci + usb-kbd,
+# fresh boot, bind-only path: ZERO xHCI register writes in part 1
+# (PORTSC reads only; RW1C bits clear on write, not read).
+# Part 2 uses only committed 2c words (UP/RUN/NOP-TEST/DOWN) and
+# reads the event-ring page BEFORE release, to answer the PSCE
+# question with data: NOP1 never inspects TRB type, so 2c's 32/32
+# proves tolerance of whatever was posted, not absence of PSCEs.
+# image sha256: 7e22905720632937cbcc9eb8eaa6e519dd67432ee28235708c71644e476b0531
+# probe: /tmp/recon_2d_full.py (copied alongside)
+BIND: -1
+HCS1 = 0x08001040
+MAX-PORTS = 8  MAX-SLOTS = 64  HCC1 = 0x00087001
+port 1: PORTSC=0x000202a0 CCS=0 PED=0 PR=0 PLS=5 PP=1 speed=0(undef) CSC=1 PRC=0
+port 2: PORTSC=0x000202a0 CCS=0 PED=0 PR=0 PLS=5 PP=1 speed=0(undef) CSC=1 PRC=0
+port 3: PORTSC=0x000202a0 CCS=0 PED=0 PR=0 PLS=5 PP=1 speed=0(undef) CSC=1 PRC=0
+port 4: PORTSC=0x000202a0 CCS=0 PED=0 PR=0 PLS=5 PP=1 speed=0(undef) CSC=1 PRC=0
+port 5: PORTSC=0x00000e03 CCS=1 PED=1 PR=0 PLS=0 PP=1 speed=3(HS) CSC=0 PRC=0
+port 6: PORTSC=0x000202a0 CCS=0 PED=0 PR=0 PLS=5 PP=1 speed=0(undef) CSC=1 PRC=0
+port 7: PORTSC=0x000202a0 CCS=0 PED=0 PR=0 PLS=5 PP=1 speed=0(undef) CSC=1 PRC=0
+port 8: PORTSC=0x000202a0 CCS=0 PED=0 PR=0 PLS=5 PP=1 speed=0(undef) CSC=1 PRC=0
+
+---- part 2: event-ring dump (UP/RUN/NOP-TEST 32) ----
+UP: -1
+RUN: -1
+NOP-TEST 32 -> 32
+XEDQ (events consumed) = 32  XENQ = 2
+  trb  0: ctrl=0x00008401 type=33(command-completion) cycle=1 cc=1 [consumed]
+  trb  1: ctrl=0x00008401 type=33(command-completion) cycle=1 cc=1 [consumed]
+  trb  2: ctrl=0x00008401 type=33(command-completion) cycle=1 cc=1 [consumed]
+  trb  3: ctrl=0x00008401 type=33(command-completion) cycle=1 cc=1 [consumed]
+  trb  4: ctrl=0x00008401 type=33(command-completion) cycle=1 cc=1 [consumed]
+  trb  5: ctrl=0x00008401 type=33(command-completion) cycle=1 cc=1 [consumed]
+  trb  6: ctrl=0x00008401 type=33(command-completion) cycle=1 cc=1 [consumed]
+  trb  7: ctrl=0x00008401 type=33(command-completion) cycle=1 cc=1 [consumed]
+  trb  8: ctrl=0x00008401 type=33(command-completion) cycle=1 cc=1 [consumed]
+  trb  9: ctrl=0x00008401 type=33(command-completion) cycle=1 cc=1 [consumed]
+  trb 10: ctrl=0x00008401 type=33(command-completion) cycle=1 cc=1 [consumed]
+  trb 11: ctrl=0x00008401 type=33(command-completion) cycle=1 cc=1 [consumed]
+  trb 12: ctrl=0x00008401 type=33(command-completion) cycle=1 cc=1 [consumed]
+  trb 13: ctrl=0x00008401 type=33(command-completion) cycle=1 cc=1 [consumed]
+  trb 14: ctrl=0x00008401 type=33(command-completion) cycle=1 cc=1 [consumed]
+  trb 15: ctrl=0x00008401 type=33(command-completion) cycle=1 cc=1 [consumed]
+  trb 16: ctrl=0x00008401 type=33(command-completion) cycle=1 cc=1 [consumed]
+  trb 17: ctrl=0x00008401 type=33(command-completion) cycle=1 cc=1 [consumed]
+  trb 18: ctrl=0x00008401 type=33(command-completion) cycle=1 cc=1 [consumed]
+  trb 19: ctrl=0x00008401 type=33(command-completion) cycle=1 cc=1 [consumed]
+  trb 20: ctrl=0x00008401 type=33(command-completion) cycle=1 cc=1 [consumed]
+  trb 21: ctrl=0x00008401 type=33(command-completion) cycle=1 cc=1 [consumed]
+  trb 22: ctrl=0x00008401 type=33(command-completion) cycle=1 cc=1 [consumed]
+  trb 23: ctrl=0x00008401 type=33(command-completion) cycle=1 cc=1 [consumed]
+  trb 24: ctrl=0x00008401 type=33(command-completion) cycle=1 cc=1 [consumed]
+  trb 25: ctrl=0x00008401 type=33(command-completion) cycle=1 cc=1 [consumed]
+  trb 26: ctrl=0x00008401 type=33(command-completion) cycle=1 cc=1 [consumed]
+  trb 27: ctrl=0x00008401 type=33(command-completion) cycle=1 cc=1 [consumed]
+  trb 28: ctrl=0x00008401 type=33(command-completion) cycle=1 cc=1 [consumed]
+  trb 29: ctrl=0x00008401 type=33(command-completion) cycle=1 cc=1 [consumed]
+  trb 30: ctrl=0x00008401 type=33(command-completion) cycle=1 cc=1 [consumed]
+  trb 31: ctrl=0x00008401 type=33(command-completion) cycle=1 cc=1 [consumed]
+  trb 32: ctrl=0x00000000 type=0(type-0) cycle=0 cc=0 [beyond]
+  trb 33: ctrl=0x00000000 type=0(type-0) cycle=0 cc=0 [beyond]
+  trb 34: ctrl=0x00000000 type=0(type-0) cycle=0 cc=0 [beyond]
+  trb 35: ctrl=0x00000000 type=0(type-0) cycle=0 cc=0 [beyond]
+consumed-by-type: {'command-completion': 32, 'type-0': 0}
+DOWN: -1

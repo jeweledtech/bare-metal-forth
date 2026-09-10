@@ -473,7 +473,7 @@ test-block-reload: $(COMBINED)
 test-xhci: $(COMBINED)
 	@cp $(COMBINED) $(COMBINED_IDE)
 	@echo "Running xHCI vocab test..."
-	@$(QEMU) -M pc -device qemu-xhci \
+	@$(QEMU) -M pc -device qemu-xhci -device usb-kbd \
 		-drive file=$(COMBINED),format=raw,if=floppy \
 		-drive file=$(COMBINED_IDE),format=raw,if=ide,index=1 \
 		-serial tcp::$$(($(TEST_PORT_BASE)+94)),server=on,wait=off \

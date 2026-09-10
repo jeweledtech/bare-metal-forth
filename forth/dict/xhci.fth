@@ -314,6 +314,46 @@ VARIABLE XDP
         XDCBAA @ 1000 XREL1 0 XDCBAA ! THEN
     XDP @ IF 1 ELSE -1 THEN ;
 
+\ ---- Step 2d: PORTSC decode + port survey -- READ-ONLY ----
+\ Every PORTSC change bit (CSC/PEC/PRC/...) is RW1C: a
+\ read-modify-write clears them silently.  NO word in this
+\ section writes a port register; port reset is step 3.
+\ Port array: OP-BASE + 400, stride 10, ports 1-based.
+\ PORTSC-ADDR refuses ports outside 1..MAX-PORTS (addr|0):
+\ the dword below the array and the one past it both read
+\ plausibly (same fail-closed family as XREL1).
+: PORTSC-ADDR ( port# -- addr|0 )
+    DUP 1 < OVER MAX-PORTS > OR IF DROP 0 EXIT THEN
+    1- 10 * OP-BASE 400 + + ;
+\ Refused port reads as 0: decoders on 0 give the
+\ fail-safe answer (no device, no power).
+: PORTSC@ ( port# -- x|0 ) PORTSC-ADDR DUP IF @ THEN ;
+\ Decoders take the VALUE, not the port, so suite controls
+\ feed synthetic dwords with hardware never consulted.
+: P-CCS ( x -- flag ) 1 AND 0<> ;
+: P-PED ( x -- flag ) 2 AND 0<> ;
+: P-PR  ( x -- flag ) 10 AND 0<> ;
+: P-PLS ( x -- n ) 5 RSHIFT F AND ;
+: P-PP  ( x -- flag ) 200 AND 0<> ;
+: P-SPEED ( x -- n ) A RSHIFT F AND ;
+: P-CSC ( x -- flag ) 20000 AND 0<> ;
+\ Kernel has no LEAVE: full walk, keep the FIRST hit.
+: #CONNECTED ( -- n )
+    0 MAX-PORTS 1+ 1 DO
+        I PORTSC@ P-CCS IF 1+ THEN LOOP ;
+: FIRST-CCS ( -- port#|0 )
+    0 MAX-PORTS 1+ 1 DO
+        I PORTSC@ P-CCS OVER 0= AND IF DROP I THEN
+    LOOP ;
+\ Survey display for the 2e iron trip (unscored output).
+: .PORT ( port# -- )
+    DUP . PORTSC@
+    DUP P-CCS IF ." conn " THEN
+    DUP P-PED IF ." en " THEN
+    DUP P-SPEED . ." spd "
+    P-PLS . ." pls " CR ;
+: .PORTS ( -- ) MAX-PORTS 1+ 1 DO I .PORT LOOP ;
+
 ." XHCI vocab loaded" CR
 
 ONLY FORTH DEFINITIONS

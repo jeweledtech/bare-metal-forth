@@ -1,0 +1,14 @@
+BIND: -1
+[ post-bind] PORTSC(5)=0x00000e03 CCS=1 PED=1 PR=0 PLS=0 speed=3 CSC=0 PRC=0
+HALT: -1
+[ post-halt] PORTSC(5)=0x00000e03 CCS=1 PED=1 PR=0 PLS=0 speed=3 CSC=0 PRC=0
+RESET: -1
+[post-reset] PORTSC(5)=0x00020ee1 CCS=1 PED=0 PR=0 PLS=7 speed=3 CSC=1 PRC=0
+UP: -1
+[   post-up] PORTSC(5)=0x00020ee1 CCS=1 PED=0 PR=0 PLS=7 speed=3 CSC=1 PRC=0
+RUN: -1
+[  post-run] PORTSC(5)=0x00020ee1 CCS=1 PED=0 PR=0 PLS=7 speed=3 CSC=1 PRC=0
+NOP: 32
+[  post-nop] PORTSC(5)=0x00020ee1 CCS=1 PED=0 PR=0 PLS=7 speed=3 CSC=1 PRC=0
+DOWN: -1
+[ post-down] PORTSC(5)=0x00020ee1 CCS=1 PED=0 PR=0 PLS=7 speed=3 CSC=1 PRC=0
