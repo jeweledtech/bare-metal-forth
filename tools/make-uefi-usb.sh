@@ -61,7 +61,7 @@ dd if=/dev/zero of="$DEVICE" bs=1M count=10 status=none  # zero first 10MB (GPT 
 echo "[2/8] Creating GPT partition table..."
 sgdisk --zap-all "$DEVICE"
 sgdisk -n 1:2048:+1M   -t 1:ef02 -c 1:"BIOS Boot"  "$DEVICE"   # BIOS boot partition
-sgdisk -n 2:0:+200M    -t 2:ef00 -c 2:"EFI System"  "$DEVICE"   # EFI System Partition
+sgdisk -n 2:0:0        -t 2:ef00 -c 2:"EFI System"  "$DEVICE"   # ESP = rest of device (payload is ~20MB; fixed +200M broke 120M sticks)
 partprobe "$DEVICE"
 sleep 1
 
