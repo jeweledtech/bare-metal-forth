@@ -687,8 +687,11 @@ v, raw = val('XHCI-BASE @ XB =')
 check('XHCI-BASE matches PCI-BAR64@ (XB)',                   # 32
       bind_ok and v == -1, f'got {v}: {body_of(raw)!r}')
 cl, raw = val('CAP-LEN')
-check('CAP-LEN in 0x20..0x7F', cl is not None and            # 33
-      32 <= cl <= 127, f'got {cl}: {body_of(raw)!r}')
+check('CAP-LEN in 0x20..0x80', cl is not None and            # 33
+      32 <= cl <= 128, f'got {cl}: {body_of(raw)!r}')
+# Upper bound raised 0x7F -> 0x80 after the 2e iron trip measured
+# CAP-LEN = 0x80 on HP 15-bs0xx (docs/evidence/xhci-iron-2026-09-10.log).
+# The old bound was tuned to QEMU's 0x40 and falsified by real silicon.
 if cl is not None:
     print(f'  CAP-LEN = {cl:#04x} (predicted 0x40)')
 hv, raw = val('HCI-VER')
