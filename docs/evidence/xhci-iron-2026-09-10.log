@@ -159,3 +159,12 @@ ok
    Survey #1 -> #2: PED cleared + CSC latched on occupied ports (2d
      mechanism on iron); ports 13-18 latched WRC (bit 19) = USB3 bank
    XHCI-DOWN -1; PHYS-AUDIT unattributed: 0 (clean)
+
+=== CORRECTION (2026-09-10, post-review) ===
+Annotation 4's line "Pre-halt HCH=1 (BIOS quiesced controller on
+yield)" overstates. HCH was read ONCE, at Section 5 -- AFTER the
+claim. The log does not determine whether the controller was already
+halted at boot or halted in response to the handoff. Corrected
+statement: post-claim the controller read halted, which inverts what
+SeaBIOS does; mechanism undetermined by this log. A pre-claim HCH
+reading next trip settles it.
