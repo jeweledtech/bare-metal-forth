@@ -1,0 +1,161 @@
+=== HP bare-metal port-read capture ===
+started:        2026-09-10T17:04:15.366562-07:00
+git HEAD:       4d8f337cbcd035205bf9f311ac5bdf70b4bedbbf
+image:          build/combined.img
+image sha256:   8f68f0e70e090f3e9535fb7ddd8688c41b99ba8e65f755e94d47f02975df86d3
+deployed:       /mnt/stickcheck/forth.img
+deployed sha256:8f68f0e70e090f3e9535fb7ddd8688c41b99ba8e65f755e94d47f02975df86d3
+hash gate:      PASS (deployed == build)
+boot path:      usb
+listener:       udp/:6666
+=======================================
+[2026-09-10T17:40:50.771-07:00 10.42.0.100] 00000+00000000
+NTFS at LBA 0008A800
+MFT at LBA 0431D738
+8 sect/clust, 4 rec/clust
+MFT: 9 runs
+--- 4 known, 3 active ---
+
+ok 
+[2026-09-10T17:41:55.918-07:00 10.42.0.100] DECIMAL 1724 1749 THRU
+
+ok 
+[2026-09-10T17:42:23.276-07:00 10.42.0.100] ONLY FORTH DEFINITIONS
+ok 
+[2026-09-10T17:42:28.592-07:00 10.42.0.100] ALSO PCK   I-ENUM
+ok 
+[2026-09-10T17:42:35.162-07:00 10.42.0.100] ALSO HXCI            XHCU   I
+ok 
+[2026-09-10T17:42:38.211-07:00 10.42.0.100] ALSO HAD   RDWARE
+ok 
+[2026-09-10T17:42:39.711-07:00 10.42.0.100] DECIMAL
+ok 
+[2026-09-10T17:42:51.145-07:00 10.42.0.100] DEF? HX      XI   HCI-CLAIM .
+DEF? ? 
+0 ok 
+[2026-09-10T17:43:00.976-07:00 10.42.0.100] DEF? MEMS   DISK-BASE .
+DEF? ? 
+MEMDISK-BASE ? 
+-1900006918 ok 
+[2026-09-10T17:44:02.979-07:00 10.42.0.100] H   XHCI0   -BIND .
+-1 ok 
+[2026-09-10T17:44:14.157-07:00 10.42.0.100] HEX XHCI-BASE @ .H8 DECIMAL
+B1210000ok 
+[2026-09-10T17:44:27.719-07:00 10.42.0.100] CAP-LEN . HCI-VER . MAX-PORTS . MAX-SLOTS .
+128 256 18 64 ok 
+[2026-09-10T17:44:34.646-07:00 10.42.0.100] HXI         XHCI-ONWER            WNER .
+1 ok 
+[2026-09-10T17:44:36.540-07:00 10.42.0.100] .o   PORTS
+1 00000E03 conn en 3 spd 0 pls 
+2 000002A0 0 spd 5 pls 
+3 000002A0 0 spd 5 pls 
+4 000006E1 conn 1 spd 7 pls 
+5 000006E1 conn 1 spd 7 pls 
+6 000002A0 0 spd 5 pls 
+7 000006E1 conn 1 spd 7 pls 
+8 000002A0 0 spd 5 pls 
+9 000002A0 0 spd 5 
+[2026-09-10T17:44:36.555-07:00 10.42.0.100] pls 
+10 000002A0 0 spd 5 pls 
+11 000002A0 0 spd 5 pls 
+12 000002A0 0 spd 5 pls 
+13 000002A0 0 spd 5 pls 
+14 000002A0 0 spd 5 pls 
+15 000002A0 0 spd 5 pls 
+16 000002A0 0 spd 5 pls 
+17 000002A0 0 spd 5 pls 
+18 000002A0 0 spd 5 pls 
+ok 
+[2026-09-10T17:46:11.363-07:00 10.42.0.100] DEPTH .
+1073741823 ok 
+[2026-09-10T17:47:43.230-07:00 10.42.0.100] : DEF? WORD FIND NIP ;
+ok 
+[2026-09-10T17:47:49.127-07:00 10.42.0.100] DEF? H   XHCI-CLAIM .
+378296 ok 
+[2026-09-10T17:47:56.767-07:00 10.42.0.100] DEF? MEMDISK-BASE@ .
+378576 ok 
+[2026-09-10T17:49:07.153-07:00 10.42.0.100] 0
+ok 
+[2026-09-10T17:49:09.223-07:00 10.42.0.100] DEPTH .
+0 ok 
+[2026-09-10T17:49:24.050-07:00 10.42.0.100] H   XHCI-CLAIM .
+-1 ok 
+[2026-09-10T17:49:44.403-07:00 10.42.0.100] HEX 1 XECP-FIND DUP . 4 + @ .H8 DECIMAL
+-4EDE7B94 40002000ok 
+[2026-09-10T17:49:49.152-07:00 10.42.0.100] SMI-OFF .
+1 ok 
+[2026-09-10T17:57:45.456-07:00 10.42.0.100] HEX MEMDIK   SK-BASE@ DUP .H*   \8      8 FFF AND . DECIMAL
+37BB70000 ok 
+[2026-09-10T17:58:20.518-07:00 10.42.0.100] USBSTS@ 1 AND .
+1 ok 
+[2026-09-10T17:58:28.523-07:00 10.42.0.100] H   XHCI-HALT .
+-1 ok 
+[2026-09-10T17:58:47.546-07:00 10.42.0.100] XHCI-RESEET      T . 1000 HRST-LEFT @ - . 1000 PN @ - .
+-1 1 0 ok 
+[2026-09-10T17:59:28.087-07:00 10.42.0.100] H   XHCI-UP .
+-1 ok 
+[2026-09-10T17:59:32.646-07:00 10.42.0.100] XHCI-RUN .
+-1 ok 
+[2026-09-10T17:59:37.715-07:00 10.42.0.100] DECIMAL 32 NOP-TEST .
+32 ok 
+[2026-09-10T17:59:40.978-07:00 10.42.0.100] .PORTS
+1 000206E1 conn 1 spd 7 pls 
+2 000002A0 0 spd 5 pls 
+3 000002A0 0 spd 5 pls 
+4 000206E1 conn 1 spd 7 pls 
+5 000206E1 conn 1 spd 7 pls 
+6 000002A0 0 spd 5 pls 
+7 000206E1 conn 1 spd 7 pls 
+8 000002A0 0 spd 5 pls 
+9 000002A0 0 spd 5 pls 
+10 
+[2026-09-10T17:59:40.991-07:00 10.42.0.100] 000002A0 0 spd 5 pls 
+11 000002A0 0 spd 5 pls 
+12 000002A0 0 spd 5 pls 
+13 000802A0 0 spd 5 pls 
+14 000802A0 0 spd 5 pls 
+15 000802A0 0 spd 5 pls 
+16 000802A0 0 spd 5 pls 
+17 000802A0 0 spd 5 pls 
+18 000802A0 0 spd 5 pls 
+ok 
+[2026-09-10T18:00:31.892-07:00 10.42.0.100] XHCI-DW   OWN .
+-1 ok 
+[2026-09-10T18:00:38.955-07:00 10.42.0.100] PHYS-AUDi   IT
+109000 1000 
+108000 1000 
+107000 1000 
+106000 1000 
+105000 1000 
+104000 1000 
+103000 1000 
+live: 7 unattributed: 0 
+extents: 1 
+total: 300000 
+ok 
+=== capture stopped 2026-09-10T18:01:35.519704-07:00 ===
+
+=== POST-HOC ANNOTATIONS (dev box, 2026-09-10, not part of capture) ===
+1. Netcon echo duplication: operator keystrokes appear garbled/doubled in the
+   UDP capture (e.g. "XHCI-RESEE T", "PHYS-AUDi IT"). The machine received
+   clean input in every case -- responses are plain "ok", never "?" -- so this
+   is a capture-side echo artifact, not machine input corruption.
+2. Signed hex rendering: "-4EDE7B94" (the XECP-FIND cap address before the
+   LEGCTL read) is the signed rendering of 0xB121846C -- inside BAR
+   0xB1210000. Not a fault.
+3. Card bug found in-trip: Section 2 gate uses DEF? but DEF? is a suite-side
+   runtime definition, not a kernel word. The two aborted "DEF? ?" lines
+   popped one cell off the empty stack (DEPTH read 1073741823 = -1 cell).
+   Repair on iron: pushed a single 0, DEPTH then read 0; all subsequent
+   lines balanced. Card fixed post-trip to include ": DEF? WORD FIND NIP ;".
+4. Settled readings (re-derived from this log):
+   OWNER=1 -> CLAIM=-1 (outcome B, BIOS yielded in-budget)
+   LEGCTL before: 0x40002000 (bit 13 ownership-change SMI enable armed,
+     bit 30 RW1C status latched); SMI-OFF=1 (write occurred and stuck)
+   MEMDISK-BASE@ = 0x37BB7000, low-12 = 0 (gate PASS, matches 09-05)
+   Pre-halt HCH=1 (BIOS quiesced controller on yield; inverts QEMU/SeaBIOS)
+   XHCI-RESET -1, HCRST 1 ms, CNR 0 ms (1000 ms budget -> measurement)
+   NOP-TEST 32/32 (ring wrapped twice, link-toggle executed on iron)
+   Survey #1 -> #2: PED cleared + CSC latched on occupied ports (2d
+     mechanism on iron); ports 13-18 latched WRC (bit 19) = USB3 bank
+   XHCI-DOWN -1; PHYS-AUDIT unattributed: 0 (clean)

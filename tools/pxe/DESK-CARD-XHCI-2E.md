@@ -59,7 +59,9 @@ netcon listener          tools/hp-portread-capture.py --boot-path usb
       chain-break; grep for the banner before diagnosing corruption)
 - [ ] **Internal i8042 keyboard ONLY** for this whole session — the
       trip resets the controller behind every USB port
-- [ ] Net console live, or photo protocol declared now
+- [ ] Net console live, or photo protocol declared now. Known artifact:
+      keystroke echoes arrive garbled/doubled in the UDP capture; the
+      machine's input is clean if responses are `ok`, never `?`
 - [ ] **Listener is CAPTURING, not just running:** the boot banner is
       visible in the listener output on the dev box. If not, fix it or
       declare photo protocol NOW — discovering a silent listener at
@@ -74,10 +76,17 @@ DECIMAL ______ ______ THRU     \ XHCI range from Section 0
 ONLY FORTH DEFINITIONS
 ALSO PCI-ENUM  ALSO XHCI  ALSO HARDWARE
 DECIMAL                        \ re-assert: AHCI-INIT-class BASE traps
+: DEF? WORD FIND NIP ;         \ DEF? is NOT a kernel word — define it
+                               \ (suite-side def; typing it undefined
+                               \ aborts AND pops the empty stack)
 ```
 
-- [ ] `DEF? XHCI-CLAIM` and `DEF? MEMDISK-BASE@` both -1 — a 0 means
-      wrong image on the stick: STOP, back to Section 0
+- [ ] `DEF? XHCI-CLAIM` and `DEF? MEMDISK-BASE@` both nonzero — a 0
+      means wrong image on the stick: STOP, back to Section 0
+      (FIND NIP returns the CFA-ish cell, not a clean -1)
+- [ ] `DEPTH .` prints 0 before proceeding — a huge number
+      (~1073741823) = stack underflow; push one `0` per missing cell
+      until DEPTH reads 0, never blind-pop
 
 ## 3. Read leg — bind, caps, survey #1 (BEFORE handoff)
 
