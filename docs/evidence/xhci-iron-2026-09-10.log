@@ -168,3 +168,21 @@ halted at boot or halted in response to the handoff. Corrected
 statement: post-claim the controller read halted, which inverts what
 SeaBIOS does; mechanism undetermined by this log. A pre-claim HCH
 reading next trip settles it.
+
+=== CORRECTION 2 (2026-09-10, post-review) ===
+Annotation 3 is wrong in two ways, and misses the real finding.
+(a) Only the SECOND gate line (17:43:00) underflowed -- its "." popped
+one cell off the empty stack, printing -1900006918. The FIRST line
+(17:42:51) was balanced: "DEF? ?" aborted DEF?, but XHCI-CLAIM *is*
+defined and EXECUTED -- the "0 ok" on that line is XHCI-CLAIM's own
+return value, printed by the trailing ".".
+(b) The finding: XHCI-CLAIM ran BEFORE XHCI-BIND (17:44:02), against
+XHCI-BASE = 0. HCC1 then reads address 0x10 -- the real-mode IVT. On
+this machine bits 31:16 of that read came back zero, so XECP-BASE
+exited early and the word returned 0 harmlessly. Had those bits been
+nonzero, a cap-ID match would have sent (CLAIM) into a WRITE
+("DUP @ 1000000 OR OVER !") against a low-memory address. XHCI-CLAIM,
+SMI-OFF, XECP-FIND and XECP-BASE all derive addresses from XHCI-BASE
+with no bound check -- same fail-open shape PORTSC-ADDR was guarded
+against in 2d, except this one can write. Guard + refusal test =
+carried debt into step 3 (see closure doc).
