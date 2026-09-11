@@ -1,0 +1,302 @@
+test-meta before-state, Task B grandfathered review, 2026-08-31
+First of the four GRANDFATHERED suites to be RUN rather than
+assumed: exit 0, six phases, 114/114
+(26+11+21+20+17+19), tree at baseline (combined.img
+bfc2ca00f29794c46dd929c2d849de52e7700be120bc02e8503fa38091b5e4d9).
+A grandfathered suite that has been run is a different object
+from one that has not.  Exemption reason describes COST (long
+QEMU chain), not brokenness -- disposition recommendation after
+the after-state run.  Raw log follows.
+================================================================
+Running metacompiler tests...
+  test_metacompiler (port 4580)...
+X86-ASM blocks: 1672-1695
+META-COMPILER blocks: 654-680
+
+Loading X86-ASM (1672 1695 THRU)...
+  THRU response: '1672 1695 THRU\r\nok'
+
+Loading META-COMPILER (654 680 THRU)...
+  THRU response: '654 680 THRU\r\nok'
+
+Test 1: META-COMPILER vocabulary accessible
+  PASS: USING META-COMPILER succeeds
+
+Test 2: META-INIT initializes target
+  PASS: META-INIT completes without crash
+
+Test 3: T-ADDR returns origin
+  T-ADDR => 'HEX T-ADDR DECIMAL .\r\n32256 ok' (parsed: 32256)
+  PASS: T-ADDR = 0x7E00 (32256)
+
+Test 4: T-C! writes, T-C@ reads back
+  T-C@ => 'HEX 42 7E00 T-C! 7E00 T-C@ DECIMAL .\r\n66 ok' (parsed: 66)
+  PASS: T-C@ returns 0x42 (66)
+
+Test 5: T-! writes, T-@ reads back
+  T-@ => 'HEX 12345678 7E00 T-! 7E00 T-@ DECIMAL .\r\n305419896 ok' (parsed: 305419896)
+  PASS: T-@ returns 0x12345678
+
+Test 6: T-ALLOT advances T-ADDR
+  PASS: T-ALLOT advances T-ADDR by n
+
+Test 7: T-ALIGN pads to 4-byte boundary
+  PASS: T-ALIGN aligns to 4 bytes
+
+Test 8: T-STATE starts at 0
+  PASS: T-STATE starts at 0
+
+Test 9: T-ALLOT then T-ALIGN
+  PASS: T-ALLOT 5 + T-ALIGN -> 0x7E08
+
+Test 10: META-BUILD builds minimal kernel
+  META-BUILD => 'META-BUILD\r\nMETA-BUILD complete: 56 bytes\r\nok'
+  PASS: META-BUILD outputs complete message
+
+Test 11: META-SIZE > 0
+  META-SIZE => 'DECIMAL META-SIZE .\r\n56 ok' (parsed: 56)
+  PASS: META-SIZE > 0
+
+Test 12: META-STATUS works
+  META-STATUS => 'META-STATUS\r\nMETA: OK\r\nTarget: 56 bytes\r\nok'
+  PASS: META-STATUS shows OK
+
+Test 13: DOEXIT-ADDR set after META-BUILD
+  PASS: DOEXIT-ADDR > 0 after META-BUILD
+
+Test 14: FORWARD + META-CHECK
+  META-CHECK => 'META-CHECK\r\nUnresolved: TEST-FWD\r\nok'
+  PASS: META-CHECK shows unresolved ref
+
+Test 15: T-FORWARD, + RESOLVE
+  PASS: T-FORWARD, writes chain link (0)
+  PASS: RESOLVE patches to 0xBEEF
+
+Test 16: T-VARIABLE creates header
+  PASS: T-VARIABLE link = 0 (first word)
+
+Test 17: T-CONSTANT creates header + value
+  PASS: T-CONSTANT flags+len = 7
+
+Test 18: T-IMMEDIATE sets flag
+  PASS: T-IMMEDIATE sets bit 7
+
+Test 19: T-IF/T-THEN branch offset
+  PASS: T-IF/T-THEN offset = 8
+
+Test 20: T-BEGIN/T-UNTIL backward offset
+  PASS: T-BEGIN/T-UNTIL offset = -8
+
+Test 21: D# parses decimal in HEX mode
+  D# => 'HEX D# 42 DECIMAL .\r\n42 ok' (parsed: 42)
+  PASS: D# 42 in HEX mode = 42 decimal
+
+Test 22: H# parses hex in DECIMAL mode
+  H# => 'DECIMAL H# FF .\r\n255 ok' (parsed: 255)
+  PASS: H# FF in DECIMAL mode = 255
+
+Test 23: META-SAVE reports address/size
+  PASS: META-SAVE reports bytes
+
+Test 24: Full regression after all words
+  PASS: META-BUILD still works after all additions
+
+Test 25: Stack is clean
+  .S => '.S\r\n<>ok'
+  PASS: Stack is clean after all tests
+
+Passed: 26/26
+  test_meta_compile (port 4581)...
+X86-ASM: 1672-1695, META-COMPILER: 654-680, TARGET-X86: 1432-1549
+Port: 4581
+
+Loading vocabularies...
+  PASS: All vocabs loaded
+
+=== META-COMPILE-X86 ===
+  'META-COMPILE-X86\r\nUnresolved: \r\nPhase B6 complete: 4960 bytes, 156 syms\r\nok'
+  PASS: META-COMPILE-X86 completes
+  PASS: Symbol count >= 100 (got 156)
+  PASS: META-SIZE > 2500 (got 4960)
+
+=== Symbol Verification ===
+  PASS: I/O words (5/5)
+  PASS: Display words (1/1)
+  PASS: Variable words (4/4)
+  PASS: Compiler words (5/5)
+
+=== CALL-ABS Displacement ===
+  PASS: KEY disp (a=-348595 e=-348595)
+  PASS: EMIT disp (a=-349222 e=-349222)
+  PASS: Stack clean
+
+Passed: 11/11
+  test_meta_b6 (port 4582)...
+X86-ASM: 1672-1695, META-COMPILER: 654-680, TARGET-X86: 1432-1549
+Port: 4582
+
+Loading vocabularies...
+  PASS: All vocabs loaded
+
+=== META-COMPILE-X86 ===
+  PASS: META-COMPILE-X86 completes
+  PASS: Symbol count >= 130 (got 156)
+  PASS: META-SIZE > 3500 (got 4960)
+
+=== Symbol Checks ===
+  PASS: Key symbols (14/14)
+  PASS: S" symbol found (CFA=394828)
+  PASS: ." symbol found (CFA=395048)
+  PASS: (S") symbol found (CFA=394800)
+
+=== META-TRANSFER ===
+  PASS: META-TRANSFER -> ok prompt
+
+=== Interactive Tests ===
+  PASS: 3 4 + . = 7
+  PASS: : SQ DUP * ; 5 SQ . = 25
+  PASS: 1 IF 42 = 42
+  PASS: 0 IF 99 = 99
+  PASS: BEGIN/UNTIL loop
+  PASS: DO/LOOP
+  PASS: Undefined word -> ?
+  PASS: DEPTH works (got 4)
+  PASS: S" + TYPE prints hi
+  PASS: ." prints hello
+  PASS: S" interpret + TYPE
+  PASS: Empty line -> ok
+
+Passed: 21/21
+  test_meta_boot (port 4583)...
+X86-ASM: 1672-1695, META-COMPILER: 654-680, TARGET-X86: 1432-1549
+Ports: serial=4583, monitor=4584, boot=4585
+
+=== Phase B3: In-Memory Verification ===
+
+Step 1: Launch builder QEMU
+
+Step 2: Load vocabularies
+  PASS: Vocabs loaded
+
+Step 3: Copy kernel via T-BINARY,
+  'META-COPY-KERNEL\r\nKernel copy: 65536 bytes\r\nok'
+  PASS: META-COPY-KERNEL completes
+  PASS: META-SIZE = 65536
+
+Step 4: Verify copy integrity (spot checks)
+  PASS: Spot check 16 bytes
+
+Step 5: Extended comparison (64 bytes)
+  PASS: 64 byte spot check
+
+Step 6: META-COMPILE-X86 dictionary
+  Dictionary-only image: 4960 bytes
+  PASS: Dictionary builds successfully
+
+Step 7: Host kernel still operational
+  PASS: 3 4 + . = 7
+  PASS: 5 SQ . = 25
+  PASS: Stack clean
+
+=== Phase B4: Extract + Boot ===
+
+Step 8: Prepare extraction image
+  PASS: Fresh META-COPY-KERNEL
+
+Step 9: Extract via QEMU monitor
+  META-SAVE output: 'META-SAVE\r\nMETA-SAVE: 391456  65536 bytes\r\nok'
+  PASS: META-SAVE reports address/size
+  Monitor cmd: pmemsave 391456 65536 "/tmp/forthos-meta-B4.bin"
+  PASS: pmemsave extracts 65536 bytes
+  PASS: Code region matches build/kernel.bin
+
+Step 10: Assemble bootable image
+  PASS: meta-boot.img assembled (66048 bytes)
+
+Step 11: Boot metacompiled kernel
+  PASS: Connection to booted kernel
+  Boot prompt: 'ok'
+  PASS: ok prompt received
+
+Step 12: Verify booted kernel
+  PASS: 3 4 + . = 7
+  PASS: 5 SQ . = 25
+  PASS: IF/ELSE/THEN = 42
+  PASS: WORDS executes
+
+Passed: 20/20
+  test_meta_b6b (port 4586)...
+X86-ASM: 1672-1695, META-COMPILER: 654-680, TARGET-X86: 1432-1549
+Ports: serial=4586, monitor=4587, boot=4588
+
+=== Phase 1: Build ===
+
+Loading vocabularies...
+  PASS: All vocabs loaded
+
+Running META-COMPILE-X86-BOOT...
+  Output: 'META-COMPILE-X86-BOOT\r\nUnresolved: \r\nPhase B6b complete: 54112 used, 156 syms\r\nok'
+  PASS: META-COMPILE-X86-BOOT completes
+  PASS: Symbol count >= 130 (got 156)
+  T-HERE offset: 'HEX T-HERE @ T-IMAGE - .\r\nT-HERE ? \r\n-5F920 ok'
+
+=== Phase 2: Extract ===
+  META-SAVE: 'META-SAVE\r\nMETA-SAVE: 391456  54112 bytes\r\nok'
+  PASS: META-SAVE reports address/size
+  Monitor cmd: pmemsave 391456 65536 "/tmp/forthos-meta-B6b.bin"
+  PASS: pmemsave extracts 65536 bytes
+  PASS: LATEST patched (orig=0xA92C, meta=0x15138)
+
+=== Phase 3: Assemble + Boot ===
+  PASS: meta-boot-b6b.img assembled (66048 bytes)
+  PASS: Connection to booted kernel
+  Boot prompt: 'ok'
+  PASS: ok prompt received
+
+=== Phase 4: Verify ===
+  PASS: 3 4 + . = 7
+  PASS: 5 SQ . = 25
+  PASS: IF/ELSE/THEN true = 42
+  PASS: IF/ELSE/THEN false = 99
+  PASS: BEGIN/UNTIL loop
+  PASS: DO/LOOP
+  PASS: Undefined word -> ?
+  PASS: Empty line -> ok
+
+Passed: 17/17
+  test_meta_does (port 4590)...
+X86-ASM: 1672-1695, META-COMPILER: 654-680, TARGET-X86: 1432-1549
+Ports: serial=4590, monitor=4591, boot=4592
+
+=== Phase 1: Build ===
+  Loading vocabularies...
+  PASS: All vocabs loaded
+  Running META-COMPILE-X86-BOOT...
+  PASS: META-COMPILE-X86-BOOT completes
+
+=== Phase 2: Extract ===
+  PASS: META-SAVE reports address/size
+  PASS: pmemsave extracts 65536 bytes
+
+=== Phase 3: Boot ===
+  PASS: meta-boot-does.img assembled (66048 bytes)
+  PASS: Connection to booted kernel
+  PASS: ok prompt received
+
+=== Phase 4: DOES> Tests ===
+  PASS: MYCONST defined
+  PASS: 123 MYCONST FOO defined
+  PASS: FOO . = 123 (basic DOES>)
+  PASS: FOO . FOO . = 123 123 (return-path clean)
+  PASS: BAR . = 456 (second child)
+  PASS: FOO BAR DEPTH = 2 (no stack leak)
+  PASS: ARRAY defined
+  PASS: 5 ARRAY NUMS defined
+  PASS: 0 NUMS @ . = 10 (ARRAY index 0)
+  PASS: 1 NUMS @ . = 20 (ARRAY index 1)
+  PASS: 2 NUMS @ . = 30 (ARRAY index 2)
+  PASS: 0 NUMS @ 2 NUMS @ + . = 40 (ARRAY multi-use)
+
+Passed: 19/19
+DOES> tests complete!
+Metacompiler tests complete!

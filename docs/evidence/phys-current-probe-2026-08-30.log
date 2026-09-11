@@ -1,0 +1,78 @@
+VAR_CURRENT measurement probe, 2026-08-30 (Task B, Blocker 2)
+Question: at each existing PHYS-ALLOC call, what does VAR_CURRENT
+(0x28044) actually hold?  Read, not reasoned.
+
+=== Method ===
+Scratch edit (never committed) at the top of PHYS-ALLOC in
+forth/dict/hardware.fth:
+    BASE @ >R HEX ." CUR=" 28044 @ U. R> BASE !
+Probe image build/combined.img sha256:
+    38b52e560987ffc61134d7dda981142c52d57352c583ab37091e77b72a3ddd7b
+(the probe image is deleted; this hash is the only remaining
+evidence the two images differed).  Pre-probe baseline sha256
+captured BEFORE the edit:
+    bfc2ca00f29794c46dd929c2d849de52e7700be120bc02e8503fa38091b5e4d9
+Boot output captured with -serial file: (TCP wait=off discards
+output emitted before a client connects -- first attempt lost the
+boot lines; file capture records from power-on).
+SURVEYOR-DEEP block range derived from tools/write-catalog.py
+(blocks_needed + place_vocab walk): blocks 1041..1057.
+
+=== Pre-registered predictions (stated before the run) ===
+1. Boot shows exactly 7 CUR= lines: 4 from ahci.fth (CL-BUF,
+   FIS-BUF, CT-BUF, SEC-BUF), 2 from rtl8168.fth (TX-DESC,
+   TX-BUF), 1 from ntfs.fth (MFT-BUF).
+2. Each value = the allocating vocab's OWN LATEST-cell address
+   (cross-read at the prompt via `X DEFINITIONS HEX 28044 @ U.`);
+   three distinct values.
+3. NEGATIVE: none of the boot values is 28048 (VAR_FORTH_LATEST).
+   This is the leg that would have caught the pun at boot.
+4. Run-time call: ONLY FORTH DEFINITIONS, ALSO SURVEYOR-DEEP,
+   DA-ALLOC from the prompt shows CUR=28048 -- the pun firing:
+   SURVEYOR-DEEP is the consumer, FORTH gets the tag.
+
+=== Observed ===
+Boot (7 lines, in order):
+  CUR=33EFC  CUR=33EFC  CUR=33EFC  CUR=33EFC   (ahci x4)
+  CUR=36578  CUR=36578                          (rtl8168 x2)
+  CUR=37AA0                                     (ntfs x1)
+Prompt cross-reads of each vocab's LATEST cell:
+  AHCI DEFINITIONS    -> 33EFC
+  RTL8168 DEFINITIONS -> 36578
+  NTFS DEFINITIONS    -> 37AA0
+  ONLY FORTH          -> 28048
+Run-time call:
+  ALSO SURVEYOR-DEEP  DA-ALLOC  -> CUR=28048
+All four predictions confirmed, including the negative leg.
+
+=== Reading ===
+All four existing callers allocate at LOAD time under their own
+DEFINITIONS: VAR_CURRENT is a truthful owner tag for everything
+in the tree today.  The prompt-side run shows the pun is alive:
+any run-time allocation (the xHCI hot-plug case this task serves)
+lands tagged FORTH -- confidently wrong.  Design consequence
+(mentor ruling): FORTH's cell (28048) is a distinct third state,
+UNATTRIBUTED, never folded into a vocabulary's total.  Mechanism,
+not policy: PHYS-ALLOC compares the captured tag against
+VAR_FORTH_LATEST; the gate asserts no driver-initiated allocation
+ever matches it.  Operator allocations from the prompt stay
+permitted and are reported on their own PHYS-AUDIT line.  A
+driver allocation landing unattributed is a FAILURE, not a
+footnote.  Keep CURRENT as the observable; the return-address
+scheme waits for a run-time caller to test against.
+
+Instrument note: the first capture attempt (TCP, wait=off)
+silently discarded everything emitted before the client
+connected -- zero CUR= lines.  Against prediction 1 ("exactly
+7"), that read as a broken instrument; without the pre-registered
+count, a naive read is a finding ("no allocations happen at
+boot") -- a confident wrong conclusion from a silent capture
+path.  A pre-registered count is what distinguishes an
+instrument failure from a finding.
+
+=== Revert proof ===
+Scratch edit reverted; git diff clean on hardware.fth; rebuilt
+make build/combined.img; sha256 returned EXACTLY to the pre-probe
+baseline bfc2ca00...e4d9 (compared against the hash captured
+before the edit, not merely a clean tree + deterministic-rebuild
+argument).  Probe image build/probe-ide.img deleted.
