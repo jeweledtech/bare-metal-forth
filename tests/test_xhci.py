@@ -1274,8 +1274,90 @@ else:
         check(_name, False,
               'red by guard: 2e-prep words absent, not executed')
 
+print('\n=== Phase 8: unbound-base guards (refusal + positive control) ===')
+continuity('phase 8')
+zap()
+# Iron 2026-09-10 (a6a6cae correction 2): XHCI-CLAIM executed before
+# XHCI-BIND against XHCI-BASE=0, read HCC1 from the real-mode IVT at
+# 0x10, and returned 0 -- indistinguishable from "cap absent" -- only
+# because bits 31:16 there were clear.  (CLAIM) writes.  Guard: each
+# address-deriving word refuses at entry; the code-returning wrappers
+# return -2 (unused by CLAIM {0,-1,1} and SMI-OFF {0,-1,1,2}) so a
+# refusal can never be read as outcome A.  The address words return 0
+# (every caller dereferences nonzero).  Positive control: on a valid
+# base the same words must NOT refuse -- a guard proven only on the
+# null side is fail-open the other way.  Base saved to a suite cell
+# and restored; the restore is itself checked.
+#
+# Pre-registered (2026-09-11, before the red run; sweep of the
+# untouched tree = 1209/31, docs/evidence/sweep-2026-09-11.log):
+#   9 checks (130-138); BASE tripwire moves 130 -> 139.
+#   Red (xhci.fth untouched): 133, 134 CERTAIN (today's wrappers
+#     return 0 or -1, never -2).  131 LIKELY red: SeaBIOS IVT entry
+#     4 at 0x10 is F000:xxxx, HCC1 10 RSHIFT = 0xF000, XECP-BASE =
+#     0x3C000.  Named alternative: bits 31:16 clear (the HP shape)
+#     -> 131 green-on-red, a non-discriminating guard in this
+#     habitat, kept; red count drops to 2.  132 direction UNKNOWN
+#     (walk from 0x3C000, <=16 hops) -- not counted either way.
+#   Green on red: 130, 135, 136, 137, 138 (existing behaviour or
+#     machinery).  Predicted red total: 136/139 (131 red) or
+#     137/139 (alt), +/-1 for 132.
+#   Hazard: if 132's walk finds a cap-ID byte, unguarded (CLAIM)
+#     ORs 0x1000000 into a dictionary cell near 0x3C000; phase is
+#     last so a red tripwire is attributed to that write.
+#   Green: 139/139; sweep test-xhci 130 -> 139, lines 31 => 1218/31.
+#   OUTCOME: red 136/139 (xhci-guard-red-2026-09-11.log; 131 red
+#     with XECP-BASE = 245760 = 0x3C000, 132 green-on-red), green
+#     139/139 (xhci-guard-green-2026-09-11.log), sweep 1218/31
+#     (sweep-2026-09-11b.log).
+# Rev 2 (same day, ruling): XHCI-OWNER guarded too -- read-only,
+#   but unguarded it prints "0 = absent" on a card pre-bind, the
+#   confidently-wrong reading that cost the 09-10 trip.  +2 checks
+#   (135 unbound = -2; 140 bound = 0, not -2), tripwire -> 141.
+#   Red on the guarded-four tree: 140/141 (135 only).  Green
+#   141/141; sweep 139 -> 141 => 1220/31.
+send('VARIABLE XB0')
+v, raw = val('XHCI-BASE @ DUP XB0 !  0<>')
+check('phase-8 entry: XHCI-BASE bound (saved to XB0)',        # 130
+      v == -1, f'got {v}: {body_of(raw)!r}')
+send('0 XHCI-BASE !')
+v, raw = val('XECP-BASE')
+check('unbound: XECP-BASE refuses (0) -- HCC1 would read '   # 131
+      'the IVT at 0x10', v == 0, f'got {v}: {body_of(raw)!r}')
+v, raw = val('1 XECP-FIND', 4.0)
+check('unbound: 1 XECP-FIND refuses (0)', v == 0,             # 132
+      f'got {v}: {body_of(raw)!r}')
+v, raw = val('XHCI-CLAIM', 15.0)
+check('unbound: XHCI-CLAIM = -2 (refused, distinct from 0 = '  # 133
+      'cap absent -- the iron misreading)', v == -2,
+      f'got {v}: {body_of(raw)!r}')
+v, raw = val('SMI-OFF', 4.0)
+check('unbound: SMI-OFF = -2 (refused, distinct from 0)',     # 134
+      v == -2, f'got {v}: {body_of(raw)!r}')
+v, raw = val('XHCI-OWNER', 4.0)
+check('unbound: XHCI-OWNER = -2 (refused; read-only, but 0 '  # 135
+      'would read as "absent" on a pre-bind card line)', v == -2,
+      f'got {v}: {body_of(raw)!r}')
+v, raw = val('XB0 @ XHCI-BASE !  XHCI-BASE @ XB0 @ =')
+check('restore: XHCI-BASE = XB0 (base back before the '       # 136
+      'positive controls)', v == -1, f'got {v}: {body_of(raw)!r}')
+v, raw = val('XECP-BASE 0<>')
+check('positive control, bound: XECP-BASE nonzero (QEMU walks '  # 137
+      '2 caps; sweep-2026-09-10.log:344)', v == -1,
+      f'got {v}: {body_of(raw)!r}')
+v, raw = val('XHCI-CLAIM', 4.0)
+check('positive control, bound: XHCI-CLAIM = 0 (absent), NOT '  # 138
+      '-2 -- guard does not refuse a valid base', v == 0,
+      f'got {v}: {body_of(raw)!r}')
+v, raw = val('SMI-OFF', 2.0)
+check('positive control, bound: SMI-OFF = 0 (absent), NOT -2',  # 139
+      v == 0, f'got {v}: {body_of(raw)!r}')
+v, raw = val('XHCI-OWNER', 2.0)
+check('positive control, bound: XHCI-OWNER = 0 (absent), NOT '  # 140
+      '-2', v == 0, f'got {v}: {body_of(raw)!r}')
+
 raw = send('BASE @ DECIMAL .')
-check('BASE tripwire: reads 10 at exit',                     # 130
+check('BASE tripwire: reads 10 at exit',                     # 141
       re.search(r'\b10\b', body_of(raw)) is not None,
       f'got: {body_of(raw)!r}')
 

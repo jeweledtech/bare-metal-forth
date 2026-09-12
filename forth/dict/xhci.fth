@@ -120,10 +120,22 @@ VARIABLE HRST-LEFT
 \ timeout/fail-closed sequence is 2e's third outcome.
 \ XCAPS counts visited caps so a runaway walk is visible.
 VARIABLE XCAPS  VARIABLE XCID  VARIABLE XCP
+\ Unbound-base guards (iron 2026-09-10, a6a6cae correction 2):
+\ XHCI-CLAIM ran before XHCI-BIND, HCC1 read the real-mode
+\ IVT at 10, and it returned 0 -- "cap absent" -- only because
+\ bits 31:16 there were clear.  (CLAIM) writes.  Address words
+\ refuse with 0 (every caller dereferences nonzero); the
+\ code-returning wrappers refuse with -2, unused by both code
+\ sets, so a refusal can never be read as outcome A.  A zero
+\ check is the whole predicate: XHCI-BIND is the only writer
+\ and stores 0 or PCI-BAR64@'s fail-closed addr|0.  Red-first
+\ evidence: docs/evidence/xhci-guard-red-2026-09-11.log.
 : XECP-BASE ( -- addr|0 )
+    XHCI-BASE @ 0= IF 0 EXIT THEN
     HCC1 10 RSHIFT DUP 0= IF EXIT THEN
     4 * XHCI-BASE @ + ;
 : XECP-FIND ( id -- addr|0 )
+    XHCI-BASE @ 0= IF DROP 0 EXIT THEN
     XCID !  0 XCAPS !  XECP-BASE XCP !
     BEGIN XCP @ 0<> XCAPS @ 10 < AND
     WHILE
@@ -139,6 +151,7 @@ VARIABLE XCAPS  VARIABLE XCID  VARIABLE XCP
 \ not asserting ownership.  The stuck case for 2e is code 1
 \ persisting after an ownership request.
 : XHCI-OWNER ( -- code )
+    XHCI-BASE @ 0= IF -2 EXIT THEN
     1 XECP-FIND DUP 0= IF EXIT THEN
     @ 10000 AND IF 1 ELSE 2 THEN ;
 
@@ -157,7 +170,9 @@ VARIABLE XCAPS  VARIABLE XCID  VARIABLE XCP
     DUP 10000 3E8 POLL-CLEAR
     IF DROP -1 ELSE
         ." handoff stuck, legsup=" @ .H8 CR 1 THEN ;
-: XHCI-CLAIM ( -- code ) 1 XECP-FIND DUP IF (CLAIM) THEN ;
+: XHCI-CLAIM ( -- code )
+    XHCI-BASE @ 0= IF -2 EXIT THEN
+    1 XECP-FIND DUP IF (CLAIM) THEN ;
 \ SMI-clear on USBLEGCTLSTS (legsup + 4): read first --
 \ enables mask E011 (bits 0,4,13,14,15; bit 4 = SMI on Host
 \ System Error, armed during the reset leg).  Already clear
@@ -172,7 +187,9 @@ VARIABLE XCAPS  VARIABLE XCID  VARIABLE XCP
     DUP @ E011 AND 0= IF DROP -1 EXIT THEN
     DUP @ E1FEE AND E0000000 OR OVER !
     @ E011 AND 0= IF 1 ELSE 2 THEN ;
-: SMI-OFF ( -- code ) 1 XECP-FIND DUP IF 4 + (SMI-OFF) THEN ;
+: SMI-OFF ( -- code )
+    XHCI-BASE @ 0= IF -2 EXIT THEN
+    1 XECP-FIND DUP IF 4 + (SMI-OFF) THEN ;
 \ Memdisk safety gate (card Section 4.5): kernel sysvar
 \ MEMDISK_BASE at 28098 selects the RAM-vs-ATA block path at
 \ boot.  0 = not memdisk-resident => card STOPS before the
