@@ -503,6 +503,145 @@ VARIABLE XEV-SKIP  VARIABLE XEV-LAST  VARIABLE XEV-WANT
     XHCI-BASE @ 0= IF 0 EXIT THEN
     HCC1 4 AND IF 40 ELSE 20 THEN ;
 
+\ ---- Step 3b: slot commands / contexts / Address Device ----
+\ Generic command TRB + Enable Slot / Address Device / Disable
+\ Slot.  First rung that builds structures the CONTROLLER reads
+\ back (contexts it dereferences), not just rings it consumes.
+\ Command/completion codes are xHCI 1.2 Table 6-90/6-91 (QEMU
+\ v8.2.2 confirms): Enable Slot 9, Disable Slot 10 (A),
+\ Address Device 11 (B); Command Completion event 33 (21);
+\ CC Success 1, TRB Error 5, Slot Not Enabled 11 (B), Parameter
+\ Error 17 (11).  Slot states Default 1, Addressed 2.
+\
+\ CONTEXT SIZE is the load-bearing correctness bit and QEMU
+\ cannot exercise it: QEMU reads the input context at hardcoded
+\ +32/+64, i.e. always 32-byte stride, so a 32 hardcode passes
+\ on QEMU and writes wrong offsets into DMA on a 64-byte part.
+\ CTX-SZ caches CTX-SIZE (HCC1 CSZ) once; every offset word
+\ scales with it, and the suite forces CTX-SZ = 64 to prove the
+\ scaling the emulator can't (feedback_mask_blindness).
+VARIABLE CTX-SZ
+: CTX-CACHE ( -- ) CTX-SIZE CTX-SZ ! ;
+: I-SLOT ( ictx -- a ) CTX-SZ @ + ;
+: I-EP0  ( ictx -- a ) CTX-SZ @ 2 * + ;
+: O-EP0  ( octx -- a ) CTX-SZ @ + ;
+
+\ Slot structures: output device context, input context, EP0
+\ transfer ring.  One page each from PHYS-ALLOC; SLOT-FREE
+\ cross-checks each against the owner table (XREL1) before
+\ release, like XHCI-DOWN.
+VARIABLE XODC   VARIABLE XICTX  VARIABLE XEP0R
+VARIABLE XEP0ENQ  VARIABLE XEP0CCS  VARIABLE XSLOT
+
+\ Generic command-ring producer.  16 TRBs; slot 15 is the link
+\ TRB (type 6, Toggle Cycle), same wrap as TRB-NOP!.  The cycle
+\ bit is written LAST (controller polls it to detect the TRB),
+\ so params+status land before control|cycle.
+VARIABLE CMA  VARIABLE CMCTL  VARIABLE CMCC  VARIABLE CMSLOT
+: CMD-ENQ ( plo phi sts ctl -- )
+    XCCS @ OR CMCTL !
+    XCRING @ XENQ @ 10 * + CMA !
+    CMA @ 8 + !
+    CMA @ 4 + !
+    CMA @ !
+    CMCTL @ CMA @ C + !
+    1 XENQ +!
+    XENQ @ F = IF
+        XCRING @ F0 + CMA !
+        XCRING @ CMA @ !  0 CMA @ 4 + !  0 CMA @ 8 + !
+        1802 XCCS @ OR CMA @ C + !
+        0 XENQ !  XCCS @ 1 XOR XCCS ! THEN ;
+\ CMD-RUN: enqueue, ring, await a Command Completion event (21),
+\ read completion code + slot, consume it.  ( -- cc slot ); on a
+\ poll timeout returns 0 0 (never a valid completion).
+: CMD-RUN ( plo phi sts ctl -- cc slot )
+    CMD-ENQ DOORBELL0
+    21 EV-WAIT IF
+        EV-CC CMCC !  EV-SLOT CMSLOT !  EV-NEXT
+    ELSE 0 CMCC !  0 CMSLOT ! THEN
+    CMCC @ CMSLOT @ ;
+: ENABLE-SLOT ( -- cc slot ) 0 0 0 2400 CMD-RUN ;
+: DISABLE-SLOT ( slot -- cc )
+    18 LSHIFT 2800 OR >R  0 0 0 R>  CMD-RUN DROP ;
+
+\ EP0 max packet DEFAULT by port speed (xHCI 1.2 4.3, USB 2.0
+\ 5.5.3): HS 64, SS 512, LS/FS 8.  Derived from P-SPEED (a
+\ register read), NOT hardcoded; 3c reads the real
+\ bMaxPacketSize0 via GET_DESCRIPTOR(8), corrects w/ Eval Ctx.
+: SPEED>MPS ( speed -- mps )
+    DUP 3 = IF DROP 40 EXIT THEN
+    4 = IF 200 ELSE 8 THEN ;
+
+\ Input context for Address Device (spec 6.2.5.1/6.2.2/6.2.3):
+\ control: Drop=0, Add=3 (A0 slot + A1 EP0) -- QEMU rejects any
+\ other with TRB Error.  slot dword0 = ctx-entries(1)<<27 |
+\ speed<<20; dword1 = port#<<16.  EP0 dword1 = mps<<16 | type
+\ Control(4)<<3 | CErr(3)<<1 = mps<<16|26; dword2 = ring|DCS;
+\ dword4 = avg TRB length 8.
+: BUILD-ICTX ( port# speed -- )
+    XICTX @ PG0
+    3 XICTX @ 4 + !
+    DUP SPEED>MPS
+    10 LSHIFT 26 OR XICTX @ I-EP0 4 + !
+    14 LSHIFT 8000000 OR XICTX @ I-SLOT !
+    10 LSHIFT XICTX @ I-SLOT 4 + !
+    XEP0R @ 1 OR XICTX @ I-EP0 8 + !
+    0 XICTX @ I-EP0 C + !
+    8 XICTX @ I-EP0 10 + ! ;
+
+: SLOT-ALLOC ( -- flag )
+    1000 PHYS-ALLOC DUP XODC ! 0= IF 0 EXIT THEN
+    1000 PHYS-ALLOC DUP XICTX ! 0= IF
+        XODC @ 1000 PHYS-RELEASE 0 XODC ! 0 EXIT THEN
+    1000 PHYS-ALLOC DUP XEP0R ! 0= IF
+        XICTX @ 1000 PHYS-RELEASE 0 XICTX !
+        XODC @ 1000 PHYS-RELEASE 0 XODC ! 0 EXIT THEN
+    XODC @ PG0  XICTX @ PG0  XEP0R @ PG0
+    0 XEP0ENQ !  1 XEP0CCS !  -1 ;
+: SLOT-FREE ( -- )
+    XEP0R @ 0<> IF XEP0R @ 1000 XREL1 0 XEP0R ! THEN
+    XICTX @ 0<> IF XICTX @ 1000 XREL1 0 XICTX ! THEN
+    XODC @ 0<> IF XODC @ 1000 XREL1 0 XODC ! THEN ;
+
+\ Slot context state (output dword3 bits 31:27): 1 Default,
+\ 2 Addressed.  Read from the OUTPUT device context the
+\ controller wrote.
+: SLOT-STATE ( -- n ) XODC @ C + @ 1B RSHIFT 1F AND ;
+
+\ ENUM-ADDRESS: the 3b sequence for one occupied port.  Requires
+\ a bound base and XHCI-UP done (DCBAA live).  Enable Slot ->
+\ allocate + build input ctx -> program DCBAA[slot] = output ctx
+\ -> Address Device.  Returns the slot on Addressed (both cc=1),
+\ else tears down (Disable Slot if enabled + release) and 0.
+: ENUM-ADDRESS ( port# -- slot|0 )
+    XHCI-BASE @ 0= IF DROP 0 EXIT THEN
+    XDCBAA @ 0= IF DROP 0 EXIT THEN
+    CTX-CACHE
+    SLOT-ALLOC 0= IF DROP 0 EXIT THEN
+    ENABLE-SLOT
+    SWAP 1 = 0= IF 2DROP SLOT-FREE 0 EXIT THEN
+    DUP XSLOT !
+    XODC @ XDCBAA @ XSLOT @ 8 * + !
+    0 XDCBAA @ XSLOT @ 8 * + 4 + !
+    DROP
+    DUP PORTSC@ P-SPEED BUILD-ICTX
+    XICTX @ 0 0 XSLOT @ 18 LSHIFT 2C00 OR CMD-RUN
+    DROP
+    1 = IF XSLOT @ ELSE
+        XSLOT @ DISABLE-SLOT DROP SLOT-FREE 0 XSLOT ! 0 THEN ;
+
+\ SLOT-DOWN: Disable Slot, clear the DCBAA entry, cross-checked
+\ release.  -1 all released / 0 nothing held / 1 partial.
+: SLOT-DOWN ( -- code )
+    XSLOT @ 0= IF 0 EXIT THEN
+    XSLOT @ DISABLE-SLOT DROP
+    0 XDCBAA @ XSLOT @ 8 * + !
+    0 XDCBAA @ XSLOT @ 8 * + 4 + !
+    0 XDP !
+    SLOT-FREE
+    0 XSLOT !
+    XDP @ IF 1 ELSE -1 THEN ;
+
 ." XHCI vocab loaded" CR
 
 ONLY FORTH DEFINITIONS

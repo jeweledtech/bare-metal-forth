@@ -1605,8 +1605,262 @@ else:
         check(_name, False,
               'red by guard: 3a words absent, not executed')
 
+print('\n=== Phase 10 (3b): slot commands / contexts / Address Device ===')
+continuity('phase 10')
+zap()
+send('VARIABLE XSLOT2  VARIABLE CMD-CC2')
+# Step 3b (design rulings 2026-09-12): the first structures the
+# CONTROLLER reads back -- input + output device contexts it
+# dereferences, not just rings it consumes.  Generic command TRB
+# + Enable Slot / Address Device / Disable Slot; device reaches
+# Addressed.  Control transfers + the real bMaxPacketSize0 read are
+# 3c (spec bootstrap: cannot GET_DESCRIPTOR before Addressed).
+#
+# CONTEXT SIZE is the load-bearing bit QEMU cannot exercise: QEMU
+# reads the input context at hardcoded +32/+64 (always 32-byte
+# stride), so a 32 hardcode passes here and writes wrong offsets
+# into DMA on a 64-byte controller.  CTX-SZ caches CTX-SIZE and
+# every offset word scales with it; the scaling control forces
+# CTX-SZ=64 to prove the 64-byte layout the emulator can't
+# (feedback_mask_blindness).  The BUILD-ICTX readback proves the
+# exact bytes the controller dereferences (the two-gate content
+# side; a completion code alone is only delivery).
+#
+# Constants xHCI 1.2 Table 6-90/6-91 (QEMU v8.2.2 hcd-xhci.c
+# confirms): Enable Slot 9, Disable Slot 10, Address Device 11;
+# Command Completion event 33; CC Success 1, TRB Error 5, Slot Not
+# Enabled 11, Parameter Error 17; slot state Addressed 2.  QEMU
+# requires input control Drop=0/Add=3 or returns TRB Error 5 --
+# that is what a wrong context reads as, pre-registered.
+#
+# Pre-registered (2026-09-12, before the red run; suite-alone
+# baseline 180/180, xhci-3a-provenance-2026-09-12.log):
+#   35 new checks.  Baseline (green2/HEAD) = 180 executed
+#   (the BASE tripwire is one of them); new total = 215, DERIVED
+#   from the red log's PASS/FAIL line count, not reconciled.
+#   Emitted positions: phase-10 checks 180-214, tripwire 215.
+#   The # 181-215 labels in the code below are nominal (+1),
+#   inherited from the 3a tripwire label collision; the load-
+#   bearing number is the emitted total 215.
+#   Red (xhci.fth untouched by 3b -- 3a source is HEAD): 181-183
+#     definedness red (sent); 184-215 red BY GUARD (not sent -- the
+#     context builders and command path must not run on a tree
+#     without them).  Predicted red 180/215 exactly (180
+#     baseline green + 35 new red); no existing check moves.
+#   Green derivations (source, not recall):
+#     SPEED>MPS: HS 64 / SS 512 / LS,FS 8 (spec 4.3, USB 2.0 5.5.3).
+#     CTX-SZ scaling: pure multiply, 64->{64,128,64}, 32->{32,64}.
+#     BUILD-ICTX @ CTX-SZ=32, port 5, HS: ctrl+4=3; slot+32=
+#       0x08300000 (ctxentries 1<<27 | speed 3<<20); slot+36=
+#       0x00050000 (port 5<<16); ep0+68=0x00400026 (mps 64<<16 |
+#       type Control 4<<3 | CErr 3<<1); ep0+72 = ring|1 (DCS);
+#       ep0+80 = 8 (avg TRB len).
+#     HW leg: ENABLE-SLOT cc=1 slot>=1; ENUM-ADDRESS returns the
+#       slot; SLOT-STATE=2 (Addressed) -- QEMU xhci_address_slot
+#       writes SLOT_ADDRESSED to output slot_ctx[3]; SLOT-DOWN=-1;
+#       NLIVE symmetric across UP..DOWN.
+#   Green: 215/215.  Sweep at step-3 close (cadence ruling), not here.
+#   SCOPE OF PROOF (delivery vs content): forcing CTX-SZ=64
+#   proves the offset words SCALE; it CANNOT prove a 64-byte
+#   controller accepts the layout, because QEMU reads at
+#   hardcoded 32-byte stride regardless.  Record green as
+#   'scaling proven, 64-byte acceptance unproven' -- 64-byte
+#   context acceptance is an iron finding (named for the trip).
+#   OUTCOME: red 180/215 (xhci-3b-red-2026-09-12.log), DERIVED
+#   from 215 PASS/FAIL lines: 180 baseline green, 35 phase-10 red
+#   (3 definedness sent + 32 by guard), no baseline check moved.
+#   Green 1: 214/215 (xhci-3b-green-2026-09-12.log): check 204
+#   only.  NOT a vocab defect -- the probe compared XCRING's
+#   base ADDRESS to the constant (missing @); check 205 passed,
+#   proving CMD-ENQ wrote the control dword.  Probe corrected to
+#   dereference all four dwords; CMD-ENQ correct by stack trace
+#   (plo+0/phi+4/sts+8/ctl+C).  Range moved 1724-1755 -> 1724-
+#   1764 (3b added ~90 lines; suite reads it live, THRU loaded).
+#   Green 2: 215/215 (xhci-3b-green2-2026-09-12.log), DERIVED
+#   from 215 PASS/FAIL lines, 0 fail -- params landing now
+#   OBSERVED (all four dwords), not only reasoned.
+d_ctx = (defined('CTX-CACHE') and defined('CTX-SZ')
+         and defined('I-SLOT') and defined('I-EP0')
+         and defined('O-EP0'))
+check('CTX-CACHE/CTX-SZ/I-SLOT/I-EP0/O-EP0 defined', d_ctx)   # 181
+v, raw = val('DEF? CMD-ENQ 0<> DEF? CMD-RUN 0<> AND '
+             'DEF? ENABLE-SLOT 0<> AND DEF? DISABLE-SLOT 0<> AND '
+             'DEF? SPEED>MPS 0<> AND')
+d_cmd = (v == -1)
+check('command words defined (CMD-ENQ/CMD-RUN/ENABLE-SLOT/'   # 182
+      'DISABLE-SLOT/SPEED>MPS)', d_cmd, f'got {v}: {body_of(raw)!r}')
+v, raw = val('DEF? BUILD-ICTX 0<> DEF? SLOT-ALLOC 0<> AND '
+             'DEF? SLOT-FREE 0<> AND DEF? SLOT-STATE 0<> AND '
+             'DEF? ENUM-ADDRESS 0<> AND DEF? SLOT-DOWN 0<> AND')
+d_slot = (v == -1)
+check('slot words defined (BUILD-ICTX/SLOT-ALLOC/SLOT-FREE/'  # 183
+      'SLOT-STATE/ENUM-ADDRESS/SLOT-DOWN)', d_slot,
+      f'got {v}: {body_of(raw)!r}')
+
+ALL_3B = d_ctx and d_cmd and d_slot
+LOGIC_3B = [
+    ('SPEED>MPS FS(1) = 8', '1 SPEED>MPS', 8),               # 184
+    ('SPEED>MPS LS(2) = 8', '2 SPEED>MPS', 8),               # 185
+    ('SPEED>MPS HS(3) = 64', '3 SPEED>MPS', 64),             # 186
+    ('SPEED>MPS SS(4) = 512', '4 SPEED>MPS', 512),           # 187
+]
+SCALE_NAMES = [
+    'CTX-SZ scaling 64: 0 I-SLOT = 64 (slot ctx at 1x)',     # 188
+    'CTX-SZ scaling 64: 0 I-EP0 = 128 (ep0 ctx at 2x)',      # 189
+    'CTX-SZ scaling 64: 0 O-EP0 = 64 (output ep0 at 1x)',    # 190
+    'CTX-SZ scaling 32: 0 I-SLOT = 32',                      # 191
+    'CTX-SZ scaling 32: 0 I-EP0 = 64',                       # 192
+]
+ICTX_NAMES = [
+    'scratch input ctx + ring allocated',                    # 193
+    'BUILD-ICTX input control +4 = 3 (Drop 0 / Add A0|A1)',  # 194
+    'BUILD-ICTX slot +32 = 0x08300000 (ctxentries 1 | HS)',  # 195
+    'BUILD-ICTX slot +36 = 0x00050000 (root port 5)',        # 196
+    'BUILD-ICTX ep0 +68 = 0x00400026 (mps 64 | Control | '   # 197
+    'CErr 3)',
+    'BUILD-ICTX ep0 +72 = ring | DCS(1)',                    # 198
+    'BUILD-ICTX ep0 +80 = 8 (avg TRB length)',               # 199
+]
+UNB_3B_NAMES = [
+    'unbound: ENUM-ADDRESS = 0 (refused, no write to DMA)',  # 200
+    'idle: SLOT-DOWN = 0 (nothing held)',                    # 201
+]
+HW_3B_NAMES = [
+    'XHCI-UP returns -1 (3b leg)',                           # 202
+    'XHCI-RUN returns -1 (command ring runs)',               # 203
+    'CMD-ENQ layout: params land, cycle bit set in control',  # 204
+    'CMD-ENQ layout: control type field = 9 (the Enable Slot '  # 205
+    'opcode written)',
+    'ENABLE-SLOT completion cc = 1 (Success)',               # 206
+    'ENABLE-SLOT slot in 1..MAX-SLOTS',                      # 207
+    'DISABLE-SLOT (standalone slot) cc = 1',                 # 208
+    'ENUM-ADDRESS(occupied port) returns a slot (nonzero)',  # 209
+    'ENUM-ADDRESS slot = XSLOT (the enabled slot)',          # 210
+    'SLOT-STATE = 2 (Addressed) -- output device context '   # 211
+    'written by the controller',
+    'DCBAA[slot] low = output device context (XODC)',        # 212
+    'SLOT-DOWN returns -1 (all released)',                   # 213
+    'SLOT-DOWN then idle SLOT-DOWN = 0 (nothing held)',      # 214
+    'allocator symmetry: NLIVE after SLOT-DOWN = before UP',  # 215
+]
+if ALL_3B:
+    for _name, _expr, _want in LOGIC_3B:
+        v, raw = val(_expr)
+        check(_name, v == _want, f'got {v}: {body_of(raw)!r}')
+    # Scaling control: base 0 so the offset IS the stride.
+    send('64 CTX-SZ !')
+    for _nm, _ex, _w in ((SCALE_NAMES[0], '0 I-SLOT', 64),
+                         (SCALE_NAMES[1], '0 I-EP0', 128),
+                         (SCALE_NAMES[2], '0 O-EP0', 64)):
+        v, raw = val(_ex)
+        check(_nm, v == _w, f'got {v}: {body_of(raw)!r}')
+    send('32 CTX-SZ !')
+    for _nm, _ex, _w in ((SCALE_NAMES[3], '0 I-SLOT', 32),
+                         (SCALE_NAMES[4], '0 I-EP0', 64)):
+        v, raw = val(_ex)
+        check(_nm, v == _w, f'got {v}: {body_of(raw)!r}')
+    # BUILD-ICTX layout against suite-owned scratch (no controller):
+    # the exact bytes Address Device will dereference.
+    send('4096 PHYS-ALLOC XICTX !')
+    send('4096 PHYS-ALLOC XEP0R !')
+    xi, raw = val('XICTX @ 0<> XEP0R @ 0<> AND')
+    alloc_ok = (xi == -1)
+    check(ICTX_NAMES[0], alloc_ok, f'got {xi}: {body_of(raw)!r}')
+    if alloc_ok:
+        send('32 CTX-SZ !')
+        send('5 3 BUILD-ICTX')
+        for _nm, _ex, _w in (
+                (ICTX_NAMES[1], 'XICTX @ 4 + @', 3),
+                (ICTX_NAMES[2], 'XICTX @ 32 + @', 137363456),
+                (ICTX_NAMES[3], 'XICTX @ 36 + @', 327680),
+                (ICTX_NAMES[4], 'XICTX @ 68 + @', 4194342),
+                (ICTX_NAMES[6], 'XICTX @ 80 + @', 8)):
+            v, raw = val(_ex)
+            check(_nm, v == _w, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('XICTX @ 72 + @ XEP0R @ 1 OR =')
+        check(ICTX_NAMES[5], v == -1, f'got {v}: {body_of(raw)!r}')
+        # release the scratch, clear the vars for the HW leg
+        send('XICTX @ 4096 PHYS-RELEASE 0 XICTX !')
+        send('XEP0R @ 4096 PHYS-RELEASE 0 XEP0R !')
+    else:
+        for _nm in (ICTX_NAMES[1], ICTX_NAMES[2], ICTX_NAMES[3],
+                    ICTX_NAMES[4], ICTX_NAMES[6], ICTX_NAMES[5]):
+            check(_nm, False, 'scratch alloc failed')
+    # Unbound / idle refusals (phase-8 shape).
+    send('XHCI-BASE @ XB0 !')
+    send('0 XHCI-BASE !')
+    v, raw = val('5 ENUM-ADDRESS')
+    check(UNB_3B_NAMES[0], v == 0, f'got {v}: {body_of(raw)!r}')
+    send('XB0 @ XHCI-BASE !')
+    v, raw = val('SLOT-DOWN')
+    check(UNB_3B_NAMES[1], v == 0, f'got {v}: {body_of(raw)!r}')
+    if ALL_2C and ALL_2D:
+        zap()
+        nl_a, _ = val('NLIVE', 2.0)
+        v, raw = val('XHCI-UP', 3.0)
+        check(HW_3B_NAMES[0], v == -1, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('XHCI-RUN', 3.0)
+        check(HW_3B_NAMES[1], v == -1, f'got {v}: {body_of(raw)!r}')
+        # CMD-ENQ layout on the live ring, doorbell NOT rung: write a
+        # synthetic Enable-Slot TRB, read the 4 dwords back, reset the
+        # producer.  Proves params + cycle-last before any hardware.
+        send('0 XENQ !  1 XCCS !')
+        send('286331153 286331153 286331153 9216 CMD-ENQ')
+        # all four dwords: plo+0 phi+4 sts+8 (each 0x11111111 =
+        # 286331153) and control+12 (0x2400 | cycle 1 = 9217).
+        # (green 1 probe compared XCRING's ADDRESS, not @ -- fixed.)
+        v, raw = val('XCRING @ @ 286331153 = '
+                     'XCRING @ 4 + @ 286331153 = AND '
+                     'XCRING @ 8 + @ 286331153 = AND '
+                     'XCRING @ 12 + @ 9217 = AND')
+        check(HW_3B_NAMES[2], v == -1, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('XCRING @ 12 + @ T-TYPE')
+        check(HW_3B_NAMES[3], v == 9, f'got {v}: {body_of(raw)!r}')
+        # reset the producer (controller never advanced -- no doorbell),
+        # then a standalone Enable Slot: slot -> XSLOT2, cc -> CMD-CC2.
+        send('0 XENQ !  1 XCCS !')
+        send('ENABLE-SLOT XSLOT2 !  CMD-CC2 !')
+        cc, raw = val('CMD-CC2 @')
+        check(HW_3B_NAMES[4], cc == 1, f'got {cc}: {body_of(raw)!r}')
+        sl, raw = val('XSLOT2 @')
+        mps_ms, _ = val('MAX-SLOTS')
+        check(HW_3B_NAMES[5],
+              sl is not None and mps_ms is not None
+              and 1 <= sl <= mps_ms, f'slot {sl}, MAX-SLOTS {mps_ms}')
+        v, raw = val('XSLOT2 @ DISABLE-SLOT', 4.0)
+        check(HW_3B_NAMES[6], v == 1, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('FIRST-CCS ENUM-ADDRESS', 6.0)
+        slot = v
+        check(HW_3B_NAMES[7], slot is not None and slot != 0,
+              f'got {slot}: {body_of(raw)!r}')
+        v, raw = val('XSLOT @')
+        check(HW_3B_NAMES[8], slot is not None and v == slot,
+              f'XSLOT {v} vs returned {slot}: {body_of(raw)!r}')
+        v, raw = val('SLOT-STATE')
+        check(HW_3B_NAMES[9], v == 2, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('XDCBAA @ XSLOT @ 8 * + @ XODC @ =')
+        check(HW_3B_NAMES[10], v == -1, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('SLOT-DOWN', 4.0)
+        check(HW_3B_NAMES[11], v == -1, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('SLOT-DOWN')
+        check(HW_3B_NAMES[12], v == 0, f'got {v}: {body_of(raw)!r}')
+        # tear down the controller and check allocator symmetry.
+        send('XHCI-DOWN DROP')
+        nl_b, raw = val('NLIVE', 2.0)
+        check(HW_3B_NAMES[13], nl_a is not None and nl_b == nl_a,
+              f'NLIVE {nl_a} -> {nl_b}: {body_of(raw)!r}')
+    else:
+        for _nm in HW_3B_NAMES:
+            check(_nm, False,
+                  'red by guard: 2c/2d machinery absent, not executed')
+else:
+    for _name, _expr, _want in LOGIC_3B:
+        check(_name, False, 'red by guard: 3b words absent')
+    for _nm in (SCALE_NAMES + ICTX_NAMES + UNB_3B_NAMES + HW_3B_NAMES):
+        check(_nm, False, 'red by guard: 3b words absent')
+
 raw = send('BASE @ DECIMAL .')
-check('BASE tripwire: reads 10 at exit',                     # 180
+check('BASE tripwire: reads 10 at exit',                     # 215
       re.search(r'\b10\b', body_of(raw)) is not None,
       f'got: {body_of(raw)!r}')
 
