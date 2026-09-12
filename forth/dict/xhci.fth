@@ -424,14 +424,21 @@ VARIABLE XDP
 : .PORTS ( -- ) MAX-PORTS 1+ 1 DO I .PORT LOOP ;
 
 \ ---- Step 3a: port reset (first port WRITE), typed events ----
-\ PORTSC mixes RO status, RWS state, RW1S (PR, bit 4) and RW1C
-\ bits: PED (bit 1 -- writing 1 DISABLES the port) and change
-\ bits 17-23.  Every write goes through P-NEUTRAL, which keeps
-\ only RO + RWS so a read-modify-write neither clears a change
-\ bit by accident nor disables the port.  4E00FFE9 =
-\ XHCI_PORT_RO (bits 0,3,10-13,30) | XHCI_PORT_RWS (bits 5-8,9,
-\ 14-15,25-27), Linux xhci-hub.c fetched 2026-09-12 (sha256
-\ 612449ce...) -- verified against source, NOT recalled.
+\ PORTSC attribute classes, xHCI 1.2 section 5.4.8 (Table 5-27):
+\   RO/ROS  : 0 CCS, 3 OCA, 13:10 speed, 24 CAS, 30 DR
+\   RWS     : 8:5 PLS, 9 PP, 15:14 PIC, 27:25 WCE/WDE/WOE
+\   RW      : 16 LWS (write 0: leave the link state alone)
+\   RW1S    : 4 PR, 31 WPR
+\   RW1CS   : 1 PED (writing 1 DISABLES the port), 23:17 change
+\   RsvdZ   : 2, 29:28
+\ A read-modify-write must carry only the RO + RWS classes, so
+\ it neither clears a change bit by accident nor disables the
+\ port.  Derived from the table: bits 0,3,5-15,25-27,30 =
+\ 4E00FFE9 (bit 24 left out: RO ignores writes either way).
+\ Cross-checked equal to Linux xhci-hub.c XHCI_PORT_RO|RWS
+\ at pinned tag v6.12 (sha256 7cc388b7...): the spec is the
+\ source, Linux a version-pinned check (not master, which can
+\ drift).  Change bits 23:17 = FE0000, cleared by writing 1.
 : P-NEUTRAL ( x -- x' ) 4E00FFE9 AND ;
 : P-PRC ( x -- flag ) 200000 AND 0<> ;
 \ PORT-RESET: refuses (0) an unbound base (PORTSC-ADDR alone is
@@ -455,10 +462,12 @@ VARIABLE PRST-LEFT  VARIABLE PRA
     PRA @ @ P-NEUTRAL FE0000 OR PRA @ !
     PRA @ @ P-PED AND ;
 
-\ Event TRB fields, VALUE-taking decoders (suite feeds literals)
-\ type = control bits 15:10; completion code = status bits
-\ 31:24; slot = control bits 31:24; PSCE port id = dword0 bits
-\ 31:24.  EV-* read the TRB at the dequeue pointer.
+\ Event TRB fields (xHCI 1.2 section 6.4.2; TRB type field
+\ 6.4.6 Table 6-91): type = control bits 15:10; completion
+\ code = status bits 31:24; slot = control bits 31:24; PSCE
+\ port id = dword0 bits 31:24 (6.4.2.3).  VALUE-taking
+\ decoders (suite feeds literals); EV-* read the TRB at the
+\ dequeue pointer.
 : T-TYPE ( ctrl -- n ) A RSHIFT 3F AND ;
 : T-CC ( sts -- n ) 18 RSHIFT FF AND ;
 : T-SLOT ( ctrl -- n ) 18 RSHIFT FF AND ;
@@ -485,8 +494,8 @@ VARIABLE XEV-SKIP  VARIABLE XEV-LAST  VARIABLE XEV-WANT
         EV-TYPE XEV-LAST !  1 XEV-SKIP +!  EV-NEXT
         XEV-SKIP @ 14 < 0= IF 0 EXIT THEN
     REPEAT 0 ;
-\ Context size: HCCPARAMS1 bit 2 (CSZ) -> 40 (64-byte contexts)
-\ else 20 (Linux xhci-caps.h CTX_SIZE). Refuses unbound: 20 or
+\ Context size: HCCPARAMS1 bit 2 CSZ (xHCI 1.2 section 5.3.6)
+\ -> 40 (64-byte contexts) else 20.  Refuses unbound: 20 or
 \ 40 would read as a plausible answer on a pre-bind card line.
 \ QEMU: 20 by derivation (hcd-xhci.c HCCPARAMS = 00080000 or
 \ 00080001, bit 2 clear).  Iron: unmeasured, pre-registered 40.

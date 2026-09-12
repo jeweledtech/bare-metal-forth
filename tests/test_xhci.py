@@ -1373,9 +1373,13 @@ zap()
 # vocab.  PORTSC mixes RO status, RWS state, RW1S (PR, bit 4) and
 # RW1C bits (PED bit 1 -- writing 1 DISABLES the port -- and the
 # change bits 17-23), so a read-modify-write must pass through a
-# neutral mask.  Mask 0x4E00FFE9 = XHCI_PORT_RO (bits 0,3,10-13,30)
-# | XHCI_PORT_RWS (bits 5-8,9,14-15,25-27) VERIFIED against Linux
-# xhci-hub.c (fetched 2026-09-12, sha256 612449ce...), NOT recalled.
+# neutral mask.  Mask 0x4E00FFE9 = the RO/ROS + RWS classes of
+# xHCI 1.2 section 5.4.8 Table 5-27 (bits 0,3,5-15,25-27,30; bit
+# 24 CAS omitted, RO ignores writes).  Derived from the spec table;
+# cross-checked equal to Linux xhci-hub.c XHCI_PORT_RO|RWS at
+# pinned tag v6.12 (sha256 7cc388b7...) -- spec is the source,
+# Linux a version-pinned check, not master (provenance ruling
+# 2026-09-12; master can drift, so the cross-check names a tag).
 # Bit-isolating controls (feedback_mask_blindness): all-ones,
 # PED-only, change-bits-only, PR-only, and the measured post-HCRST
 # dword 0x20EE1 each get their own check.
@@ -1411,9 +1415,17 @@ zap()
 #       recon had ALREADY banked speed 3 on this port
 #       (xhci-2d-green-2026-09-09.log:129) and the derivation was
 #       not cross-checked against it.  Re-pinned to 3 WITH the
-#       mechanism (version-pinned source, sha256 706a9cf2...);
-#       carried to 3b: QEMU EP0 max packet = 64 (HS), an FS
-#       keyboard on iron = 8.]
+#       mechanism (version-pinned source, sha256 706a9cf2...).
+#       3 IS A QEMU FIXTURE VALUE (same species as the CAP-LEN
+#       0x20..0x7F bound): iron will NOT read 3.  A USB boot
+#       keyboard is typically LOW-speed (P-SPEED=2), sometimes
+#       full-speed (1) -- never high-speed.  Carried to 3b,
+#       CORRECTED: bMaxPacketSize0 is mandated 8 ONLY for
+#       low-speed; full-speed may report 8/16/32/64 and QEMU's
+#       HS keyboard reports 64.  So 3b MUST read bMaxPacketSize0
+#       via GET_DESCRIPTOR(8) and build the EP0 context from the
+#       value read -- never hardcode 8 or 64 (earlier note said
+#       "FS iron = 8", right byte, wrong premise: fixed here).]
 #     elapsed 0 ms: hcd-xhci.c xhci_port_write handles PR
 #       synchronously (PED set, PLS U0, PR cleared, PRC notified
 #       before the write returns).  Iron pre-registered 10..100 ms.
@@ -1491,8 +1503,9 @@ HW_3A_NAMES = [
     'occupied port: P-PRC false (change bits cleared by the '  # 165
     'second write)',
     'occupied port: P-CSC false (cleared in the same write)',  # 166
-    'occupied port: P-SPEED = 3 (HS; QEMU 8.2.2 dev-hid.c '    # 167
-    'desc_keyboard .high, EP0 max packet 64 -- 2d banked 3)',
+    'occupied port: P-SPEED = 3 (QEMU 8.2.2 FIXTURE value: '   # 167
+    'dev-hid.c desc_keyboard .high; iron reads 1/FS or 2/LS, '
+    'never 3)',
     'elapsed: 1000 PRST-LEFT @ - = 0 ms (QEMU resets '         # 168
     'synchronously in xhci_port_write; iron pre-registered '
     '10..100 ms)',
