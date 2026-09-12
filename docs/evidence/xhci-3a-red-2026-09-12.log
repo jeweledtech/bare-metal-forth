@@ -1,0 +1,232 @@
+Running xHCI vocab test...
+input sha256 14e8181b9deebbc8973514b1aac83579b1294241ad7636549e4b7b093cdc76a3  build/combined.img
+
+=== Phase 0: instrument controls (fatal on failure) ===
+  PASS: interpreter alive
+  PASS: qemu-xhci found via FIND-XHCI (control)
+  PASS: host catalog resolver resolves RTL8139 (control)
+  probe sanity: DEF? PCI-FIND=211124 ZZZ-NEVER-DEFINED=0 -> OK
+
+=== Phase 1: block-load XHCI (pre-registered red) ===
+  continuity: nonce OK (phase 1)
+  PASS: XHCI has catalog placement
+  loading XHCI (1724-1750 THRU)...
+  PASS: XHCI blocks load (interpreter alive after THRU)
+  PASS: XHCI vocabulary defined (DEF? nonzero)
+  PASS: BAR64-MASK defined (DEF? nonzero)
+  PASS: PCI-BAR64@ defined (DEF? nonzero)
+
+=== Phase 2: BAR64-MASK logic (pushed literals) ===
+  continuity: nonce OK (phase 2)
+  PASS: iron literal: B1210004/0 masks to B1210000
+  PASS: refusal: nonzero upper dword -> 0
+  PASS: refusal: I/O BAR (bit 0 set) -> 0
+  PASS: refusal: reserved type 01 -> 0
+  PASS: 32-bit type: lo masked, hi ignored
+
+=== Phase 3: hardware path (qemu-xhci) ===
+  continuity: nonce OK (phase 3)
+  PASS: BAR0 type bits read (instrument; predicted 4=64-bit)
+  type bits 2:1 = 10 (64-bit)
+  PASS: PCI-BAR64@ at qemu-xhci nonzero
+  PASS: agrees with PCI-BAR@ (upper dword zero here)
+  PASS: result 16-byte aligned (low 4 bits clear)
+  PASS: 64-bit leg consistent: type 10 + upper 0 (A) or type 00 (B, named alternative)
+  branch A: 64-bit BAR, upper dword 0 (matches iron)
+
+=== Phase 4 (2b): bind/caps/halt/reset/handoff ===
+  continuity: nonce OK (phase 4)
+  PASS: MS-DELAY available after ALSO HARDWARE (control)
+  PASS: MMIO window live at XB (control; 2a words only)
+  PASS: POLL-UNTIL defined (DEF? nonzero)
+  PASS: POLL-CLEAR defined (DEF? nonzero)
+  PASS: XHCI-BIND defined (DEF? nonzero)
+  PASS: XHCI-HALT defined (DEF? nonzero)
+  PASS: XHCI-RESET defined (DEF? nonzero)
+  PASS: XHCI-OWNER defined (DEF? nonzero)
+  PASS: POLL-UNTIL timeout fires (never-set cell -> 0)
+  PASS: POLL-UNTIL prompt success (pre-set cell -> -1)
+  PASS: POLL-CLEAR timeout fires (stuck-set cell -> 0)
+  PASS: POLL-CLEAR prompt success (pre-clear cell -> -1)
+  PASS: XHCI-BIND returns -1
+  PASS: XHCI-BASE matches PCI-BAR64@ (XB)
+  PASS: CAP-LEN in 0x20..0x80
+  CAP-LEN = 0x40 (predicted 0x40)
+  PASS: HCIVERSION 0x100 (predicted) or 0x110 (named alt)
+  HCIVERSION = 0x100
+  PASS: MAX-SLOTS > 0
+  PASS: MAX-PORTS in 1..255
+  pre-halt HCH = 0 (running -- named alternative, halt does real work)
+  PASS: XHCI-HALT returns -1
+  PASS: HCH=1 after halt
+  PASS: XHCI-RESET returns -1 (HCRST+CNR clear in bound)
+  PASS: post-reset R/S=0
+  PASS: post-reset HCH=1
+  PASS: handoff skeleton: cap absent (0, predicted) or present, BIOS bit clear (2, named alt); BIOS-owned (1) fails
+  handoff code = 0: legacy cap absent (predicted)
+  xECP caps visited = 2 (bounded walk; a runaway is visible here even when check 42 passes)
+
+=== Phase 5 (2c): DCBAA/rings/Running/NOP round-trip ===
+  continuity: nonce OK (phase 5)
+  PASS: HCH=1 at phase-5 entry (control; 2b words only)
+  PASS: HARDWARE allocator internals visible (control)
+  PASS: AVAIL sane at snapshot (walk clean, >= 0)
+  phase-5 snapshot: NLIVE=7 AVAIL=3104768
+  PASS: XHCI-UP defined (DEF? nonzero)
+  PASS: XHCI-RUN defined (DEF? nonzero)
+  PASS: NOP-TEST defined (DEF? nonzero)
+  PASS: XHCI-DOWN defined (DEF? nonzero)
+  PASS: .H8 fixed-base: 255 prints 000000FF from DECIMAL
+  PASS: XHCI-UP returns -1
+  scratchpads: none demanded (XSPA=0, predicted)
+  PASS: XHCI-UP allocated something (NLIVE delta > 0)
+  PASS: DCBAAP readback matches XDCBAA record
+  PASS: ERSTBA readback matches XERST record
+  PASS: XHCI-RUN returns -1 (HCH cleared in budget)
+  PASS: running proof: HCH 1 -> 0 transition
+  PASS: 32 NOPs complete 32/32 (16-TRB ring wrapped twice, link-toggle executed)
+  completions = 32, XENQ = 2 (predicted 2), XEDQ = 32 (predicted 32) -- a link-toggle stall pins the count near 15; an ERDP stall pins XEDQ short
+  PASS: XHCI-DOWN (clean arm) returns -1 (all released)
+  PASS: HCH=1 after XHCI-DOWN (stopped before release)
+  PASS: second XHCI-DOWN returns 0 (nothing to tear down)
+  PASS: XHCI-UP (refusal arm) returns -1
+  PASS: XHCI-DOWN after direct release returns 1 (partial: vanished record skipped, rest released)
+  PASS: refusal arm emitted no "PHYS: double release" (cross-check skipped, did not re-release)
+  continuity: nonce OK (presence control (check 64))
+  PASS: presence control: direct double release DOES print "PHYS: double release"
+  PASS: owner table restored (NLIVE back to snapshot)
+  PASS: free bytes restored (AVAIL back to snapshot)
+
+=== Phase 6 (2d): PORTSC decode + port survey (READ-ONLY) ===
+  continuity: nonce OK (phase 6)
+  PASS: PORTSC-ADDR defined (DEF? nonzero)
+  PASS: PORTSC@ defined (DEF? nonzero)
+  PASS: all seven PORTSC field decoders defined
+  PASS: survey + display words defined
+  PASS: fixture pin: MAX-PORTS = 8 (qemu-xhci default)
+  PASS: decode 0x0E03 (occupied, measured): P-CCS true
+  PASS: decode 0x0E03: P-PED true
+  PASS: decode 0x0E03: P-PR false
+  PASS: decode 0x0E03: P-PP true
+  PASS: decode 0x0E03: P-SPEED = 3 (HS)
+  PASS: decode 0x0E03: P-PLS = 0 (U0)
+  PASS: decode 0x0E03: P-CSC false
+  PASS: decode 0x202A0 (empty, measured): P-CCS false
+  PASS: decode 0x202A0: P-PP true
+  PASS: decode 0x202A0: P-SPEED = 0
+  PASS: decode 0x202A0: P-PLS = 5 (RxDetect)
+  PASS: decode 0x202A0: P-CSC true (QEMU quirk, measured)
+  PASS: bounds: 0 PORTSC-ADDR refused (0) -- the dword below the array reads plausibly
+  PASS: bounds: MAX-PORTS 1+ PORTSC-ADDR refused (0)
+  PASS: address identity: 1 PORTSC-ADDR = OP-BASE + 0x400
+  PASS: invariant: #CONNECTED = 1 (usb-kbd fixture)
+  PASS: FIRST-CCS identity: in 1..MAX-PORTS and its own CCS reads set
+  connected port = 5 (incidental: recon read 5; a reshuffle is a log line, not a failure)
+  PASS: occupied port: P-PED false post-HCRST (controller reset cleared the enable; re-enable = port reset, step 3)
+  PASS: occupied port: P-PR false (no reset in flight)
+  PASS: occupied port: P-PP true (powered)
+  PASS: occupied port: P-CSC true post-HCRST (re-detection set the change bit)
+  PASS: occupied port: P-SPEED valid (1..4); value printed, not asserted
+  occupied speed = 3 (incidental: recon read 3 = HS)
+  empty-port probe uses port 1
+  PASS: empty port: P-CCS false
+  PASS: empty port: P-PP true (powered, PPC=0)
+  PASS: empty port: P-PLS = 5 (RxDetect)
+  PASS: empty port: P-CSC true (QEMU quirk, measured)
+  PASS: read-only proof: occupied and empty PORTSC each read twice byte-identical (catches a leaked RW1C write from anywhere)
+
+=== Phase 7 (2e prep): claim / SMI-clear / elapsed / fixed-base display / memdisk gate ===
+  continuity: nonce OK (phase 7)
+  PASS: control cells round-trip (kernel machinery only)
+  PASS: (CLAIM) + XHCI-CLAIM defined
+  PASS: (SMI-OFF) + SMI-OFF defined
+  PASS: HRST-LEFT + MEMDISK-BASE@ defined
+  PASS: .D + .PSC defined
+  PASS: (CLAIM) released: code -1 when BIOS bit already clear
+  PASS: (CLAIM) released: OS-owned bit 24 written even when BIOS never held it (uniform-claim ruling)
+  PASS: (CLAIM) stuck: code 1 after the full 1000 ms budget
+  PASS: (CLAIM) stuck: unmasked print 'handoff stuck, legsup=01010000' (our bit 24 visible in it proves set-before-poll ordering)
+  PASS: (CLAIM) stuck: cell = OS bit + BIOS bit (0x1010000)
+  PASS: XHCI-CLAIM hardware: 0 in QEMU (outcome A, cap absent -- the card dry-run)
+  PASS: (SMI-OFF) already-clear: code -1, write path not taken
+  PASS: (SMI-OFF) already-clear: cell byte-identical (0x1FE0) -- proves NO write occurred (any write ORs 0xE0000000)
+  PASS: (SMI-OFF) all five enables (0xE011): code 1
+  PASS: (SMI-OFF) all five enables: cell = 0xE0000000 (enables cleared, RW1C status bits written to clear)
+  PASS: (SMI-OFF) bit-4-only (HSE SMI): code 1 -- the enable a 0xE001-style mask would silently leave armed
+  PASS: (SMI-OFF) bit-4-only: cell = 0xE0000000
+  PASS: (SMI-OFF) mixed 0xFFFFF: code 1
+  PASS: (SMI-OFF) mixed: cell = 0xE00E1FEE (preserve mask keeps 17:19 AND 12:5, 3:1 -- Linux-shaped write, not write-zero)
+  PASS: SMI-OFF hardware: 0 in QEMU (outcome A -- card dry-run)
+  PASS: HCRST elapsed 0..1 ms in QEMU (instant reset); the iron figure is the 2e payload
+  HCRST elapsed = 0 ms (incidental here; the iron reading is what 2e is for)
+  PASS: .D renders decimal under HEX ('15' for F)
+  PASS: .D restores caller BASE (BASE @ renders '10' = 16 in hex)
+  PASS: .PSC occupied synthetic: raw dword via .H8 (000013E3)
+  PASS: .PSC occupied synthetic: '15 pls' while BASE=16 (the base-transparency debt)
+  PASS: .PSC occupied synthetic: 'conn' + ' en ' + '4 spd' all render
+  PASS: .PSC empty synthetic: 000202A0 + '5 pls', no 'conn'
+  PASS: .PORT on occupied port: 'conn' without ' en ' (post-HCRST hardware)
+  PASS: .PORTS emits MAX-PORTS lines (the looped display going to iron)
+  PASS: memdisk gate: MEMDISK-BASE@ = 0 in QEMU (refusal side); iron pass side pre-registered nonzero + 4KiB-aligned, prior reading 0x37BB7000 (2026-09-05)
+  PASS: no-touch bracket: occupied PORTSC byte-identical across phase 7
+
+=== Phase 8: unbound-base guards (refusal + positive control) ===
+  continuity: nonce OK (phase 8)
+  PASS: phase-8 entry: XHCI-BASE bound (saved to XB0)
+  PASS: unbound: XECP-BASE refuses (0) -- HCC1 would read the IVT at 0x10
+  PASS: unbound: 1 XECP-FIND refuses (0)
+  PASS: unbound: XHCI-CLAIM = -2 (refused, distinct from 0 = cap absent -- the iron misreading)
+  PASS: unbound: SMI-OFF = -2 (refused, distinct from 0)
+  PASS: unbound: XHCI-OWNER = -2 (refused; read-only, but 0 would read as "absent" on a pre-bind card line)
+  PASS: restore: XHCI-BASE = XB0 (base back before the positive controls)
+  PASS: positive control, bound: XECP-BASE nonzero (QEMU walks 2 caps; sweep-2026-09-10.log:344)
+  PASS: positive control, bound: XHCI-CLAIM = 0 (absent), NOT -2 -- guard does not refuse a valid base
+  PASS: positive control, bound: SMI-OFF = 0 (absent), NOT -2
+  PASS: positive control, bound: XHCI-OWNER = 0 (absent), NOT -2
+
+=== Phase 9 (3a): port reset / typed events / CTX-SIZE ===
+  continuity: nonce OK (phase 9)
+  FAIL: PORT-RESET + P-NEUTRAL + P-PRC defined
+  FAIL: typed event words defined (T-TYPE T-CC T-SLOT T-PORT EV-D0 EV-TYPE EV-CC EV-SLOT EV-WAIT) -- got 0: '0 ok '
+  FAIL: CTX-SIZE defined
+  FAIL: -1 P-NEUTRAL = 0x4E00FFE9: RO + RWS survive an all-ones read -- red by guard: 3a words absent, not executed
+  FAIL: 2 P-NEUTRAL = 0: PED (RW1C, 1 = DISABLE) never written back -- red by guard: 3a words absent, not executed
+  FAIL: 0xFE0000 P-NEUTRAL = 0: change bits 17-23 (RW1C) never written back by a neutral write -- red by guard: 3a words absent, not executed
+  FAIL: 16 P-NEUTRAL = 0: PR (RW1S) not re-asserted by a neutral write -- red by guard: 3a words absent, not executed
+  FAIL: 0x20EE1 (measured post-HCRST) P-NEUTRAL = 0xEE1: CSC dropped, CCS/PLS/PP/speed kept -- red by guard: 3a words absent, not executed
+  FAIL: P-PRC: bit 21 true, 0 false -- red by guard: 3a words absent, not executed
+  FAIL: T-TYPE 0x8401 = 33 (command completion) -- red by guard: 3a words absent, not executed
+  FAIL: T-TYPE 0x8801 = 34 (port status change) -- red by guard: 3a words absent, not executed
+  FAIL: T-CC 0x01000000 = 1 (success) -- red by guard: 3a words absent, not executed
+  FAIL: T-SLOT 0x01008401 = 1 -- red by guard: 3a words absent, not executed
+  FAIL: T-PORT 0x05000000 = 5 -- red by guard: 3a words absent, not executed
+  FAIL: CTX-SIZE = 32 (QEMU HCCPARAMS derivation: CSZ clear; iron pre-registered 64, named alt 32) -- red by guard: 3a words absent, not executed
+  FAIL: unbound: CTX-SIZE = 0 (refused; 32/64 would read as a plausible answer on a pre-bind card line) -- red by guard: 3a words absent, not executed
+  FAIL: unbound: PORT-RESET = 0 (refused; PORTSC-ADDR alone is fail-open read-only and this word WRITES) -- red by guard: 3a words absent, not executed
+  FAIL: restore: XHCI-BASE = XB0 after the 3a unbound pair -- red by guard: 3a words absent, not executed
+  FAIL: XHCI-UP returns -1 (3a leg) -- red by guard: 3a words absent, not executed
+  FAIL: XHCI-RUN returns -1 (PSCE is dropped when halted) -- red by guard: 3a words absent, not executed
+  FAIL: FIRST-CCS PORT-RESET returns -1 (PRC seen, PED set) -- red by guard: 3a words absent, not executed
+  FAIL: occupied port: P-PED true after port reset (the 2d "re-enable = step 3" debt) -- red by guard: 3a words absent, not executed
+  FAIL: occupied port: P-PR false (reset complete) -- red by guard: 3a words absent, not executed
+  FAIL: occupied port: P-PRC false (change bits cleared by the second write) -- red by guard: 3a words absent, not executed
+  FAIL: occupied port: P-CSC false (cleared in the same write) -- red by guard: 3a words absent, not executed
+  FAIL: occupied port: P-SPEED = 1 (FS; usb-kbd is .full only, dev-hid.c) -- red by guard: 3a words absent, not executed
+  FAIL: elapsed: 1000 PRST-LEFT @ - = 0 ms (QEMU resets synchronously in xhci_port_write; iron pre-registered 10..100 ms) -- red by guard: 3a words absent, not executed
+  FAIL: 34 EV-WAIT = -1: the PSCE from the reset reached the event ring -- red by guard: 3a words absent, not executed
+  FAIL: EV-TYPE = 34 at the un-consumed TRB -- red by guard: 3a words absent, not executed
+  FAIL: EV-D0 T-PORT = FIRST-CCS (the event names the port) -- red by guard: 3a words absent, not executed
+  FAIL: EV-CC = 1 (CC_SUCCESS in the PSCE) -- red by guard: 3a words absent, not executed
+  FAIL: XEV-SKIP = 0 (nothing skipped ahead of the PSCE) -- red by guard: 3a words absent, not executed
+  FAIL: 34 EV-WAIT = 0 after EV-NEXT (negative control: ring empty, budget elapses) -- red by guard: 3a words absent, not executed
+  FAIL: skip-with-record: NOP ringed, 34 EV-WAIT = 0 (no PSCE; the completion was skipped, not counted) -- red by guard: 3a words absent, not executed
+  FAIL: skip-with-record: XEV-SKIP = 1 -- red by guard: 3a words absent, not executed
+  FAIL: skip-with-record: XEV-LAST = 33 -- red by guard: 3a words absent, not executed
+  FAIL: 1 NOP-TEST = 1 (command path intact after typed consumption) -- red by guard: 3a words absent, not executed
+  FAIL: XHCI-DOWN returns -1 (3a leg released) -- red by guard: 3a words absent, not executed
+  FAIL: allocator symmetry: NLIVE after DOWN = NLIVE before UP -- red by guard: 3a words absent, not executed
+  PASS: BASE tripwire: reads 10 at exit
+  continuity: nonce OK (final score)
+
+Passed: 141/180
+make: *** [Makefile:478: test-xhci] Error 1

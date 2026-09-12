@@ -942,6 +942,16 @@ v, raw = val('DEF? P-CCS 0<> DEF? P-PED 0<> AND '
 d_dec = (v == -1)
 check('all seven PORTSC field decoders defined', d_dec,      # 69
       f'got {v}: {body_of(raw)!r}')
+# FIRST-CCS is FIXTURE-SIDE from 3a (ruling 2026-09-12): which
+# port is policy, not mechanism.  On iron it would return port 1
+# (the internal high-speed device, enabled pre-HCRST) and look
+# like it worked; the card finds the keyboard by a .PORTS survey
+# diff instead.  The word not existing on the stick is the guard.
+# Defined here only when its three ingredients are nameable (the
+# Bug-#31 fence); on a pre-3a tree the vocab's own copy is shadowed.
+if d_pq and d_dec:
+    send(': FIRST-CCS 0 MAX-PORTS 1+ 1 DO '
+         'I PORTSC@ P-CCS OVER 0= AND IF DROP I THEN LOOP ;')
 v, raw = val('DEF? #CONNECTED 0<> DEF? FIRST-CCS 0<> AND '
              'DEF? .PORT 0<> AND DEF? .PORTS 0<> AND')
 d_srv = (v == -1)
@@ -1356,8 +1366,234 @@ v, raw = val('XHCI-OWNER', 2.0)
 check('positive control, bound: XHCI-OWNER = 0 (absent), NOT '  # 140
       '-2', v == 0, f'got {v}: {body_of(raw)!r}')
 
+print('\n=== Phase 9 (3a): port reset / typed events / CTX-SIZE ===')
+continuity('phase 9')
+zap()
+# Step 3a (design rulings 2026-09-12): the FIRST port WRITE in the
+# vocab.  PORTSC mixes RO status, RWS state, RW1S (PR, bit 4) and
+# RW1C bits (PED bit 1 -- writing 1 DISABLES the port -- and the
+# change bits 17-23), so a read-modify-write must pass through a
+# neutral mask.  Mask 0x4E00FFE9 = XHCI_PORT_RO (bits 0,3,10-13,30)
+# | XHCI_PORT_RWS (bits 5-8,9,14-15,25-27) VERIFIED against Linux
+# xhci-hub.c (fetched 2026-09-12, sha256 612449ce...), NOT recalled.
+# Bit-isolating controls (feedback_mask_blindness): all-ones,
+# PED-only, change-bits-only, PR-only, and the measured post-HCRST
+# dword 0x20EE1 each get their own check.
+# Typed event consumer: 2c's NOP1 never inspects the TRB type, so
+# a port-status-change event ahead of a command completion would
+# be counted as one.  EV-WAIT skips-with-record (XEV-SKIP/XEV-LAST,
+# bound 20); the skip path is exercised by a real NOP completion.
+# CTX-SIZE from HCCPARAMS1 bit 2 (Linux xhci-caps.h CTX_SIZE).
+#
+# Pre-registered (2026-09-12, before the red run; suite-alone
+# baseline 141/141, xhci-owner-green-2026-09-11.log):
+#   39 checks (142-180); BASE tripwire moves 141 -> 180.
+#   Red (xhci.fth untouched): all 39 red BY GUARD (definedness
+#     142-144 red, the rest scored red without sending -- the
+#     hardware leg writes PORTSC and must not run on a tree
+#     without the neutral mask).  Predicted red: 141/181 exactly;
+#     every existing check unchanged (FIRST-CCS moves to the
+#     fixture, shadowing the vocab's copy on the red tree).
+#     [As written before the run this line said 141/181 and the
+#     tripwire 181: the 141 baseline already INCLUDED the
+#     tripwire, so 141 + 39 = 180.  Counting error, recorded.]
+#   Green derivations (source, not recall):
+#     CTX-SIZE = 32: QEMU hcd-xhci.c HCCPARAMS read returns
+#       0x00080000 or 0x00080001 -- bit 2 clear either way.
+#       Iron: unmeasured; pre-registered 64 (Intel), named alt 32.
+#     P-SPEED = 1 after reset: dev-hid.c desc_keyboard has .full
+#       only (no .high), bMaxPacketSize0 = 8.  Named alt: any
+#       other value = fixture drift, not a 3a defect.
+#       [WRONG -- green 1 = 179/180, speed read 3.  Derived from
+#       MASTER dev-hid.c; the installed QEMU is 8.2.2, whose
+#       desc_keyboard has .high = &desc_device_keyboard2
+#       (bMaxPacketSize0 = 64), dropped upstream later.  The 2d
+#       recon had ALREADY banked speed 3 on this port
+#       (xhci-2d-green-2026-09-09.log:129) and the derivation was
+#       not cross-checked against it.  Re-pinned to 3 WITH the
+#       mechanism (version-pinned source, sha256 706a9cf2...);
+#       carried to 3b: QEMU EP0 max packet = 64 (HS), an FS
+#       keyboard on iron = 8.]
+#     elapsed 0 ms: hcd-xhci.c xhci_port_write handles PR
+#       synchronously (PED set, PLS U0, PR cleared, PRC notified
+#       before the write returns).  Iron pre-registered 10..100 ms.
+#     PSCE: xhci_port_notify emits {PORT_STATUS_CHANGE, CC_SUCCESS,
+#       portnr << 24} only when running (hence UP/RUN first) and
+#       only if PRC was clear (measured 0x20EE1: bit 21 clear).
+#     P-CSC false after reset: the second write clears bits 17-23.
+#   Green: 180/180.  Sweep deferred to step-3 close (cadence
+#     ruling 2026-09-12: test-xhci alone per rung).
+#   OUTCOME: red 141/180 (xhci-3a-red-2026-09-12.log): 39 red by
+#     guard, 142-144 the only sent failures, no existing check
+#     moved; denominator 180 not 181 (see bracket above).
+#     Green 1: 179/180 (xhci-3a-green1-179of180-2026-09-12.log),
+#     check 167 only -- speed bracket above.  Green 2: (fill)
+d_pr = (defined('PORT-RESET') and defined('P-NEUTRAL')
+        and defined('P-PRC'))
+check('PORT-RESET + P-NEUTRAL + P-PRC defined', d_pr)         # 142
+v, raw = val('DEF? T-TYPE 0<> DEF? T-CC 0<> AND '
+             'DEF? T-SLOT 0<> AND DEF? T-PORT 0<> AND '
+             'DEF? EV-D0 0<> AND DEF? EV-TYPE 0<> AND '
+             'DEF? EV-CC 0<> AND DEF? EV-SLOT 0<> AND '
+             'DEF? EV-WAIT 0<> AND')
+d_ev = (v == -1)
+check('typed event words defined (T-TYPE T-CC T-SLOT T-PORT '  # 143
+      'EV-D0 EV-TYPE EV-CC EV-SLOT EV-WAIT)', d_ev,
+      f'got {v}: {body_of(raw)!r}')
+d_cs = defined('CTX-SIZE')
+check('CTX-SIZE defined', d_cs)                               # 144
+
+# Decimal literals (no HEX sends in phase 9):
+#   0x4E00FFE9 neutral mask          = 1308688361
+#   0xFE0000   change bits 17-23     = 16646144
+#   0x20EE1    measured post-HCRST   = 134881 -> & mask = 0xEE1 = 3809
+#   0x200000   PRC bit 21            = 2097152
+#   0x8401     type 33 | cycle       = 33793
+#   0x8801     type 34 | cycle       = 34817
+#   0x01000000 cc 1 / slot 1 field   = 16777216
+#   0x01008401 slot 1, type 33       = 16811009
+#   0x05000000 port 5 in dword0      = 83886080
+LOGIC_3A = [
+    ('-1 P-NEUTRAL = 0x4E00FFE9: RO + RWS survive an all-ones '  # 145
+     'read', '-1 P-NEUTRAL', 1308688361),
+    ('2 P-NEUTRAL = 0: PED (RW1C, 1 = DISABLE) never written '  # 146
+     'back', '2 P-NEUTRAL', 0),
+    ('0xFE0000 P-NEUTRAL = 0: change bits 17-23 (RW1C) never '  # 147
+     'written back by a neutral write', '16646144 P-NEUTRAL', 0),
+    ('16 P-NEUTRAL = 0: PR (RW1S) not re-asserted by a neutral '  # 148
+     'write', '16 P-NEUTRAL', 0),
+    ('0x20EE1 (measured post-HCRST) P-NEUTRAL = 0xEE1: CSC '     # 149
+     'dropped, CCS/PLS/PP/speed kept', '134881 P-NEUTRAL', 3809),
+    ('P-PRC: bit 21 true, 0 false', '2097152 P-PRC 0 P-PRC 0= AND',  # 150
+     -1),
+    ('T-TYPE 0x8401 = 33 (command completion)', '33793 T-TYPE', 33),  # 151
+    ('T-TYPE 0x8801 = 34 (port status change)', '34817 T-TYPE', 34),  # 152
+    ('T-CC 0x01000000 = 1 (success)', '16777216 T-CC', 1),      # 153
+    ('T-SLOT 0x01008401 = 1', '16811009 T-SLOT', 1),            # 154
+    ('T-PORT 0x05000000 = 5', '83886080 T-PORT', 5),            # 155
+    ('CTX-SIZE = 32 (QEMU HCCPARAMS derivation: CSZ clear; '    # 156
+     'iron pre-registered 64, named alt 32)', 'CTX-SIZE', 32),
+]
+UNB_3A_NAMES = [
+    'unbound: CTX-SIZE = 0 (refused; 32/64 would read as a '   # 157
+    'plausible answer on a pre-bind card line)',
+    'unbound: PORT-RESET = 0 (refused; PORTSC-ADDR alone is '  # 158
+    'fail-open read-only and this word WRITES)',
+    'restore: XHCI-BASE = XB0 after the 3a unbound pair',      # 159
+]
+HW_3A_NAMES = [
+    'XHCI-UP returns -1 (3a leg)',                             # 160
+    'XHCI-RUN returns -1 (PSCE is dropped when halted)',       # 161
+    'FIRST-CCS PORT-RESET returns -1 (PRC seen, PED set)',     # 162
+    'occupied port: P-PED true after port reset (the 2d '     # 163
+    '"re-enable = step 3" debt)',
+    'occupied port: P-PR false (reset complete)',              # 164
+    'occupied port: P-PRC false (change bits cleared by the '  # 165
+    'second write)',
+    'occupied port: P-CSC false (cleared in the same write)',  # 166
+    'occupied port: P-SPEED = 3 (HS; QEMU 8.2.2 dev-hid.c '    # 167
+    'desc_keyboard .high, EP0 max packet 64 -- 2d banked 3)',
+    'elapsed: 1000 PRST-LEFT @ - = 0 ms (QEMU resets '         # 168
+    'synchronously in xhci_port_write; iron pre-registered '
+    '10..100 ms)',
+    '34 EV-WAIT = -1: the PSCE from the reset reached the '    # 169
+    'event ring',
+    'EV-TYPE = 34 at the un-consumed TRB',                     # 170
+    'EV-D0 T-PORT = FIRST-CCS (the event names the port)',     # 171
+    'EV-CC = 1 (CC_SUCCESS in the PSCE)',                       # 172
+    'XEV-SKIP = 0 (nothing skipped ahead of the PSCE)',        # 173
+    '34 EV-WAIT = 0 after EV-NEXT (negative control: ring '    # 174
+    'empty, budget elapses)',
+    'skip-with-record: NOP ringed, 34 EV-WAIT = 0 (no PSCE; '  # 175
+    'the completion was skipped, not counted)',
+    'skip-with-record: XEV-SKIP = 1',                          # 176
+    'skip-with-record: XEV-LAST = 33',                         # 177
+    '1 NOP-TEST = 1 (command path intact after typed '        # 178
+    'consumption)',
+    'XHCI-DOWN returns -1 (3a leg released)',                  # 179
+    'allocator symmetry: NLIVE after DOWN = NLIVE before UP',  # 180
+]
+ALL_3A = d_pr and d_ev and d_cs
+if ALL_3A:
+    for _name, _expr, _want in LOGIC_3A:
+        v, raw = val(_expr)
+        check(_name, v == _want, f'got {v}: {body_of(raw)!r}')
+    # Unbound pair, phase-8 shape: save, null, refuse, restore.
+    send('XHCI-BASE @ XB0 !')
+    send('0 XHCI-BASE !')
+    v, raw = val('CTX-SIZE')
+    check(UNB_3A_NAMES[0], v == 0, f'got {v}: {body_of(raw)!r}')
+    _port = fp if (ALL_2D and fp) else 1
+    v, raw = val(f'{_port} PORT-RESET', 4.0)
+    check(UNB_3A_NAMES[1], v == 0, f'got {v}: {body_of(raw)!r}')
+    v, raw = val('XB0 @ XHCI-BASE !  XHCI-BASE @ XB0 @ =')
+    check(UNB_3A_NAMES[2], v == -1, f'got {v}: {body_of(raw)!r}')
+    if ALL_2C and ALL_2D:
+        zap()
+        nl_a, _ = val('NLIVE', 2.0)
+        v, raw = val('XHCI-UP', 3.0)
+        check(HW_3A_NAMES[0], v == -1, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('XHCI-RUN', 3.0)
+        check(HW_3A_NAMES[1], v == -1, f'got {v}: {body_of(raw)!r}')
+        # Window 12 s: a stuck PRC poll runs the full 1000 ms
+        # budget = ~8 s wall under TCG (2e-prep measurement).
+        v, raw = val('FIRST-CCS PORT-RESET', 12.0)
+        check(HW_3A_NAMES[2], v == -1, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('FIRST-CCS PORTSC@ P-PED')
+        check(HW_3A_NAMES[3], v == -1, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('FIRST-CCS PORTSC@ P-PR')
+        check(HW_3A_NAMES[4], v == 0, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('FIRST-CCS PORTSC@ P-PRC')
+        check(HW_3A_NAMES[5], v == 0, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('FIRST-CCS PORTSC@ P-CSC')
+        check(HW_3A_NAMES[6], v == 0, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('FIRST-CCS PORTSC@ P-SPEED')
+        check(HW_3A_NAMES[7], v == 3, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('1000 PRST-LEFT @ -')
+        check(HW_3A_NAMES[8], v == 0, f'got {v}: {body_of(raw)!r}')
+        # EV-POLL budget 0x100 iterations = ~2 s wall under TCG;
+        # 6 s windows on every EV-WAIT that may run it out.
+        v, raw = val('34 EV-WAIT', 6.0)
+        check(HW_3A_NAMES[9], v == -1, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('EV-TYPE')
+        check(HW_3A_NAMES[10], v == 34, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('EV-D0 T-PORT FIRST-CCS =')
+        check(HW_3A_NAMES[11], v == -1, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('EV-CC')
+        check(HW_3A_NAMES[12], v == 1, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('XEV-SKIP @')
+        check(HW_3A_NAMES[13], v == 0, f'got {v}: {body_of(raw)!r}')
+        send('EV-NEXT')
+        v, raw = val('34 EV-WAIT', 6.0)
+        check(HW_3A_NAMES[14], v == 0, f'got {v}: {body_of(raw)!r}')
+        send('TRB-NOP! DOORBELL0')
+        v, raw = val('34 EV-WAIT', 6.0)
+        check(HW_3A_NAMES[15], v == 0, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('XEV-SKIP @')
+        check(HW_3A_NAMES[16], v == 1, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('XEV-LAST @')
+        check(HW_3A_NAMES[17], v == 33, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('1 NOP-TEST', 4.0)
+        check(HW_3A_NAMES[18], v == 1, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('XHCI-DOWN', 3.0)
+        check(HW_3A_NAMES[19], v == -1, f'got {v}: {body_of(raw)!r}')
+        nl_b, raw = val('NLIVE', 2.0)
+        check(HW_3A_NAMES[20], nl_a is not None and nl_b == nl_a,
+              f'NLIVE {nl_a} -> {nl_b}: {body_of(raw)!r}')
+    else:
+        for _name in HW_3A_NAMES:
+            check(_name, False,
+                  'red by guard: 2c/2d machinery absent, not executed')
+else:
+    for _name, _expr, _want in LOGIC_3A:
+        check(_name, False,
+              'red by guard: 3a words absent, not executed')
+    for _name in UNB_3A_NAMES + HW_3A_NAMES:
+        check(_name, False,
+              'red by guard: 3a words absent, not executed')
+
 raw = send('BASE @ DECIMAL .')
-check('BASE tripwire: reads 10 at exit',                     # 141
+check('BASE tripwire: reads 10 at exit',                     # 180
       re.search(r'\b10\b', body_of(raw)) is not None,
       f'got: {body_of(raw)!r}')
 

@@ -399,14 +399,12 @@ VARIABLE XDP
 : P-PP  ( x -- flag ) 200 AND 0<> ;
 : P-SPEED ( x -- n ) A RSHIFT F AND ;
 : P-CSC ( x -- flag ) 20000 AND 0<> ;
-\ Kernel has no LEAVE: full walk, keep the FIRST hit.
+\ Kernel has no LEAVE: full walk.  FIRST-CCS (which port) is
+\ fixture-side from 3a: on iron it returns port 1, the internal
+\ high-speed device -- policy stays out of the shipped vocab.
 : #CONNECTED ( -- n )
     0 MAX-PORTS 1+ 1 DO
         I PORTSC@ P-CCS IF 1+ THEN LOOP ;
-: FIRST-CCS ( -- port#|0 )
-    0 MAX-PORTS 1+ 1 DO
-        I PORTSC@ P-CCS OVER 0= AND IF DROP I THEN
-    LOOP ;
 \ Survey display for the 2e iron trip (unscored output).
 \ .D: fixed-base decimal print, closing the base-transparency
 \ debt (P-PLS 15 rendered "F" under HEX = the F-vs-15
@@ -424,6 +422,77 @@ VARIABLE XDP
     P-PLS .D ." pls " CR ;
 : .PORT ( port# -- ) DUP .D PORTSC@ .PSC ;
 : .PORTS ( -- ) MAX-PORTS 1+ 1 DO I .PORT LOOP ;
+
+\ ---- Step 3a: port reset (first port WRITE), typed events ----
+\ PORTSC mixes RO status, RWS state, RW1S (PR, bit 4) and RW1C
+\ bits: PED (bit 1 -- writing 1 DISABLES the port) and change
+\ bits 17-23.  Every write goes through P-NEUTRAL, which keeps
+\ only RO + RWS so a read-modify-write neither clears a change
+\ bit by accident nor disables the port.  4E00FFE9 =
+\ XHCI_PORT_RO (bits 0,3,10-13,30) | XHCI_PORT_RWS (bits 5-8,9,
+\ 14-15,25-27), Linux xhci-hub.c fetched 2026-09-12 (sha256
+\ 612449ce...) -- verified against source, NOT recalled.
+: P-NEUTRAL ( x -- x' ) 4E00FFE9 AND ;
+: P-PRC ( x -- flag ) 200000 AND 0<> ;
+\ PORT-RESET: refuses (0) an unbound base (PORTSC-ADDR alone is
+\ fail-open read-only; this word writes), a port out of range,
+\ or an empty port (PR with CCS clear is undefined).  Writes
+\ neutral|PR, polls PRC (bit 21) set within 3E8 ms, keeps PN's
+\ leftover in PRST-LEFT (elapsed ms = 1000 PRST-LEFT @ -), then
+\ writes neutral|FE0000 to clear all seven change bits.  -1 only
+\ if PRC was seen AND PED reads set afterwards.  The reset runs
+\ halted or running; the PSCE it raises reaches the event ring
+\ only when running.
+VARIABLE PRST-LEFT  VARIABLE PRA
+: PORT-RESET ( port# -- flag )
+    XHCI-BASE @ 0= IF DROP 0 EXIT THEN
+    PORTSC-ADDR DUP 0= IF EXIT THEN
+    DUP @ P-CCS 0= IF DROP 0 EXIT THEN
+    PRA !
+    PRA @ @ P-NEUTRAL 10 OR PRA @ !
+    PRA @ 200000 3E8 POLL-UNTIL
+    PN @ PRST-LEFT !
+    PRA @ @ P-NEUTRAL FE0000 OR PRA @ !
+    PRA @ @ P-PED AND ;
+
+\ Event TRB fields, VALUE-taking decoders (suite feeds literals)
+\ type = control bits 15:10; completion code = status bits
+\ 31:24; slot = control bits 31:24; PSCE port id = dword0 bits
+\ 31:24.  EV-* read the TRB at the dequeue pointer.
+: T-TYPE ( ctrl -- n ) A RSHIFT 3F AND ;
+: T-CC ( sts -- n ) 18 RSHIFT FF AND ;
+: T-SLOT ( ctrl -- n ) 18 RSHIFT FF AND ;
+: T-PORT ( d0 -- n ) 18 RSHIFT FF AND ;
+: EV-D0 ( -- x ) EV-TRB @ ;
+: EV-TYPE ( -- n ) EV-TRB C + @ T-TYPE ;
+: EV-CC ( -- n ) EV-TRB 8 + @ T-CC ;
+: EV-SLOT ( -- n ) EV-TRB C + @ T-SLOT ;
+\ EV-WAIT: wait for an event of one type.  Any other type is
+\ consumed and RECORDED (XEV-SKIP count, XEV-LAST type): a port
+\ status change landing ahead of a command completion is normal
+\ traffic, but a silent skip would hide a runaway, so the skip
+\ count is bounded at 14 (20 decimal).  -1 = the wanted event is
+\ at EV-TRB, NOT consumed -- caller reads its fields, then
+\ EV-NEXT.  0 = poll budget or skip bound exhausted.  NOP1 (2c)
+\ stays type-blind: run it before any port reset or it counts a
+\ PSCE as a completion.
+VARIABLE XEV-SKIP  VARIABLE XEV-LAST  VARIABLE XEV-WANT
+: EV-WAIT ( type -- flag )
+    XEV-WANT !  0 XEV-SKIP !
+    BEGIN EV-POLL
+    WHILE
+        EV-TYPE XEV-WANT @ = IF -1 EXIT THEN
+        EV-TYPE XEV-LAST !  1 XEV-SKIP +!  EV-NEXT
+        XEV-SKIP @ 14 < 0= IF 0 EXIT THEN
+    REPEAT 0 ;
+\ Context size: HCCPARAMS1 bit 2 (CSZ) -> 40 (64-byte contexts)
+\ else 20 (Linux xhci-caps.h CTX_SIZE). Refuses unbound: 20 or
+\ 40 would read as a plausible answer on a pre-bind card line.
+\ QEMU: 20 by derivation (hcd-xhci.c HCCPARAMS = 00080000 or
+\ 00080001, bit 2 clear).  Iron: unmeasured, pre-registered 40.
+: CTX-SIZE ( -- n|0 )
+    XHCI-BASE @ 0= IF 0 EXIT THEN
+    HCC1 4 AND IF 40 ELSE 20 THEN ;
 
 ." XHCI vocab loaded" CR
 
