@@ -59,6 +59,23 @@ Session nonce for continuity (grep the banner; a silent warm reset
 forges a mid-chain-break signature — see the warm-reset lesson):
 NONCE / banner line: ______________________
 
+### 1.5 Capture proves itself — BEFORE the load leg
+Confirm the listener is RECEIVING, not merely running. Something must
+land in the capture file before you type `THRU`, so the log proves
+itself from its first line. (The 2e closure had to be corrected here:
+"verified capturing before Section 3" was false; the honest claim was
+capture confirmed receiving before the load leg, cited to a boot line
+at the head of the log.)
+```bash
+tail -f docs/evidence/xhci-3d-iron-$(date +%F).log   # banner/boot line visible?
+```
+- [ ] Boot banner or a typed marker appears in the FILE (not just on
+      screen). Empty file = listener running but not receiving: fix
+      before the `THRU`.  First captured line: ______________________
+- [ ] If capture cannot be made to receive, switch to the photo
+      protocol now and write "transcript SKIPPED" — do not type the
+      load leg into a capture you have not seen receive.
+
 ## 2. Load + gate
 
 ```forth
