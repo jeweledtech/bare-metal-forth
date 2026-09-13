@@ -1859,8 +1859,198 @@ else:
     for _nm in (SCALE_NAMES + ICTX_NAMES + UNB_3B_NAMES + HW_3B_NAMES):
         check(_nm, False, 'red by guard: 3b words absent')
 
+print('\n=== Phase 11 (3c): EP0 control transfers / configure ===')
+continuity('phase 11')
+zap()
+send('VARIABLE GB')
+# Step 3c (design rulings 2026-09-12): EP0 control transfers ->
+# read the real bMaxPacketSize0, correct via Evaluate Context when
+# it differs from the 3b speed-derived default, read
+# bConfigurationValue from the config descriptor (not assumed), set
+# it, prove it with a GET_CONFIGURATION readback taken BEFORE (0)
+# and AFTER (the value) -- a transition, not a value.
+#
+# Two forced-condition controls, because QEMU's fixture is too
+# well-behaved to run the corrective branches (feedback_fixture_
+# too_well_behaved):
+#  - Evaluate Context is dead in the ENUM path on QEMU: the HS
+#    keyboard's bMaxPacketSize0 = 64 = the HS default, so real ==
+#    default and the compare never trips.  Force the output EP0
+#    MPS to 8, call 64 EVAL-MPS, assert it corrects to 64.  Proves
+#    OUR correction logic + that QEMU accepts Evaluate Context;
+#    real-controller acceptance is an iron finding.
+#  - GET_DESCRIPTOR(8) completion code: pre-registered 1 (Success).
+#    QEMU's xhci_xfer_report resets shortpkt at the Status stage
+#    before the IOC event, and no ISP is set on the data stage, so
+#    the single event reports Success -- VERIFIED in v8.2.2 source,
+#    not the short-packet 13 first assumed.  13 kept as the named
+#    alternative (a controller with ISP semantics on a sub-MPS
+#    read); CC-OK? accepts both so neither habitat reds.
+#
+# Pre-registered (2026-09-12, before the red run; suite-alone
+# baseline 215/215, xhci-3b-green2-2026-09-12.log):
+#   25 new checks.  New total = 240, DERIVED from the red log's
+#   PASS/FAIL line count (not reconciled).  Emitted positions:
+#   phase-11 checks 215-239, tripwire 240.
+#   Red (3c stashed, 3b=HEAD): 216-218 definedness sent-red; the
+#   rest red BY GUARD (control transfers must not run without the
+#   words).  Predicted red 215/240 exactly, no baseline check moves.
+#   Green derivations (source): CC-OK? {1,D}->T, {5,0}->F.  Device
+#   desc byte1=1 (DEVICE), byte7=64 (HS kbd, dev-hid.c
+#   desc_device_keyboard2).  bConfigurationValue=1 (dev-hid.c).
+#   CFG-STATE 0 before SET, 1 after.  EVAL-MPS corrects output EP0
+#   MPS 8->64 (QEMU xhci_evaluate_slot copies iep0[1] bits 31:16).
+#   Green: 240/240.  Sweep at step-3 close, not here.
+#   OUTCOME: red 215/240 (xhci-3c-red-2026-09-12.log), DERIVED.
+#   Green 1: 237/240 (xhci-3c-green-2026-09-12.log): checks
+#   227/228/234, ONE real bug + one fixture cause, two
+#   symptoms (not three findings).  Diagnosed by unscored probe
+#   (diag-3c.log): GET-CONFIG cc=1 cfg-before=1 | 1 SET-CONFIG
+#   cc=0 | cfg-after=1.  (a) REAL BUG: SET-CONFIG's setup TRB
+#   carried transfer-length 0; QEMU xhci_fire_ctl_transfer
+#   rejects setup len != 8, fired no event, EP0-WAIT timed out
+#   to 0 -> ENUM-CONFIGURE returned 0 (check 228; 234 cascade).
+#   Fixed: setup len 0->8 (GET-DESC/GET-CONFIG already passed 8,
+#   which is why they worked).  (b) FIXTURE (Cause B): QEMU's
+#   usb-kbd is configured at realize, so cfg-before=1; no suite
+#   phase configured it (audited), and usb_device_reset does not
+#   clear dev->config.  Suite deconfigures (0 SET-CONFIG) for a
+#   reliable 0 before-reading; iron reads 0 after Address Device.
+#   Green 2: 240/240 (xhci-3c-green2-2026-09-12.log), DERIVED,
+#   0 fail -- real 0->1 config transition observed; SET-CONFIG
+#   returns 1 after the setup-length fix.
+d_ep0 = (defined('EP0-ENQ') and defined('EP0-BELL')
+         and defined('EP0-WAIT') and defined('CC-OK?'))
+check('EP0-ENQ/EP0-BELL/EP0-WAIT/CC-OK? defined', d_ep0)      # 215
+v, raw = val('DEF? GET-DESC 0<> DEF? EVAL-MPS 0<> AND '
+             'DEF? SET-CONFIG 0<> AND DEF? GET-CONFIG 0<> AND')
+d_xfer = (v == -1)
+check('GET-DESC/EVAL-MPS/SET-CONFIG/GET-CONFIG defined', d_xfer,  # 216
+      f'got {v}: {body_of(raw)!r}')
+v, raw = val('DEF? ENUM-CONFIGURE 0<> DEF? CFG-STATE 0<> AND '
+             'DEF? CTX-MPS 0<> AND')
+d_cfg = (v == -1)
+check('ENUM-CONFIGURE/CFG-STATE/CTX-MPS defined', d_cfg,      # 217
+      f'got {v}: {body_of(raw)!r}')
+ALL_3C = d_ep0 and d_xfer and d_cfg
+CC_LOGIC = [
+    ('CC-OK? 1 (Success) = true', '1 CC-OK?', -1),           # 218
+    ('CC-OK? 13 (Short Packet) = true', '13 CC-OK?', -1),    # 219
+    ('CC-OK? 5 (TRB Error) = false', '5 CC-OK?', 0),         # 220
+    ('CC-OK? 0 (poll timeout) = false', '0 CC-OK?', 0),      # 221
+]
+HW_3C = [
+    'XHCI-UP returns -1 (3c leg)',                           # 222
+    'XHCI-RUN returns -1',                                   # 223
+    'ENUM-ADDRESS(occupied port) returns a slot',            # 224
+    'EP0-ENQ layout: four dwords land, cycle set in control',  # 225
+    'EP0-ENQ layout: control type field = 9',                # 226
+    'CFG-STATE before SET_CONFIGURATION = 0 (unconfigured)',  # 227
+    'ENUM-CONFIGURE returns bConfigurationValue (nonzero)',   # 228
+    'CFGCC8 (GET_DESCRIPTOR 8) in {1,13}; QEMU 1 (Success)',  # 229
+    'CFGVAL = 1 (bConfigurationValue read, not assumed)',     # 230
+    'standalone GET-DESC(device,18) cc in {1,13}',           # 231
+    'device descriptor byte1 = 1 (DEVICE type -- read landed)',  # 232
+    'device descriptor byte7 = 64 (HS bMaxPacketSize0)',      # 233
+    'CFG-STATE after SET = CFGVAL (transition 0 -> value)',   # 234
+    'forced EVAL: output EP0 MPS = 8 before (control set it)',  # 235
+    'forced EVAL: 64 EVAL-MPS returns cc 1',                  # 236
+    'forced EVAL: output EP0 MPS = 64 after (Evaluate '       # 237
+    'Context corrected it)',
+    'SLOT-DOWN returns -1',                                   # 238
+    'allocator symmetry: NLIVE after teardown = before UP',   # 239
+]
+if ALL_3C:
+    for _n, _e, _w in CC_LOGIC:
+        v, raw = val(_e)
+        check(_n, v == _w, f'got {v}: {body_of(raw)!r}')
+    if ALL_2C and ALL_2D and ALL_3B:
+        zap()
+        nl_a, _ = val('NLIVE', 2.0)
+        v, raw = val('XHCI-UP', 3.0)
+        check(HW_3C[0], v == -1, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('XHCI-RUN', 3.0)
+        check(HW_3C[1], v == -1, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('FIRST-CCS ENUM-ADDRESS', 6.0)
+        slot = v
+        check(HW_3C[2], slot is not None and slot != 0,
+              f'got {slot}: {body_of(raw)!r}')
+        # EP0-ENQ layout on the live EP0 ring, doorbell NOT rung.
+        send('286331153 286331153 286331153 9216 EP0-ENQ')
+        v, raw = val('XEP0R @ @ 286331153 = '
+                     'XEP0R @ 4 + @ 286331153 = AND '
+                     'XEP0R @ 8 + @ 286331153 = AND '
+                     'XEP0R @ 12 + @ 9217 = AND')
+        check(HW_3C[3], v == -1, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('XEP0R @ 12 + @ T-TYPE')
+        check(HW_3C[4], v == 9, f'got {v}: {body_of(raw)!r}')
+        send('0 XEP0ENQ !  1 XEP0CCS !')   # controller never advanced
+        # QEMU's usb-kbd is configured at realize (Cause B, diag
+        # 2026-09-12): GET_CONFIGURATION reads 1 before any SET, and
+        # no suite phase configured it.  Deconfigure so the before-
+        # reading is a reliable 0 in BOTH habitats (iron reads 0
+        # after Address Device regardless) -- the transition is then
+        # a real 0->value, not dependent on device state that no
+        # controller/port reset in this suite can clear.
+        # IRON PRE-REGISTRATION (named for the trip): the card takes
+        # the before-reading WITHOUT this deconfigure and expects 0 --
+        # a freshly-plugged, just-Addressed keyboard is unconfigured.
+        # Nonzero on the HP = firmware configured the device at USB
+        # level (XHCI-OWNER=1 family, plausible on a BIOS that was
+        # driving USB minutes earlier); record it, do not paper over.
+        send('0 SET-CONFIG')
+        v, raw = val('CFG-STATE', 4.0)
+        check(HW_3C[5], v == 0, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('ENUM-CONFIGURE', 8.0)
+        cfgret = v
+        check(HW_3C[6], cfgret is not None and cfgret != 0,
+              f'got {cfgret}: {body_of(raw)!r}')
+        v, raw = val('CFGCC8 @')
+        check(HW_3C[7],
+              v in (1, 13), f'got {v} (expected 1 on QEMU): '
+              f'{body_of(raw)!r}')
+        v, raw = val('CFGVAL @')
+        check(HW_3C[8], v == 1, f'got {v}: {body_of(raw)!r}')
+        # standalone GET-DESC content (its own buffer).
+        send('4096 PHYS-ALLOC GB !  GB @ 4096 0 FILL')
+        v, raw = val('1 0 18 GB @ GET-DESC', 4.0)
+        check(HW_3C[9], v is not None and v in (1, 13),
+              f'got {v}: {body_of(raw)!r}')
+        v, raw = val('GB @ 1 + C@')
+        check(HW_3C[10], v == 1, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('GB @ 7 + C@')
+        check(HW_3C[11], v == 64, f'got {v}: {body_of(raw)!r}')
+        send('GB @ 4096 PHYS-RELEASE  0 GB !')
+        v, raw = val('CFG-STATE', 4.0)
+        check(HW_3C[12], v == cfgret, f'got {v} vs {cfgret}: '
+              f'{body_of(raw)!r}')
+        # forced Evaluate Context control: set output EP0 MPS = 8,
+        # correct to 64, read it back.  8<<16 | 0x26 = 524326.
+        send('524326 XODC @ O-EP0 4 + !')
+        v, raw = val('XODC @ O-EP0 4 + @ 16 RSHIFT 65535 AND')
+        check(HW_3C[13], v == 8, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('64 EVAL-MPS', 4.0)
+        check(HW_3C[14], v == 1, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('XODC @ O-EP0 4 + @ 16 RSHIFT 65535 AND')
+        check(HW_3C[15], v == 64, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('SLOT-DOWN', 4.0)
+        check(HW_3C[16], v == -1, f'got {v}: {body_of(raw)!r}')
+        send('XHCI-DOWN DROP')
+        nl_b, raw = val('NLIVE', 2.0)
+        check(HW_3C[17], nl_a is not None and nl_b == nl_a,
+              f'NLIVE {nl_a} -> {nl_b}: {body_of(raw)!r}')
+    else:
+        for _n in HW_3C:
+            check(_n, False,
+                  'red by guard: 2c/2d/3b machinery absent')
+else:
+    for _n, _e, _w in CC_LOGIC:
+        check(_n, False, 'red by guard: 3c words absent')
+    for _n in HW_3C:
+        check(_n, False, 'red by guard: 3c words absent')
+
 raw = send('BASE @ DECIMAL .')
-check('BASE tripwire: reads 10 at exit',                     # 215
+check('BASE tripwire: reads 10 at exit',                     # 240
       re.search(r'\b10\b', body_of(raw)) is not None,
       f'got: {body_of(raw)!r}')
 

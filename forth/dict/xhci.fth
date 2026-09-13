@@ -532,6 +532,7 @@ VARIABLE CTX-SZ
 \ release, like XHCI-DOWN.
 VARIABLE XODC   VARIABLE XICTX  VARIABLE XEP0R
 VARIABLE XEP0ENQ  VARIABLE XEP0CCS  VARIABLE XSLOT
+VARIABLE CTX-MPS   \ 3b default EP0 max packet, read back by 3c
 
 \ Generic command-ring producer.  16 TRBs; slot 15 is the link
 \ TRB (type 6, Toggle Cycle), same wrap as TRB-NOP!.  The cycle
@@ -581,7 +582,7 @@ VARIABLE CMA  VARIABLE CMCTL  VARIABLE CMCC  VARIABLE CMSLOT
 : BUILD-ICTX ( port# speed -- )
     XICTX @ PG0
     3 XICTX @ 4 + !
-    DUP SPEED>MPS
+    DUP SPEED>MPS DUP CTX-MPS !
     10 LSHIFT 26 OR XICTX @ I-EP0 4 + !
     14 LSHIFT 8000000 OR XICTX @ I-SLOT !
     10 LSHIFT XICTX @ I-SLOT 4 + !
@@ -641,6 +642,119 @@ VARIABLE CMA  VARIABLE CMCTL  VARIABLE CMCC  VARIABLE CMSLOT
     SLOT-FREE
     0 XSLOT !
     XDP @ IF 1 ELSE -1 THEN ;
+
+\ ---- Step 3c: EP0 control transfers / configure ----
+\ Three-stage control transfers on the EP0 ring (Setup type 2,
+\ Data type 3, Status type 4; xHCI 1.2 6.4.1.2), each completed
+\ by ONE Transfer Event (type 32): IOC is set only on the Status
+\ stage, and QEMU's xhci_xfer_report resets shortpkt at the
+\ Status stage before the IOC check, so a control read reports
+\ CC Success (1), not Short Packet (13) -- verified in v8.2.2
+\ source, not recalled.  GET_DESCRIPTOR reads the REAL
+\ bMaxPacketSize0 (device desc byte 7) and corrects the EP0
+\ context via Evaluate Context (type 13) when it differs from
+\ the 3b speed-derived default; then bConfigurationValue (config
+\ desc byte 5) drives SET_CONFIGURATION, proven by a
+\ GET_CONFIGURATION readback taken BEFORE and AFTER.
+\ Control TRB flags: Setup IDT 40 | type2 800 | TRT (IN 30000 /
+\ none 0); Data type3 C00 | DIR-IN 10000; Status type4 1000 |
+\ IOC 20 | DIR.  The Setup Stage TRB Transfer Length is 8 per
+\ xHCI 1.2 section 6.4.1.2.1 (setup packet is always 8 bytes,
+\ immediate data since IDT is set) -- a spec requirement, with
+\ QEMU v8.2.2 xhci_fire_ctl_transfer as the version-pinned
+\ cross-check (it refuses a setup TRB whose length is not 8).
+VARIABLE XDBUF  VARIABLE CFGVAL  VARIABLE CFGCC8
+VARIABLE EPA  VARIABLE EPCTL  VARIABLE GDBUF  VARIABLE GDLEN
+
+\ EP0 transfer-ring producer (mirror of CMD-ENQ on XEP0R;
+\ cycle written last, link TRB at slot 15).
+: EP0-ENQ ( plo phi sts ctl -- )
+    XEP0CCS @ OR EPCTL !
+    XEP0R @ XEP0ENQ @ 10 * + EPA !
+    EPA @ 8 + !
+    EPA @ 4 + !
+    EPA @ !
+    EPCTL @ EPA @ C + !
+    1 XEP0ENQ +!
+    XEP0ENQ @ F = IF
+        XEP0R @ F0 + EPA !
+        XEP0R @ EPA @ !  0 EPA @ 4 + !  0 EPA @ 8 + !
+        1802 XEP0CCS @ OR EPA @ C + !
+        0 XEP0ENQ !  XEP0CCS @ 1 XOR XEP0CCS ! THEN ;
+\ EP0 doorbell: slot's doorbell = DB-BASE + slot*4, target
+\ DCI 1 (the control endpoint).
+: EP0-BELL ( -- ) 1 XSLOT @ 4 * DB-BASE + ! ;
+: EP0-WAIT ( -- cc ) 20 EV-WAIT IF EV-CC EV-NEXT ELSE 0 THEN ;
+\ Success on a control READ is 1 (Success) or D (Short Packet):
+\ QEMU gives 1, but a controller that sets ISP semantics could
+\ give D on a sub-MPS read -- accept both, no habitat reds.
+: CC-OK? ( cc -- flag ) DUP 1 = SWAP D = OR ;
+
+\ GET_DESCRIPTOR: bmRequestType 80, bRequest 6, wValue =
+\ dtype<<8 | dindex, wLength = wlen, data IN to buf.
+: GET-DESC ( dtype dindex wlen buf -- cc )
+    GDBUF !  GDLEN !
+    SWAP 8 LSHIFT OR 10 LSHIFT 680 OR   \ d0=wValue<<16|0680
+    GDLEN @ 10 LSHIFT                     \ d1 = wLen<<16
+    8 30840 EP0-ENQ                       \ setup (IN data)
+    GDBUF @ 0 GDLEN @ 10C00 EP0-ENQ       \ data IN
+    0 0 0 1020 EP0-ENQ                    \ status OUT, IOC
+    EP0-BELL EP0-WAIT ;
+
+\ Evaluate Context to correct EP0 max packet: input control
+\ Add = A1 only (2), EP0 ctx with the new MPS.  QEMU
+\ xhci_evaluate_slot updates output ep0 ctx; real-controller
+\ acceptance is an iron finding.
+: EVAL-MPS ( mps -- cc )
+    XICTX @ PG0
+    2 XICTX @ 4 + !
+    10 LSHIFT 26 OR XICTX @ I-EP0 4 + !
+    XEP0R @ 1 OR XICTX @ I-EP0 8 + !
+    0 XICTX @ I-EP0 C + !
+    8 XICTX @ I-EP0 10 + !
+    XICTX @ 0 0 XSLOT @ 18 LSHIFT 3400 OR CMD-RUN DROP ;
+
+\ SET_CONFIGURATION (OUT no-data): status stage is IN, CC 1.
+: SET-CONFIG ( value -- cc )
+    10 LSHIFT 900 OR                   \ d0=value<<16|0900
+    0 8 840 EP0-ENQ                      \ setup, len 8 per spec
+    0 0 0 11020 EP0-ENQ                   \ status IN, IOC
+    EP0-BELL EP0-WAIT ;
+\ GET_CONFIGURATION (IN 1 byte): current config value -> buf.
+: GET-CONFIG ( buf -- cc )
+    880 10000 8 30840 EP0-ENQ          \ setup d0=880 d1=1<<16
+    0 1 10C00 EP0-ENQ                   \ data IN 1 byte (buf)
+    0 0 0 1020 EP0-ENQ                    \ status OUT, IOC
+    EP0-BELL EP0-WAIT ;
+
+\ ENUM-CONFIGURE: after ENUM-ADDRESS.  Read the real MPS,
+\ correct via Evaluate Context if it differs from the 3b
+\ default (CTX-MPS, set in BUILD-ICTX), read the config value,
+\ set it.  Returns bConfigurationValue on the SET succeeding
+\ (cc 1), else 0.  CFGCC8 keeps the GET_DESCRIPTOR(8) code.
+: ENUM-CONFIGURE ( -- cc )
+    XHCI-BASE @ 0= IF 0 EXIT THEN
+    XSLOT @ 0= IF 0 EXIT THEN
+    1000 PHYS-ALLOC DUP XDBUF ! 0= IF 0 EXIT THEN
+    XDBUF @ PG0
+    1 0 8 XDBUF @ GET-DESC CFGCC8 !
+    XDBUF @ 7 + C@                       \ real bMaxPacketSize0
+    DUP CTX-MPS @ = 0= IF EVAL-MPS DROP ELSE DROP THEN
+    1 0 12 XDBUF @ GET-DESC DROP         \ full device desc 18
+    2 0 9 XDBUF @ GET-DESC DROP            \ config desc (9)
+    XDBUF @ 5 + C@ CFGVAL !                \ bConfigurationValue
+    CFGVAL @ SET-CONFIG
+    XDBUF @ 1000 PHYS-RELEASE 0 XDBUF !
+    DUP 1 = IF DROP CFGVAL @ ELSE DROP 0 THEN ;
+
+\ CFG-STATE: current configured value via GET_CONFIGURATION
+\ (0 before SET, bConfigurationValue after).  Own scratch page.
+: CFG-STATE ( -- n|-1 )
+    XSLOT @ 0= IF -1 EXIT THEN
+    1000 PHYS-ALLOC DUP 0= IF DROP -1 EXIT THEN
+    XDBUF !
+    XDBUF @ GET-CONFIG CC-OK? IF XDBUF @ C@ ELSE -1 THEN
+    XDBUF @ 1000 PHYS-RELEASE  0 XDBUF ! ;
 
 ." XHCI vocab loaded" CR
 

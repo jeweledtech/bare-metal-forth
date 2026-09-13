@@ -1,0 +1,449 @@
+Populating catalog into build/blocks.img...
+make write-catalog && touch build/.catalog.stamp
+make[1]: Entering directory '/home/bbrown/projects/forthos'
+python3 tools/write-catalog.py build/blocks.img forth/dict/ \
+        --raw VBR-TEMPLATE=build/vbr.bin
+  Lint OK: ahci.fth (57 BASE note(s))
+  Lint OK: arm64-asm.fth (27 BASE note(s))
+  Lint OK: asm-vocab.fth (20 BASE note(s))
+  Lint OK: atapi-ahci.fth (32 BASE note(s))
+  Lint OK: audio.fth (27 BASE note(s))
+  Lint OK: auto-detect.fth (15 BASE note(s))
+  Lint OK: cab-extract.fth (27 BASE note(s))
+  Lint OK: catalog-resolver.fth (26 BASE note(s))
+  Lint OK: cd-atapi.fth
+  Lint OK: deflate.fth (23 BASE note(s))
+  Lint OK: dict_system.fth
+  Lint OK: disasm.fth (6 BASE note(s))
+  Lint OK: disk-survey-form.fth
+  Lint OK: echoport.fth (2 BASE note(s))
+  Lint OK: editor.fth (32 BASE note(s))
+  Lint OK: fat32.fth (25 BASE note(s))
+  Lint OK: file-browser-form.fth (4 BASE note(s))
+  Lint OK: file-browser.fth (11 BASE note(s))
+  Lint OK: file-editor-core.fth (72 BASE note(s))
+  Lint OK: file-editor-disk.fth (3 BASE note(s))
+  Lint OK: file-stream.fth
+  Lint OK: graphics.fth
+  Lint OK: gui-harvest.fth
+  Lint OK: hardware.fth (15 BASE note(s))
+  Lint OK: hello-app.fth
+  Lint OK: hello-form.fth (4 BASE note(s))
+  Lint OK: install.fth
+  Lint OK: meta-compiler.fth (3 BASE note(s))
+  Lint OK: mirror.fth (32 BASE note(s))
+  Lint OK: msi-reader.fth (28 BASE note(s))
+  Lint OK: ne2000.fth (4 BASE note(s))
+  Lint OK: net-dict.fth (14 BASE note(s))
+  Lint OK: notepad-form.fth (4 BASE note(s))
+  Lint OK: notepad.fth
+  Lint OK: ntfs.fth (33 BASE note(s))
+  Lint OK: pci-enum.fth (22 BASE note(s))
+  Lint OK: pit-timer.fth
+  Lint OK: port-mapper.fth (22 BASE note(s))
+  Lint OK: port-monitor-form.fth
+  Lint OK: port-monitor.fth
+  Lint OK: ps2-keyboard.fth (3 BASE note(s))
+  Lint OK: ps2-mouse.fth
+  Lint OK: rtl8139.fth (10 BASE note(s))
+  Lint OK: rtl8168.fth (42 BASE note(s))
+  Lint OK: serial-16550.fth (3 BASE note(s))
+  Lint OK: settings-dash.fth
+  Lint OK: settings-form.fth (4 BASE note(s))
+  Lint OK: settings.fth (21 BASE note(s))
+  Lint OK: shutdown.fth (40 BASE note(s))
+  Lint OK: stub-dispatch.fth
+  Lint OK: surveyor-deep.fth (18 BASE note(s))
+  Lint OK: surveyor-detail.fth (4 BASE note(s))
+  Lint OK: surveyor.fth (26 BASE note(s))
+  Lint OK: target-arm64.fth (77 BASE note(s))
+  Lint OK: target-cortex-m.fth (40 BASE note(s))
+  Lint OK: target-x86.fth (212 BASE note(s))
+  Lint OK: thumb2-asm.fth (40 BASE note(s))
+  Lint OK: ui-core.fth (7 BASE note(s))
+  Lint OK: ui-events.fth (1 BASE note(s))
+  Lint OK: ui-parser.fth (1 BASE note(s))
+  Lint OK: vga-graphics.fth (2 BASE note(s))
+  Lint OK: video.fth (7 BASE note(s))
+  Lint OK: x86-asm.fth (57 BASE note(s))
+  Lint OK: xhci.fth (114 BASE note(s))
+  Lint OK: zip-reader.fth (9 BASE note(s))
+Vocabulary Catalog written to build/blocks.img
+  Block 0: (reserved)
+  Block 1: VOCAB-CATALOG (1/5)
+  Block 2: VOCAB-CATALOG (2/5)
+  Block 3: VOCAB-CATALOG (3/5)
+  Block 4: VOCAB-CATALOG (4/5)
+  Block 5: VOCAB-CATALOG (5/5)
+  Blocks 6-45: AHCI (ahci.fth, 40 blocks)
+  Blocks 46-78: ARM64-ASM (arm64-asm.fth, 33 blocks)
+  Blocks 79-95: ASM-VOCAB (asm-vocab.fth, 17 blocks)
+  Blocks 96-117: ATAPI-AHCI (atapi-ahci.fth, 22 blocks)
+  Blocks 118-146: AUDIO (audio.fth, 29 blocks)
+  Blocks 147-161: AUTO-DETECT (auto-detect.fth, 15 blocks)
+  Blocks 162-181: CAB-EXTRACT (cab-extract.fth, 20 blocks)
+  Blocks 192-207: (reserved: settings, SET-BLK=199)
+  Blocks 208-230: CATALOG-RESOLVER (catalog-resolver.fth, 23 blocks)
+  Blocks 231-236: CD-ATAPI (cd-atapi.fth, 6 blocks)
+  Blocks 237-263: DEFLATE (deflate.fth, 27 blocks)
+  Blocks 264-292: DICT-SYSTEM (dict_system.fth, 29 blocks)
+  Blocks 293-344: DISASM (disasm.fth, 52 blocks)
+  Blocks 345-346: DISK-SURVEY-FORM (disk-survey-form.fth, 2 blocks)
+  Blocks 347-361: ECHOPORT (echoport.fth, 15 blocks)
+  Blocks 362-385: EDITOR (editor.fth, 24 blocks)
+  Blocks 386-414: FAT32 (fat32.fth, 29 blocks)
+  Blocks 415-419: FILE-BROWSER-FORM (file-browser-form.fth, 5 blocks)
+  Blocks 420-455: FILE-BROWSER (file-browser.fth, 36 blocks)
+  Blocks 456-497: FILE-EDITOR (file-editor-core.fth, 42 blocks)
+  Blocks 498-501: FILE-EDITOR-DISK (file-editor-disk.fth, 4 blocks)
+  Blocks 502-520: FILE-STREAM (file-stream.fth, 19 blocks)
+  Blocks 521-536: GRAPHICS (graphics.fth, 16 blocks)
+  Blocks 537-549: GUI-HARVEST (gui-harvest.fth, 13 blocks)
+  Blocks 550-578: HARDWARE (hardware.fth, 29 blocks)
+  Blocks 579-586: HELLO-APP (hello-app.fth, 8 blocks)
+  Blocks 587-591: HELLO-FORM (hello-form.fth, 5 blocks)
+  Blocks 592-670: INSTALL (install.fth, 79 blocks)
+  Blocks 671-697: META-COMPILER (meta-compiler.fth, 27 blocks)
+  Blocks 698-717: MIRROR (mirror.fth, 20 blocks)
+  Blocks 718-739: MSI-READER (msi-reader.fth, 22 blocks)
+  Blocks 740-761: NE2000 (ne2000.fth, 22 blocks)
+  Blocks 762-776: NET-DICT (net-dict.fth, 15 blocks)
+  Blocks 777-783: NOTEPAD-FORM (notepad-form.fth, 7 blocks)
+  Blocks 784-796: NOTEPAD (notepad.fth, 13 blocks)
+  Blocks 797-852: NTFS (ntfs.fth, 56 blocks)
+  Blocks 853-880: PCI-ENUM (pci-enum.fth, 28 blocks)
+  Blocks 881-885: PIT-TIMER (pit-timer.fth, 5 blocks)
+  Blocks 886-902: PORT-MAPPER (port-mapper.fth, 17 blocks)
+  Blocks 903-904: PORT-MONITOR-FORM (port-monitor-form.fth, 2 blocks)
+  Blocks 905-925: PORT-MONITOR (port-monitor.fth, 21 blocks)
+  Blocks 926-939: PS2-KEYBOARD (ps2-keyboard.fth, 14 blocks)
+  Blocks 940-946: PS2-MOUSE (ps2-mouse.fth, 7 blocks)
+  Blocks 947-965: RTL8139 (rtl8139.fth, 19 blocks)
+  Blocks 966-999: RTL8168 (rtl8168.fth, 34 blocks)
+  Blocks 1000-1011: SERIAL-16550 (serial-16550.fth, 12 blocks)
+  Blocks 1012-1017: SETTINGS-DASH (settings-dash.fth, 6 blocks)
+  Blocks 1018-1023: SETTINGS-FORM (settings-form.fth, 6 blocks)
+  Blocks 1024-1049: SETTINGS (settings.fth, 26 blocks)
+  Blocks 1050-1061: SHUTDOWN (shutdown.fth, 12 blocks)
+  Blocks 1062-1068: STUB-DISPATCH (stub-dispatch.fth, 7 blocks)
+  Blocks 1069-1085: SURVEYOR-DEEP (surveyor-deep.fth, 17 blocks)
+  Blocks 1086-1106: SURVEYOR-DETAIL (surveyor-detail.fth, 21 blocks)
+  Blocks 1107-1178: SURVEYOR (surveyor.fth, 72 blocks)
+  Blocks 1179-1333: TARGET-ARM64 (target-arm64.fth, 155 blocks)
+  Blocks 1334-1459: TARGET-CORTEX-M (target-cortex-m.fth, 126 blocks)
+  Blocks 1460-1577: TARGET-X86 (target-x86.fth, 118 blocks)
+  Blocks 1578-1612: THUMB2-ASM (thumb2-asm.fth, 35 blocks)
+  Blocks 1613-1644: UI-CORE (ui-core.fth, 32 blocks)
+  Blocks 1645-1659: UI-EVENTS (ui-events.fth, 15 blocks)
+  Blocks 1660-1674: UI-PARSER (ui-parser.fth, 15 blocks)
+  Blocks 1675-1683: VGA-GRAPHICS (vga-graphics.fth, 9 blocks)
+  Blocks 1684-1699: VIDEO (video.fth, 16 blocks)
+  Blocks 1700-1723: X86-ASM (x86-asm.fth, 24 blocks)
+  Blocks 1724-1771: XHCI (xhci.fth, 48 blocks)
+  Blocks 1772-1787: ZIP-READER (zip-reader.fth, 16 blocks)
+  Block 1788: VBR-TEMPLATE (RAW 512 bytes from vbr.bin, zero-filled to 1024)
+  Total: 1789 blocks used
+make[1]: Leaving directory '/home/bbrown/projects/forthos'
+cat build/bmforth.img build/blocks.img > build/combined.img
+Combined image: build/combined.img
+  Kernel: 115200 bytes (LBA 0-224)
+  Blocks: 2097152 bytes (LBA 225+)
+  Total:  2212352 bytes
+Running xHCI vocab test...
+input sha256 f3d6f3e1bbed91b3a858f1cc82a97a9ea02cebad6c697765d1ee35208d554e06  build/combined.img
+
+=== Phase 0: instrument controls (fatal on failure) ===
+  PASS: interpreter alive
+  PASS: qemu-xhci found via FIND-XHCI (control)
+  PASS: host catalog resolver resolves RTL8139 (control)
+  probe sanity: DEF? PCI-FIND=211124 ZZZ-NEVER-DEFINED=0 -> OK
+
+=== Phase 1: block-load XHCI (pre-registered red) ===
+  continuity: nonce OK (phase 1)
+  PASS: XHCI has catalog placement
+  loading XHCI (1724-1771 THRU)...
+  PASS: XHCI blocks load (interpreter alive after THRU)
+  PASS: XHCI vocabulary defined (DEF? nonzero)
+  PASS: BAR64-MASK defined (DEF? nonzero)
+  PASS: PCI-BAR64@ defined (DEF? nonzero)
+
+=== Phase 2: BAR64-MASK logic (pushed literals) ===
+  continuity: nonce OK (phase 2)
+  PASS: iron literal: B1210004/0 masks to B1210000
+  PASS: refusal: nonzero upper dword -> 0
+  PASS: refusal: I/O BAR (bit 0 set) -> 0
+  PASS: refusal: reserved type 01 -> 0
+  PASS: 32-bit type: lo masked, hi ignored
+
+=== Phase 3: hardware path (qemu-xhci) ===
+  continuity: nonce OK (phase 3)
+  PASS: BAR0 type bits read (instrument; predicted 4=64-bit)
+  type bits 2:1 = 10 (64-bit)
+  PASS: PCI-BAR64@ at qemu-xhci nonzero
+  PASS: agrees with PCI-BAR@ (upper dword zero here)
+  PASS: result 16-byte aligned (low 4 bits clear)
+  PASS: 64-bit leg consistent: type 10 + upper 0 (A) or type 00 (B, named alternative)
+  branch A: 64-bit BAR, upper dword 0 (matches iron)
+
+=== Phase 4 (2b): bind/caps/halt/reset/handoff ===
+  continuity: nonce OK (phase 4)
+  PASS: MS-DELAY available after ALSO HARDWARE (control)
+  PASS: MMIO window live at XB (control; 2a words only)
+  PASS: POLL-UNTIL defined (DEF? nonzero)
+  PASS: POLL-CLEAR defined (DEF? nonzero)
+  PASS: XHCI-BIND defined (DEF? nonzero)
+  PASS: XHCI-HALT defined (DEF? nonzero)
+  PASS: XHCI-RESET defined (DEF? nonzero)
+  PASS: XHCI-OWNER defined (DEF? nonzero)
+  PASS: POLL-UNTIL timeout fires (never-set cell -> 0)
+  PASS: POLL-UNTIL prompt success (pre-set cell -> -1)
+  PASS: POLL-CLEAR timeout fires (stuck-set cell -> 0)
+  PASS: POLL-CLEAR prompt success (pre-clear cell -> -1)
+  PASS: XHCI-BIND returns -1
+  PASS: XHCI-BASE matches PCI-BAR64@ (XB)
+  PASS: CAP-LEN in 0x20..0x80
+  CAP-LEN = 0x40 (predicted 0x40)
+  PASS: HCIVERSION 0x100 (predicted) or 0x110 (named alt)
+  HCIVERSION = 0x100
+  PASS: MAX-SLOTS > 0
+  PASS: MAX-PORTS in 1..255
+  pre-halt HCH = 0 (running -- named alternative, halt does real work)
+  PASS: XHCI-HALT returns -1
+  PASS: HCH=1 after halt
+  PASS: XHCI-RESET returns -1 (HCRST+CNR clear in bound)
+  PASS: post-reset R/S=0
+  PASS: post-reset HCH=1
+  PASS: handoff skeleton: cap absent (0, predicted) or present, BIOS bit clear (2, named alt); BIOS-owned (1) fails
+  handoff code = 0: legacy cap absent (predicted)
+  xECP caps visited = 2 (bounded walk; a runaway is visible here even when check 42 passes)
+
+=== Phase 5 (2c): DCBAA/rings/Running/NOP round-trip ===
+  continuity: nonce OK (phase 5)
+  PASS: HCH=1 at phase-5 entry (control; 2b words only)
+  PASS: HARDWARE allocator internals visible (control)
+  PASS: AVAIL sane at snapshot (walk clean, >= 0)
+  phase-5 snapshot: NLIVE=7 AVAIL=3104768
+  PASS: XHCI-UP defined (DEF? nonzero)
+  PASS: XHCI-RUN defined (DEF? nonzero)
+  PASS: NOP-TEST defined (DEF? nonzero)
+  PASS: XHCI-DOWN defined (DEF? nonzero)
+  PASS: .H8 fixed-base: 255 prints 000000FF from DECIMAL
+  PASS: XHCI-UP returns -1
+  scratchpads: none demanded (XSPA=0, predicted)
+  PASS: XHCI-UP allocated something (NLIVE delta > 0)
+  PASS: DCBAAP readback matches XDCBAA record
+  PASS: ERSTBA readback matches XERST record
+  PASS: XHCI-RUN returns -1 (HCH cleared in budget)
+  PASS: running proof: HCH 1 -> 0 transition
+  PASS: 32 NOPs complete 32/32 (16-TRB ring wrapped twice, link-toggle executed)
+  completions = 32, XENQ = 2 (predicted 2), XEDQ = 32 (predicted 32) -- a link-toggle stall pins the count near 15; an ERDP stall pins XEDQ short
+  PASS: XHCI-DOWN (clean arm) returns -1 (all released)
+  PASS: HCH=1 after XHCI-DOWN (stopped before release)
+  PASS: second XHCI-DOWN returns 0 (nothing to tear down)
+  PASS: XHCI-UP (refusal arm) returns -1
+  PASS: XHCI-DOWN after direct release returns 1 (partial: vanished record skipped, rest released)
+  PASS: refusal arm emitted no "PHYS: double release" (cross-check skipped, did not re-release)
+  continuity: nonce OK (presence control (check 64))
+  PASS: presence control: direct double release DOES print "PHYS: double release"
+  PASS: owner table restored (NLIVE back to snapshot)
+  PASS: free bytes restored (AVAIL back to snapshot)
+
+=== Phase 6 (2d): PORTSC decode + port survey (READ-ONLY) ===
+  continuity: nonce OK (phase 6)
+  PASS: PORTSC-ADDR defined (DEF? nonzero)
+  PASS: PORTSC@ defined (DEF? nonzero)
+  PASS: all seven PORTSC field decoders defined
+  PASS: survey + display words defined
+  PASS: fixture pin: MAX-PORTS = 8 (qemu-xhci default)
+  PASS: decode 0x0E03 (occupied, measured): P-CCS true
+  PASS: decode 0x0E03: P-PED true
+  PASS: decode 0x0E03: P-PR false
+  PASS: decode 0x0E03: P-PP true
+  PASS: decode 0x0E03: P-SPEED = 3 (HS)
+  PASS: decode 0x0E03: P-PLS = 0 (U0)
+  PASS: decode 0x0E03: P-CSC false
+  PASS: decode 0x202A0 (empty, measured): P-CCS false
+  PASS: decode 0x202A0: P-PP true
+  PASS: decode 0x202A0: P-SPEED = 0
+  PASS: decode 0x202A0: P-PLS = 5 (RxDetect)
+  PASS: decode 0x202A0: P-CSC true (QEMU quirk, measured)
+  PASS: bounds: 0 PORTSC-ADDR refused (0) -- the dword below the array reads plausibly
+  PASS: bounds: MAX-PORTS 1+ PORTSC-ADDR refused (0)
+  PASS: address identity: 1 PORTSC-ADDR = OP-BASE + 0x400
+  PASS: invariant: #CONNECTED = 1 (usb-kbd fixture)
+  PASS: FIRST-CCS identity: in 1..MAX-PORTS and its own CCS reads set
+  connected port = 5 (incidental: recon read 5; a reshuffle is a log line, not a failure)
+  PASS: occupied port: P-PED false post-HCRST (controller reset cleared the enable; re-enable = port reset, step 3)
+  PASS: occupied port: P-PR false (no reset in flight)
+  PASS: occupied port: P-PP true (powered)
+  PASS: occupied port: P-CSC true post-HCRST (re-detection set the change bit)
+  PASS: occupied port: P-SPEED valid (1..4); value printed, not asserted
+  occupied speed = 3 (incidental: recon read 3 = HS)
+  empty-port probe uses port 1
+  PASS: empty port: P-CCS false
+  PASS: empty port: P-PP true (powered, PPC=0)
+  PASS: empty port: P-PLS = 5 (RxDetect)
+  PASS: empty port: P-CSC true (QEMU quirk, measured)
+  PASS: read-only proof: occupied and empty PORTSC each read twice byte-identical (catches a leaked RW1C write from anywhere)
+
+=== Phase 7 (2e prep): claim / SMI-clear / elapsed / fixed-base display / memdisk gate ===
+  continuity: nonce OK (phase 7)
+  PASS: control cells round-trip (kernel machinery only)
+  PASS: (CLAIM) + XHCI-CLAIM defined
+  PASS: (SMI-OFF) + SMI-OFF defined
+  PASS: HRST-LEFT + MEMDISK-BASE@ defined
+  PASS: .D + .PSC defined
+  PASS: (CLAIM) released: code -1 when BIOS bit already clear
+  PASS: (CLAIM) released: OS-owned bit 24 written even when BIOS never held it (uniform-claim ruling)
+  PASS: (CLAIM) stuck: code 1 after the full 1000 ms budget
+  PASS: (CLAIM) stuck: unmasked print 'handoff stuck, legsup=01010000' (our bit 24 visible in it proves set-before-poll ordering)
+  PASS: (CLAIM) stuck: cell = OS bit + BIOS bit (0x1010000)
+  PASS: XHCI-CLAIM hardware: 0 in QEMU (outcome A, cap absent -- the card dry-run)
+  PASS: (SMI-OFF) already-clear: code -1, write path not taken
+  PASS: (SMI-OFF) already-clear: cell byte-identical (0x1FE0) -- proves NO write occurred (any write ORs 0xE0000000)
+  PASS: (SMI-OFF) all five enables (0xE011): code 1
+  PASS: (SMI-OFF) all five enables: cell = 0xE0000000 (enables cleared, RW1C status bits written to clear)
+  PASS: (SMI-OFF) bit-4-only (HSE SMI): code 1 -- the enable a 0xE001-style mask would silently leave armed
+  PASS: (SMI-OFF) bit-4-only: cell = 0xE0000000
+  PASS: (SMI-OFF) mixed 0xFFFFF: code 1
+  PASS: (SMI-OFF) mixed: cell = 0xE00E1FEE (preserve mask keeps 17:19 AND 12:5, 3:1 -- Linux-shaped write, not write-zero)
+  PASS: SMI-OFF hardware: 0 in QEMU (outcome A -- card dry-run)
+  PASS: HCRST elapsed 0..1 ms in QEMU (instant reset); the iron figure is the 2e payload
+  HCRST elapsed = 0 ms (incidental here; the iron reading is what 2e is for)
+  PASS: .D renders decimal under HEX ('15' for F)
+  PASS: .D restores caller BASE (BASE @ renders '10' = 16 in hex)
+  PASS: .PSC occupied synthetic: raw dword via .H8 (000013E3)
+  PASS: .PSC occupied synthetic: '15 pls' while BASE=16 (the base-transparency debt)
+  PASS: .PSC occupied synthetic: 'conn' + ' en ' + '4 spd' all render
+  PASS: .PSC empty synthetic: 000202A0 + '5 pls', no 'conn'
+  PASS: .PORT on occupied port: 'conn' without ' en ' (post-HCRST hardware)
+  PASS: .PORTS emits MAX-PORTS lines (the looped display going to iron)
+  PASS: memdisk gate: MEMDISK-BASE@ = 0 in QEMU (refusal side); iron pass side pre-registered nonzero + 4KiB-aligned, prior reading 0x37BB7000 (2026-09-05)
+  PASS: no-touch bracket: occupied PORTSC byte-identical across phase 7
+
+=== Phase 8: unbound-base guards (refusal + positive control) ===
+  continuity: nonce OK (phase 8)
+  PASS: phase-8 entry: XHCI-BASE bound (saved to XB0)
+  PASS: unbound: XECP-BASE refuses (0) -- HCC1 would read the IVT at 0x10
+  PASS: unbound: 1 XECP-FIND refuses (0)
+  PASS: unbound: XHCI-CLAIM = -2 (refused, distinct from 0 = cap absent -- the iron misreading)
+  PASS: unbound: SMI-OFF = -2 (refused, distinct from 0)
+  PASS: unbound: XHCI-OWNER = -2 (refused; read-only, but 0 would read as "absent" on a pre-bind card line)
+  PASS: restore: XHCI-BASE = XB0 (base back before the positive controls)
+  PASS: positive control, bound: XECP-BASE nonzero (QEMU walks 2 caps; sweep-2026-09-10.log:344)
+  PASS: positive control, bound: XHCI-CLAIM = 0 (absent), NOT -2 -- guard does not refuse a valid base
+  PASS: positive control, bound: SMI-OFF = 0 (absent), NOT -2
+  PASS: positive control, bound: XHCI-OWNER = 0 (absent), NOT -2
+
+=== Phase 9 (3a): port reset / typed events / CTX-SIZE ===
+  continuity: nonce OK (phase 9)
+  PASS: PORT-RESET + P-NEUTRAL + P-PRC defined
+  PASS: typed event words defined (T-TYPE T-CC T-SLOT T-PORT EV-D0 EV-TYPE EV-CC EV-SLOT EV-WAIT)
+  PASS: CTX-SIZE defined
+  PASS: -1 P-NEUTRAL = 0x4E00FFE9: RO + RWS survive an all-ones read
+  PASS: 2 P-NEUTRAL = 0: PED (RW1C, 1 = DISABLE) never written back
+  PASS: 0xFE0000 P-NEUTRAL = 0: change bits 17-23 (RW1C) never written back by a neutral write
+  PASS: 16 P-NEUTRAL = 0: PR (RW1S) not re-asserted by a neutral write
+  PASS: 0x20EE1 (measured post-HCRST) P-NEUTRAL = 0xEE1: CSC dropped, CCS/PLS/PP/speed kept
+  PASS: P-PRC: bit 21 true, 0 false
+  PASS: T-TYPE 0x8401 = 33 (command completion)
+  PASS: T-TYPE 0x8801 = 34 (port status change)
+  PASS: T-CC 0x01000000 = 1 (success)
+  PASS: T-SLOT 0x01008401 = 1
+  PASS: T-PORT 0x05000000 = 5
+  PASS: CTX-SIZE = 32 (QEMU HCCPARAMS derivation: CSZ clear; iron pre-registered 64, named alt 32)
+  PASS: unbound: CTX-SIZE = 0 (refused; 32/64 would read as a plausible answer on a pre-bind card line)
+  PASS: unbound: PORT-RESET = 0 (refused; PORTSC-ADDR alone is fail-open read-only and this word WRITES)
+  PASS: restore: XHCI-BASE = XB0 after the 3a unbound pair
+  PASS: XHCI-UP returns -1 (3a leg)
+  PASS: XHCI-RUN returns -1 (PSCE is dropped when halted)
+  PASS: FIRST-CCS PORT-RESET returns -1 (PRC seen, PED set)
+  PASS: occupied port: P-PED true after port reset (the 2d "re-enable = step 3" debt)
+  PASS: occupied port: P-PR false (reset complete)
+  PASS: occupied port: P-PRC false (change bits cleared by the second write)
+  PASS: occupied port: P-CSC false (cleared in the same write)
+  PASS: occupied port: P-SPEED = 3 (QEMU 8.2.2 FIXTURE value: dev-hid.c desc_keyboard .high; iron reads 1/FS or 2/LS, never 3)
+  PASS: elapsed: 1000 PRST-LEFT @ - = 0 ms (QEMU resets synchronously in xhci_port_write; iron pre-registered 10..100 ms)
+  PASS: 34 EV-WAIT = -1: the PSCE from the reset reached the event ring
+  PASS: EV-TYPE = 34 at the un-consumed TRB
+  PASS: EV-D0 T-PORT = FIRST-CCS (the event names the port)
+  PASS: EV-CC = 1 (CC_SUCCESS in the PSCE)
+  PASS: XEV-SKIP = 0 (nothing skipped ahead of the PSCE)
+  PASS: 34 EV-WAIT = 0 after EV-NEXT (negative control: ring empty, budget elapses)
+  PASS: skip-with-record: NOP ringed, 34 EV-WAIT = 0 (no PSCE; the completion was skipped, not counted)
+  PASS: skip-with-record: XEV-SKIP = 1
+  PASS: skip-with-record: XEV-LAST = 33
+  PASS: 1 NOP-TEST = 1 (command path intact after typed consumption)
+  PASS: XHCI-DOWN returns -1 (3a leg released)
+  PASS: allocator symmetry: NLIVE after DOWN = NLIVE before UP
+
+=== Phase 10 (3b): slot commands / contexts / Address Device ===
+  continuity: nonce OK (phase 10)
+  PASS: CTX-CACHE/CTX-SZ/I-SLOT/I-EP0/O-EP0 defined
+  PASS: command words defined (CMD-ENQ/CMD-RUN/ENABLE-SLOT/DISABLE-SLOT/SPEED>MPS)
+  PASS: slot words defined (BUILD-ICTX/SLOT-ALLOC/SLOT-FREE/SLOT-STATE/ENUM-ADDRESS/SLOT-DOWN)
+  PASS: SPEED>MPS FS(1) = 8
+  PASS: SPEED>MPS LS(2) = 8
+  PASS: SPEED>MPS HS(3) = 64
+  PASS: SPEED>MPS SS(4) = 512
+  PASS: CTX-SZ scaling 64: 0 I-SLOT = 64 (slot ctx at 1x)
+  PASS: CTX-SZ scaling 64: 0 I-EP0 = 128 (ep0 ctx at 2x)
+  PASS: CTX-SZ scaling 64: 0 O-EP0 = 64 (output ep0 at 1x)
+  PASS: CTX-SZ scaling 32: 0 I-SLOT = 32
+  PASS: CTX-SZ scaling 32: 0 I-EP0 = 64
+  PASS: scratch input ctx + ring allocated
+  PASS: BUILD-ICTX input control +4 = 3 (Drop 0 / Add A0|A1)
+  PASS: BUILD-ICTX slot +32 = 0x08300000 (ctxentries 1 | HS)
+  PASS: BUILD-ICTX slot +36 = 0x00050000 (root port 5)
+  PASS: BUILD-ICTX ep0 +68 = 0x00400026 (mps 64 | Control | CErr 3)
+  PASS: BUILD-ICTX ep0 +80 = 8 (avg TRB length)
+  PASS: BUILD-ICTX ep0 +72 = ring | DCS(1)
+  PASS: unbound: ENUM-ADDRESS = 0 (refused, no write to DMA)
+  PASS: idle: SLOT-DOWN = 0 (nothing held)
+  PASS: XHCI-UP returns -1 (3b leg)
+  PASS: XHCI-RUN returns -1 (command ring runs)
+  PASS: CMD-ENQ layout: params land, cycle bit set in control
+  PASS: CMD-ENQ layout: control type field = 9 (the Enable Slot opcode written)
+  PASS: ENABLE-SLOT completion cc = 1 (Success)
+  PASS: ENABLE-SLOT slot in 1..MAX-SLOTS
+  PASS: DISABLE-SLOT (standalone slot) cc = 1
+  PASS: ENUM-ADDRESS(occupied port) returns a slot (nonzero)
+  PASS: ENUM-ADDRESS slot = XSLOT (the enabled slot)
+  PASS: SLOT-STATE = 2 (Addressed) -- output device context written by the controller
+  PASS: DCBAA[slot] low = output device context (XODC)
+  PASS: SLOT-DOWN returns -1 (all released)
+  PASS: SLOT-DOWN then idle SLOT-DOWN = 0 (nothing held)
+  PASS: allocator symmetry: NLIVE after SLOT-DOWN = before UP
+
+=== Phase 11 (3c): EP0 control transfers / configure ===
+  continuity: nonce OK (phase 11)
+  PASS: EP0-ENQ/EP0-BELL/EP0-WAIT/CC-OK? defined
+  PASS: GET-DESC/EVAL-MPS/SET-CONFIG/GET-CONFIG defined
+  PASS: ENUM-CONFIGURE/CFG-STATE/CTX-MPS defined
+  PASS: CC-OK? 1 (Success) = true
+  PASS: CC-OK? 13 (Short Packet) = true
+  PASS: CC-OK? 5 (TRB Error) = false
+  PASS: CC-OK? 0 (poll timeout) = false
+  PASS: XHCI-UP returns -1 (3c leg)
+  PASS: XHCI-RUN returns -1
+  PASS: ENUM-ADDRESS(occupied port) returns a slot
+  PASS: EP0-ENQ layout: four dwords land, cycle set in control
+  PASS: EP0-ENQ layout: control type field = 9
+  FAIL: CFG-STATE before SET_CONFIGURATION = 0 (unconfigured) -- got 1: '1 ok '
+  FAIL: ENUM-CONFIGURE returns bConfigurationValue (nonzero) -- got 0: '0 ok '
+  PASS: CFGCC8 (GET_DESCRIPTOR 8) in {1,13}; QEMU 1 (Success)
+  PASS: CFGVAL = 1 (bConfigurationValue read, not assumed)
+  PASS: standalone GET-DESC(device,18) cc in {1,13}
+  PASS: device descriptor byte1 = 1 (DEVICE type -- read landed)
+  PASS: device descriptor byte7 = 64 (HS bMaxPacketSize0)
+  FAIL: CFG-STATE after SET = CFGVAL (transition 0 -> value) -- got 1 vs 0: '1 ok '
+  PASS: forced EVAL: output EP0 MPS = 8 before (control set it)
+  PASS: forced EVAL: 64 EVAL-MPS returns cc 1
+  PASS: forced EVAL: output EP0 MPS = 64 after (Evaluate Context corrected it)
+  PASS: SLOT-DOWN returns -1
+  PASS: allocator symmetry: NLIVE after teardown = before UP
+  PASS: BASE tripwire: reads 10 at exit
+  continuity: nonce OK (final score)
+
+Passed: 237/240
+make: *** [Makefile:478: test-xhci] Error 1
