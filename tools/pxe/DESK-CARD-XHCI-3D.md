@@ -112,11 +112,17 @@ ______ PORTSC@ P-SPEED .        \ speed of the keyboard port
 
 ### 3.3 PHYS-AUDIT baseline (step-2 open item: attribute the 7 pages)
 ```forth
-DEF? OWN-CAP .                  \ nonzero
-DEF? OWN-SLOT .                 \ nonzero — both required before the : line
-: .OWNERS OWN-CAP 0 DO I OWN-SLOT DUP @ IF DUP 8 + @ U. DUP @ U. DUP 4 + @ U. CR THEN DROP LOOP ;
-STATE @ .                       \ 0 — an undefined name mid-: zeroes STATE (forth.asm:1538) and leaks a half-header; 0 confirms the definition closed
-HEX  PHYS-AUDIT  CR  .OWNERS  DECIMAL     \ photo — this is the baseline
+DEF? OWN-CAP .          \ nonzero (req'd before the : line)
+DEF? OWN-SLOT .         \ nonzero (req'd before the : line)
+\ .OWNERS is ONE definition typed across the lines below (the
+\ interpreter reads to the ;).  No line wraps on the printout.
+: .OWNERS  OWN-CAP 0 DO
+    I OWN-SLOT  DUP @ IF
+      DUP 8 + @ U.  DUP @ U.  DUP 4 + @ U.  CR
+    THEN  DROP
+  LOOP ;
+STATE @ .   \ MUST be 0 (a bad name mid-def zeroes STATE)
+HEX  PHYS-AUDIT  CR  .OWNERS  DECIMAL   \ photo: baseline
 ```
 Pre-registered: **live 7, unattributed 0, extents 0x103000-0x109000**
 (4 AHCI + 2 RTL8168 + 1 NTFS boot allocations). Any slot tagged
