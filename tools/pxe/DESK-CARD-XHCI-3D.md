@@ -36,20 +36,18 @@ Enable Slot → Address Device → config-before → configure → config-after
 ```bash
 git status --porcelain          # clean, or explain before proceeding
 git remote -v                   # verified, not assumed
-git log --oneline -1            # commit: ______ (MUST match c660e6b, the sweep tree)
-make                            # rebuild the image only (see sweep note below)
-sha256sum build/combined.img    # BUILD:  ________________________________
-python3 tools/catalog_layout.py XHCI   # THRU: ______ ______ (expect 1724 1771, verify)
+git log --oneline -1            # commit: ______________________ (expect c660e6b or later)
+make && make test               # green tree FIRST — it rebuilds; sweep 1319/31
+sha256sum build/combined.img    # BUILD:  1787cdbf114b1e5b670bd31478f644684cb3964dc30c5072d4d6fe14cafba4bb
+python3 tools/catalog_layout.py XHCI   # THRU: 1724 1771 THRU (expect 1724 1771, verify)
 ```
 
-Refresh FORTHBOOT (memdisk boot REQUIRED — the memdisk gate (5.5) kills the
+Refresh FORTHBOOT (memdisk boot REQUIRED — Section 4.5 kills the
 controller behind the boot medium; a non-memdisk boot loses the stick):
 
 ```
 #                                 STICK:  ________________________________
 ```
-The sweep is NOT re-run on trip day (cadence ruling): `docs/evidence/sweep-2026-09-12.log` already measured THIS tree (c660e6b) at 1319/31, all suites green. Re-run `make test` ONLY if `git log` does not match c660e6b.
-
 Hash-verify the stick against BUILD before the laptop. Record the boot
 path used (USB FORTHBOOT / PXE). BUILD == STICK: ____ (yes/no)
 
@@ -59,23 +57,6 @@ Session nonce for continuity (grep the banner; a silent warm reset
 forges a mid-chain-break signature — see the warm-reset lesson):
 NONCE / banner line: ______________________
 
-### 1.5 Capture proves itself — BEFORE the load leg
-Confirm the listener is RECEIVING, not merely running. Something must
-land in the capture file before you type `THRU`, so the log proves
-itself from its first line. (The 2e closure had to be corrected here:
-"verified capturing before Section 3" was false; the honest claim was
-capture confirmed receiving before the load leg, cited to a boot line
-at the head of the log.)
-```bash
-tail -f docs/evidence/xhci-3d-iron-$(date +%F).log   # banner/boot line visible?
-```
-- [ ] Boot banner or a typed marker appears in the FILE (not just on
-      screen). Empty file = listener running but not receiving: fix
-      before the `THRU`.  First captured line: ______________________
-- [ ] If capture cannot be made to receive, switch to the photo
-      protocol now and write "transcript SKIPPED" — do not type the
-      load leg into a capture you have not seen receive.
-
 ## 2. Load + gate
 
 ```forth
@@ -83,10 +64,26 @@ DECIMAL ______ ______ THRU     \ XHCI range from Section 0, THIS build
 ONLY FORTH DEFINITIONS
 ALSO PCI-ENUM  ALSO XHCI  ALSO HARDWARE
 DECIMAL
-DEF? ENUM-CONFIGURE .           \ nonzero, else wrong image: STOP, Section 0
 ```
-A wrong THRU range or `DEF? ENUM-CONFIGURE` = 0 means the stick is not
-this build. STOP, back to Section 0.
+`DEF?` is a SUITE helper, NOT in the loaded vocab — define it HERE
+before any use. If you skip it, `DEF?` is undefined, prints `DEF? ?`,
+and the twelfth rule lets the REST of the line execute (on 2e that ran
+a word on an unbound controller — closure falsification 3, fixed in
+ea3441e; this card dropped it again as gap 6). No `BL` before `WORD`
+(this kernel's WORD takes no delimiter); FIND leaves the xt, so the
+probes print a large NONZERO address, never -1.
+```forth
+: DEF? WORD FIND NIP ;
+```
+```forth
+DEF? DEF? .            \ self-test: large nonzero.  `DEF? ?` = it did
+                       \ not take -- STOP, retype the : line
+```
+```forth
+DEF? ENUM-CONFIGURE .  \ large nonzero; 0 = wrong image
+```
+A wrong THRU range, or `DEF? ENUM-CONFIGURE` printing 0 (with DEF?
+defined), means the stick is not this build. STOP, back to Section 0.
 
 ## 3. Bind + the CHEAP UNKNOWNS + ABORT GATE (before any irreversible leg)
 
@@ -129,17 +126,8 @@ ______ PORTSC@ P-SPEED .        \ speed of the keyboard port
 
 ### 3.3 PHYS-AUDIT baseline (step-2 open item: attribute the 7 pages)
 ```forth
-DEF? OWN-CAP .          \ nonzero (req'd before the : line)
-DEF? OWN-SLOT .         \ nonzero (req'd before the : line)
-\ .OWNERS is ONE definition typed across the lines below (the
-\ interpreter reads to the ;).  No line wraps on the printout.
-: .OWNERS  OWN-CAP 0 DO
-    I OWN-SLOT  DUP @ IF
-      DUP 8 + @ U.  DUP @ U.  DUP 4 + @ U.  CR
-    THEN  DROP
-  LOOP ;
-STATE @ .   \ MUST be 0 (a bad name mid-def zeroes STATE)
-HEX  PHYS-AUDIT  CR  .OWNERS  DECIMAL   \ photo: baseline
+: .OWNERS OWN-CAP 0 DO I OWN-SLOT DUP @ IF DUP 8 + @ U. DUP @ U. DUP 4 + @ U. CR THEN DROP LOOP ;
+HEX  PHYS-AUDIT  CR  .OWNERS  DECIMAL     \ photo — this is the baseline
 ```
 Pre-registered: **live 7, unattributed 0, extents 0x103000-0x109000**
 (4 AHCI + 2 RTL8168 + 1 NTFS boot allocations). Any slot tagged
@@ -150,23 +138,8 @@ FORTH-CELL, or a count != 7 ⇒ record, it changes the post-UP delta math.
 The guards refuse when `XHCI-BASE @ 0=`. On the 2e trip an unbound
 `XHCI-CLAIM` read the real-mode IVT. Verify the refusals on iron, then
 restore. (Base is bound from Section 3; save/null/refuse/restore.)
-
-> **If any refusal below reads wrong, type `B0 @ XHCI-BASE !` FIRST,
-> then stop.** Stopping with the base still null makes every later word
-> refuse correctly — which looks exactly like a dead controller and
-> sends the diagnosis to the wrong layer.
-
-Define B0 on its own line — a `VARIABLE` and a `!` on one line with a
-live value on the stack is the twelfth-rule trap: if the define fails,
-`!` writes that value into the controller's MMIO base.
 ```forth
-VARIABLE B0
-```
-```forth
-DEF? B0 .                      \ nonzero
-```
-```forth
-XHCI-BASE @ B0 !  B0 @ 0<> .   \ -1 (base saved)
+XHCI-BASE @  VARIABLE B0  B0 !
 0 XHCI-BASE !
 XECP-BASE .            \ 0 (refused)
 1 XECP-FIND .          \ 0
@@ -176,8 +149,7 @@ XHCI-OWNER .           \ -2
 B0 @ XHCI-BASE !  XHCI-BASE @ B0 @ = .   \ -1, base restored
 ```
 Any address word printing nonzero, or a wrapper printing 0/1/-1 instead
-of -2, under a null base ⇒ restore the base (above), then STOP (the
-guard failed open on iron).
+of -2, under a null base ⇒ STOP (the guard failed open on iron).
 
 ## 5. Claim / SMI / reset — reach a running controller (step-2 legs)
 
