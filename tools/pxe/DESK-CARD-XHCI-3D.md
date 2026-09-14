@@ -170,21 +170,49 @@ HEX  MEMDISK-BASE@ .  DECIMAL   \ nonzero + 4KiB-aligned; prior 37BB7000
 
 ```forth
 XHCI-HALT .            \ flag
-XHCI-RESET .           \ -1;  HEX 1000 HRST-LEFT @ -  = elapsed ms (record)
+XHCI-RESET .           \ -1
+DECIMAL 1000 HRST-LEFT @ - .  \ elapsed ms (DECIMAL: 1000 not HEX 4096)
 XHCI-UP .              \ -1, else STOP (allocation failed)
 XHCI-RUN .             \ -1 (HCH cleared) — controller running
 ```
+- [ ] `XHCI-UP` on iron allocates SIX records (4 structs + scratchpad
+      array + the SP-COUNT-buffer block), not QEMU's 4 — scratchpads
+      are REAL here (SP-COUNT 34 on the HP). `SP-COUNT .` if curious.
+
+### 5.9 PORT-RESET the target — VALIDATED ON IRON (defect 6/9)
+HCRST (5.5) disabled every port (2d/3d: 0x206E1, PED clear, Polling).
+A device in Polling cannot answer USB traffic, and ENUM-ADDRESS reads
+its speed into the slot context — off a disabled port that speed is 0
+and Address Device fails cc4 two layers from the cause.
+```forth
+.PORTS
+```
+- [ ] **The hot-plugged keyboard may be GONE after XHCI-RESET** (3d:
+      a firmware-enabled device drops across the reset and does NOT
+      self-redetect). If the target port reads empty (0x2A0), **RE-PLUG
+      it** before continuing — this is not a broken controller.
+```forth
+______ PORT-RESET .            \ target port; -1 (PRC seen, PED set)
+______ PORTSC@ P-SPEED .       \ VALID speed now: 1 (FS) or 2 (LS)
+```
+- [ ] `PORT-RESET` = -1 and speed reads 1/2 (not 0). Iron 3d: port ->
+      0x603, PED set, U0, speed 1. Only now is the port addressable.
 
 ## 6. Enable Slot → Address Device (the 3b payload, first on iron)
 
 ```forth
-______ ENUM-ADDRESS .          \ keyboard port from 3.2; prints slot (1..MAX-SLOTS), 0 = STOP
+______ ENUM-ADDRESS .          \ keyboard port from 3.2; slot (1..MAX-SLOTS)
 XSLOT @ .                      \ same slot
-HEX  SLOT-STATE .  DECIMAL      \ 2 (Addressed) — the controller wrote the output ctx
+HEX  SLOT-STATE .  DECIMAL      \ 2 (Addressed) — controller wrote the output ctx
 ```
-- [ ] slot nonzero, `SLOT-STATE` = 2. Any Parameter Error path inside
-      ENUM-ADDRESS returns 0 ⇒ STOP, record; if CTX-SIZE was 40 this is
-      the layer that fails (but the 3.1 gate should have stopped you).
+- [ ] **slot > 0 and `SLOT-STATE` = 2** — addressed.
+- [ ] **-3 ⇒ port not enabled: go back to 5.9, PORT-RESET (or RE-PLUG
+      then PORT-RESET) that port, retry.** The guard reports the port
+      state at the entry, not a cc4 two layers down (3d fix).
+- [ ] **0 ⇒ other refusal (unbound / no DCBAA / Enable Slot failed /
+      Address Device cc != 1): STOP, record.** If CTX-SIZE read 40 the
+      context layout is the suspect — but the 3.1 gate should have
+      stopped you before here.
 
 ## 7. Configure — the before/after transition, Evaluate Context on iron
 

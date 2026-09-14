@@ -614,9 +614,14 @@ VARIABLE CMA  VARIABLE CMCTL  VARIABLE CMCC  VARIABLE CMSLOT
 \ allocate + build input ctx -> program DCBAA[slot] = output ctx
 \ -> Address Device.  Returns the slot on Addressed (both cc=1),
 \ else tears down (Disable Slot if enabled + release) and 0.
-: ENUM-ADDRESS ( port# -- slot|0 )
+: ENUM-ADDRESS ( port# -- slot|0|-3 )
     XHCI-BASE @ 0= IF DROP 0 EXIT THEN
     XDCBAA @ 0= IF DROP 0 EXIT THEN
+    \ Port must be ENABLED (PED) to address: HCRST leaves ports
+    \ disabled (2d), and speed read off a Polling port builds a
+    \ speed-0 context that fails cc4 two layers down (3d iron).
+    \ Refuse -3 (distinct from 0 / a valid slot); caller resets.
+    DUP PORTSC@ P-PED 0= IF DROP -3 EXIT THEN
     CTX-CACHE
     SLOT-ALLOC 0= IF DROP 0 EXIT THEN
     ENABLE-SLOT

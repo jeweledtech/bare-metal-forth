@@ -1791,6 +1791,10 @@ if ALL_3B:
     send('0 XHCI-BASE !')
     v, raw = val('5 ENUM-ADDRESS')
     check(UNB_3B_NAMES[0], v == 0, f'got {v}: {body_of(raw)!r}')
+    v, raw = val('ENUM-CONFIGURE')
+    check('unbound: ENUM-CONFIGURE = 0 (guard xhci.fth:736; the Sec-2 '
+          'iron 0 ok was this guard firing, not an unguarded run)',
+          v == 0, f'got {v}: {body_of(raw)!r}')
     send('XB0 @ XHCI-BASE !')
     v, raw = val('SLOT-DOWN')
     check(UNB_3B_NAMES[1], v == 0, f'got {v}: {body_of(raw)!r}')
@@ -1829,9 +1833,19 @@ if ALL_3B:
               and 1 <= sl <= mps_ms, f'slot {sl}, MAX-SLOTS {mps_ms}')
         v, raw = val('XSLOT2 @ DISABLE-SLOT', 4.0)
         check(HW_3B_NAMES[6], v == 1, f'got {v}: {body_of(raw)!r}')
+        # ENUM-ADDRESS refuses a not-enabled port with -3 (the trip's
+        # highest-value fix): an out-of-range port reads PORTSC 0 ->
+        # PED clear -> -3 at the ENTRY, not cc4 two layers down.  Runs
+        # before the success case so the pre-fix vocab's allocate/fail
+        # cleanup does not disturb the addressed slot.  Red-first: the
+        # unguarded vocab allocates, fails Address Device, returns 0.
+        v, raw = val('MAX-PORTS 1+ ENUM-ADDRESS', 4.0)
+        check('ENUM-ADDRESS not-enabled port -> -3 (distinct from 0 '
+              'and from a valid slot)', v == -3,
+              f'got {v}: {body_of(raw)!r}')
         v, raw = val('FIRST-CCS ENUM-ADDRESS', 6.0)
         slot = v
-        check(HW_3B_NAMES[7], slot is not None and slot != 0,
+        check(HW_3B_NAMES[7], slot is not None and slot > 0,
               f'got {slot}: {body_of(raw)!r}')
         v, raw = val('XSLOT @')
         check(HW_3B_NAMES[8], slot is not None and v == slot,
@@ -1973,7 +1987,7 @@ if ALL_3C:
         check(HW_3C[1], v == -1, f'got {v}: {body_of(raw)!r}')
         v, raw = val('FIRST-CCS ENUM-ADDRESS', 6.0)
         slot = v
-        check(HW_3C[2], slot is not None and slot != 0,
+        check(HW_3C[2], slot is not None and slot > 0,
               f'got {slot}: {body_of(raw)!r}')
         # EP0-ENQ layout on the live EP0 ring, doorbell NOT rung.
         send('286331153 286331153 286331153 9216 EP0-ENQ')
