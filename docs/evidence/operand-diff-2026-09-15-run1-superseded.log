@@ -1,0 +1,349 @@
+differential-all 2026-09-15T13:18:07-07:00 log=../../docs/evidence/operand-diff-2026-09-15.log
+command: make differential-all (tools/translator/Makefile)
+ghidra: /snap/ghidra/47/ghidra application.version=12.1.2
+CODE a13f67834b5e4c27913b101f288bc5b5af549ad2201836f4ab91a1e126eae8a8  tests/dump_starts.c
+CODE 941baf49d5b5473aeba9f33b84f488673973d9e659eabe4110dfe86446e6953c  scripts/compare_starts.py
+CODE f13c8a31b01689c0919aad9c5cb08485080e61c9029b8553cf02696a22991a02  scripts/compare_operands.py
+CODE 91df6bd4b989ce8bf5f58e95fc5098a9cf9b0104cc3be61e2b0132f54a475062  ../../tools/ghidra/InstrStarts.java
+CODE f5e902ae969d5f6c10589a4f059d3e60371292b0e0abba1b516fd9fa49fb9586  src/decoders/x86_decoder.c
+CODE 860d1a122c61f0f044139dea45021fe5e5719a6967e39e611947bdefbcd83b8c  src/loaders/pe_loader.c
+CODE 0b302249aed2179c3445e3e464fd8de330b8bdaf1c66b632975079b7c337c48c  src/loaders/elf_loader.c
+=== tests/data/x64_reds/x64_reds.elf
+INPUT 04af6123fef32d03ee99b4c43ef03bd6523e3018ef380d34a08cd7c2266bed3e  tests/data/x64_reds/x64_reds.elf
+InstrStarts.java> INSTRSTARTS block=.text instructions=4
+InstrStarts.java> INSTRSTARTS total=4 file=/home/bbrown/projects/forthos/tools/translator/build/differential/x64_reds_x64_reds.elf.ghidra.txt
+OURS dump_starts format=ELF mode=64 text_vaddr=401000
+OURS .text decoded=5 covered=21 of 21 bytes
+DIFF x64_reds_x64_reds.elf
+DIFF   section      ghidra     ours    match      mid     none    run   agree
+DIFF   .text             4        5        2        3        0      3   40.0%
+DIFF   TOTAL             4        5        2        3        0      3   40.0%
+SUMMARY x64_reds_x64_reds.elf ghidra=4 ours=5 match=2 mid=3 none=0 longest_run=3 agree=40.0%
+OPD x64_reds_x64_reds.elf aliases=12 alias_sha256=02101788edd26bac8803d544f0389d730ac677bfc7df0d4016efc67fe44948f0
+OPD   section      ghidra   agreed  mnem_ok  opnd_ok   score | nostart undecoded mnemonic opcount reg mem imm addr other
+OPD     .text+0  addr      LEA RAX{R:RAX} [0x401017]{S:64:0x401017} | ours: LEA R:RAX A:0x10  [A:0x10 vs A:0x401017]
+OPD     .text+7  imm       MOV RAX{R:RAX} 0x1122334455667788{S:64:0x1122334455667788} | ours: MOV R:RAX I:0x55667788  [I:0x55667788 vs I:0x1122334455667788]
+OPD     .text+11  nostart  MOV
+OPD     .text+14  nostart  RET
+OPD   .text             4        2        2        0    0.0% | nostart=2 undecoded=0 mnemonic=0 opcount=0 reg=0 mem=0 imm=1 addr=1 other=0
+OPSUMMARY x64_reds_x64_reds.elf ghidra=4 operand_ok=0 mnem_ok=2 score=0.0% nostart=2 undecoded=0 mnemonic=0 opcount=0 reg=0 mem=0 imm=1 addr=1 other=0 alias_sha256=02101788edd2
+=== ../../tests/hp_i3/ACPI.sys
+INPUT 37328e9bdf7242b8a44ce71a2750ffb7bb7b3c761bd3214c16a36d4e2944840b  ../../tests/hp_i3/ACPI.sys
+InstrStarts.java> INSTRSTARTS block=.text instructions=103148
+InstrStarts.java> INSTRSTARTS block=PAGE instructions=40831
+InstrStarts.java> INSTRSTARTS block=INIT instructions=4942
+InstrStarts.java> INSTRSTARTS total=148921 file=/home/bbrown/projects/forthos/tools/translator/build/differential/hp_i3_ACPI.sys.ghidra.txt
+OURS dump_starts format=PE mode=64 image_base=1c0000000 sections=3
+OURS .text decoded=117602 covered=439954 of 439954 bytes
+OURS PAGE decoded=46642 covered=169408 of 169408 bytes
+OURS INIT decoded=5380 covered=22498 of 22498 bytes
+DIFF hp_i3_ACPI.sys
+DIFF   section      ghidra     ours    match      mid     none    run   agree
+DIFF   .text        103148   117602   102337     2556    12709     16   87.0%
+DIFF   PAGE          40831    46642    40410     1143     5089     16   86.6%
+DIFF   INIT           4942     5380     4927       43      410      6   91.6%
+DIFF   TOTAL        148921   169624   147674     3742    18208     16   87.1%
+SUMMARY hp_i3_ACPI.sys ghidra=148921 ours=169624 match=147674 mid=3742 none=18208 longest_run=16 agree=87.1%
+OPD hp_i3_ACPI.sys aliases=12 alias_sha256=02101788edd26bac8803d544f0389d730ac677bfc7df0d4016efc67fe44948f0
+OPD   section      ghidra   agreed  mnem_ok  opnd_ok   score | nostart undecoded mnemonic opcount reg mem imm addr other
+OPD   .text        103148   102337    99729    64780   62.8% | nostart=811 undecoded=708 mnemonic=1900 opcount=2256 reg=20422 mem=3788 imm=497 addr=7986 other=0
+OPD   PAGE          40831    40410    38950    25270   61.9% | nostart=421 undecoded=217 mnemonic=1243 opcount=924 reg=8733 mem=1210 imm=229 addr=2583 other=1
+OPD   INIT           4942     4927     4739     2798   56.6% | nostart=15 undecoded=62 mnemonic=126 opcount=172 reg=738 mem=66 imm=5 addr=960 other=0
+OPSUMMARY hp_i3_ACPI.sys ghidra=148921 operand_ok=92848 mnem_ok=143418 score=62.3% nostart=1247 undecoded=987 mnemonic=3269 opcount=3352 reg=29893 mem=5064 imm=731 addr=11529 other=1 alias_sha256=02101788edd2
+=== ../../tests/hp_i3/disk.sys
+INPUT 30451b36bb163ef5c03ea596b3de1c658326094fdaf3bef712d1660cf64f2d4a  ../../tests/hp_i3/disk.sys
+InstrStarts.java> INSTRSTARTS block=.text instructions=4556
+InstrStarts.java> INSTRSTARTS block=PAGE instructions=7643
+InstrStarts.java> INSTRSTARTS block=INIT instructions=136
+InstrStarts.java> INSTRSTARTS total=12335 file=/home/bbrown/projects/forthos/tools/translator/build/differential/hp_i3_disk.sys.ghidra.txt
+OURS dump_starts format=PE mode=64 image_base=1c0000000 sections=3
+OURS .text decoded=5367 covered=20066 of 20066 bytes
+OURS PAGE decoded=8300 covered=31527 of 31527 bytes
+OURS INIT decoded=169 covered=744 of 744 bytes
+DIFF hp_i3_disk.sys
+DIFF   section      ghidra     ours    match      mid     none    run   agree
+DIFF   .text          4556     5367     4545       23      799      8   84.7%
+DIFF   PAGE           7643     8300     7639        8      653      2   92.0%
+DIFF   INIT            136      169      132        6       31      6   78.1%
+DIFF   TOTAL         12335    13836    12316       37     1483      8   89.0%
+SUMMARY hp_i3_disk.sys ghidra=12335 ours=13836 match=12316 mid=37 none=1483 longest_run=8 agree=89.0%
+OPD hp_i3_disk.sys aliases=12 alias_sha256=02101788edd26bac8803d544f0389d730ac677bfc7df0d4016efc67fe44948f0
+OPD   section      ghidra   agreed  mnem_ok  opnd_ok   score | nostart undecoded mnemonic opcount reg mem imm addr other
+OPD   .text          4556     4545     4420     2664   58.5% | nostart=11 undecoded=23 mnemonic=102 opcount=120 reg=962 mem=395 imm=0 addr=279 other=0
+OPD   PAGE           7643     7639     7418     4991   65.3% | nostart=4 undecoded=30 mnemonic=191 opcount=229 reg=1376 mem=294 imm=4 addr=524 other=0
+OPD   INIT            136      132      130       78   57.4% | nostart=4 undecoded=2 mnemonic=0 opcount=3 reg=16 mem=1 imm=1 addr=31 other=0
+OPSUMMARY hp_i3_disk.sys ghidra=12335 operand_ok=7733 mnem_ok=11968 score=62.7% nostart=19 undecoded=55 mnemonic=293 opcount=352 reg=2354 mem=690 imm=5 addr=834 other=0 alias_sha256=02101788edd2
+=== ../../tests/hp_i3/HDAudBus.sys
+INPUT 9966d998035daae02622e88657f848e6cd2ff8205a9c391b2c9c9f024f20d8df  ../../tests/hp_i3/HDAudBus.sys
+InstrStarts.java> INSTRSTARTS block=.text instructions=15928
+InstrStarts.java> INSTRSTARTS block=PAGE instructions=8188
+InstrStarts.java> INSTRSTARTS block=INIT instructions=98
+InstrStarts.java> INSTRSTARTS total=24214 file=/home/bbrown/projects/forthos/tools/translator/build/differential/hp_i3_HDAudBus.sys.ghidra.txt
+OURS dump_starts format=PE mode=64 image_base=1c0000000 sections=3
+OURS .text decoded=18053 covered=69893 of 69893 bytes
+OURS PAGE decoded=9010 covered=37937 of 37937 bytes
+OURS INIT decoded=123 covered=366 of 366 bytes
+DIFF hp_i3_HDAudBus.sys
+DIFF   section      ghidra     ours    match      mid     none    run   agree
+DIFF   .text         15928    18053    15889       92     2072      9   88.0%
+DIFF   PAGE           8188     9010     8175       24      811      7   90.7%
+DIFF   INIT             98      123       94        6       23      6   76.4%
+DIFF   TOTAL         24214    27186    24158      122     2906      9   88.9%
+SUMMARY hp_i3_HDAudBus.sys ghidra=24214 ours=27186 match=24158 mid=122 none=2906 longest_run=9 agree=88.9%
+OPD hp_i3_HDAudBus.sys aliases=12 alias_sha256=02101788edd26bac8803d544f0389d730ac677bfc7df0d4016efc67fe44948f0
+OPD   section      ghidra   agreed  mnem_ok  opnd_ok   score | nostart undecoded mnemonic opcount reg mem imm addr other
+OPD   .text         15928    15889    15479     9443   59.3% | nostart=39 undecoded=78 mnemonic=332 opcount=277 reg=3640 mem=540 imm=10 addr=1568 other=1
+OPD   PAGE           8188     8175     7982     4718   57.6% | nostart=13 undecoded=8 mnemonic=185 opcount=118 reg=1715 mem=151 imm=1 addr=1279 other=0
+OPD   INIT             98       94       91       76   77.6% | nostart=4 undecoded=2 mnemonic=1 opcount=2 reg=7 mem=0 imm=1 addr=5 other=0
+OPSUMMARY hp_i3_HDAudBus.sys ghidra=24214 operand_ok=14237 mnem_ok=23552 score=58.8% nostart=56 undecoded=88 mnemonic=518 opcount=397 reg=5362 mem=691 imm=12 addr=2852 other=1 alias_sha256=02101788edd2
+=== ../../tests/hp_i3/i8042prt.sys
+INPUT e1887a4e678bba7226e7ebe5b49ec821c2f23642d321a9e1513f7477e4b9340d  ../../tests/hp_i3/i8042prt.sys
+InstrStarts.java> INSTRSTARTS block=.text instructions=10686
+InstrStarts.java> INSTRSTARTS block=PAGE instructions=7848
+InstrStarts.java> INSTRSTARTS block=INIT instructions=556
+InstrStarts.java> INSTRSTARTS total=19090 file=/home/bbrown/projects/forthos/tools/translator/build/differential/hp_i3_i8042prt.sys.ghidra.txt
+OURS dump_starts format=PE mode=64 image_base=1c0000000 sections=3
+OURS .text decoded=12058 covered=49025 of 49025 bytes
+OURS PAGE decoded=8781 covered=36851 of 36851 bytes
+OURS INIT decoded=599 covered=2713 of 2713 bytes
+DIFF hp_i3_i8042prt.sys
+DIFF   section      ghidra     ours    match      mid     none    run   agree
+DIFF   .text         10686    12058    10668       62     1328      9   88.5%
+DIFF   PAGE           7848     8781     7833       34      914      7   89.2%
+DIFF   INIT            556      599      552        6       41      6   92.2%
+DIFF   TOTAL         19090    21438    19053      102     2283      9   88.9%
+SUMMARY hp_i3_i8042prt.sys ghidra=19090 ours=21438 match=19053 mid=102 none=2283 longest_run=9 agree=88.9%
+OPD hp_i3_i8042prt.sys aliases=12 alias_sha256=02101788edd26bac8803d544f0389d730ac677bfc7df0d4016efc67fe44948f0
+OPD   section      ghidra   agreed  mnem_ok  opnd_ok   score | nostart undecoded mnemonic opcount reg mem imm addr other
+OPD   .text         10686    10668    10476     6247   58.5% | nostart=18 undecoded=11 mnemonic=181 opcount=229 reg=2269 mem=408 imm=15 addr=1308 other=0
+OPD   PAGE           7848     7833     7674     4445   56.6% | nostart=15 undecoded=6 mnemonic=153 opcount=199 reg=1622 mem=339 imm=7 addr=1062 other=0
+OPD   INIT            556      552      543      248   44.6% | nostart=4 undecoded=2 mnemonic=7 opcount=19 reg=108 mem=45 imm=1 addr=122 other=0
+OPSUMMARY hp_i3_i8042prt.sys ghidra=19090 operand_ok=10940 mnem_ok=18693 score=57.3% nostart=37 undecoded=19 mnemonic=341 opcount=447 reg=3999 mem=792 imm=23 addr=2492 other=0 alias_sha256=02101788edd2
+=== ../../tests/hp_i3/pci.sys
+INPUT 18331874dce2e9c660eec99d997542796dd9f54535d4a30b61d14c5403b3e9d4  ../../tests/hp_i3/pci.sys
+InstrStarts.java> INSTRSTARTS block=.text instructions=37407
+InstrStarts.java> INSTRSTARTS block=PAGE instructions=47686
+InstrStarts.java> INSTRSTARTS block=INIT instructions=1734
+InstrStarts.java> INSTRSTARTS total=86827 file=/home/bbrown/projects/forthos/tools/translator/build/differential/hp_i3_pci.sys.ghidra.txt
+OURS dump_starts format=PE mode=64 image_base=1c0000000 sections=3
+OURS .text decoded=43522 covered=158979 of 158979 bytes
+OURS PAGE decoded=54317 covered=199115 of 199115 bytes
+OURS INIT decoded=1919 covered=7645 of 7645 bytes
+DIFF hp_i3_pci.sys
+DIFF   section      ghidra     ours    match      mid     none    run   agree
+DIFF   .text         37407    43522    37347      268     5907      7   85.8%
+DIFF   PAGE          47686    54317    47625      291     6401      9   87.7%
+DIFF   INIT           1734     1919     1728       15      176      6   90.0%
+DIFF   TOTAL         86827    99758    86700      574    12484      9   86.9%
+SUMMARY hp_i3_pci.sys ghidra=86827 ours=99758 match=86700 mid=574 none=12484 longest_run=9 agree=86.9%
+OPD hp_i3_pci.sys aliases=12 alias_sha256=02101788edd26bac8803d544f0389d730ac677bfc7df0d4016efc67fe44948f0
+OPD   section      ghidra   agreed  mnem_ok  opnd_ok   score | nostart undecoded mnemonic opcount reg mem imm addr other
+OPD   .text         37407    37347    36472    23671   63.3% | nostart=60 undecoded=185 mnemonic=690 opcount=1087 reg=7940 mem=1540 imm=96 addr=2138 other=0
+OPD   PAGE          47686    47625    45990    31189   65.4% | nostart=61 undecoded=174 mnemonic=1461 opcount=1297 reg=9331 mem=1478 imm=94 addr=2601 other=0
+OPD   INIT           1734     1728     1680      999   57.6% | nostart=6 undecoded=11 mnemonic=37 opcount=100 reg=264 mem=26 imm=4 addr=287 other=0
+OPSUMMARY hp_i3_pci.sys ghidra=86827 operand_ok=55859 mnem_ok=84142 score=64.3% nostart=127 undecoded=370 mnemonic=2188 opcount=2484 reg=17535 mem=3044 imm=194 addr=5026 other=0 alias_sha256=02101788edd2
+=== ../../tests/hp_i3/serial.sys
+INPUT 024c1f9fbefdcbc174733a5c97b121a6d7ad30e836c1820054bcb45f99fb4373  ../../tests/hp_i3/serial.sys
+InstrStarts.java> INSTRSTARTS block=.text instructions=4715
+InstrStarts.java> INSTRSTARTS block=PAGESRP0 instructions=4444
+InstrStarts.java> INSTRSTARTS block=PAGESER instructions=4311
+InstrStarts.java> INSTRSTARTS block=INIT instructions=382
+InstrStarts.java> INSTRSTARTS total=13852 file=/home/bbrown/projects/forthos/tools/translator/build/differential/hp_i3_serial.sys.ghidra.txt
+OURS dump_starts format=PE mode=64 image_base=1c0000000 sections=4
+OURS .text decoded=5746 covered=20329 of 20329 bytes
+OURS PAGESRP0 decoded=4816 covered=19504 of 19504 bytes
+OURS PAGESER decoded=5141 covered=19124 of 19124 bytes
+OURS INIT decoded=402 covered=1714 of 1714 bytes
+DIFF hp_i3_serial.sys
+DIFF   section      ghidra     ours    match      mid     none    run   agree
+DIFF   .text          4715     5746     4708       16     1022      5   81.9%
+DIFF   PAGESRP0       4444     4816     4436        8      372      8   92.1%
+DIFF   PAGESER        4311     5141     4308       23      810      8   83.8%
+DIFF   INIT            382      402      361        6       35      6   89.8%
+DIFF   TOTAL         13852    16105    13813       53     2239      8   85.8%
+SUMMARY hp_i3_serial.sys ghidra=13852 ours=16105 match=13813 mid=53 none=2239 longest_run=8 agree=85.8%
+OPD hp_i3_serial.sys aliases=12 alias_sha256=02101788edd26bac8803d544f0389d730ac677bfc7df0d4016efc67fe44948f0
+OPD   section      ghidra   agreed  mnem_ok  opnd_ok   score | nostart undecoded mnemonic opcount reg mem imm addr other
+OPD   .text          4715     4708     4602     3129   66.4% | nostart=7 undecoded=10 mnemonic=96 opcount=129 reg=969 mem=132 imm=1 addr=242 other=0
+OPD   PAGESRP0       4444     4436     4282     2600   58.5% | nostart=8 undecoded=2 mnemonic=152 opcount=195 reg=1068 mem=80 imm=1 addr=338 other=0
+OPD   PAGESER        4311     4308     4266     2802   65.0% | nostart=3 undecoded=7 mnemonic=35 opcount=133 reg=844 mem=240 imm=1 addr=246 other=0
+OPD   INIT            382      361      356      197   51.6% | nostart=21 undecoded=2 mnemonic=3 opcount=14 reg=80 mem=11 imm=1 addr=53 other=0
+OPSUMMARY hp_i3_serial.sys ghidra=13852 operand_ok=8728 mnem_ok=13506 score=63.0% nostart=39 undecoded=21 mnemonic=286 opcount=471 reg=2961 mem=463 imm=4 addr=879 other=0 alias_sha256=02101788edd2
+=== ../../tests/hp_i3/storport.sys
+INPUT c81db5390f1fd36eb80e6db5c0ed1f7c3289c7a09ee70510fbe42d1a7717a198  ../../tests/hp_i3/storport.sys
+InstrStarts.java> INSTRSTARTS block=.text instructions=85662
+InstrStarts.java> INSTRSTARTS block=PAGE instructions=12081
+InstrStarts.java> INSTRSTARTS block=PAGEVRFY instructions=443
+InstrStarts.java> INSTRSTARTS block=INIT instructions=42
+InstrStarts.java> INSTRSTARTS total=98228 file=/home/bbrown/projects/forthos/tools/translator/build/differential/hp_i3_storport.sys.ghidra.txt
+OURS dump_starts format=PE mode=64 image_base=1c0000000 sections=4
+OURS .text decoded=96709 covered=362617 of 362617 bytes
+OURS PAGE decoded=13559 covered=49305 of 49305 bytes
+OURS PAGEVRFY decoded=784 covered=2063 of 2063 bytes
+OURS INIT decoded=52 covered=114 of 114 bytes
+DIFF hp_i3_storport.sys
+DIFF   section      ghidra     ours    match      mid     none    run   agree
+DIFF   .text         85662    96709    85255     1120    10334     19   88.2%
+DIFF   PAGE          12081    13559    12063       43     1453      7   89.0%
+DIFF   PAGEVRFY        443      784      443        0      341      0   56.5%
+DIFF   INIT             42       52       21        6       25      6   40.4%
+DIFF   TOTAL         98228   111104    97782     1169    12153     19   88.0%
+SUMMARY hp_i3_storport.sys ghidra=98228 ours=111104 match=97782 mid=1169 none=12153 longest_run=19 agree=88.0%
+OPD hp_i3_storport.sys aliases=12 alias_sha256=02101788edd26bac8803d544f0389d730ac677bfc7df0d4016efc67fe44948f0
+OPD   section      ghidra   agreed  mnem_ok  opnd_ok   score | nostart undecoded mnemonic opcount reg mem imm addr other
+OPD   .text         85662    85255    82871    56835   66.3% | nostart=407 undecoded=379 mnemonic=2005 opcount=1754 reg=16222 mem=3940 imm=138 addr=3982 other=0
+OPD   PAGE          12081    12063    11714     7987   66.1% | nostart=18 undecoded=39 mnemonic=310 opcount=288 reg=2384 mem=437 imm=9 addr=609 other=0
+OPD   PAGEVRFY        443      443      437      326   73.6% | nostart=0 undecoded=5 mnemonic=1 opcount=11 reg=71 mem=18 imm=0 addr=11 other=0
+OPD   INIT             42       21       20       16   38.1% | nostart=21 undecoded=1 mnemonic=0 opcount=0 reg=2 mem=0 imm=1 addr=1 other=0
+OPSUMMARY hp_i3_storport.sys ghidra=98228 operand_ok=65164 mnem_ok=95042 score=66.3% nostart=446 undecoded=424 mnemonic=2316 opcount=2053 reg=18679 mem=4395 imm=148 addr=4603 other=0 alias_sha256=02101788edd2
+=== ../../tests/hp_i3/usbxhci.sys
+INPUT beedb41d713d8cbc305f6c37d0503390d4dbbd84d6b49f2a1efe39d547c01fa5  ../../tests/hp_i3/usbxhci.sys
+InstrStarts.java> INSTRSTARTS block=.text instructions=75805
+InstrStarts.java> INSTRSTARTS block=PAGE instructions=13065
+InstrStarts.java> INSTRSTARTS block=PAGEIPPT instructions=266
+InstrStarts.java> INSTRSTARTS block=INIT instructions=98
+InstrStarts.java> INSTRSTARTS total=89234 file=/home/bbrown/projects/forthos/tools/translator/build/differential/hp_i3_usbxhci.sys.ghidra.txt
+OURS dump_starts format=PE mode=64 image_base=1c0000000 sections=4
+OURS .text decoded=85919 covered=335120 of 335120 bytes
+OURS PAGE decoded=14155 covered=58224 of 58224 bytes
+OURS PAGEIPPT decoded=332 covered=1082 of 1082 bytes
+OURS INIT decoded=123 covered=366 of 366 bytes
+DIFF hp_i3_usbxhci.sys
+DIFF   section      ghidra     ours    match      mid     none    run   agree
+DIFF   .text         75805    85919    75556      702     9661     22   87.9%
+DIFF   PAGE          13065    14155    13044       50     1061      7   92.2%
+DIFF   PAGEIPPT        266      332      266        0       66      0   80.1%
+DIFF   INIT             98      123       94        6       23      6   76.4%
+DIFF   TOTAL         89234   100529    88960      758    10811     22   88.5%
+SUMMARY hp_i3_usbxhci.sys ghidra=89234 ours=100529 match=88960 mid=758 none=10811 longest_run=22 agree=88.5%
+OPD hp_i3_usbxhci.sys aliases=12 alias_sha256=02101788edd26bac8803d544f0389d730ac677bfc7df0d4016efc67fe44948f0
+OPD   section      ghidra   agreed  mnem_ok  opnd_ok   score | nostart undecoded mnemonic opcount reg mem imm addr other
+OPD   .text         75805    75556    73744    47796   63.1% | nostart=249 undecoded=527 mnemonic=1285 opcount=1146 reg=15115 mem=3546 imm=83 addr=6058 other=0
+OPD   PAGE          13065    13044    12577     7713   59.0% | nostart=21 undecoded=58 mnemonic=409 opcount=157 reg=2790 mem=243 imm=8 addr=1666 other=0
+OPD   PAGEIPPT        266      266      265      166   62.4% | nostart=0 undecoded=1 mnemonic=0 opcount=4 reg=67 mem=6 imm=0 addr=22 other=0
+OPD   INIT             98       94       91       76   77.6% | nostart=4 undecoded=2 mnemonic=1 opcount=2 reg=7 mem=0 imm=1 addr=5 other=0
+OPSUMMARY hp_i3_usbxhci.sys ghidra=89234 operand_ok=55751 mnem_ok=86677 score=62.5% nostart=274 undecoded=588 mnemonic=1695 opcount=1309 reg=17979 mem=3795 imm=92 addr=7751 other=0 alias_sha256=02101788edd2
+=== build/differential/modules/ne2k-pci.ko
+INPUT 8197408b4a1440c53bbd63fa3524392c505f05a6efd8807771ad0dd50716750f  build/differential/modules/ne2k-pci.ko
+InstrStarts.java> INSTRSTARTS block=.text instructions=1193
+InstrStarts.java> INSTRSTARTS block=.init.text instructions=28
+InstrStarts.java> INSTRSTARTS block=.exit.text instructions=23
+InstrStarts.java> INSTRSTARTS total=1244 file=/home/bbrown/projects/forthos/tools/translator/build/differential/modules_ne2k-pci.ko.ghidra.txt
+OURS dump_starts format=ELF mode=64 text_vaddr=0
+OURS .text decoded=1229 covered=4003 of 4003 bytes
+DIFF modules_ne2k-pci.ko
+DIFF   section      ghidra     ours    match      mid     none    run   agree
+DIFF   .text          1193     1229     1178       29       22      4   95.9%
+DIFF   TOTAL          1193     1229     1178       29       22      4   95.9%
+DIFF   executable Ghidra blocks we did not decode: .init.text .exit.text
+SUMMARY modules_ne2k-pci.ko ghidra=1193 ours=1229 match=1178 mid=29 none=22 longest_run=4 agree=95.9%
+OPD modules_ne2k-pci.ko aliases=12 alias_sha256=02101788edd26bac8803d544f0389d730ac677bfc7df0d4016efc67fe44948f0
+OPD   section      ghidra   agreed  mnem_ok  opnd_ok   score | nostart undecoded mnemonic opcount reg mem imm addr other
+OPD   .text          1193     1178     1160      617   51.7% | nostart=15 undecoded=10 mnemonic=8 opcount=1 reg=259 mem=67 imm=32 addr=184 other=0
+OPSUMMARY modules_ne2k-pci.ko ghidra=1193 operand_ok=617 mnem_ok=1160 score=51.7% nostart=15 undecoded=10 mnemonic=8 opcount=1 reg=259 mem=67 imm=32 addr=184 other=0 alias_sha256=02101788edd2
+=== build/differential/modules/8139too.ko
+INPUT d37805490a3ae855082ff92e9eb4bf0c1a9ed758dda86342891e9ef18b89d5c2  build/differential/modules/8139too.ko
+InstrStarts.java> INSTRSTARTS block=.text instructions=4026
+InstrStarts.java> INSTRSTARTS block=.init.text instructions=28
+InstrStarts.java> INSTRSTARTS block=.exit.text instructions=23
+InstrStarts.java> INSTRSTARTS total=4077 file=/home/bbrown/projects/forthos/tools/translator/build/differential/modules_8139too.ko.ghidra.txt
+OURS dump_starts format=ELF mode=64 text_vaddr=0
+OURS .text decoded=4515 covered=16330 of 16330 bytes
+DIFF modules_8139too.ko
+DIFF   section      ghidra     ours    match      mid     none    run   agree
+DIFF   .text          4026     4515     4006       57      452     11   88.7%
+DIFF   TOTAL          4026     4515     4006       57      452     11   88.7%
+DIFF   executable Ghidra blocks we did not decode: .init.text .exit.text
+SUMMARY modules_8139too.ko ghidra=4026 ours=4515 match=4006 mid=57 none=452 longest_run=11 agree=88.7%
+OPD modules_8139too.ko aliases=12 alias_sha256=02101788edd26bac8803d544f0389d730ac677bfc7df0d4016efc67fe44948f0
+OPD   section      ghidra   agreed  mnem_ok  opnd_ok   score | nostart undecoded mnemonic opcount reg mem imm addr other
+OPD   .text          4026     4006     3973     1880   46.7% | nostart=20 undecoded=12 mnemonic=21 opcount=23 reg=1003 mem=147 imm=114 addr=806 other=0
+OPSUMMARY modules_8139too.ko ghidra=4026 operand_ok=1880 mnem_ok=3973 score=46.7% nostart=20 undecoded=12 mnemonic=21 opcount=23 reg=1003 mem=147 imm=114 addr=806 other=0 alias_sha256=02101788edd2
+=== build/differential/modules/iTCO_wdt.ko
+INPUT cd83845530b8c7a05a99d128928a648f56ee58a4ed72b23d5ff1e93e1299700d  build/differential/modules/iTCO_wdt.ko
+InstrStarts.java> INSTRSTARTS block=.text instructions=907
+InstrStarts.java> INSTRSTARTS block=.init.text instructions=26
+InstrStarts.java> INSTRSTARTS block=.exit.text instructions=23
+InstrStarts.java> INSTRSTARTS total=956 file=/home/bbrown/projects/forthos/tools/translator/build/differential/modules_iTCO_wdt.ko.ghidra.txt
+OURS dump_starts format=ELF mode=64 text_vaddr=0
+OURS .text decoded=936 covered=2955 of 2955 bytes
+DIFF modules_iTCO_wdt.ko
+DIFF   section      ghidra     ours    match      mid     none    run   agree
+DIFF   .text           907      936      895       24       17     12   95.6%
+DIFF   TOTAL           907      936      895       24       17     12   95.6%
+DIFF   executable Ghidra blocks we did not decode: .init.text .exit.text
+SUMMARY modules_iTCO_wdt.ko ghidra=907 ours=936 match=895 mid=24 none=17 longest_run=12 agree=95.6%
+OPD modules_iTCO_wdt.ko aliases=12 alias_sha256=02101788edd26bac8803d544f0389d730ac677bfc7df0d4016efc67fe44948f0
+OPD   section      ghidra   agreed  mnem_ok  opnd_ok   score | nostart undecoded mnemonic opcount reg mem imm addr other
+OPD   .text           907      895      888      591   65.2% | nostart=12 undecoded=2 mnemonic=5 opcount=0 reg=107 mem=10 imm=23 addr=157 other=0
+OPSUMMARY modules_iTCO_wdt.ko ghidra=907 operand_ok=591 mnem_ok=888 score=65.2% nostart=12 undecoded=2 mnemonic=5 opcount=0 reg=107 mem=10 imm=23 addr=157 other=0 alias_sha256=02101788edd2
+=== build/differential/modules/via-rng.ko
+INPUT b24f0280783320e87fa147361970c8269d8afed8f58860d50c18f329026b7459  build/differential/modules/via-rng.ko
+InstrStarts.java> INSTRSTARTS block=.text instructions=176
+InstrStarts.java> INSTRSTARTS block=.init.text instructions=47
+InstrStarts.java> INSTRSTARTS block=.exit.text instructions=23
+InstrStarts.java> INSTRSTARTS block=.altinstr_replacement instructions=0
+InstrStarts.java> INSTRSTARTS total=246 file=/home/bbrown/projects/forthos/tools/translator/build/differential/modules_via-rng.ko.ghidra.txt
+OURS dump_starts format=ELF mode=64 text_vaddr=0
+OURS .text decoded=180 covered=517 of 517 bytes
+DIFF modules_via-rng.ko
+DIFF   section      ghidra     ours    match      mid     none    run   agree
+DIFF   .text           176      180      176        2        2      2   97.8%
+DIFF   TOTAL           176      180      176        2        2      2   97.8%
+DIFF   executable Ghidra blocks we did not decode: .init.text .exit.text
+SUMMARY modules_via-rng.ko ghidra=176 ours=180 match=176 mid=2 none=2 longest_run=2 agree=97.8%
+OPD modules_via-rng.ko aliases=12 alias_sha256=02101788edd26bac8803d544f0389d730ac677bfc7df0d4016efc67fe44948f0
+OPD   section      ghidra   agreed  mnem_ok  opnd_ok   score | nostart undecoded mnemonic opcount reg mem imm addr other
+OPD   .text           176      176      173      104   59.1% | nostart=0 undecoded=0 mnemonic=3 opcount=0 reg=30 mem=2 imm=4 addr=33 other=0
+OPSUMMARY modules_via-rng.ko ghidra=176 operand_ok=104 mnem_ok=173 score=59.1% nostart=0 undecoded=0 mnemonic=3 opcount=0 reg=30 mem=2 imm=4 addr=33 other=0 alias_sha256=02101788edd2
+=== tests/data/serial.sys
+INPUT 6425e79f9de1065ca2e178a8d17c02143b6b18365a39ce59739ca5dc21fa627b  tests/data/serial.sys
+ERROR MinGW pseudo-relocation list not found (MingwRelocationAnalyzer)  
+InstrStarts.java> INSTRSTARTS block=.text instructions=4220
+InstrStarts.java> INSTRSTARTS total=4220 file=/home/bbrown/projects/forthos/tools/translator/build/differential/data_serial.sys.ghidra.txt
+OURS dump_starts format=PE mode=32 image_base=10000 sections=1
+OURS .text decoded=4276 covered=19092 of 19092 bytes
+DIFF data_serial.sys
+DIFF   section      ghidra     ours    match      mid     none    run   agree
+DIFF   .text          4220     4276     4220        2       54      2   98.7%
+DIFF   TOTAL          4220     4276     4220        2       54      2   98.7%
+SUMMARY data_serial.sys ghidra=4220 ours=4276 match=4220 mid=2 none=54 longest_run=2 agree=98.7%
+OPD data_serial.sys aliases=12 alias_sha256=02101788edd26bac8803d544f0389d730ac677bfc7df0d4016efc67fe44948f0
+OPD   section      ghidra   agreed  mnem_ok  opnd_ok   score | nostart undecoded mnemonic opcount reg mem imm addr other
+OPD   .text          4220     4220     4218     4215   99.9% | nostart=0 undecoded=1 mnemonic=1 opcount=3 reg=0 mem=0 imm=0 addr=0 other=0
+OPSUMMARY data_serial.sys ghidra=4220 operand_ok=4215 mnem_ok=4218 score=99.9% nostart=0 undecoded=1 mnemonic=1 opcount=3 reg=0 mem=0 imm=0 addr=0 other=0 alias_sha256=02101788edd2
+=== tests/data/beep.sys
+INPUT 983991f616e227d6b7128fc1fe1ab0394fe64f647236755c1516a3c21498d246  tests/data/beep.sys
+ERROR MinGW pseudo-relocation list not found (MingwRelocationAnalyzer)  
+InstrStarts.java> INSTRSTARTS block=.text instructions=447
+InstrStarts.java> INSTRSTARTS total=447 file=/home/bbrown/projects/forthos/tools/translator/build/differential/data_beep.sys.ghidra.txt
+OURS dump_starts format=PE mode=32 image_base=10000 sections=1
+OURS .text decoded=465 covered=1728 of 1728 bytes
+DIFF data_beep.sys
+DIFF   section      ghidra     ours    match      mid     none    run   agree
+DIFF   .text           447      465      447        0       18      0   96.1%
+DIFF   TOTAL           447      465      447        0       18      0   96.1%
+SUMMARY data_beep.sys ghidra=447 ours=465 match=447 mid=0 none=18 longest_run=0 agree=96.1%
+OPD data_beep.sys aliases=12 alias_sha256=02101788edd26bac8803d544f0389d730ac677bfc7df0d4016efc67fe44948f0
+OPD   section      ghidra   agreed  mnem_ok  opnd_ok   score | nostart undecoded mnemonic opcount reg mem imm addr other
+OPD   .text           447      447      447      447  100.0% | nostart=0 undecoded=0 mnemonic=0 opcount=0 reg=0 mem=0 imm=0 addr=0 other=0
+OPSUMMARY data_beep.sys ghidra=447 operand_ok=447 mnem_ok=447 score=100.0% nostart=0 undecoded=0 mnemonic=0 opcount=0 reg=0 mem=0 imm=0 addr=0 other=0 alias_sha256=02101788edd2
+
+=== FIXTURE V2 (appended after the 15-input run; fixture reordered so imm64 is last, sha256 changed; oracle: x64-reds-v2-oracle-2026-09-15.log)
+INPUT d5ed9f6e62c9a8a3880d8d698a95d33ed5fbf2ae37fe6b96d289039a62424671  tests/data/x64_reds/x64_reds.elf
+OURS dump_starts format=ELF mode=64 text_vaddr=401000
+OURS .text decoded=6 covered=28 of 28 bytes
+DIFF x64_reds_x64_reds.elf
+DIFF   section      ghidra     ours    match      mid     none    run   agree
+DIFF   .text             5        6        4        2        0      2   66.7%
+DIFF   TOTAL             5        6        4        2        0      2   66.7%
+SUMMARY x64_reds_x64_reds.elf ghidra=5 ours=6 match=4 mid=2 none=0 longest_run=2 agree=66.7%
+OPD x64_reds_x64_reds.elf aliases=12 alias_sha256=02101788edd26bac8803d544f0389d730ac677bfc7df0d4016efc67fe44948f0
+OPD   section      ghidra   agreed  mnem_ok  opnd_ok   score | nostart undecoded mnemonic opcount reg mem imm addr other
+OPD     .text+0  mem       MOV RAX{R:RAX} qword ptr [R8]{R:R8} | ours: MOV R:RAX M:RAX,-,1,0x0  [M:RAX,-,1,0x0 vs M:R8,-,1,0x0]
+OPD     .text+3  addr      LEA RAX{R:RAX} [0x40101a]{S:64:0x40101a} | ours: LEA R:RAX A:0x10  [A:0x10 vs A:0x40101a]
+OPD     .text+a  imm       MOV RAX{R:RAX} -0x1{S:32:-0x1} | ours: MOV R:RAX I:0xffffffffffffffff  [I:0xffffffffffffffff vs I:0xffffffff]
+OPD     .text+11  imm       MOV RAX{R:RAX} 0x1122334455667788{S:64:0x1122334455667788} | ours: MOV R:RAX I:0x55667788  [I:0x55667788 vs I:0x1122334455667788]
+OPD     .text+1b  nostart  RET
+OPD   .text             5        4        4        0    0.0% | nostart=1 undecoded=0 mnemonic=0 opcount=0 reg=0 mem=1 imm=2 addr=1 other=0
+OPSUMMARY x64_reds_x64_reds.elf ghidra=5 operand_ok=0 mnem_ok=4 score=0.0% nostart=1 undecoded=0 mnemonic=0 opcount=0 reg=0 mem=1 imm=2 addr=1 other=0 alias_sha256=02101788edd2
