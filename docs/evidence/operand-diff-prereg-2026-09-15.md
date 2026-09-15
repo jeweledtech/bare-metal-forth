@@ -198,3 +198,40 @@ class is dominated by multi-byte NOP operands (Ghidra `NOP dword ptr
 Fixture v3 registers every XFAIL name in its own class: reg=3 ((d),
 (d'), (e)), mem=1 (c), addr=1 (a), imm=1 (b). When a fix lands, the
 fixture line moves by exactly that instruction, so deltas attribute.
+
+## Addendum (owner follow-ups, same day)
+
+**Seventh defect (f), byte-register naming under REX.** The XFAIL list
+tracks defects in the decoded struct. (f) is not one: the struct already
+carries `rex`, `reg` and `size`, and the loss happens in the naming
+layer (`x86_reg_name` and the dump's `reg_name` map reg 4-7 at size 1
+to AH/CH/DH/BH regardless of REX; with any REX present they are
+SPL/BPL/SIL/DIL). It is tracked by measurement instead: fixture v4
+(sha256 `e22204cc7596d80349d852538c70332642cc763fc09563dfdb8a482f018fcf3e`,
+oracle `x64-reds-v4-oracle-2026-09-15.log`) adds `40 8A C6`, Ghidra
+`MOV AL,SIL` @401017, and the fixture line now reads reg=4 (three
+XFAIL reds + (f), ours `R:DH` vs `R:SIL`). The fix belongs in the name
+function and will move that line by exactly one. The count quoted for
+the XFAIL list stays six; the fixture line is the complete count.
+
+**Third 32-bit control from outside the ReactOS corpus.**
+`tests/data/controls/nmap_service.exe` (Debian nmap-common, PE32
+console, 17 sections, provenance in `tests/data/controls/README.md`):
+
+| | ghidra | operand_ok | score | nostart | undecoded | mnemonic | opcount | reg | mem | imm | addr |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| nmap_service.exe | 8299 | 7885 | 95.0% | 145 | 192 | 75 | 2 | 0 | 0 | 0 | 0 |
+
+Every miss is opcode coverage (undecoded, mnemonic) or the boundary
+desync those cause (nostart; boundary harness: mid=468, longest run
+17); reg / mem / imm / addr are all ZERO. So the 32-bit operand
+semantics generalize past the ReactOS build, and this control also
+shows what the ReactOS pair could not: the general opcode-coverage gap
+under a different compiler's idiom, cleanly separated from the 64-bit
+classes. The control is added to `differential-all`.
+
+**Incidental finding, not fixed:** on this control the dump reports
+`covered=32057 of 32056 bytes`: the decoder consumed one byte past the
+end of the section (an immediate/displacement read is not bounds-
+checked once the opcode byte is present). Benign in the harness (the
+file buffer continues), a real bug class in the translator. Owed a red.

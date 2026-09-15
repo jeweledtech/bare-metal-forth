@@ -332,3 +332,43 @@ OPD data_beep.sys aliases=12 alias_sha256=02101788edd26bac8803d544f0389d730ac677
 OPD   section      ghidra   agreed  mnem_ok  opnd_ok   score | nostart undecoded mnemonic opcount reg mem imm addr other
 OPD   .text           447      447      447      447  100.0% | nostart=0 undecoded=0 mnemonic=0 opcount=0 reg=0 mem=0 imm=0 addr=0 other=0
 OPSUMMARY data_beep.sys ghidra=447 operand_ok=447 mnem_ok=447 score=100.0% nostart=0 undecoded=0 mnemonic=0 opcount=0 reg=0 mem=0 imm=0 addr=0 other=0 alias_sha256=02101788edd2
+
+=== APPENDED after the 15-input run: third 32-bit control (outside ReactOS) + fixture v4 (adds byte-register case (f); sha256 changed). Code hashes unchanged except Makefile input list.
+CODE a13f67834b5e4c27913b101f288bc5b5af549ad2201836f4ab91a1e126eae8a8  tests/dump_starts.c
+CODE 392857a2fbce6aba843816b44008f7345704a22df95708e78ac51291c8770fe4  scripts/compare_operands.py
+CODE 91df6bd4b989ce8bf5f58e95fc5098a9cf9b0104cc3be61e2b0132f54a475062  ../../tools/ghidra/InstrStarts.java
+=== tests/data/controls/nmap_service.exe
+INPUT d21bf9b53356b9cfe5485b6a78496b4eb8e5a01c49ed88e0e658abb7edfed086  tests/data/controls/nmap_service.exe
+OURS dump_starts format=PE mode=32 image_base=400000 sections=1
+OURS .text decoded=9402 covered=32057 of 32056 bytes
+DIFF controls_nmap_service.exe
+DIFF   section      ghidra     ours    match      mid     none    run   agree
+DIFF   .text          8299     9402     8154      468      780     17   86.7%
+DIFF   TOTAL          8299     9402     8154      468      780     17   86.7%
+SUMMARY controls_nmap_service.exe ghidra=8299 ours=9402 match=8154 mid=468 none=780 longest_run=17 agree=86.7%
+OPD controls_nmap_service.exe aliases=12 alias_sha256=02101788edd26bac8803d544f0389d730ac677bfc7df0d4016efc67fe44948f0
+OPD   section      ghidra   agreed  mnem_ok  opnd_ok   score | nostart undecoded mnemonic opcount reg mem imm addr other
+OPD   .text          8299     8154     7887     7885   95.0% | nostart=145 undecoded=192 mnemonic=75 opcount=2 reg=0 mem=0 imm=0 addr=0 other=0
+OPSUMMARY controls_nmap_service.exe ghidra=8299 operand_ok=7885 mnem_ok=7887 score=95.0% nostart=145 undecoded=192 mnemonic=75 opcount=2 reg=0 mem=0 imm=0 addr=0 other=0 alias_sha256=02101788edd2
+=== tests/data/x64_reds/x64_reds.elf
+INPUT e22204cc7596d80349d852538c70332642cc763fc09563dfdb8a482f018fcf3e  tests/data/x64_reds/x64_reds.elf
+OURS dump_starts format=ELF mode=64 text_vaddr=401000
+OURS .text decoded=10 covered=37 of 37 bytes
+DIFF x64_reds_x64_reds.elf
+DIFF   section      ghidra     ours    match      mid     none    run   agree
+DIFF   .text             9       10        8        2        0      2   80.0%
+DIFF   TOTAL             9       10        8        2        0      2   80.0%
+SUMMARY x64_reds_x64_reds.elf ghidra=9 ours=10 match=8 mid=2 none=0 longest_run=2 agree=80.0%
+OPD x64_reds_x64_reds.elf aliases=12 alias_sha256=02101788edd26bac8803d544f0389d730ac677bfc7df0d4016efc67fe44948f0
+OPD   section      ghidra   agreed  mnem_ok  opnd_ok   score | nostart undecoded mnemonic opcount reg mem imm addr other
+OPD     .text+0  mem       MOV RAX{R:RAX} qword ptr [R8]{R:R8} | ours: MOV R:RAX M:RAX,-,1,0x0  [M:RAX,-,1,0x0 vs M:R8,-,1,0x0]
+OPD     .text+3  addr      LEA RAX{R:RAX} [0x40101a]{S:64:0x40101a} | ours: LEA R:RAX A:0x10  [A:0x10 vs A:0x40101a]
+OPD     .text+a  reg       MOV R8{R:R8} RAX{R:RAX} | ours: MOV R:RAX R:RAX  [R:RAX vs R:R8]
+OPD     .text+d  reg       PUSH R12{R:R12} | ours: PUSH R:ESP  [R:ESP vs R:R12]
+OPD     .text+f  reg       PUSH RBP{R:RBP} | ours: PUSH R:EBP  [R:EBP vs R:RBP]
+OPD     .text+10  ok        MOV RAX{R:RAX} -0x1{S:32:-0x1} | ours: MOV R:RAX I:0xffffffffffffffff
+OPD     .text+17  reg       MOV AL{R:AL} SIL{R:SIL} | ours: MOV R:AL R:DH  [R:DH vs R:SIL]
+OPD     .text+1a  imm       MOV RAX{R:RAX} 0x1122334455667788{S:64:0x1122334455667788} | ours: MOV R:RAX I:0x55667788  [I:0x55667788 vs I:0x1122334455667788]
+OPD     .text+24  nostart  RET
+OPD   .text             9        8        8        1   11.1% | nostart=1 undecoded=0 mnemonic=0 opcount=0 reg=4 mem=1 imm=1 addr=1 other=0
+OPSUMMARY x64_reds_x64_reds.elf ghidra=9 operand_ok=1 mnem_ok=8 score=11.1% nostart=1 undecoded=0 mnemonic=0 opcount=0 reg=4 mem=1 imm=1 addr=1 other=0 alias_sha256=02101788edd2
