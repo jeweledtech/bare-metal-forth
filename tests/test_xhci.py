@@ -451,7 +451,64 @@ def alive():
     return v == 42
 
 
+# ---- QEMU HMP monitor (step 4 fixture, design §4) ----
+# argv[3] = monitor TCP port (Makefile: TEST_PORT_BASE+93; the design
+# said +95 but that offset is test-block-reload's).  `sendkey` is the
+# only way to make QEMU's usb-kbd produce a report and `device_del kbd`
+# the only way to unplug it, so a silent monitor would turn every
+# keystroke check into a plausible red against nothing.
+MON_PORT = int(sys.argv[3]) if len(sys.argv) > 3 else PORT - 1
+_mon = None
+
+
+def mon(cmd, wait=0.5):
+    """Send one HMP command, return the text up to the next prompt."""
+    global _mon
+    if _mon is None:
+        _mon = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        _mon.settimeout(5)
+        _mon.connect(('127.0.0.1', MON_PORT))
+        _mon_read_prompt()            # banner + first "(qemu) "
+    _mon.sendall((cmd + '\n').encode())
+    time.sleep(wait)
+    return _mon_read_prompt()
+
+
+def _mon_read_prompt():
+    buf = b''
+    deadline = time.time() + 5
+    while time.time() < deadline:
+        try:
+            d = _mon.recv(4096)
+        except socket.timeout:
+            break
+        if not d:
+            break
+        buf += d
+        if buf.rstrip().endswith(b'(qemu)'):
+            break
+    return buf.decode('ascii', errors='replace')
+
+
+def instrument_unscored(name, ok, detail=''):
+    """Fatal like instrument(), but NOT counted in PASS/FAIL: the
+    design pre-registers the monitor control as 'unscored for the
+    headline but printed', so the 242 baseline does not move."""
+    if ok:
+        print(f'  INSTRUMENT: {name} -- OK')
+    else:
+        print(f'  INSTRUMENT FAIL: {name} -- {detail} -- aborting, no score')
+        sys.exit(3)
+
+
 print('\n=== Phase 0: instrument controls (fatal on failure) ===')
+try:
+    _ver = mon('info version')
+except OSError as e:
+    _ver = f'(no monitor: {e!r})'
+instrument_unscored('monitor answers info version (control)',
+                    re.search(r'\d+\.\d+\.\d+', _ver) is not None,
+                    f'got {_ver!r}')
 instrument('interpreter alive', alive())                     # 1
 send('ONLY FORTH DEFINITIONS')
 send('ALSO PCI-ENUM')

@@ -470,16 +470,23 @@ test-block-reload: $(COMBINED)
 # pinned + -device qemu-xhci, same rationale as test-pci-typing
 # (i440FX has no USB controller otherwise; the pin stops a q35
 # default flip from silently changing the characterized bus).
+# Step 4 fixture (design §4, 2026-09-15): usb-kbd gets id=kbd so the
+# monitor can device_del it, and the QEMU HMP monitor is exposed over
+# TCP so the suite can `sendkey` (the only way to make QEMU's keyboard
+# produce a report) -- the discriminating experiment, not decoration.
+# Monitor port: the design named +95, but +95 is test-block-reload's
+# (observed above); +93 is unused and one below the serial port.
 test-xhci: $(COMBINED)
 	@cp $(COMBINED) $(COMBINED_IDE)
 	@echo "Running xHCI vocab test..."
-	@$(QEMU) -M pc -device qemu-xhci -device usb-kbd \
+	@$(QEMU) -M pc -device qemu-xhci -device usb-kbd,id=kbd \
 		-drive file=$(COMBINED),format=raw,if=floppy \
 		-drive file=$(COMBINED_IDE),format=raw,if=ide,index=1 \
 		-serial tcp::$$(($(TEST_PORT_BASE)+94)),server=on,wait=off \
+		-monitor tcp:127.0.0.1:$$(($(TEST_PORT_BASE)+93)),server=on,wait=off \
 		-display none -daemonize
 	@sleep 2
-	@python3 tests/test_xhci.py $$(($(TEST_PORT_BASE)+94)) $(COMBINED); \
+	@python3 tests/test_xhci.py $$(($(TEST_PORT_BASE)+94)) $(COMBINED) $$(($(TEST_PORT_BASE)+93)); \
 		STATUS=$$?; pkill -9 -f "[q]emu.*$$(($(TEST_PORT_BASE)+94))" 2>/dev/null; exit $$STATUS
 
 # S"/."/ABORT" laydown suite (crafts blocks in buffer memory; no
