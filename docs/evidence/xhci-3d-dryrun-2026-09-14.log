@@ -1,0 +1,219 @@
+input sha256 f7e8d18e563303f48ec3bc016701a261660c219669a7abe16f7c01694f203a6b /home/bbrown/projects/forthos/build/combined.img
+catalog_layout XHCI -> 1724 1771 THRU
+--- [alive] >>> 7 6 * .
+7 6 * .
+42 ok
+--- [2 load] >>> DECIMAL 1724 1771 THRU
+DECIMAL 1724 1771 THRU
+
+ok
+--- [2] >>> ONLY FORTH DEFINITIONS
+ONLY FORTH DEFINITIONS
+ok
+--- [2] >>> ALSO PCI-ENUM  ALSO XHCI  ALSO HARDWARE
+ALSO PCI-ENUM  ALSO XHCI  ALSO HARDWARE
+ok
+--- [2] >>> DECIMAL
+DECIMAL
+ok
+--- [2] >>> : DEF? WORD FIND NIP ;
+: DEF? WORD FIND NIP ;
+ok
+--- [2 self-test (large nonzero)] >>> DEF? DEF? .
+DEF? DEF? .
+389640 ok
+--- [2 (large nonzero)] >>> DEF? ENUM-CONFIGURE .
+DEF? ENUM-CONFIGURE .
+388936 ok
+--- [3 (-1)] >>> XHCI-BIND .
+XHCI-BIND .
+-1 ok
+--- [3.1 (20)] >>> HEX  CTX-SIZE .  DECIMAL
+HEX  CTX-SIZE .  DECIMAL
+20 ok
+--- [3.2 survey] >>> .PORTS
+.PORTS
+1 000202A0 0 spd 5 pls 
+2 000202A0 0 spd 5 pls 
+3 000202A0 0 spd 5 pls 
+4 000202A0 0 spd 5 pls 
+5 00000E03 conn en 3 spd 0 pls 
+6 000202A0 0 spd 5 pls 
+7 000202A0 0 spd 5 pls 
+8 000202A0 0 spd 5 pls 
+ok
+--- [3.2] >>> #CONNECTED .
+#CONNECTED .
+1 ok
+    (operator fills KEYBOARD PORT = 5 from the survey)
+--- [3.2 speed (1/2 iron; 3 QEMU)] >>> 5 PORTSC@ P-SPEED .
+5 PORTSC@ P-SPEED .
+3 ok
+--- [3.3 define] >>> : .OWNERS OWN-CAP 0 DO I OWN-SLOT DUP @ IF DUP 8 + @ U. DUP @ U. DUP 4 + @ U. CR THEN DROP LOOP ;
+: .OWNERS OWN-CAP 0 DO I OWN-SLOT DUP @ IF DUP 8 + @ U. DUP @ U. DUP 4 + @ U. CR THEN DROP LOOP ;
+ok
+--- [3.3 baseline] >>> HEX  PHYS-AUDIT  CR  .OWNERS  DECIMAL
+HEX  PHYS-AUDIT  CR  .OWNERS  DECIMAL
+109000 1000 
+108000 1000 
+107000 1000 
+106000 1000 
+105000 1000 
+104000 1000 
+103000 1000 
+live: 7 unattributed: 0 
+extents: 0 
+total: 300000 
+
+109000 1000 39290 
+108000 1000 37D68 
+107000 1000 37D68 
+106000 1000 356EC 
+105000 1000 356EC 
+104000 1000 356EC 
+103000 1000 356EC 
+ok
+--- [4] >>> XHCI-BASE @  VARIABLE B0  B0 !
+XHCI-BASE @  VARIABLE B0  B0 !
+ok
+--- [4] >>> 0 XHCI-BASE !
+0 XHCI-BASE !
+ok
+--- [4 (0)] >>> XECP-BASE .
+XECP-BASE .
+0 ok
+--- [4 (0)] >>> 1 XECP-FIND .
+1 XECP-FIND .
+0 ok
+--- [4 (-2)] >>> XHCI-CLAIM .
+XHCI-CLAIM .
+-2 ok
+--- [4 (-2)] >>> SMI-OFF .
+SMI-OFF .
+-2 ok
+--- [4 (-2)] >>> XHCI-OWNER .
+XHCI-OWNER .
+-2 ok
+--- [4 restore (-1)] >>> B0 @ XHCI-BASE !  XHCI-BASE @ B0 @ = .
+B0 @ XHCI-BASE !  XHCI-BASE @ B0 @ = .
+-1 ok
+--- [4 depth after (0)] >>> DEPTH .
+DEPTH .
+0 ok
+--- [5 (iron 1; QEMU 0)] >>> XHCI-OWNER .
+XHCI-OWNER .
+0 ok
+--- [5 (iron -1; QEMU 0)] >>> XHCI-CLAIM .
+XHCI-CLAIM .
+0 ok
+--- [5 (iron -1/1; QEMU 0)] >>> SMI-OFF .
+SMI-OFF .
+0 ok
+--- [5.5 (QEMU value n/a)] >>> HEX  MEMDISK-BASE@ .  DECIMAL
+HEX  MEMDISK-BASE@ .  DECIMAL
+0 ok
+--- [5] >>> XHCI-HALT .
+XHCI-HALT .
+-1 ok
+--- [5 (-1)] >>> XHCI-RESET .
+XHCI-RESET .
+-1 ok
+--- [5 elapsed] >>> DECIMAL 1000 HRST-LEFT @ - .
+DECIMAL 1000 HRST-LEFT @ - .
+0 ok
+--- [5 (-1)] >>> XHCI-UP .
+XHCI-UP .
+-1 ok
+--- [5 (-1)] >>> XHCI-RUN .
+XHCI-RUN .
+-1 ok
+--- [5.9 survey] >>> .PORTS
+.PORTS
+1 000202A0 0 spd 5 pls 
+2 000202A0 0 spd 5 pls 
+3 000202A0 0 spd 5 pls 
+4 000202A0 0 spd 5 pls 
+5 00020EE1 conn 3 spd 7 pls 
+6 000202A0 0 spd 5 pls 
+7 000202A0 0 spd 5 pls 
+8 000202A0 0 spd 5 pls 
+ok
+--- [5.9 (-1)] >>> 5 PORT-RESET .
+5 PORT-RESET .
+-1 ok
+--- [5.9 speed] >>> 5 PORTSC@ P-SPEED .
+5 PORTSC@ P-SPEED .
+3 ok
+--- [6 (slot)] >>> 5 ENUM-ADDRESS .
+5 ENUM-ADDRESS .
+1 ok
+--- [6] >>> XSLOT @ .
+XSLOT @ .
+1 ok
+--- [6 (2)] >>> HEX  SLOT-STATE .  DECIMAL
+HEX  SLOT-STATE .  DECIMAL
+2 ok
+--- [7.1 (iron 0; QEMU 1 fixture)] >>> CFG-STATE .
+CFG-STATE .
+1 ok
+--- [7.2 (1)] >>> ENUM-CONFIGURE .
+ENUM-CONFIGURE .
+1 ok
+--- [7.2] >>> HEX  CFGCC8 @ .  DECIMAL
+HEX  CFGCC8 @ .  DECIMAL
+1 ok
+--- [7.2 (1)] >>> CFGVAL @ .
+CFGVAL @ .
+1 ok
+--- [7.3 (= CFGVAL)] >>> CFG-STATE .
+CFG-STATE .
+1 ok
+--- [D10 depth before (0)] >>> DEPTH .
+DEPTH .
+0 ok
+--- [D10] >>> HEX
+HEX
+ok
+--- [D10 (cc 1, slot)] >>> ENABLE-SLOT . .
+ENABLE-SLOT . .
+2 1 ok
+--- [D10 depth (0)] >>> DEPTH .
+DEPTH .
+0 ok
+--- [D10] >>> DECIMAL
+DECIMAL
+ok
+--- [8 (-1)] >>> SLOT-DOWN .
+SLOT-DOWN .
+-1 ok
+--- [8 (-1)] >>> XHCI-DOWN .
+XHCI-DOWN .
+-1 ok
+--- [8 after (= baseline)] >>> HEX  PHYS-AUDIT  CR  .OWNERS  DECIMAL
+HEX  PHYS-AUDIT  CR  .OWNERS  DECIMAL
+109000 1000 
+108000 1000 
+107000 1000 
+106000 1000 
+105000 1000 
+104000 1000 
+103000 1000 
+live: 7 unattributed: 0 
+extents: 1 
+total: 300000 
+
+109000 1000 39290 
+108000 1000 37D68 
+107000 1000 37D68 
+106000 1000 356EC 
+105000 1000 356EC 
+104000 1000 356EC 
+103000 1000 356EC 
+ok
+--- [final depth (0)] >>> DEPTH .
+DEPTH .
+0 ok
+--- [final base (10)] >>> BASE @ DECIMAL .
+BASE @ DECIMAL .
+10 ok
+DRY RUN COMPLETE

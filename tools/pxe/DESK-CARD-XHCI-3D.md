@@ -29,6 +29,12 @@ Enable Slot → Address Device → config-before → configure → config-after
 > Every STOP below is a real stop: record what printed, take the photo,
 > end the leg. A stopped leg with a clean log is a successful trip.
 
+**Dry-run (rule 16):** Sections 2–8 were TYPED into the test-xhci QEMU
+fixture on 2026-09-14 (`docs/evidence/xhci-3d-dryrun-2026-09-14.log`,
+image f7e8d18e…, THRU 1724 1771): every line parsed, every QEMU-side
+expectation printed as written, DEPTH 0 and BASE 10 at exit. Values
+marked "iron" below are the HP readings from 2026-09-13, not QEMU's.
+
 ---
 
 ## 0. Desk prep — deploy provenance (hash the medium against the build)
@@ -37,19 +43,48 @@ Enable Slot → Address Device → config-before → configure → config-after
 git status --porcelain          # clean, or explain before proceeding
 git remote -v                   # verified, not assumed
 git log --oneline -1            # commit: ______________________ (expect c660e6b or later)
-make && make test               # green tree FIRST — it rebuilds; sweep 1319/31
+make                            # rebuild; the sweep is already on record (c660e6b, 1319/31)
 sha256sum build/combined.img    # BUILD:  1787cdbf114b1e5b670bd31478f644684cb3964dc30c5072d4d6fe14cafba4bb
 python3 tools/catalog_layout.py XHCI   # THRU: 1724 1771 THRU (expect 1724 1771, verify)
 ```
 
-Refresh FORTHBOOT (memdisk boot REQUIRED — Section 4.5 kills the
-controller behind the boot medium; a non-memdisk boot loses the stick):
+Refresh FORTHBOOT (memdisk boot REQUIRED — Section 5.5 kills the
+controller behind the boot medium; a non-memdisk boot loses the stick).
+The stick is the vfat volume labelled `FORTHBOOT` made by
+`tools/make-uefi-usb.sh`; its GRUB entry memdisk-loads `/forth.img`.
+Refreshing is a file copy, NOT a re-run of the script (the script wipes
+the stick and defaults to `bmforth.img`, not `combined.img`):
 
+```bash
+# stick in the DEV HOST (not the laptop) for this whole block
+lsblk -o NAME,LABEL,SIZE,TRAN   # exactly ONE FORTHBOOT, and its TRAN is usb (label failed to resolve twice on 3d)
+sudo mount -L FORTHBOOT /mnt/fb
+sudo cp build/combined.img /mnt/fb/forth.img && sync
+sha256sum /mnt/fb/forth.img build/combined.img   # the two lines MUST match
 ```
-#                                 STICK:  ________________________________
+BUILD == STICK: ____ (yes/no)   boot path: USB FORTHBOOT (record if PXE instead)
+
+Start the listener NOW, while the stick is still mounted here — it
+hashes `--deployed` at startup and ABORTS on mismatch (that is the
+gate). On a USB boot `--deployed` is REQUIRED and must point at the
+stick; the default `/srv/tftp/forth.img` is the PXE tree, which a USB
+boot never loads, so leaving it off aborts every USB trip on a stale
+PXE hash:
+
+```bash
+python3 tools/hp-portread-capture.py --boot-path usb \
+    --deployed /mnt/fb/forth.img \
+    --out docs/evidence/xhci-3d-iron-$(date +%F).log
 ```
-Hash-verify the stick against BUILD before the laptop. Record the boot
-path used (USB FORTHBOOT / PXE). BUILD == STICK: ____ (yes/no)
+Expect the header to print `hash gate: PASS (deployed == build)` and
+`boot path: usb`. Only THEN:
+
+```bash
+sudo umount /mnt/fb        # listener keeps running; move the stick to the HP
+```
+Order matters: refresh → hash → listener up → unmount → stick into the
+laptop → Section 1. A listener started after the stick left the dev
+host cannot hash it and the log carries no provenance.
 
 ## 1. Boot — F9 → FORTHBOOT (memdisk) → banner → `ok`
 
@@ -120,18 +155,29 @@ ______ PORTSC@ P-SPEED .        \ speed of the keyboard port
 - [ ] **3 (HS):** the QEMU fixture value; on iron this is a surprise —
       record it, an HS keyboard is unusual but not fatal (default MPS
       then 64, and 3c's Evaluate Context path handles a mismatch).
-- [ ] Note: port 1 is the internal HS device (enabled pre-HCRST on the
-      2e trip). It is NOT the target. `FIRST-CCS` would pick it — the
-      word is fixture-side and absent here by design.
+- [ ] Note: port 1 is an EXTERNAL socket; its occupant varies (empty on
+      the 3d trip until the keyboard went in, then the keyboard). The
+      internal HS device is port 2 (0xE03 = the FORTHBOOT stick);
+      ports 4/5/7 are internal FS devices. Do not navigate by port
+      number — navigate by the survey DIFF (the port whose CCS/CSC
+      flipped when you plugged the keyboard). `FIRST-CCS` would pick
+      the lowest connected port — the word is fixture-side and absent
+      here by design. (QEMU dry-run: the fixture keyboard is port 5,
+      speed 3 — a different machine, same method.)
 
 ### 3.3 PHYS-AUDIT baseline (step-2 open item: attribute the 7 pages)
 ```forth
 : .OWNERS OWN-CAP 0 DO I OWN-SLOT DUP @ IF DUP 8 + @ U. DUP @ U. DUP 4 + @ U. CR THEN DROP LOOP ;
 HEX  PHYS-AUDIT  CR  .OWNERS  DECIMAL     \ photo — this is the baseline
 ```
-Pre-registered: **live 7, unattributed 0, extents 0x103000-0x109000**
-(4 AHCI + 2 RTL8168 + 1 NTFS boot allocations). Any slot tagged
-FORTH-CELL, or a count != 7 ⇒ record, it changes the post-UP delta math.
+Pre-registered (iron 2026-09-13 CONFIRMED): **live 7, unattributed 0,
+records 0x103000–0x109000** (4 AHCI + 2 RTL8168 + 1 NTFS boot
+allocations, tags 4/2/1 in `.OWNERS`). The audit's own `extents:` line
+is the FREE-LIST node count, not an address range: it reads 0 here and
+1 after teardown (bump-at-baseline → one coalesced extent) — that
+0→1 is NOT a leak (3d finding; QEMU dry-run shows the same 0→1). Any
+slot tagged FORTH-CELL, or a count != 7 ⇒ record, it changes the
+post-UP delta math.
 
 ## 4. Unbound-base guards — five words, first iron run (step-2 leftover)
 
@@ -236,6 +282,44 @@ This is where **Evaluate Context first runs on real silicon** (if the
 keyboard's `bMaxPacketSize0` differs from the speed-derived default).
 QEMU could never exercise it in the ENUM path. If ENUM-CONFIGURE returns
 0, capture `CFGCC8` and re-run the sub-steps by hand to localize.
+
+### 7.2a Manual localization — BASE discipline (defect 10, 3d trip)
+Every hand-typed command line below carries HEX literals (`2C00`,
+`18 LSHIFT`). On the trip a localization line was typed after a line
+that ended `DECIMAL`: `2C00` failed to parse, `18 LSHIFT` shifted by
+18 not 0x18, `CMD-RUN` ran one cell short, the controller answered
+cc 5 (TRB Error) to a type-less TRB, and the stack UNDERFLOWED two
+cells (DEPTH 0x3FFFFFFE) — a plausible-looking wrong answer. So:
+**`HEX` on its own line first, `DEPTH .` before and after, and
+`DECIMAL` on its own line at the end.** A DEPTH that is not 0 (or
+prints a huge number) means the previous line did not parse — STOP,
+do not type the next command on top of it.
+```forth
+DEPTH .                        \ 0 before you start
+```
+```forth
+HEX
+```
+```forth
+ENABLE-SLOT . .                \ prints "<slot> <cc>": cc 1, a NEW slot (not XSLOT)
+```
+```forth
+DEPTH .                        \ 0 — the line consumed what it pushed
+```
+```forth
+______ DISABLE-SLOT .          \ that new slot; cc 1 (release it: not tracked by SLOT-DOWN)
+```
+```forth
+DECIMAL
+```
+Address Device by hand (only if ENABLE-SLOT above was fine and
+`XSLOT @` is the addressed slot): `HEX` line first, then
+`XICTX @ 0 0 XSLOT @ 18 LSHIFT 2C00 OR CMD-RUN . .`, then `DEPTH .`,
+then `DECIMAL`. Do NOT retype it on a device that already reached
+Addressed — a second Address Device on an addressed slot is a
+Context State Error (cc 13 hex / 19) by spec, not a localization.
+(Dry-run 2026-09-14: the ENABLE-SLOT block above printed `2 1` and
+DEPTH 0 on QEMU.)
 
 ### 7.3 Config AFTER
 ```forth
