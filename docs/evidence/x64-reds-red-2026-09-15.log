@@ -1,0 +1,64 @@
+7daf6b52d962c36284874ffd3fbfa576cc0852c650937fcf6aaae516ebf35d8e  tests/test_x86_decoder.c
+f5e902ae969d5f6c10589a4f059d3e60371292b0e0abba1b516fd9fa49fb9586  src/decoders/x86_decoder.c
+1df09fac6ffb4fdc18f7920d19c002fcb53382729d625d62686dacc5c2b182fc  include/x86_decoder.h
+[36mTesting x86 decoder...[0m
+gcc -Wall -Wextra -Wpedantic -O2 -std=c11 -D_POSIX_C_SOURCE=200809L -Isrc -Iinclude -o build/tests/test_x86_decoder \
+	tests/test_x86_decoder.c \
+	src/decoders/x86_decoder.c
+./build/tests/test_x86_decoder
+x86 Decoder Tests
+=================
+  TEST: NOP                                           PASS
+  TEST: RET                                           PASS
+  TEST: PUSH_EAX                                      PASS
+  TEST: POP_EBX                                       PASS
+  TEST: MOV_EAX_imm32                                 PASS
+  TEST: MOV_AL_imm8                                   PASS
+  TEST: IN_AL_imm8                                    PASS
+  TEST: OUT_imm8_AL                                   PASS
+  TEST: IN_EAX_DX                                     PASS
+  TEST: OUT_DX_AL                                     PASS
+  TEST: CALL_rel32                                    PASS
+  TEST: JMP_short                                     PASS
+  TEST: JMP_rel32                                     PASS
+  TEST: JE_short                                      PASS
+  TEST: MOV_mem_EAX_to_EBX                            PASS
+  TEST: MOV_EAX_from_EBP_plus_8                       PASS
+  TEST: MOV_ECX_from_EDI_plus_0x100                   PASS
+  TEST: MOVZX_EAX_byte_ptr_ECX                        PASS
+  TEST: JNE_near                                      PASS
+  TEST: ADD_EAX_imm8                                  PASS
+  TEST: CMP_EAX_imm8                                  PASS
+  TEST: decode_range                                  PASS
+  TEST: LEA_EAX_EBP_plus_8                            PASS
+  TEST: MOV_EAX_ESI_plus_EDI_x4                       PASS
+  TEST: CLI_STI                                       PASS
+  TEST: LEAVE                                         PASS
+  TEST: XOR_EAX_EAX                                   PASS
+  TEST: TEST_AL_imm8                                  PASS
+  TEST: 16bit_MOV_AX_imm16                            PASS
+  TEST: 16bit_opsize_gives_32bit                      PASS
+  TEST: 16bit_IN_OUT_ports                            PASS
+  TEST: REX_W_MOV_RBP_RSP                             PASS
+  TEST: REX_B_PUSH_R8                                 PASS
+  TEST: no_REX_in_32bit_mode                          PASS
+  TEST: x64_RED_lea_rip_relative                      FAIL: base is -1: disp32 taken as absolute, RIP not applied
+  TEST: x64_RED_mov_rax_imm64_len10                   FAIL: length: expected 10
+  TEST: x64_RED_rex_b_base_r8                         FAIL: base: expected 8 (R8), decoded as its low-8 counterpart
+  TEST: INSB                                          PASS
+  TEST: INSD                                          PASS
+  TEST: OUTSB                                         PASS
+  TEST: REP_INSB                                      PASS
+  TEST: multibyte_nop_0F1F                            PASS
+  TEST: cmovcc_0F44                                   PASS
+  TEST: bt_rm_r_0FA3                                  PASS
+  TEST: bt_rm_imm8_0FBA                               PASS
+  TEST: cmpxchg_0FB1                                  PASS
+  TEST: xadd_0FC1                                     PASS
+  TEST: unknown_0f_modrm_recovery                     PASS
+  TEST: desync_recovery_BT_then_IN                    PASS
+  TEST: three_byte_0F38                               PASS
+  TEST: three_byte_0F3A                               PASS
+
+Results: 48/51 passed
+make: *** [Makefile:107: test-x86] Error 1

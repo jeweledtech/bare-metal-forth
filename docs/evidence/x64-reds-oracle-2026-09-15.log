@@ -1,0 +1,27 @@
+JAVA_HOME=/snap/ghidra/47/usr/lib/jvm/java-21-openjdk-amd64 /snap/ghidra/47/ghidra/support/analyzeHeadless /tmp/ghidra_instrat InstrAt \
+	-import tests/data/x64_reds/x64_reds.elf \
+	-postScript InstrAt.java 401000 401001 401002 401003 401004 401005 401006 401007 401008 401009 40100a 40100b 40100c 40100d 40100e 40100f 401010 401011 401012 401013 401014  \
+	-scriptPath ../../tools/ghidra \
+	-overwrite -deleteProject 2>&1 | grep -E 'INSTRAT|ERROR' | sed -E 's/^INFO +//; s/ \(GhidraScript\).*//'
+InstrAt.java> INSTRAT image_base=00400000
+InstrAt.java> INSTRAT 401000 START LEA | LEA RAX,[0x401017] | len=7 | fn=entry
+InstrAt.java> INSTRAT 401001 MID 00401000 LEA RAX,[0x401017] | fn=entry
+InstrAt.java> INSTRAT 401002 MID 00401000 LEA RAX,[0x401017] | fn=entry
+InstrAt.java> INSTRAT 401003 MID 00401000 LEA RAX,[0x401017] | fn=entry
+InstrAt.java> INSTRAT 401004 MID 00401000 LEA RAX,[0x401017] | fn=entry
+InstrAt.java> INSTRAT 401005 MID 00401000 LEA RAX,[0x401017] | fn=entry
+InstrAt.java> INSTRAT 401006 MID 00401000 LEA RAX,[0x401017] | fn=entry
+InstrAt.java> INSTRAT 401007 START MOV | MOV RAX,0x1122334455667788 | len=10 | fn=entry
+InstrAt.java> INSTRAT 401008 MID 00401007 MOV RAX,0x1122334455667788 | fn=entry
+InstrAt.java> INSTRAT 401009 MID 00401007 MOV RAX,0x1122334455667788 | fn=entry
+InstrAt.java> INSTRAT 40100a MID 00401007 MOV RAX,0x1122334455667788 | fn=entry
+InstrAt.java> INSTRAT 40100b MID 00401007 MOV RAX,0x1122334455667788 | fn=entry
+InstrAt.java> INSTRAT 40100c MID 00401007 MOV RAX,0x1122334455667788 | fn=entry
+InstrAt.java> INSTRAT 40100d MID 00401007 MOV RAX,0x1122334455667788 | fn=entry
+InstrAt.java> INSTRAT 40100e MID 00401007 MOV RAX,0x1122334455667788 | fn=entry
+InstrAt.java> INSTRAT 40100f MID 00401007 MOV RAX,0x1122334455667788 | fn=entry
+InstrAt.java> INSTRAT 401010 MID 00401007 MOV RAX,0x1122334455667788 | fn=entry
+InstrAt.java> INSTRAT 401011 START MOV | MOV RAX,qword ptr [R8] | len=3 | fn=entry
+InstrAt.java> INSTRAT 401012 MID 00401011 MOV RAX,qword ptr [R8] | fn=entry
+InstrAt.java> INSTRAT 401013 MID 00401011 MOV RAX,qword ptr [R8] | fn=entry
+InstrAt.java> INSTRAT 401014 START RET | RET | len=1 | fn=entry

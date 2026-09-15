@@ -1,0 +1,10 @@
+	-overwrite -deleteProject 2>&1 | grep -E 'INSTRAT|ERROR' | sed -E 's/^INFO +//; s/ \(GhidraScript\).*//'
+InstrAt.java> INSTRAT image_base=1c0000000
+InstrAt.java> INSTRAT 1c0001083 MID 1c000107d MOV RDX,0x200000000 | fn=FUN_1c0001050
+InstrAt.java> INSTRAT 1c00312e0 MID 1c00312d9 MOV RAX,-0x3333333333333333 | fn=FUN_1c0031084
+InstrAt.java> INSTRAT 1c0001001 NONE (no instruction covers it; data or unreached) | fn=(no function)
+InstrAt.java> INSTRAT 1c0031a59 NONE (no instruction covers it; data or unreached) | fn=(no function)
+InstrAt.java> INSTRAT 1c006c4ba MID 1c006c4b4 MOV RCX,0x1000000000000000 | fn=FUN_1c006c4a4
+InstrAt.java> INSTRAT 1c0072c61 MID 1c0072c5e MOV R8,qword ptr [RCX + 0x28] | fn=FUN_1c0072bf0
+InstrAt.java> INSTRAT 1c006b001 NONE (no instruction covers it; data or unreached) | fn=(no function)
+InstrAt.java> INSTRAT 1c007214b NONE (no instruction covers it; data or unreached) | fn=(no function)
