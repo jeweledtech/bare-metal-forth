@@ -98,3 +98,12 @@ Results: 12/12 passed
 Results: 8/8 passed
 Results: 3/3 passed
 [32mAll tests passed[0m
+
+## 4. (owner gap) listed XFAIL whose test never runs must hard-fail BY NAME
+# inputs after change:
+5e1c6052df84c4976e62e2ffdfc328338c7a33465e665445689757c3bd3ff22a  tests/test_x86_decoder.c
+## 4a. gate control (red-first): scratch copy with the call to test_x64_red_rex_b_base_r8 removed from main; exit=1
+Results: pass=48 xfail=2 fail=0 xpass=0 (tests=50)
+HARD FAILURE: xfail_names entry "x64_RED_rex_b_base_r8" did not run (test deleted or renamed; the list and the suite disagree)
+## 4b. real run: make test-x86, exit 0
+Results: pass=48 xfail=3 fail=0 xpass=0 (tests=51)
