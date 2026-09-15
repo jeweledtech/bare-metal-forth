@@ -583,6 +583,15 @@ test-pipeline:
 	@echo "Running pipeline integration test..."
 	@python3 tests/test_pipeline_integration.py
 
+# UBT translator's own suite (24 binaries, ~300 checks, ~12 s).  Not
+# in `test:` -- its output grammar (`TEST: name PASS`) is not the
+# sweep's (`PASS: name`), and the headline is one grammar counted once
+# from one log.  Nightly target; the schedule is HELD until the PE32+
+# path has a red for the offset-00 case (see test_make_wiring.py).
+test-translator:
+	@echo "Running UBT translator test suite..."
+	@$(MAKE) -C tools/translator test
+
 # Offline GRUB cfg gates: drift, converter pin, scan fatality
 test-grub-cfg:
 	@echo "Running GRUB cfg gates..."

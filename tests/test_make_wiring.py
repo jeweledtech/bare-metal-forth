@@ -59,6 +59,11 @@ EXEMPT = {
     'test-pipeline':
         'UBT translator pipeline, not a kernel suite; excluded from'
         ' make test by design (docs/CLAUDE.md)',
+    'test-translator':
+        'UBT translator suite, not a kernel suite; excluded from'
+        ' make test by design (docs/CLAUDE.md) -- own grammar, own'
+        ' log; nightly target, schedule HELD (nineteenth rule,'
+        ' 2026-09-14) until the PE32+ path reds on offset-00',
     'test-arm64-boot':
         'ARM64 virt dispatch defect open (wild jump to 0x401A1FA4,'
         ' recorded 2026-07) -- cannot be green until resolved; needs'
