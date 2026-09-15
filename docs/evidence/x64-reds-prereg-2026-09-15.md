@@ -88,3 +88,11 @@ to-do list: one name comes off per fix, visibly. Gate red-tested first
 (a passing test listed as XFAIL exits 1), then `make test-x86` →
 pass=48 xfail=3 fail=0 xpass=0, then the full chain runs to completion.
 Log: `docs/evidence/x64-reds-xfail-2026-09-15.log`.
+
+Addendum 2026-09-15 (later the same day): the pass-state constant for
+test a was named above as `X86_REG_RIP = 16`. That number collides with
+the pass state later named for red (f) (`X86_REG_SPL..DIL = 16..19`).
+Renumbered: `X86_REG_RIP = 32`. The frozen text above is left as
+written; the single register map is in
+`operand-diff-prereg-2026-09-15.md` ("Register-number map"). The test's
+assertions are unchanged (they exclude -1 and 0..15; 32 passes).

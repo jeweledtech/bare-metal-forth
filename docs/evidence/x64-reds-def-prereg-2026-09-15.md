@@ -78,3 +78,9 @@ Log with input hashes: `docs/evidence/x64-reds-def-red-2026-09-15.log`.
 
 No green; no XPASS; the XFAIL list now has six names, each a defect the
 operand differential is pre-registered to move on.
+
+Later the same day, red (f) added (see operand-diff-prereg addendum for
+why it is struct-level): `x64_RED_byte_reg_sil_under_rex`, `40 8A C6`,
+Ghidra `MOV AL,SIL` @401017 (fixture v4). Observed first failure
+`source reg: expected 18 (SIL)`, as predicted. `make test-x86` →
+pass=48 xfail=7 fail=0 xpass=0 (tests=55); appended to the red log.

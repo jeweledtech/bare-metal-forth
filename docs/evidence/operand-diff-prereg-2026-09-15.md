@@ -201,18 +201,34 @@ fixture line moves by exactly that instruction, so deltas attribute.
 
 ## Addendum (owner follow-ups, same day)
 
-**Seventh defect (f), byte-register naming under REX.** The XFAIL list
-tracks defects in the decoded struct. (f) is not one: the struct already
-carries `rex`, `reg` and `size`, and the loss happens in the naming
-layer (`x86_reg_name` and the dump's `reg_name` map reg 4-7 at size 1
-to AH/CH/DH/BH regardless of REX; with any REX present they are
-SPL/BPL/SIL/DIL). It is tracked by measurement instead: fixture v4
-(sha256 `e22204cc7596d80349d852538c70332642cc763fc09563dfdb8a482f018fcf3e`,
-oracle `x64-reds-v4-oracle-2026-09-15.log`) adds `40 8A C6`, Ghidra
-`MOV AL,SIL` @401017, and the fixture line now reads reg=4 (three
-XFAIL reds + (f), ours `R:DH` vs `R:SIL`). The fix belongs in the name
-function and will move that line by exactly one. The count quoted for
-the XFAIL list stays six; the fixture line is the complete count.
+**Seventh defect (f), byte-register naming under REX: WHICH function
+(owner question, answered from the code).**
+
+- `x86_reg_name` (src/decoders/x86_decoder.c:1238) takes (reg, size)
+  only and is called from exactly one place: `x86_print_decoded`
+  (lines 1305/1319/1324), the `-t disasm` printer.
+- The UIR lifter copies the raw register NUMBER and size from the
+  decoded struct (src/ir/uir.c:119, :124, :816) and drops `rex`. So
+  downstream codegen sees reg=6 size=1 and cannot tell SIL from DH.
+  The loss is at the struct level for everything past the decoder.
+- The harness's `reg_name` (tests/dump_starts.c:38) names from the same
+  two inputs (reg, size) the lifter carries forward. It measures what
+  the pipeline sees; NO share of the baseline's `reg` misses is a
+  harness artifact. Making the dump apply REX itself would conceal the
+  pipeline defect (stopping rule: never defect-concealing), so it stays.
+
+Therefore (f) IS a decoder-struct defect with a nameable pass state:
+the fix gives SPL/BPL/SIL/DIL distinct register numbers that survive
+the lifter's copy, `X86_REG_SPL..X86_REG_DIL = 16..19`, and
+`x86_reg_name` names them. Red added the same day
+(`x64_RED_byte_reg_sil_under_rex`, XFAIL now seven): `40 8A C6`,
+Ghidra `MOV AL,SIL` @401017 (fixture v4, sha256
+`e22204cc7596d80349d852538c70332642cc763fc09563dfdb8a482f018fcf3e`,
+oracle `x64-reds-v4-oracle-2026-09-15.log`); asserts REX detected, then
+operands[1].reg == 18. Predicted first failure: "source reg: expected
+18 (SIL)" (reg = 6). The fixture line reads reg=4 = the four
+register reds. Retracted: the earlier claim that (f) belongs in the
+name function only.
 
 **Third 32-bit control from outside the ReactOS corpus.**
 `tests/data/controls/nmap_service.exe` (Debian nmap-common, PE32
@@ -230,8 +246,55 @@ shows what the ReactOS pair could not: the general opcode-coverage gap
 under a different compiler's idiom, cleanly separated from the 64-bit
 classes. The control is added to `differential-all`.
 
-**Incidental finding, not fixed:** on this control the dump reports
-`covered=32057 of 32056 bytes`: the decoder consumed one byte past the
-end of the section (an immediate/displacement read is not bounds-
-checked once the opcode byte is present). Benign in the harness (the
-file buffer continues), a real bug class in the translator. Owed a red.
+**Defect class (g), unbounded read (owner ruling: not incidental).** On
+this control the dump reports `covered=32057 of 32056 bytes`: the
+decoder consumed one byte past the end of the section because an
+immediate/displacement read is not bounds-checked once the opcode byte
+is present. This tool's purpose is reading .sys/.dll/.exe files of
+unknown provenance; an unbounded read driven by input bytes is a crash
+on a malformed file and worse on a crafted one. It gets a red and a
+place in the order (after step 4, before the REX fixes), as a defect
+class, not an observation.
+
+## Register-number map (the one place; owner follow-up, same day)
+
+Pass states for two reds both claimed 16. Disjoint ranges, fixed here:
+
+| range | meaning | which red introduces it |
+|---|---|---|
+| 0..7 | AL..BH / AX..DI / EAX..EDI / RAX..RDI by `size` (unchanged) | – |
+| 8..15 | R8..R15 (and R8B/W/D by `size`) | (c) base, (d) reg field, (d') opcode-embedded |
+| 16..19 | SPL, BPL, SIL, DIL (size 1, only reachable with a REX present) | (f) |
+| 32 | `X86_REG_RIP`, memory base marker for mod=00 rm=101 in 64-bit mode | (a) |
+| -1 | none (unchanged) | – |
+
+`operands[].reg`, `.base` and `.index` share this numbering. The
+x64-reds pre-reg's frozen text says 16 for RIP; its addendum points
+here. tests/dump_starts.c already reads 32.
+
+## Blast radius per red: is the fix decoder-only? (confirmed against uir.c)
+
+What the lifter copies, verbatim as numbers (src/ir/uir.c:108-132 and
+the `REG_OP`/`IMM_OP` macros at :813-822): `reg`, `base`→`reg`,
+`index`, `scale`, `disp`, `imm`, `size`. It does not copy `rex`.
+Downstream prints registers as `r%d` (uir.c:721); no table anywhere in
+uir.c / semantic.c / forth_codegen.c is indexed by register number
+(grep for 8- and 16-wide tables and name arrays: none).
+
+| red | what carries the fix | decoder-only? |
+|---|---|---|
+| (b) imm64 | `imm` (int64) + `length` | yes |
+| (c) REX.B base | `base` number 8..15 | yes |
+| (d) REX.R reg field | `reg` number 8..15 | yes |
+| (d') REX.B opcode-embedded | `reg` number 8..15 (+ `size` 8) | yes |
+| (e) PUSH default size | `size` | yes |
+| (f) byte file under REX | `reg` number 16..19 | yes |
+| (a) RIP-relative | `base` = 32 | **NO**: src/ir/semantic.c:356 tests `dest.reg < 0 && dest.index < 0` to recognise `call [absolute]` for the IAT cross-reference and takes `(uint32_t)dest.disp` as the slot address. A RIP-relative indirect CALL (the 64-bit IAT form) has base -1 today and hits that branch with the raw disp32 truncated to 32 bits: a wrong slot address, silently. After (a), base = 32 misses the branch entirely. The fix for (a) must extend that site to base == RIP with the resolved address (instruction address + length + disp). One decoder file plus that one semantic.c site; grep found no other consumer of the base sign. |
+
+So six of seven are x86_decoder.c alone (plus `x86_reg_name` for the
+disasm printer); (a) is two files. Recorded so week 2 does not learn it
+by surprise: the IAT cross-reference on 64-bit inputs is currently
+computed from a truncated relative displacement, which is a finding in
+its own right (it explains a class of "no hardware API calls found" on
+the HP drivers without needing any other cause; not yet confirmed
+against a run, stated as reasoned).
