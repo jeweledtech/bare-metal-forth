@@ -1,0 +1,100 @@
+# XFAIL gate for the three 64-bit reds, 2026-09-15
+# inputs:
+6b29dd424b938eeede49d0e1778a17d943316ada426985a3335d9c6818f0e1a3  tests/test_x86_decoder.c
+f5e902ae969d5f6c10589a4f059d3e60371292b0e0abba1b516fd9fa49fb9586  src/decoders/x86_decoder.c
+1df09fac6ffb4fdc18f7920d19c002fcb53382729d625d62686dacc5c2b182fc  include/x86_decoder.h
+
+## 1. gate control (red-first): scratch copy with a PASSING test (NOP) added to xfail_names; must exit 1
+command: gcc -Itests -Iinclude -Isrc -o xpass_control xpass_control.c src/decoders/x86_decoder.c && ./xpass_control; exit=1
+  TEST: NOP                                           XPASS: expected failure PASSED - stop; correct the register, then remove from xfail_names
+Results: pass=47 xfail=3 fail=0 xpass=1 (tests=51)
+HARD FAILURE: 1 expected failure(s) passed (XPASS). The 64-bit finding is wrong somewhere; correct the register before removing the name from xfail_names.
+
+## 2. real run: make test-x86 (exit 0)
+[36mTesting x86 decoder...[0m
+gcc -Wall -Wextra -Wpedantic -O2 -std=c11 -D_POSIX_C_SOURCE=200809L -Isrc -Iinclude -o build/tests/test_x86_decoder \
+	tests/test_x86_decoder.c \
+	src/decoders/x86_decoder.c
+./build/tests/test_x86_decoder
+x86 Decoder Tests
+=================
+  TEST: NOP                                           PASS
+  TEST: RET                                           PASS
+  TEST: PUSH_EAX                                      PASS
+  TEST: POP_EBX                                       PASS
+  TEST: MOV_EAX_imm32                                 PASS
+  TEST: MOV_AL_imm8                                   PASS
+  TEST: IN_AL_imm8                                    PASS
+  TEST: OUT_imm8_AL                                   PASS
+  TEST: IN_EAX_DX                                     PASS
+  TEST: OUT_DX_AL                                     PASS
+  TEST: CALL_rel32                                    PASS
+  TEST: JMP_short                                     PASS
+  TEST: JMP_rel32                                     PASS
+  TEST: JE_short                                      PASS
+  TEST: MOV_mem_EAX_to_EBX                            PASS
+  TEST: MOV_EAX_from_EBP_plus_8                       PASS
+  TEST: MOV_ECX_from_EDI_plus_0x100                   PASS
+  TEST: MOVZX_EAX_byte_ptr_ECX                        PASS
+  TEST: JNE_near                                      PASS
+  TEST: ADD_EAX_imm8                                  PASS
+  TEST: CMP_EAX_imm8                                  PASS
+  TEST: decode_range                                  PASS
+  TEST: LEA_EAX_EBP_plus_8                            PASS
+  TEST: MOV_EAX_ESI_plus_EDI_x4                       PASS
+  TEST: CLI_STI                                       PASS
+  TEST: LEAVE                                         PASS
+  TEST: XOR_EAX_EAX                                   PASS
+  TEST: TEST_AL_imm8                                  PASS
+  TEST: 16bit_MOV_AX_imm16                            PASS
+  TEST: 16bit_opsize_gives_32bit                      PASS
+  TEST: 16bit_IN_OUT_ports                            PASS
+  TEST: REX_W_MOV_RBP_RSP                             PASS
+  TEST: REX_B_PUSH_R8                                 PASS
+  TEST: no_REX_in_32bit_mode                          PASS
+  TEST: x64_RED_lea_rip_relative                      XFAIL (expected): base is -1: disp32 taken as absolute, RIP not applied
+  TEST: x64_RED_mov_rax_imm64_len10                   XFAIL (expected): length: expected 10
+  TEST: x64_RED_rex_b_base_r8                         XFAIL (expected): base: expected 8 (R8), decoded as its low-8 counterpart
+  TEST: INSB                                          PASS
+  TEST: INSD                                          PASS
+  TEST: OUTSB                                         PASS
+  TEST: REP_INSB                                      PASS
+  TEST: multibyte_nop_0F1F                            PASS
+  TEST: cmovcc_0F44                                   PASS
+  TEST: bt_rm_r_0FA3                                  PASS
+  TEST: bt_rm_imm8_0FBA                               PASS
+  TEST: cmpxchg_0FB1                                  PASS
+  TEST: xadd_0FC1                                     PASS
+  TEST: unknown_0f_modrm_recovery                     PASS
+  TEST: desync_recovery_BT_then_IN                    PASS
+  TEST: three_byte_0F38                               PASS
+  TEST: three_byte_0F3A                               PASS
+
+Results: pass=48 xfail=3 fail=0 xpass=0 (tests=51)
+
+## 3. make test (full translator chain, exit 0): Results lines
+Results: 5/5 passed
+Results: pass=48 xfail=3 fail=0 xpass=0 (tests=51)
+Results: 14/14 passed
+Results: 6/6 passed
+Results: 21/21 passed
+Results: 22/22 passed
+Results: 37/37 passed
+Results: 8/8 passed
+Results: 13/13 passed
+Results: 5/5 passed
+Results: 6/6 passed
+Results: 4/4 passed
+Results: 7/7 passed
+Results: 11/11 passed
+Results: 8/8 passed
+Results: 7/7 passed
+Results: 7/7 passed
+Results: 16/16 passed
+Results: 12/12 passed
+Results: 13/13 passed
+Results: 10/10 passed
+Results: 12/12 passed
+Results: 8/8 passed
+Results: 3/3 passed
+[32mAll tests passed[0m

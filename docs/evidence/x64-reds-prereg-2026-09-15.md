@@ -72,7 +72,16 @@ red fired past its setup checks, on the applied-result assertion. No
 green; the stop condition did not fire; the 2026-09-15 finding stands
 at these three points. No decoder change made.
 
-Side effect, flagged not fixed: `make test` in tools/translator chains
+~~Side effect, flagged not fixed: `make test` in tools/translator chains
 `test-x86` first and halts on its nonzero exit, so the later suites in
 that chain do not run while the reds are red. Owner's call whether the
-chain should continue past a known-red suite.
+chain should continue past a known-red suite.~~
+Resolved 2026-09-15 (owner ruling: XFAIL, not continue-past-failures).
+The three names are listed in `xfail_names` in test_x86_decoder.c; the
+suite reports pass / xfail / fail / xpass as separate numbers and never
+one total; an XFAIL that passes is XPASS and a hard failure (exit 1),
+so the stop condition is enforced by the harness. The list is the arc's
+to-do list: one name comes off per fix, visibly. Gate red-tested first
+(a passing test listed as XFAIL exits 1), then `make test-x86` →
+pass=48 xfail=3 fail=0 xpass=0, then the full chain runs to completion.
+Log: `docs/evidence/x64-reds-xfail-2026-09-15.log`.
