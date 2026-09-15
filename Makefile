@@ -588,7 +588,16 @@ test-pipeline:
 # sweep's (`PASS: name`), and the headline is one grammar counted once
 # from one log.  Nightly target; the schedule is HELD until the PE32+
 # path has a red for the offset-00 case (see test_make_wiring.py).
+# tools/translator/ is gitignored here and tracked in
+# forthos-vocabularies: a public clone names this capability but does
+# not ship it, and says so instead of failing on a missing directory.
 test-translator:
+	@test -f tools/translator/Makefile || { \
+		echo "test-translator: tools/translator/Makefile not present."; \
+		echo "  The UBT translator suite lives in the private forthos-vocabularies tree"; \
+		echo "  (tools/translator/ is gitignored in this repo). This is not a broken checkout;"; \
+		echo "  check out forthos-vocabularies alongside and copy or link tools/translator/ here."; \
+		exit 3; }
 	@echo "Running UBT translator test suite..."
 	@$(MAKE) -C tools/translator test
 
