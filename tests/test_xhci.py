@@ -2120,8 +2120,401 @@ else:
     for _n in HW_3C:
         check(_n, False, 'red by guard: 3c words absent')
 
+# ============================================================
+# Phase 12: step 4 -- Configure Endpoint + HID interrupt-IN
+# ============================================================
+# Design: forthos-vocabularies/docs/xhci-step4-design-2026-09-14.md
+# (rev 2 + rulings 2026-09-14, fixture note 2026-09-15).  The 63
+# checks below are §5's list 1-63 written BEFORE the red run; the
+# tripwire (64) moves to the end.  Pre-registered red on HEAD
+# (ecd48e4 + fixture bc6f279, 242/242): 1-3 definedness sent-red,
+# 4-63 red BY GUARD (nothing here may run without the words).
+# Predicted 242/305 exactly, no baseline check moves; the total is
+# READ from the red log's PASS/FAIL line count, never reconciled.
+# Counting is by list length: PURE 12 + WALK 7 + EPCTX 7 + REFUSE 4
+# + HW 30 = 60, + 3 definedness = 63.
+#
+# Spec ground (§1): DCI = 2*EPnum + dir; input ctrl Drop=0, Add=A0|A3
+# = 9 (A1 clear: QEMU hcd-xhci.c:3486-3489 returns TRB Error 5
+# otherwise); Configure Endpoint TRB type 12 (0x3000); Stop Endpoint
+# type 15 (0x3C00); Normal TRB type 1, IOC|ISP = 0x424; EP type 7 =
+# Interrupt IN -> dword1 = mps<<16 | 0x3E; dword4 = 8<<16 | 8 =
+# 0x80008; FS interval = 3 + floor(log2(bInterval)), HS = bInterval-1;
+# QEMU usb-kbd is HS, bInterval 7 -> field 6; cc 19 Context State
+# Error (3493-3496), cc 12 Endpoint Not Enabled (2912-2919).
+# Two habitats, two numbers: QEMU values asserted, iron's named in
+# the design (HID-BINT predicted 8 or 10 on iron, any 1..255 legal).
+print('\n=== Phase 12: step 4 Configure Endpoint + HID interrupt-IN ===')
+
+v, raw = val('DEF? EP-DCI 0<> DEF? INTERVAL-FS 0<> AND '
+             'DEF? INTERVAL-HS 0<> AND DEF? I-EPN 0<> AND '
+             'DEF? O-EPN 0<> AND')
+d_s4a = (v == -1)
+check('EP-DCI/INTERVAL-FS/INTERVAL-HS/I-EPN/O-EPN defined', d_s4a,  # 1
+      f'got {v}: {body_of(raw)!r}')
+v, raw = val('DEF? EP-FIND 0<> DEF? BUILD-EPCTX 0<> AND '
+             'DEF? CONFIGURE-EP 0<> AND DEF? STOP-EP 0<> AND '
+             'DEF? EP-BELL 0<> AND')
+d_s4b = (v == -1)
+check('EP-FIND/BUILD-EPCTX/CONFIGURE-EP/STOP-EP/EP-BELL defined',  # 2
+      d_s4b, f'got {v}: {body_of(raw)!r}')
+v, raw = val('DEF? EP1-ENQ 0<> DEF? HID-POLL 0<> AND '
+             'DEF? SET-PROTOCOL 0<> AND DEF? ENUM-HID 0<> AND '
+             'DEF? HID-DOWN 0<> AND')
+d_s4c = (v == -1)
+check('EP1-ENQ/HID-POLL/SET-PROTOCOL/ENUM-HID/HID-DOWN defined',  # 3
+      d_s4c, f'got {v}: {body_of(raw)!r}')
+ALL_4 = d_s4a and d_s4b and d_s4c
+
+# 4-15: pure logic, pushed literals.  13 forces CTX-SZ=64 (scaling
+# proven; 64-byte acceptance stays an iron finding), 14-15 at 32.
+PURE_4 = [
+    ('129 EP-DCI = 3 (0x81 IN)', '129 EP-DCI', 3),                    # 4
+    ('1 EP-DCI = 2 (0x01 OUT; direction bit isolated)', '1 EP-DCI', 2),  # 5
+    ('130 EP-DCI = 5 (0x82; number field isolated)', '130 EP-DCI', 5),  # 6
+    ('1 INTERVAL-FS = 3', '1 INTERVAL-FS', 3),                        # 7
+    ('8 INTERVAL-FS = 6', '8 INTERVAL-FS', 6),                        # 8
+    ('10 INTERVAL-FS = 6 (rounds DOWN to 8 ms)', '10 INTERVAL-FS', 6),  # 9
+    ('255 INTERVAL-FS = 10 (clamp at table top)', '255 INTERVAL-FS', 10),  # 10
+    ('7 INTERVAL-HS = 6 (QEMU HS keyboard)', '7 INTERVAL-HS', 6),     # 11
+    ('1 INTERVAL-HS = 0', '1 INTERVAL-HS', 0),                        # 12
+    ('forced CTX-SZ=64: 0 3 I-EPN = 256 (4x64)', '0 3 I-EPN', 256),   # 13
+    ('CTX-SZ=32: 0 3 I-EPN = 128', '0 3 I-EPN', 128),                 # 14
+    ('CTX-SZ=32: 0 3 O-EPN = 96', '0 3 O-EPN', 96),                   # 15
+]
+
+# 16-22: descriptor walker on suite-owned synthetic blobs (forced:
+# QEMU's real blob only ever walks the happy path).  USB 2.0 §9.6
+# shapes: config hdr 9, interface 9, HID 9, endpoint 7.
+def _cfg(total):
+    return [9, 2, total & 0xFF, total >> 8, 1, 1, 0, 0xA0, 50]
+
+
+def _iface(n):
+    return [9, 4, n, 0, 1, 3, 1, 1, 0]
+
+
+_HID = [9, 0x21, 0x11, 1, 0, 1, 0x22, 0x3F, 0]
+
+
+def _ep(addr, bint=10):
+    return [7, 5, addr, 3, 8, 0, bint]
+
+
+_VENDOR9 = [9, 0x23, 1, 2, 3, 4, 5, 6, 7]        # an unknown 9-byte descriptor
+_BLOB_QEMU = _cfg(34) + _iface(0) + _HID + _ep(0x81)              # 34, EP @27
+_BLOB_EXTRA = _cfg(43) + _iface(0) + _HID + _VENDOR9 + _ep(0x81)  # 43, EP @36
+_BLOB_OUTIN = _cfg(41) + _iface(0) + _HID + _ep(0x01) + _ep(0x81)  # IN @34
+_BLOB_NOIN = _cfg(34) + _iface(0) + _HID + _ep(0x01)              # no IN
+_BLOB_BL0 = _cfg(34) + _iface(0) + [0] + _HID[1:] + _ep(0x81)     # bLength 0 @18
+_BLOB_2IF = (_cfg(59) + _iface(0) + _HID + _ep(0x01)
+             + _iface(1) + _HID + _ep(0x81))                        # 59, IN @52
+assert len(_BLOB_2IF) == 59 and len(_BLOB_QEMU) == 34 \
+    and len(_BLOB_EXTRA) == 43 and len(_BLOB_OUTIN) == 41 \
+    and len(_BLOB_NOIN) == 34 and len(_BLOB_BL0) == 34   # wTotalLength = real length
+WALK_4 = [
+    ('EP-FIND: QEMU-shaped blob (34, EP at 27), len 34 = 27',    # 16
+     _BLOB_QEMU, 34, 27),
+    ('EP-FIND: extra 9-byte descriptor before EP, len 43 = 36',  # 17
+     _BLOB_EXTRA, 43, 36),
+    ('EP-FIND: interrupt OUT before IN -> the IN offset (34)',   # 18
+     _BLOB_OUTIN, 41, 34),
+    ('EP-FIND: no interrupt IN endpoint = 0', _BLOB_NOIN, 34, 0),  # 19
+    ('EP-FIND: bLength 0 descriptor -> 0 within budget (step guard)',  # 20
+     _BLOB_BL0, 34, 0),
+    ('EP-FIND: wTotalLength 34 but len 20 (short read) = 0',     # 21
+     _BLOB_QEMU, 20, 0),
+    ('EP-FIND: two-interface blob -> HID-IFACE = 1 (the owner)',  # 22
+     _BLOB_2IF, 59, None),
+]
+
+
+def poke(base_word, data):
+    """Write bytes into a suite-owned page, 8 stores per line (TIB
+    256; the longest line here is ~170 chars)."""
+    for i in range(0, len(data), 8):
+        chunk = data[i:i + 8]
+        send(' '.join(f'{b} {base_word} {i + j} + C!'
+                      for j, b in enumerate(chunk)), 0.3)
+
+
+# 23-29: BUILD-EPCTX layout on scratch (no controller): XODC/XICTX/
+# XEP1R from suite PHYS-ALLOC, HID-* cells set by the test (addr
+# 0x81, mps 8, bInterval 10, DCI 3), synthetic XODC slot dword0 =
+# 0x08100000 (entries 1, speed FS=1).  Expected slot dword0 after =
+# 0x18100000 (entries 3<<27 | speed preserved) = 403701760.
+EPCTX_4 = [
+    ('BUILD-EPCTX: input ctrl +0 = 0 (Drop) and +4 = 9 (Add A0|A3)',  # 23
+     'XICTX @ @ 0= XICTX @ 4 + @ 9 = AND', -1),
+    ('BUILD-EPCTX: input slot dword0 = 0x18100000 (entries 3, FS kept)',  # 24
+     'XICTX @ I-SLOT @', 403701760),
+    ('BUILD-EPCTX: EP ctx dword0 interval bits 23:16 = 6 (bInt 10 @ FS)',  # 25
+     'XICTX @ 3 I-EPN @ 16 RSHIFT 255 AND', 6),
+    ('BUILD-EPCTX: EP ctx dword1 = 0x8003E (mps 8, Interrupt IN, CErr 3)',  # 26
+     'XICTX @ 3 I-EPN 4 + @', 524350),
+    ('BUILD-EPCTX: EP ctx dword2 = XEP1R | 1 (DCS)',                 # 27
+     'XICTX @ 3 I-EPN 8 + @ XEP1R @ 1 OR =', -1),
+    ('BUILD-EPCTX: EP ctx dword4 = 0x80008 (ESIT lo 8, avg TRB 8)',  # 28
+     'XICTX @ 3 I-EPN 16 + @', 524296),
+    ('BUILD-EPCTX: DEPTH unchanged (stray-cell control, Bug #35 shape)',  # 29
+     'DEPTH >R BUILD-EPCTX DEPTH R> -', 0),
+]
+
+# 30-33: refusals (phase-8 shape; XB0 holds the bound base).
+REFUSE_4 = [
+    'unbound: ENUM-HID = 0 (no DMA write)',                       # 30
+    'bound, no slot: ENUM-HID = 0',                               # 31
+    'idle: HID-DOWN = 0',                                         # 32
+    'no ring: HID-POLL = 0 and HID-PEND = 0 (refused, no enqueue)',  # 33
+]
+
+# 34-63: hardware leg on QEMU (iron values named in the design).
+HW_4 = [
+    'XHCI-UP returns -1 (step-4 leg)',                            # 34
+    'XHCI-RUN returns -1',                                        # 35
+    'FIRST-CCS ENUM-ADDRESS returns a slot (> 0)',                # 36
+    'ENUM-CONFIGURE returns nonzero',                             # 37
+    'ENUM-HID = -1 (full config read, EP found, Configure cc 1)',  # 38
+    'ENUM-HID second call = 0 (already configured) and NLIVE unchanged',  # 39
+    'HID-EPADDR = 129 (0x81, read from the endpoint descriptor)',  # 40
+    'HID-MPS = 8',                                                # 41
+    'HID-BINT = 7 (QEMU HS; iron: predicted 8 or 10, any 1..255 recorded)',  # 42
+    'HID-IFACE = 0 (QEMU single interface)',                      # 43
+    'GD-RESID = 0 after the full-config read (34 requested, 34 received)',  # 44
+    'output slot ctx entries (XODC dword0 >> 27) = 3 after Configure',  # 45
+    'output EP ctx (XODC 3 O-EPN) state bits 2:0 = 1 (Running)',  # 46
+    '0 SET-PROTOCOL cc = 1',                                      # 47
+    'no key: HID-POLL = 0 (timeout) and HID-PEND = -1 (TRB left pending)',  # 48
+    'sendkey a then HID-POLL: cc in {1,13} (QEMU 1)',             # 49
+    'HIDBUF byte2 = 4 (usage a) and byte0 = 0 (no modifier)',     # 50
+    'next HID-POLL (release): cc OK and HIDBUF byte2 = 0',        # 51
+    'forced wrap: 16 reports drained, all cc OK; XEP1ENQ < 15 and XEP1CCS = 0',  # 52
+    'key after the wrap lands (HIDBUF byte2 = 5, usage b)',       # 53
+    'forced refusal: CONFIGURE-EP with Add = 3 -> cc 5 TRB Error',  # 54
+    'forced state error: CONFIGURE-EP on an Enabled-only slot -> cc 19',  # 55
+    'forced: 5 STOP-EP (DCI never enabled) -> cc 12',             # 56
+    'HID-DCI STOP-EP -> cc 1 and output EP ctx state = 3 (Stopped)',  # 57
+    'forced unplug: HID-POLL after device_del kbd != 1 (cc 4 or 0 with XEV-LAST 34)',  # 58
+    '#CONNECTED after device_del = before - 1',                   # 59
+    'HID-DOWN after unplug in {-1, 1} (recorded)',                # 60
+    'after HID-DOWN: HID-PEND = 0, XEP1R = 0, HID-POLL = 0 (refused)',  # 61
+    'SLOT-DOWN returns -1',                                       # 62
+    'allocator symmetry: NLIVE after teardown = before UP (whole leg)',  # 63
+]
+
+
+def _drain_polls(n, wait=2.0):
+    """n HID-POLL calls; returns list of cc values."""
+    out = []
+    for _ in range(n):
+        v, _r = val('HID-POLL', wait)
+        out.append(v)
+    return out
+
+
+if ALL_4:
+    # ---- 4-15 pure logic ----
+    for i, (_n, _e, _w) in enumerate(PURE_4):
+        if i == 9:
+            send('64 CTX-SZ !')
+        if i == 10:
+            send('32 CTX-SZ !')
+        v, raw = val(_e)
+        check(_n, v == _w, f'got {v}: {body_of(raw)!r}')
+    send('32 CTX-SZ !')
+    # ---- 16-22 walker ----
+    # Twelfth rule: the definition, its gate, and the store on
+    # separate lines (a failed VARIABLE must not leave a store to run
+    # against whatever is on the stack).
+    send('VARIABLE S4B')
+    v, raw = val('DEF? S4B 0<>')
+    instrument_unscored('S4B defined (walker scratch cell)', v == -1,
+                        f'got {v}: {body_of(raw)!r}')
+    send('4096 PHYS-ALLOC S4B !')
+    for _n, _blob, _len, _want in WALK_4:
+        send('S4B @ 128 0 FILL')
+        poke('S4B @', _blob)
+        if _want is None:
+            send(f'0 HID-IFACE !  S4B @ {_len} EP-FIND DROP', 3.0)
+            v, raw = val('HID-IFACE @')
+            check(_n, v == 1, f'got {v}: {body_of(raw)!r}')
+        else:
+            v, raw = val(f'S4B @ {_len} EP-FIND', 3.0)
+            check(_n, v == _want, f'got {v}: {body_of(raw)!r}')
+    send('S4B @ 4096 PHYS-RELEASE  0 S4B !')
+    # ---- 23-29 BUILD-EPCTX on scratch ----
+    send('4096 PHYS-ALLOC XODC !  4096 PHYS-ALLOC XICTX !  '
+         '4096 PHYS-ALLOC XEP1R !')
+    send('XODC @ 4096 0 FILL  XICTX @ 4096 0 FILL')
+    send('129 HID-EPADDR !  8 HID-MPS !  10 HID-BINT !  3 HID-DCI !')
+    send('134742016 XODC @ !')            # slot dword0 = 0x08100000
+    send('BUILD-EPCTX', 2.0)
+    for _n, _e, _w in EPCTX_4:
+        v, raw = val(_e, 2.0)
+        check(_n, v == _w, f'got {v}: {body_of(raw)!r}')
+    send('XODC @ 4096 PHYS-RELEASE  XICTX @ 4096 PHYS-RELEASE  '
+         'XEP1R @ 4096 PHYS-RELEASE')
+    send('0 XODC !  0 XICTX !  0 XEP1R !')
+    # Zero EVERY HID-* cell the scratch group set: 40/41 assert the
+    # same 129/8 the scratch wrote, and must not pass on residue.
+    send('0 HID-EPADDR !  0 HID-MPS !  0 HID-BINT !  0 HID-IFACE !  '
+         '0 HID-DCI !')
+    # ---- 30-33 refusals ----
+    send('0 XHCI-BASE !')
+    v, raw = val('ENUM-HID', 2.0)
+    check(REFUSE_4[0], v == 0, f'got {v}: {body_of(raw)!r}')
+    send('XB0 @ XHCI-BASE !  0 XSLOT !')
+    v, raw = val('ENUM-HID', 2.0)
+    check(REFUSE_4[1], v == 0, f'got {v}: {body_of(raw)!r}')
+    v, raw = val('HID-DOWN', 2.0)
+    check(REFUSE_4[2], v == 0, f'got {v}: {body_of(raw)!r}')
+    v, raw = val('HID-POLL HID-PEND @ 0= SWAP 0= AND', 2.0)
+    check(REFUSE_4[3], v == -1, f'got {v}: {body_of(raw)!r}')
+    # ---- 34-63 hardware leg ----
+    if ALL_2C and ALL_2D and ALL_3B and ALL_3C:
+        zap()
+        send('0 HID-EPADDR !  0 HID-MPS !  0 HID-BINT !  0 HID-IFACE !  '
+             '0 HID-DCI !')                  # no scratch residue into 40-44
+        nl_a, _ = val('NLIVE', 2.0)
+        v, raw = val('XHCI-UP', 3.0)
+        check(HW_4[0], v == -1, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('XHCI-RUN', 3.0)
+        check(HW_4[1], v == -1, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('FIRST-CCS ENUM-ADDRESS', 6.0)
+        check(HW_4[2], v is not None and v > 0, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('ENUM-CONFIGURE', 8.0)
+        check(HW_4[3], v is not None and v != 0, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('ENUM-HID', 8.0)
+        check(HW_4[4], v == -1, f'got {v}: {body_of(raw)!r}')
+        nl_h, _ = val('NLIVE', 2.0)
+        v, raw = val('ENUM-HID', 4.0)
+        nl_h2, raw2 = val('NLIVE', 2.0)
+        check(HW_4[5], v == 0 and nl_h is not None and nl_h2 == nl_h,
+              f'got {v}, NLIVE {nl_h} -> {nl_h2}: {body_of(raw)!r}')
+        v, raw = val('HID-EPADDR @')
+        check(HW_4[6], v == 129, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('HID-MPS @')
+        check(HW_4[7], v == 8, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('HID-BINT @')
+        check(HW_4[8], v == 7, f'got {v} (iron: record): {body_of(raw)!r}')
+        v, raw = val('HID-IFACE @')
+        check(HW_4[9], v == 0, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('GD-RESID @')
+        check(HW_4[10], v == 0, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('XODC @ @ 27 RSHIFT')
+        check(HW_4[11], v == 3, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('XODC @ 3 O-EPN @ 7 AND')
+        check(HW_4[12], v == 1, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('0 SET-PROTOCOL', 4.0)
+        check(HW_4[13], v == 1, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('HID-POLL', 3.0)
+        p, raw2 = val('HID-PEND @')
+        check(HW_4[14], v == 0 and p == -1,
+              f'poll {v}, pend {p}: {body_of(raw)!r}')
+        mon('sendkey a')
+        v, raw = val('HID-POLL', 3.0)
+        check(HW_4[15], v in (1, 13), f'got {v}: {body_of(raw)!r}')
+        v, raw = val('HIDBUF @ 2 + C@ 4 = HIDBUF @ C@ 0= AND')
+        check(HW_4[16], v == -1, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('HID-POLL', 3.0)
+        b2, raw2 = val('HIDBUF @ 2 + C@')
+        check(HW_4[17], v in (1, 13) and b2 == 0,
+              f'cc {v}, byte2 {b2}: {body_of(raw)!r}')
+        # forced wrap: 8 keys = 16 reports over a 15-slot ring.
+        for _ in range(8):
+            mon('sendkey a', 0.3)
+            time.sleep(0.3)
+        ccs = _drain_polls(16)
+        enq, raw = val('XEP1ENQ @')
+        ccs_, raw2 = val('XEP1CCS @')
+        check(HW_4[18],
+              all(c in (1, 13) for c in ccs) and enq is not None
+              and enq < 15 and ccs_ == 0,
+              f'ccs {ccs}, XEP1ENQ {enq}, XEP1CCS {ccs_}')
+        mon('sendkey b')
+        v, raw = val('HID-POLL', 3.0)
+        b2, raw2 = val('HIDBUF @ 2 + C@')
+        check(HW_4[19], v in (1, 13) and b2 == 5,
+              f'cc {v}, byte2 {b2}: {body_of(raw)!r}')
+        val('HID-POLL', 3.0)                 # drain the release
+        # forced refusal: Address-Device-shaped Add flags.
+        send('3 XICTX @ 4 + !')
+        v, raw = val('CONFIGURE-EP', 4.0)
+        check(HW_4[20], v == 5, f'got {v}: {body_of(raw)!r}')
+        send('9 XICTX @ 4 + !')
+        # forced state error: a slot that is Enabled, never Addressed.
+        # ENABLE-SLOT ( -- cc slot ), CMD-RUN ( .. -- cc slot ): slot
+        # on top, so SWAP DROP keeps the slot.  The new XSLOT must be
+        # > 0 and differ from the saved one, or cc 19 could come from
+        # the wrong slot; a bad setup fails 55 with the reason.
+        send('VARIABLE S4S')
+        v, raw = val('DEF? S4S 0<>')
+        instrument_unscored('S4S defined (saved-slot cell)', v == -1,
+                            f'got {v}: {body_of(raw)!r}')
+        send('XSLOT @ S4S !')
+        send('ENABLE-SLOT SWAP DROP XSLOT !', 4.0)
+        ns, raw_ns = val('XSLOT @')
+        ss, _ = val('S4S @')
+        if ns is not None and ns > 0 and ns != ss:
+            v, raw = val('CONFIGURE-EP', 4.0)
+            check(HW_4[21], v == 19, f'got {v}: {body_of(raw)!r}')
+        else:
+            check(HW_4[21], False,
+                  f'setup: ENABLE-SLOT gave XSLOT {ns} (saved {ss}): '
+                  f'{body_of(raw_ns)!r}')
+        send('XSLOT @ DISABLE-SLOT DROP  S4S @ XSLOT !', 4.0)
+        v, raw = val('5 STOP-EP', 4.0)
+        check(HW_4[22], v == 12, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('HID-DCI @ STOP-EP', 4.0)
+        st, raw2 = val('XODC @ 3 O-EPN @ 7 AND')
+        check(HW_4[23], v == 1 and st == 3,
+              f'cc {v}, state {st}: {body_of(raw)!r}')
+        # forced unplug on a fresh UP/ADDRESS/CONFIGURE/HID cycle
+        # (re-arming a stopped ring is out of scope).
+        send('HID-DOWN DROP  SLOT-DOWN DROP  XHCI-DOWN DROP', 6.0)
+        send('XHCI-UP DROP  XHCI-RUN DROP', 6.0)
+        send('FIRST-CCS ENUM-ADDRESS DROP', 6.0)
+        send('ENUM-CONFIGURE DROP  ENUM-HID DROP', 12.0)
+        val('HID-POLL', 3.0)                 # pending, no key
+        nc_a, _ = val('#CONNECTED')
+        mon('device_del kbd')
+        time.sleep(1.0)
+        v, raw = val('HID-POLL', 4.0)
+        xl, raw2 = val('XEV-LAST @')
+        check(HW_4[24], v is not None and v != 1,
+              f'poll {v}, XEV-LAST {xl}: {body_of(raw)!r}')
+        print(f'  (unplug shape recorded: HID-POLL={v}, XEV-LAST={xl})')
+        nc_b, raw = val('#CONNECTED')
+        check(HW_4[25], nc_a is not None and nc_b == nc_a - 1,
+              f'#CONNECTED {nc_a} -> {nc_b}: {body_of(raw)!r}')
+        v, raw = val('HID-DOWN', 6.0)
+        check(HW_4[26], v in (-1, 1), f'got {v}: {body_of(raw)!r}')
+        print(f'  (HID-DOWN after unplug recorded: {v})')
+        v, raw = val('HID-PEND @ 0= XEP1R @ 0= AND HID-POLL 0= AND', 3.0)
+        check(HW_4[27], v == -1, f'got {v}: {body_of(raw)!r}')
+        v, raw = val('SLOT-DOWN', 4.0)
+        check(HW_4[28], v == -1, f'got {v}: {body_of(raw)!r}')
+        send('XHCI-DOWN DROP', 4.0)
+        nl_b, raw = val('NLIVE', 2.0)
+        check(HW_4[29], nl_a is not None and nl_b == nl_a,
+              f'NLIVE {nl_a} -> {nl_b}: {body_of(raw)!r}')
+    else:
+        for _n in HW_4:
+            check(_n, False, 'red by guard: 2c/2d/3b/3c machinery absent')
+else:
+    for _n, _e, _w in PURE_4:
+        check(_n, False, 'red by guard: step-4 words absent')
+    for _n, _b, _l, _w in WALK_4:
+        check(_n, False, 'red by guard: step-4 words absent')
+    for _n, _e, _w in EPCTX_4:
+        check(_n, False, 'red by guard: step-4 words absent')
+    for _n in REFUSE_4:
+        check(_n, False, 'red by guard: step-4 words absent')
+    for _n in HW_4:
+        check(_n, False, 'red by guard: step-4 words absent')
+
 raw = send('BASE @ DECIMAL .')
-check('BASE tripwire: reads 10 at exit',                     # 240
+check('BASE tripwire: reads 10 at exit',                     # 305 (was 240)
       re.search(r'\b10\b', body_of(raw)) is not None,
       f'got: {body_of(raw)!r}')
 
