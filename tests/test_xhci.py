@@ -2291,7 +2291,7 @@ HW_4 = [
     'forced wrap: 16 reports drained, all cc OK; XEP1ENQ < 15 and XEP1CCS = 0',  # 52
     'key after the wrap lands (HIDBUF byte2 = 5, usage b)',       # 53
     'forced refusal: CONFIGURE-EP with Add = 3 -> cc 5 TRB Error',  # 54
-    'forced state error: CONFIGURE-EP on an Enabled-only slot -> cc 19',  # 55
+    'forced state error: CONFIGURE-EP with output slot state poked to 1 (Enabled) -> cc 19',  # 55
     'forced: 5 STOP-EP (DCI never enabled) -> cc 12',             # 56
     'HID-DCI STOP-EP -> cc 1 and output EP ctx state = 3 (Stopped)',  # 57
     'forced unplug: HID-POLL after device_del kbd != 1 (cc 4 or 0 with XEV-LAST 34)',  # 58
@@ -2347,7 +2347,13 @@ if ALL_4:
          '4096 PHYS-ALLOC XEP1R !')
     send('XODC @ 4096 0 FILL  XICTX @ 4096 0 FILL')
     send('129 HID-EPADDR !  8 HID-MPS !  10 HID-BINT !  3 HID-DCI !')
-    send('134742016 XODC @ !')            # slot dword0 = 0x08100000
+    # slot dword0 = 0x08100000 = 135266304 (entries 1<<27 | speed FS
+    # 1<<20).  Green 1 had 134742016 = 0x08080000 here (a desk
+    # decimal error, E8-class); the word preserved exactly the bits it
+    # was given (0x18080000), so the red was the harness's, not the
+    # word's.  Decimal literals are derived by python, not by hand.
+    assert 0x08100000 == 135266304 and 0x18100000 == 403701760
+    send('135266304 XODC @ !')
     send('BUILD-EPCTX', 2.0)
     for _n, _e, _w in EPCTX_4:
         v, raw = val(_e, 2.0)
@@ -2442,27 +2448,47 @@ if ALL_4:
         v, raw = val('CONFIGURE-EP', 4.0)
         check(HW_4[20], v == 5, f'got {v}: {body_of(raw)!r}')
         send('9 XICTX @ 4 + !')
-        # forced state error: a slot that is Enabled, never Addressed.
-        # ENABLE-SLOT ( -- cc slot ), CMD-RUN ( .. -- cc slot ): slot
-        # on top, so SWAP DROP keeps the slot.  The new XSLOT must be
-        # > 0 and differ from the saved one, or cc 19 could come from
-        # the wrong slot; a bad setup fails 55 with the reason.
+        # forced state error (55), REWRITTEN after greens 1-3 (design
+        # doc §9).  As designed ("Enabled-only slot -> cc 19") it is
+        # unforceable on QEMU: xhci_enable_slot never sets slots[].ctx
+        # and xhci_configure_slot uses that cached pointer, never the
+        # DCBAA, so a bare-enabled slot reads its state from PHYSICAL
+        # 0 (IVT F000:FF53 -> top bits 0x1E >= Addressed -> cc 1) and
+        # the contexts are DMA-written over 0x0..0x6C -- observed in
+        # greens 2 and 3 (1800FF53 at 0/C, 60001/8003E/112001 at
+        # 60..68) even with a valid page in DCBAA[new] (green 3).
+        # Forceable form: the REAL slot's output slot context has a
+        # valid pointer and QEMU reads its state field on every
+        # Configure; poke dword3 bits 31:27 to 1 (Enabled), Configure
+        # -> 19, restore.  Iron may cache slot state internally: an
+        # iron finding, named.  Diag lines: the dump must NOT change.
+        _dump = 'HEX 0 @ . 4 @ . 8 @ . C @ . 60 @ . 64 @ . 68 @ . 6C @ . DECIMAL'
         send('VARIABLE S4S')
         v, raw = val('DEF? S4S 0<>')
-        instrument_unscored('S4S defined (saved-slot cell)', v == -1,
+        instrument_unscored('S4S defined (saved slot dword3 cell)', v == -1,
                             f'got {v}: {body_of(raw)!r}')
-        send('XSLOT @ S4S !')
-        send('ENABLE-SLOT SWAP DROP XSLOT !', 4.0)
-        ns, raw_ns = val('XSLOT @')
-        ss, _ = val('S4S @')
-        if ns is not None and ns > 0 and ns != ss:
+        send('XODC @ 12 + @ S4S !')
+        # state := 1: (dword3 AND 0x07FFFFFF) OR 1<<27
+        assert 0x07FFFFFF == 134217727 and (1 << 27) == 134217728
+        send('S4S @ 134217727 AND 134217728 OR XODC @ 12 + !')
+        st, raw_st = val('XODC @ 12 + @ 27 RSHIFT')
+        print(f'  (diag 55: slot {body_of(send("XSLOT @ .")).strip()!r}, '
+              f'output slot state poked to {st}, saved dword3 '
+              f'{body_of(send("HEX S4S @ . DECIMAL")).strip()!r})')
+        print(f'  (diag 55: phys 0..C,60..6C BEFORE = {body_of(send(_dump)).strip()!r})')
+        if st == 1:
             v, raw = val('CONFIGURE-EP', 4.0)
             check(HW_4[21], v == 19, f'got {v}: {body_of(raw)!r}')
         else:
             check(HW_4[21], False,
-                  f'setup: ENABLE-SLOT gave XSLOT {ns} (saved {ss}): '
-                  f'{body_of(raw_ns)!r}')
-        send('XSLOT @ DISABLE-SLOT DROP  S4S @ XSLOT !', 4.0)
+                  f'setup: state poke read back {st}: {body_of(raw_st)!r}')
+        print(f'  (diag 55: phys 0..C,60..6C AFTER  = {body_of(send(_dump)).strip()!r})')
+        send('S4S @ XODC @ 12 + !')
+        st2, _ = val('XODC @ 12 + @ 27 RSHIFT')
+        print(f'  (diag 55: output slot state restored to {st2})')
+        # (the old control's teardown line lived here: it disabled the
+        # REAL slot and stored dword3 into XSLOT -- caught in review
+        # before green 4 was read; the rewrite creates no slot.)
         v, raw = val('5 STOP-EP', 4.0)
         check(HW_4[22], v == 12, f'got {v}: {body_of(raw)!r}')
         v, raw = val('HID-DCI @ STOP-EP', 4.0)

@@ -689,7 +689,16 @@ VARIABLE EPA  VARIABLE EPCTL  VARIABLE GDBUF  VARIABLE GDLEN
 \ EP0 doorbell: slot's doorbell = DB-BASE + slot*4, target
 \ DCI 1 (the control endpoint).
 : EP0-BELL ( -- ) 1 XSLOT @ 4 * DB-BASE + ! ;
-: EP0-WAIT ( -- cc ) 20 EV-WAIT IF EV-CC EV-NEXT ELSE 0 THEN ;
+\ GD-RESID (step 4, design 1.5): residual of the last EP0
+\ transfer = Transfer Event status bits 23:0 (TRB length -
+\ bytes transferred), recorded before the event is consumed.
+\ A walker bounded by wTotalLength would parse stale page
+\ bytes after a short read; ENUM-HID bounds EP-FIND by
+\ wLength - GD-RESID instead.
+VARIABLE GD-RESID
+: EP0-WAIT ( -- cc )
+    20 EV-WAIT IF EV-TRB 8 + @ FFFFFF AND GD-RESID !
+        EV-CC EV-NEXT ELSE 0 THEN ;
 \ Success on a control READ is 1 (Success) or D (Short Packet):
 \ QEMU gives 1, but a controller that sets ISP semantics could
 \ give D on a sub-MPS read -- accept both, no habitat reds.
@@ -760,6 +769,173 @@ VARIABLE EPA  VARIABLE EPCTL  VARIABLE GDBUF  VARIABLE GDLEN
     XDBUF !
     XDBUF @ GET-CONFIG CC-OK? IF XDBUF @ C@ ELSE -1 THEN
     XDBUF @ 1000 PHYS-RELEASE  0 XDBUF ! ;
+
+\ ---- Step 4: Configure Endpoint + HID interrupt-IN ----
+\ Design: docs/xhci-step4-design-2026-09-14.md (private), rev 2
+\ + rulings.  xHCI 1.2 4.6.6 / 6.2.5.1 (Configure Endpoint,
+\ input control Drop=0, Add=A0|A(dci): A1 CLEAR, EP0 is not
+\ reconfigured), 6.2.3 (endpoint ctx: Interrupt IN type 7,
+\ CErr 3, MPS, interval, TR dequeue|DCS, avg TRB len / ESIT),
+\ 6.2.3.6 (FS/LS interval = 3+log2(bInterval), HS = bInt-1),
+\ 4.5.1 (DCI = 2*EP + dir), 6.4.1.1 (Normal TRB type 1 with
+\ IOC|ISP = 424), 4.6.9 (Stop Endpoint type 15 = 3C00).  USB
+\ 2.0 9.6 descriptor walk; HID 1.11 7.2.6 SET_PROTOCOL.  QEMU
+\ v8.2.2 hcd-xhci.h enums read 2026-09-15 as the version-
+\ pinned cross-check: CR_CONFIGURE_ENDPOINT 12, CR_STOP_
+\ ENDPOINT 15, TR_NORMAL 1, CC 5/12/19; EP_STOPPED 3.
+VARIABLE HID-EPADDR  VARIABLE HID-MPS  VARIABLE HID-BINT
+VARIABLE HID-DCI  VARIABLE HID-IFACE  VARIABLE HIDCC-PROT
+VARIABLE XEP1R  VARIABLE XEP1ENQ  VARIABLE XEP1CCS
+VARIABLE HIDBUF  VARIABLE HID-PEND  VARIABLE HTL
+VARIABLE E1A  VARIABLE E1CTL
+VARIABLE EFP  VARIABLE EFL  VARIABLE EFO  VARIABLE EFB
+
+: EP-DCI ( bEndpointAddress -- dci )
+    DUP F AND 2 * SWAP 7 RSHIFT + ;
+\ FS/LS interrupt: Interval = 3 + floor(log2 bInterval), 3..A.
+: INTERVAL-FS ( bInterval -- field )
+    3 SWAP
+    BEGIN 1 RSHIFT DUP 0<> WHILE SWAP 1+ SWAP REPEAT DROP
+    DUP A > IF DROP A THEN ;
+: INTERVAL-HS ( bInterval -- field )
+    1- DUP 0< IF DROP 0 THEN ;
+\ Context addressing, CTX-SZ-scaled like I-EP0/O-EP0 (3b):
+\ input ctx: slot at 1x, EP0 at 2x, DCI n at (n+1)x;
+\ output ctx: slot at 0, DCI n at n x.
+: I-EPN ( ictx dci -- a ) 1+ CTX-SZ @ * + ;
+: O-EPN ( octx dci -- a ) CTX-SZ @ * + ;
+
+\ Descriptor walker.  EF@ reads byte i of the descriptor at the
+\ current offset.  Refuses (0) on bLength 0 BEFORE advancing
+\ (rev 2 defect 2), and never reads past len = bytes received
+\ (rev 2 defect 3).  Captures bInterfaceNumber of the most
+\ recent interface descriptor into HID-IFACE (rev 2 defect 5).
+: EF@ ( i -- byte ) EFO @ + EFP @ + C@ ;
+: EP-INT-IN? ( -- flag )
+    3 EF@ 3 AND 3 =  2 EF@ 80 AND 0<>  AND ;
+: EP-FIND ( buf len -- off|0 )
+    EFL !  EFP !  0 EFO !  0 HID-IFACE !
+    BEGIN
+        EFO @ 2 + EFL @ > IF 0 EXIT THEN
+        0 EF@ EFB !  EFB @ 0= IF 0 EXIT THEN
+        EFO @ EFB @ + EFL @ > IF 0 EXIT THEN
+        1 EF@ 4 = IF 2 EF@ HID-IFACE ! THEN
+        1 EF@ 5 = IF EP-INT-IN? IF EFO @ EXIT THEN THEN
+        EFB @ EFO +!
+    AGAIN ;
+
+\ Input context for Configure Endpoint from the HID-* cells and
+\ the OUTPUT slot context (route/speed/port copied; entries=3).
+\ Speed (slot dword0 bits 23:20): 1 FS / 2 LS -> INTERVAL-FS,
+\ 3 HS / 4 SS -> INTERVAL-HS.  Stack-neutral (check 29).
+: BUILD-EPCTX ( -- )
+    XICTX @ PG0
+    0 XICTX @ !
+    1 HID-DCI @ LSHIFT 1 OR XICTX @ 4 + !
+    XODC @ @ 7FFFFFF AND 18000000 OR XICTX @ I-SLOT !
+    XODC @ 4 + @ XICTX @ I-SLOT 4 + !
+    XODC @ 8 + @ XICTX @ I-SLOT 8 + !
+    XODC @ @ 14 RSHIFT F AND 3 <
+    IF HID-BINT @ INTERVAL-FS ELSE HID-BINT @ INTERVAL-HS THEN
+    10 LSHIFT XICTX @ HID-DCI @ I-EPN !
+    HID-MPS @ 10 LSHIFT 3E OR XICTX @ HID-DCI @ I-EPN 4 + !
+    XEP1R @ 1 OR XICTX @ HID-DCI @ I-EPN 8 + !
+    0 XICTX @ HID-DCI @ I-EPN C + !
+    HID-MPS @ 10 LSHIFT 8 OR XICTX @ HID-DCI @ I-EPN 10 + ! ;
+
+: CONFIGURE-EP ( -- cc )
+    XICTX @ 0 0 XSLOT @ 18 LSHIFT 3000 OR CMD-RUN DROP ;
+: STOP-EP ( dci -- cc )
+    10 LSHIFT 3C00 OR XSLOT @ 18 LSHIFT OR >R
+    0 0 0 R> CMD-RUN DROP ;
+: EP-BELL ( dci -- ) XSLOT @ 4 * DB-BASE + ! ;
+
+\ EP1 transfer-ring producer (mirror of EP0-ENQ on XEP1R).
+: EP1-ENQ ( plo phi sts ctl -- )
+    XEP1CCS @ OR E1CTL !
+    XEP1R @ XEP1ENQ @ 10 * + E1A !
+    E1A @ 8 + !
+    E1A @ 4 + !
+    E1A @ !
+    E1CTL @ E1A @ C + !
+    1 XEP1ENQ +!
+    XEP1ENQ @ F = IF
+        XEP1R @ F0 + E1A !
+        XEP1R @ E1A @ !  0 E1A @ 4 + !  0 E1A @ 8 + !
+        1802 XEP1CCS @ OR E1A @ C + !
+        0 XEP1ENQ !  XEP1CCS @ 1 XOR XEP1CCS ! THEN ;
+
+\ HID-POLL: one Normal TRB (IOC|ISP) at HIDBUF if none pending,
+\ then wait one Transfer Event.  Returns the event's cc
+\ UNCHANGED, or 0 on timeout with the TRB LEFT PENDING (ruling
+\ 2026-09-14); refuses 0 with no enqueue on no slot / no ring.
+: HID-POLL ( -- cc )
+    XSLOT @ 0= IF 0 EXIT THEN
+    XEP1R @ 0= IF 0 EXIT THEN
+    HID-PEND @ 0= IF
+        HIDBUF @ 0 8 424 EP1-ENQ
+        HID-DCI @ EP-BELL  -1 HID-PEND ! THEN
+    20 EV-WAIT IF EV-CC 0 HID-PEND ! EV-NEXT ELSE 0 THEN ;
+
+\ SET_PROTOCOL (HID 1.11 7.2.6): bmRequestType 21, bRequest 0B,
+\ wValue = proto, wIndex = HID-IFACE, no data; SET-CONFIG shape.
+: SET-PROTOCOL ( proto -- cc )
+    10 LSHIFT B21 OR  HID-IFACE @
+    8 840 EP0-ENQ
+    0 0 0 11020 EP0-ENQ
+    EP0-BELL EP0-WAIT ;
+
+\ Release whatever the HID leg holds (used on every ENUM-HID
+\ failure path and by HID-DOWN); XDBUF is the config scratch.
+: HID-REL ( -- )
+    HIDBUF @ 0<> IF HIDBUF @ 1000 XREL1 0 HIDBUF ! THEN
+    XEP1R @ 0<> IF XEP1R @ 1000 XREL1 0 XEP1R ! THEN
+    XDBUF @ 0<> IF XDBUF @ 1000 PHYS-RELEASE 0 XDBUF ! THEN ;
+
+\ ENUM-HID: after ENUM-CONFIGURE.  Full config descriptor ->
+\ EP-FIND (bounded by bytes received) -> HID-* cells -> ring +
+\ buffer pages -> BUILD-EPCTX -> Configure Endpoint cc 1 ->
+\ SET_PROTOCOL recorded (HIDCC-PROT, not gated) -> -1.  Refuses
+\ 0 on unbound / no slot / already configured (XEP1R live) /
+\ no interrupt-IN endpoint / cc <> 1, releasing what it took.
+: ENUM-HID ( -- flag )
+    XHCI-BASE @ 0= IF 0 EXIT THEN
+    XSLOT @ 0= IF 0 EXIT THEN
+    XEP1R @ 0<> IF 0 EXIT THEN
+    1000 PHYS-ALLOC DUP XDBUF ! 0= IF 0 EXIT THEN
+    XDBUF @ PG0
+    2 0 9 XDBUF @ GET-DESC DROP
+    XDBUF @ 2 + C@ XDBUF @ 3 + C@ 8 LSHIFT OR
+    DUP 1000 > IF DROP 1000 THEN HTL !
+    2 0 HTL @ XDBUF @ GET-DESC CC-OK? 0= IF HID-REL 0 EXIT THEN
+    HTL @ GD-RESID @ -  DUP 0< IF DROP 0 THEN
+    XDBUF @ SWAP EP-FIND DUP 0= IF DROP HID-REL 0 EXIT THEN
+    XDBUF @ +
+    DUP 2 + C@ HID-EPADDR !
+    DUP 4 + C@ OVER 5 + C@ 8 LSHIFT OR 7FF AND HID-MPS !
+    6 + C@ HID-BINT !
+    HID-EPADDR @ EP-DCI HID-DCI !
+    1000 PHYS-ALLOC DUP XEP1R ! 0= IF HID-REL 0 EXIT THEN
+    XEP1R @ PG0  0 XEP1ENQ !  1 XEP1CCS !
+    1000 PHYS-ALLOC DUP HIDBUF ! 0= IF HID-REL 0 EXIT THEN
+    HIDBUF @ PG0
+    BUILD-EPCTX
+    CONFIGURE-EP 1 = 0= IF HID-REL 0 EXIT THEN
+    0 SET-PROTOCOL HIDCC-PROT !
+    XDBUF @ 1000 PHYS-RELEASE 0 XDBUF !
+    0 HID-PEND !  -1 ;
+
+\ HID-DOWN: Stop Endpoint on HID-DCI (retires a pending TRB with
+\ its ring, 4.6.9), release ring + buffer, reset the cells.
+\ -1 all released / 0 nothing held / 1 partial.  SLOT-DOWN is
+\ separate (card: HID-DOWN then SLOT-DOWN on separate lines).
+: HID-DOWN ( -- code )
+    XEP1R @ 0= HIDBUF @ 0= AND IF 0 EXIT THEN
+    HID-DCI @ 0<> XSLOT @ 0<> AND IF HID-DCI @ STOP-EP DROP THEN
+    0 XDP !
+    HID-REL
+    0 HID-PEND !  0 HID-DCI !  0 XEP1ENQ !  1 XEP1CCS !
+    XDP @ IF 1 ELSE -1 THEN ;
 
 ." XHCI vocab loaded" CR
 
