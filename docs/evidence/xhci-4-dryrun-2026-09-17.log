@@ -1,0 +1,285 @@
+DRY-RUN DESK-CARD-XHCI-4.md on the QEMU fixture (rule 16); XHCI THRU 1724 1782; alive: 42 ok
+[## 2. Load + gate] DECIMAL 1724 1782 THRU
+      -> ok
+[## 2. Load + gate] ONLY FORTH DEFINITIONS
+      -> ok
+[## 2. Load + gate] ALSO PCI-ENUM  ALSO XHCI  ALSO HARDWARE
+      -> ok
+[## 2. Load + gate] DECIMAL
+      -> ok
+[## 2. Load + gate] : DEF? WORD FIND NIP ;
+      -> ok
+[## 2. Load + gate] STATE @ .
+      -> 0 ok
+[## 2. Load + gate] DEF? DEF? .
+      -> 393908 ok
+[## 2. Load + gate] DEF? ENUM-HID .
+      -> 392688 ok
+[## 2. Load + gate] DEF? HID-POLL .
+      -> 392144 ok
+[## 3. Bind + the CHEAP U] XHCI-BIND .
+      -> -1 ok
+[### 3.1 CTX-SIZE — THE A] HEX  CTX-SIZE .  DECIMAL
+      -> 20 ok
+[### 3.2 Port survey — fi] .PORTS
+      -> 1 000202A0 0 spd 5 pls 
+2 000202A0 0 spd 5 pls 
+3 000202A0 0 spd 5 pls 
+4 000202A0 0 spd 5 pls 
+5 00000E03 conn en 3 spd 0 pls 
+6 000202A0 0 spd 5 pls 
+7 000202A0 0 spd 5 pls 
+8 000202A0 0 spd 5 pls 
+ok
+      (fixture: FIRST-CCS = 5; fills every ______ port blank)
+[### 3.2 Port survey — fi] 5 PORTSC@ P-SPEED .
+      -> 3 ok
+[### 3.3 PHYS-AUDIT basel] DEF? OWN-CAP .
+      -> 197492 ok
+[### 3.3 PHYS-AUDIT basel] DEF? OWN-SLOT .
+      -> 197724 ok
+[### 3.3 PHYS-AUDIT basel] : .OWNERS OWN-CAP 0 DO I OWN-SLOT DUP @ IF DUP 8 + @ U. DUP @ U. DUP 4 + @ U. CR THEN DROP LOOP ;
+      -> ok
+[### 3.3 PHYS-AUDIT basel] STATE @ .
+      -> 0 ok
+[### 3.3 PHYS-AUDIT basel] HEX  PHYS-AUDIT  CR  .OWNERS  DECIMAL
+      -> 109000 1000 
+108000 1000 
+107000 1000 
+106000 1000 
+105000 1000 
+104000 1000 
+103000 1000 
+live: 7 unattributed: 0 
+extents: 0 
+total: 300000 
+
+109000 1000 39290 
+108000 1000 37D68 
+107000 1000 37D68 
+106000 1000 356EC 
+105000 1000 356EC 
+104000 1000 356EC 
+103000 1000 356EC 
+ok
+[## 4. Unbound-base guard] VARIABLE B0
+      -> ok
+[## 4. Unbound-base guard] DEF? B0 .
+      -> 394172 ok
+[## 4. Unbound-base guard] XHCI-BASE @ B0 !
+      -> ok
+[## 4. Unbound-base guard] 0 XHCI-BASE !
+      -> ok
+[## 4. Unbound-base guard] XECP-BASE .
+      -> 0 ok
+[## 4. Unbound-base guard] 1 XECP-FIND .
+      -> 0 ok
+[## 4. Unbound-base guard] XHCI-CLAIM .
+      -> -2 ok
+[## 4. Unbound-base guard] SMI-OFF .
+      -> -2 ok
+[## 4. Unbound-base guard] XHCI-OWNER .
+      -> -2 ok
+[## 4. Unbound-base guard] ENUM-HID .
+      -> 0 ok
+[## 4. Unbound-base guard] HID-POLL .
+      -> 0 ok
+[## 4. Unbound-base guard] B0 @ XHCI-BASE !  XHCI-BASE @ B0 @ = .
+      -> -1 ok
+[## 5. Claim / SMI / rese] XHCI-OWNER .
+      -> 0 ok
+[## 5. Claim / SMI / rese] XHCI-CLAIM .
+      -> 0 ok
+[## 5. Claim / SMI / rese] SMI-OFF .
+      -> 0 ok
+[### 5.5 MEMDISK GATE — v] HEX  MEMDISK-BASE@ .  DECIMAL
+      -> 0 ok
+[### 5.5 MEMDISK GATE — v] XHCI-HALT .
+      -> -1 ok
+[### 5.5 MEMDISK GATE — v] XHCI-RESET .
+      -> -1 ok
+[### 5.5 MEMDISK GATE — v] DECIMAL 1000 HRST-LEFT @ - .
+      -> 0 ok
+[### 5.5 MEMDISK GATE — v] XHCI-UP .
+      -> -1 ok
+[### 5.5 MEMDISK GATE — v] XHCI-RUN .
+      -> -1 ok
+[### 5.9 PORT-RESET the t] .PORTS
+      -> 1 000202A0 0 spd 5 pls 
+2 000202A0 0 spd 5 pls 
+3 000202A0 0 spd 5 pls 
+4 000202A0 0 spd 5 pls 
+5 00020EE1 conn 3 spd 7 pls 
+6 000202A0 0 spd 5 pls 
+7 000202A0 0 spd 5 pls 
+8 000202A0 0 spd 5 pls 
+ok
+[### 5.9 PORT-RESET the t] 5 PORT-RESET .
+      -> -1 ok
+[### 5.9 PORT-RESET the t] 5 PORTSC@ P-SPEED .
+      -> 3 ok
+[## 6. Enable Slot → Addr] 5 ENUM-ADDRESS .
+      -> 1 ok
+[## 6. Enable Slot → Addr] XSLOT @ .
+      -> 1 ok
+[## 6. Enable Slot → Addr] HEX  SLOT-STATE .  DECIMAL
+      -> 2 ok
+[## 7. Configure (3D: 0 →] CFG-STATE .
+      -> 1 ok
+[## 7. Configure (3D: 0 →] ENUM-CONFIGURE .
+      -> 1 ok
+[## 7. Configure (3D: 0 →] HEX  CFGCC8 @ .  DECIMAL
+      -> 1 ok
+[## 7. Configure (3D: 0 →] CFG-STATE .
+      -> 1 ok
+[## 8. ENUM-HID — full co] DEPTH .
+      -> 0 ok
+[## 8. ENUM-HID — full co] ENUM-HID .
+      -> -1 ok
+[## 8. ENUM-HID — full co] HID-EPADDR @ .
+      -> 129 ok
+[## 8. ENUM-HID — full co] HID-MPS @ .
+      -> 8 ok
+[## 8. ENUM-HID — full co] HID-BINT @ .
+      -> 7 ok
+[## 8. ENUM-HID — full co] HID-DCI @ .
+      -> 3 ok
+[## 8. ENUM-HID — full co] HID-IFACE @ .
+      -> 0 ok
+[## 8. ENUM-HID — full co] GD-RESID @ .
+      -> 0 ok
+[## 8. ENUM-HID — full co] HEX  XODC @ @ 1B RSHIFT .  DECIMAL
+      -> 3 ok
+[## 8. ENUM-HID — full co] HEX  XODC @ HID-DCI @ O-EPN @ 7 AND .  DECIMAL
+      -> 1 ok
+[## 8. ENUM-HID — full co] HEX  XICTX @ HID-DCI @ I-EPN @ 10 RSHIFT FF AND .  DECIMAL
+      -> 6 ok
+[## 8. ENUM-HID — full co] HIDCC-PROT @ .
+      -> 1 ok
+[## 8. ENUM-HID — full co] DEPTH .
+      -> 0 ok
+[### 9.1 No key — the NAK] HID-POLL .
+      -> 0 ok
+[### 9.1 No key — the NAK] HID-PEND @ .
+      -> -1 ok
+[### 9.2 One key — press and HOLD `a`, then type the poll line] hook: press a (QEMU cannot hold a key; press+release both queue)
+      (monitor) sendkey a
+[### 9.2 One key — press ] HID-POLL .
+      -> 1 ok
+[### 9.2 One key — press ] HEX  HIDBUF @ 2 + C@ .  HIDBUF @ C@ .  DECIMAL
+      -> 4 0 ok
+[### 9.2 One key — press ] HID-POLL .
+      -> 1 ok
+[### 9.2 One key — press ] HEX  HIDBUF @ 2 + C@ .  DECIMAL
+      -> 0 ok
+[### 9.3 Ring wrap — forced on iron by hand (16 reports over a 15-slot ring)] hook: press b
+      (monitor) sendkey b
+[### 9.3 Ring wrap — forced on iron by hand (16 reports over a 15-slot ring)] hook: press c
+      (monitor) sendkey c
+[### 9.3 Ring wrap — forced on iron by hand (16 reports over a 15-slot ring)] hook: press d
+      (monitor) sendkey d
+[### 9.3 Ring wrap — forced on iron by hand (16 reports over a 15-slot ring)] hook: press e
+      (monitor) sendkey e
+[### 9.3 Ring wrap — forced on iron by hand (16 reports over a 15-slot ring)] hook: press f
+      (monitor) sendkey f
+[### 9.3 Ring wrap — forced on iron by hand (16 reports over a 15-slot ring)] hook: press g
+      (monitor) sendkey g
+[### 9.3 Ring wrap — forced on iron by hand (16 reports over a 15-slot ring)] hook: press h
+      (monitor) sendkey h
+[### 9.3 Ring wrap — forced on iron by hand (16 reports over a 15-slot ring)] hook: press i
+      (monitor) sendkey i
+[### 9.3 Ring wrap — forc] HID-POLL .
+      -> 1 ok
+[### 9.3 Ring wrap — forc] HID-POLL .
+      -> 1 ok
+[### 9.3 Ring wrap — forc] HID-POLL .
+      -> 1 ok
+[### 9.3 Ring wrap — forc] HID-POLL .
+      -> 1 ok
+[### 9.3 Ring wrap — forc] HID-POLL .
+      -> 1 ok
+[### 9.3 Ring wrap — forc] HID-POLL .
+      -> 1 ok
+[### 9.3 Ring wrap — forc] HID-POLL .
+      -> 1 ok
+[### 9.3 Ring wrap — forc] HID-POLL .
+      -> 1 ok
+[### 9.3 Ring wrap — forc] HID-POLL .
+      -> 1 ok
+[### 9.3 Ring wrap — forc] HID-POLL .
+      -> 1 ok
+[### 9.3 Ring wrap — forc] HID-POLL .
+      -> 1 ok
+[### 9.3 Ring wrap — forc] HID-POLL .
+      -> 1 ok
+[### 9.3 Ring wrap — forc] HID-POLL .
+      -> 1 ok
+[### 9.3 Ring wrap — forc] HID-POLL .
+      -> 1 ok
+[### 9.3 Ring wrap — forc] HID-POLL .
+      -> 1 ok
+[### 9.3 Ring wrap — forc] HID-POLL .
+      -> 1 ok
+[### 9.3 Ring wrap — forc] HID-POLL .
+      -> 0 ok
+      (repeat stopped after 17 polls; nonzero returns: 16)
+[### 9.3 Ring wrap — forc] HEX  XEP1ENQ @ .  XEP1CCS @ .  DECIMAL
+      -> 4 0 ok
+[### 9.4 After the wrap — one more key must still land (Link TRB followed)] hook: press j (after the wrap)
+      (monitor) sendkey j
+[### 9.4 After the wrap —] HID-POLL .
+      -> 1 ok
+[### 9.4 After the wrap —] HEX  HIDBUF @ 2 + C@ .  DECIMAL
+      -> D ok
+[### 9.4 After the wrap —] HID-POLL .
+      -> 1 ok
+[## 10. Stop Endpoint + t] HEX  5 STOP-EP .  DECIMAL
+      -> C ok
+[## 10. Stop Endpoint + t] HEX  HID-DCI @ STOP-EP .  DECIMAL
+      -> 1 ok
+[## 10. Stop Endpoint + t] HEX  XODC @ HID-DCI @ O-EPN @ 7 AND .  DECIMAL
+      -> 3 ok
+[### 10.2 OPTIONAL — does] DEPTH .
+      -> 0 ok
+[### 10.2 OPTIONAL — does] HEX
+      -> ok
+[### 10.2 OPTIONAL — does] XODC @ C + @ DUP . 7FFFFFF AND 8000000 OR XODC @ C + !
+      -> 18000001 ok
+[### 10.2 OPTIONAL — does] CONFIGURE-EP .
+      -> 13 ok
+[### 10.2 OPTIONAL — does] DEPTH .
+      -> 0 ok
+[### 10.2 OPTIONAL — does] 18000001 XODC @ C + !
+      -> ok
+[### 10.2 OPTIONAL — does] XODC @ C + @ 1B RSHIFT .
+      -> 3 ok
+[### 10.2 OPTIONAL — does] DECIMAL
+      -> ok
+[## 11. Teardown + leak c] HID-DOWN .
+      -> -1 ok
+[## 11. Teardown + leak c] SLOT-DOWN .
+      -> -1 ok
+[## 11. Teardown + leak c] XHCI-DOWN .
+      -> -1 ok
+[## 11. Teardown + leak c] HEX  PHYS-AUDIT  CR  .OWNERS  DECIMAL
+      -> 109000 1000 
+108000 1000 
+107000 1000 
+106000 1000 
+105000 1000 
+104000 1000 
+103000 1000 
+live: 7 unattributed: 0 
+extents: 1 
+total: 300000 
+
+109000 1000 39290 
+108000 1000 37D68 
+107000 1000 37D68 
+106000 1000 356EC 
+105000 1000 356EC 
+104000 1000 356EC 
+103000 1000 356EC 
+ok
+EXIT DEPTH/BASE: 0 ok / 10 ok
+exit=0

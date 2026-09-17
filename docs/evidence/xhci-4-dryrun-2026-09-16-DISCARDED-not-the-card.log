@@ -1,0 +1,262 @@
+DRY-RUN DESK-CARD-XHCI-4 on QEMU fixture; THRU 1724 1782; alive: 42 ok
+[2] DECIMAL 1724 1782 THRU
+      -> ok
+[2] ONLY FORTH DEFINITIONS
+      -> ok
+[2] ALSO PCI-ENUM  ALSO XHCI  ALSO HARDWARE
+      -> ok
+[2] DECIMAL
+      -> ok
+[2] : DEF? WORD FIND NIP ;
+      -> ok
+[2] DEF? DEF? .
+      -> 393908 ok
+[2] DEF? ENUM-HID .
+      -> 392688 ok
+[2] DEF? HID-POLL .
+      -> 392144 ok
+[3] XHCI-BIND .
+      -> -1 ok
+[3.1] HEX  CTX-SIZE .  DECIMAL
+      -> 20 ok
+[3.2] .PORTS
+      -> 1 000202A0 0 spd 5 pls 
+2 000202A0 0 spd 5 pls 
+3 000202A0 0 spd 5 pls 
+4 000202A0 0 spd 5 pls 
+5 00000E03 conn en 3 spd 0 pls 
+6 000202A0 0 spd 5 pls 
+7 000202A0 0 spd 5 pls 
+8 000202A0 0 spd 5 pls 
+ok
+[3.2] #CONNECTED .
+      -> 1 ok
+[3.2] : FIRST-CCS 0 MAX-PORTS 1+ 1 DO I PORTSC@ P-CCS OVER 0= AND IF DROP I THEN LOOP ;
+      -> ok
+[3.2] FIRST-CCS .
+      -> 5 ok
+[3.2] 5 PORTSC@ P-SPEED .
+      -> 3 ok
+[3.3] : .OWNERS OWN-CAP 0 DO I OWN-SLOT DUP @ IF DUP 8 + @ U. DUP @ U. DUP 4 + @ U. CR THEN DROP LOOP ;
+      -> ok
+[3.3] HEX  PHYS-AUDIT  CR  .OWNERS  DECIMAL
+      -> 109000 1000 
+108000 1000 
+107000 1000 
+106000 1000 
+105000 1000 
+104000 1000 
+103000 1000 
+live: 7 unattributed: 0 
+extents: 0 
+total: 300000 
+
+109000 1000 39290 
+108000 1000 37D68 
+107000 1000 37D68 
+106000 1000 356EC 
+105000 1000 356EC 
+104000 1000 356EC 
+103000 1000 356EC 
+ok
+[4] XHCI-BASE @  VARIABLE B0  B0 !
+      -> ok
+[4] 0 XHCI-BASE !
+      -> ok
+[4] XECP-BASE .
+      -> 0 ok
+[4] 1 XECP-FIND .
+      -> 0 ok
+[4] XHCI-CLAIM .
+      -> -2 ok
+[4] SMI-OFF .
+      -> -2 ok
+[4] XHCI-OWNER .
+      -> -2 ok
+[4] ENUM-HID .
+      -> 0 ok
+[4] HID-POLL .
+      -> 0 ok
+[4] B0 @ XHCI-BASE !  XHCI-BASE @ B0 @ = .
+      -> -1 ok
+[5] XHCI-OWNER .
+      -> 0 ok
+[5] XHCI-CLAIM .
+      -> 0 ok
+[5] SMI-OFF .
+      -> 0 ok
+[5.5] HEX  MEMDISK-BASE@ .  DECIMAL
+      -> 0 ok
+[5] XHCI-HALT .
+      -> -1 ok
+[5] XHCI-RESET .
+      -> -1 ok
+[5] DECIMAL 1000 HRST-LEFT @ - .
+      -> 0 ok
+[5] XHCI-UP .
+      -> -1 ok
+[5] XHCI-RUN .
+      -> -1 ok
+[5.9] .PORTS
+      -> 1 000202A0 0 spd 5 pls 
+2 000202A0 0 spd 5 pls 
+3 000202A0 0 spd 5 pls 
+4 000202A0 0 spd 5 pls 
+5 00020EE1 conn 3 spd 7 pls 
+6 000202A0 0 spd 5 pls 
+7 000202A0 0 spd 5 pls 
+8 000202A0 0 spd 5 pls 
+ok
+[5.9] 5 PORT-RESET .
+      -> -1 ok
+[5.9] 5 PORTSC@ P-SPEED .
+      -> 3 ok
+[6] 5 ENUM-ADDRESS .
+      -> 1 ok
+[6] XSLOT @ .
+      -> 1 ok
+[6] HEX  SLOT-STATE .  DECIMAL
+      -> 2 ok
+[7] CFG-STATE .
+      -> 1 ok
+[7] ENUM-CONFIGURE .
+      -> 1 ok
+[7] HEX  CFGCC8 @ .  DECIMAL
+      -> 1 ok
+[7] CFG-STATE .
+      -> 1 ok
+[8] DEPTH .
+      -> 0 ok
+[8] ENUM-HID .
+      -> -1 ok
+[8] HID-EPADDR @ .
+      -> 129 ok
+[8] HID-MPS @ .
+      -> 8 ok
+[8] HID-BINT @ .
+      -> 7 ok
+[8] HID-DCI @ .
+      -> 3 ok
+[8] HID-IFACE @ .
+      -> 0 ok
+[8] GD-RESID @ .
+      -> 0 ok
+[8] HEX  XODC @ @ 1B RSHIFT .  DECIMAL
+      -> 3 ok
+[8] HEX  XODC @ HID-DCI @ O-EPN @ 7 AND .  DECIMAL
+      -> 1 ok
+[8] HEX  XICTX @ HID-DCI @ I-EPN @ 10 RSHIFT FF AND .  DECIMAL
+      -> 6 ok
+[8] HIDCC-PROT @ .
+      -> 1 ok
+[8] DEPTH .
+      -> 0 ok
+[9.1] HID-POLL .
+      -> 0 ok
+[9.1] HID-PEND @ .
+      -> -1 ok
+[9.2] (monitor: sendkey a  -- QEMU cannot hold a key; press+release both queue)
+[9.2] HID-POLL .
+      -> 1 ok
+[9.2] HEX  HIDBUF @ 2 + C@ .  HIDBUF @ C@ .  DECIMAL
+      -> 4 0 ok
+[9.2] HID-POLL .
+      -> 1 ok
+[9.2] HEX  HIDBUF @ 2 + C@ .  DECIMAL
+      -> 0 ok
+[9.3] (monitor: 8 x sendkey, keys b..i)
+[9.3] HID-POLL .
+      -> 1 ok
+[9.3] HID-POLL .
+      -> 1 ok
+[9.3] HID-POLL .
+      -> 1 ok
+[9.3] HID-POLL .
+      -> 1 ok
+[9.3] HID-POLL .
+      -> 1 ok
+[9.3] HID-POLL .
+      -> 1 ok
+[9.3] HID-POLL .
+      -> 1 ok
+[9.3] HID-POLL .
+      -> 1 ok
+[9.3] HID-POLL .
+      -> 1 ok
+[9.3] HID-POLL .
+      -> 1 ok
+[9.3] HID-POLL .
+      -> 1 ok
+[9.3] HID-POLL .
+      -> 1 ok
+[9.3] HID-POLL .
+      -> 1 ok
+[9.3] HID-POLL .
+      -> 1 ok
+[9.3] HID-POLL .
+      -> 1 ok
+[9.3] HID-POLL .
+      -> 1 ok
+[9.3] HID-POLL .
+      -> 0 ok
+[9.3] nonzero polls: 16
+[9.3] HEX  XEP1ENQ @ .  XEP1CCS @ .  DECIMAL
+      -> 4 0 ok
+[9.3] HID-POLL .
+      -> 1 ok
+[9.3] HEX  HIDBUF @ 2 + C@ .  DECIMAL
+      -> D ok
+[9.3] HID-POLL .
+      -> 1 ok
+[10] HEX  5 STOP-EP .  DECIMAL
+      -> C ok
+[10] HEX  HID-DCI @ STOP-EP .  DECIMAL
+      -> 1 ok
+[10] HEX  XODC @ HID-DCI @ O-EPN @ 7 AND .  DECIMAL
+      -> 3 ok
+[10.2] DEPTH .
+      -> 0 ok
+[10.2] HEX
+      -> ok
+[10.2] XODC @ C + @ DUP . 7FFFFFF AND 8000000 OR XODC @ C + !
+      -> 18000001 ok
+[10.2] CONFIGURE-EP .
+      -> 13 ok
+[10.2] DEPTH .
+      -> 0 ok
+[10.2] 18000001 XODC @ C + !
+      -> ok
+[10.2] XODC @ C + @ 1B RSHIFT .
+      -> 3 ok
+[10.2] DECIMAL
+      -> ok
+[11] HID-DOWN .
+      -> -1 ok
+[11] SLOT-DOWN .
+      -> -1 ok
+[11] XHCI-DOWN .
+      -> -1 ok
+[11] HEX  PHYS-AUDIT  CR  .OWNERS  DECIMAL
+      -> 109000 1000 
+108000 1000 
+107000 1000 
+106000 1000 
+105000 1000 
+104000 1000 
+103000 1000 
+live: 7 unattributed: 0 
+extents: 1 
+total: 300000 
+
+109000 1000 39290 
+108000 1000 37D68 
+107000 1000 37D68 
+106000 1000 356EC 
+105000 1000 356EC 
+104000 1000 356EC 
+103000 1000 356EC 
+ok
+[exit] DEPTH .
+      -> 0 ok
+[exit] BASE @ DECIMAL .
+      -> 10 ok

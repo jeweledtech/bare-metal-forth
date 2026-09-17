@@ -184,8 +184,20 @@ post-UP delta math.
 The guards refuse when `XHCI-BASE @ 0=`. On the 2e trip an unbound
 `XHCI-CLAIM` read the real-mode IVT. Verify the refusals on iron, then
 restore. (Base is bound from Section 3; save/null/refuse/restore.)
+Definition, gate, store on SEPARATE lines (fixed 2026-09-17 when the
+step-4 card was cloned from this one: the one-liner had survived here,
+so rule 17 cloned it; if `VARIABLE` fails, a same-line `B0 !` writes
+the base value into the controller's MMIO window):
 ```forth
-XHCI-BASE @  VARIABLE B0  B0 !
+VARIABLE B0
+```
+```forth
+DEF? B0 .              \ large nonzero; 0 = STOP, do not store
+```
+```forth
+XHCI-BASE @ B0 !
+```
+```forth
 0 XHCI-BASE !
 XECP-BASE .            \ 0 (refused)
 1 XECP-FIND .          \ 0
