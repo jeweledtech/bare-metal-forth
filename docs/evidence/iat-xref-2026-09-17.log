@@ -1,0 +1,34 @@
+# IAT accidental-match check, 2026-09-17: translator -t report, summary.call_graph
+# command: cd tools/translator && ./bin/translator -t report <bin> | grep -A8 call_graph
+CODE b49899c65e889e5a53f07d2e6f76d277cce1645233e755e3ea0e1eadb48acc30  src/ir/semantic.c
+CODE 64860345655f0bb600e83cf54184ae24a8de7cd5c7c61e045092b1fa3629d47f  bin/translator
+== ../../tests/hp_i3/i8042prt.sys e1887a4e678bba72
+        "call_graph": {
+            "iat_edges": 523,
+            "iat_slot_hits": 0,
+            "iat_matched_classified": 0,
+            "iat_max_target": "0xFFFFF2A5",
+            "iat_min_slot": "0x1C0011000",
+            "direct_edges": 847,
+            "unresolvable_edges": 0
+        },
+== tests/data/serial.sys 6425e79f9de1065c
+        "call_graph": {
+            "iat_edges": 275,
+            "iat_slot_hits": 275,
+            "iat_matched_classified": 245,
+            "iat_max_target": "0x191B4",
+            "iat_min_slot": "0x19100",
+            "direct_edges": 43,
+            "unresolvable_edges": 41
+        },
+== tests/data/controls/nmap_service.exe d21bf9b53356b9cf
+        "call_graph": {
+            "iat_edges": 45,
+            "iat_slot_hits": 44,
+            "iat_matched_classified": 0,
+            "iat_max_target": "0x40E254",
+            "iat_min_slot": "0x40E18C",
+            "direct_edges": 340,
+            "unresolvable_edges": 38
+        },
