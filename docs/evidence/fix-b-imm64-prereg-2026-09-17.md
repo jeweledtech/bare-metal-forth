@@ -56,8 +56,51 @@ Boundary line for the fixture: `mid` 2 → 0.
   (junk decodes in those classes disappear) but MUST NOT increase;
   `operand_ok` increases on every 64-bit input. Boundary harness: `mid`
   decreases on every 64-bit input, `coverage` rises toward 100%.
-- No prediction of magnitudes beyond the fixture; the point is the
-  direction and the controls' invariance.
+- **No figure is predicted for the eight drivers and four modules**,
+  exactly as the baseline run predicted none. Whatever comes out is a
+  measurement, not "the expected improvement": this is the first fix,
+  and that framing would set the habit.
+
+## Two claims, kept apart (owner, 2026-09-18)
+
+- The FIXTURE attributes: two rows move, attributable to (b) alone,
+  checkable by hand against the oracle log.
+- The 14 INPUTS only measure: their scores move by some amount
+  attributable to nothing in particular (every imm64 site's downstream
+  desync junk disappears along with the site itself). Week 3's
+  comparison table against 09-15 must carry this sentence, or it will
+  be read as per-defect attribution.
+
+## 64-bit control for this fix: NONE EXISTS (checked before the run, owner point 3)
+
+The PE32 controls never reach a REX.W path, so their invariance proves
+only that 32-bit decoding is untouched. A 64-bit control would be an
+input with ZERO `MOV r64, imm64` sites. Counted from the banked Ghidra
+dumps (a MOV with a 64-bit register destination and a 64-bit scalar):
+
+| input | imm64 MOV sites |
+|---|---:|
+| via-rng.ko | 1 |
+| iTCO_wdt.ko | 1 |
+| serial.sys (hp_i3) | 3 |
+| ne2k-pci.ko | 4 |
+| HDAudBus.sys | 4 |
+| disk.sys | 6 |
+| 8139too.ko | 7 |
+| i8042prt.sys | 17 |
+| usbxhci.sys | 91 |
+| pci.sys | 150 |
+| storport.sys | 159 |
+| ACPI.sys | 1039 |
+| fixture v4 | 1 |
+
+**No 64-bit input has zero sites; this fix has no 64-bit control.**
+Recorded as such. The nearest substitutes are the two single-site
+modules: their scores may move only by what one site and its desync
+tail account for (a handful of instructions, not tens); a large move
+on via-rng.ko or iTCO_wdt.ko means the change touched more than the
+B8+r path. Per-input bound, stated now: the `imm` class can decrease
+by at most the site count above.
 
 ## Named alternatives
 
