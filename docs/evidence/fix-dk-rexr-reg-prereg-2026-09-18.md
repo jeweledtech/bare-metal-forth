@@ -175,3 +175,76 @@ Class addressed: `reg`. `operand_ok` may be fed only from `reg` and
 one of those correct); they may increase only by first-mismatch
 exposure fed from `reg`. `undecoded`, `mnemonic`, `opcount` IDENTICAL
 (the selector separation; vacuous on this corpus, hence the guards).
+
+---
+
+## Outcome (appended after the runs, 2026-09-18)
+
+**Guards on HEAD** (`fix-dk-guards-green-on-head-2026-09-18.log`): the
+five new guards green by construction (raw field feeds the tables);
+pass=58 xfail=8 fail=0 xpass=0 (tests=66).
+**Guards red-tested against the NAIVE fix**
+(`fix-dk-guards-redtest-naive-2026-09-18.log`, a scratch decoder that
+extends `*reg_out` inside `decode_modrm`): the four group guards FAIL
+(`digit 3 must select NEG`, `digit 2 must select CALL`, `digit 0 must
+select ADD`) and (d) XPASSes, as predicted. The guards have teeth.
+
+**The real fix:** `reg_ext(dec, reg)` at the 16 operand-register sites
+(count asserted by the patch), `rm | rex_b` in the mod-3 branch (k),
+and every group table read through `group_op(table, raw)` which
+refuses `raw > 7` (10 sites, count asserted). `*reg_out` stays raw.
+
+**Gate run 1** (`fix-dk-xpass-gate-2026-09-18.log`): XPASS on (d) AND
+(k), all six guards PASS, pass=58 xfail=6 fail=0 xpass=2, HARD FAILURE.
+**Gate run 2** (`fix-dk-green-2026-09-18.log`): names removed →
+pass=60 xfail=6 fail=0 xpass=0 (tests=66) (the pre-reg's 55 predates
+the five guards: 55 + 5). Chain 23 suites green. Six reds remain:
+(a), (d'), (e), (f), (g) imm32, (g) disp32.
+
+**Fixture** (`operand-diff-fix-dk-2026-09-18.log`, alias hash equal):
+operand_ok 6 → **8**, reg 5 → **3**, addr 1, nostart 0 UNCHANGED,
+boundary 12/12. The two rows: `@40100a MOV R8,RAX` (d) and `@401022
+MOV RAX,R8` (k). Remaining reg rows: PUSH R12 (d'), PUSH RBP (e),
+MOV AL,SIL (f).
+
+**Controls**: ReactOS serial.sys 4215/4220, beep.sys 447/447,
+nmap_service.exe 7885/8299: identical. **Near-control** via-rng.ko:
+reg 30 → 19 (−11 ≤ 25 sites), operand_ok 107 → 118, everything else
+identical.
+
+**Selector separation, the vacuous-on-corpus check:** `undecoded`,
+`mnemonic`, `opcount` IDENTICAL on all 15 inputs (e.g. ACPI 988 / 3277
+/ 3352, storport 425 / 2324 / 2053, usbxhci 588 / 1697 / 1309). The
+guards are the non-vacuous evidence; this is the corroboration.
+
+**14 inputs, measured:**
+
+| input | operand_ok (post-c → post-dk) | score | reg | addr | mem / imm / nostart |
+|---|---|---|---|---|---|
+| ACPI.sys | 99023 → 118915 | 66.5 → 79.9 | 30479 → 9589 | 11612 → 12610 | identical |
+| disk.sys | 8332 → 9853 | 67.5 → 79.9 | 2457 → 747 | 835 → 1024 | identical |
+| HDAudBus.sys | 14895 → 18103 | 61.5 → 74.8 | 5412 → 1888 | 2854 → 3170 | identical |
+| i8042prt.sys | 11723 → 14077 | 61.4 → 73.7 | 4055 → 1508 | 2497 → 2690 | identical |
+| pci.sys | 58953 → 70832 | 67.9 → 81.6 | 17752 → 5585 | 5031 → 5319 | identical |
+| serial.sys (hp) | 9146 → 11336 | 66.0 → 81.8 | 3016 → 772 | 880 → 934 | identical |
+| storport.sys | 69567 → 82687 | 70.8 → 84.2 | 19060 → 5500 | 4607 → 5047 | identical |
+| usbxhci.sys | 59552 → 70399 | 66.7 → 78.9 | 18153 → 6232 | 7758 → 8832 | identical |
+| ne2k-pci.ko | 677 → 841 | 56.7 → 70.5 | 263 → 99 | 184 → 184 | identical |
+| 8139too.ko | 2019 → 2588 | 50.1 → 64.3 | 1008 → 432 | 806 → 810 | mem 17 → 20 (fed from reg), imm/nostart identical |
+| iTCO_wdt.ko | 604 → 652 | 66.6 → 71.9 | 108 → 59 | 157 → 158 | identical |
+| via-rng.ko | 107 → 118 | 60.8 → 67.0 | 30 → 19 | 33 → 33 | identical |
+
+**Matrix on ACPI.sys (pre-(d) decoder rebuilt from the private head),
+and it CLOSES:** reg→ok 19892, reg→addr 998, unchanged 128031,
+**instructions that left operand_ok: 0**; residual zero on all ten
+classes. The 998 are first-mismatch exposure: e.g. `.text+c3c` `LEA
+R9,[0x1c00296b0]`, before `R:RCX A:0x27a6d` (class reg), after `R:R9
+A:0x27a6d` (class addr: defect (a), the RIP-relative operand behind a
+now-correct register). Invariant rev 2 held: `operand_ok` fed only
+from `reg`; `mem`/`imm` did not decrease; increases (`addr`, 8139too's
+`mem`) fed from `reg`.
+
+**Scores after three fixes:** 64-bit inputs 64.3% to 84.2%
+operand-correct (baseline 46.7% to 66.4%); controls unchanged. The
+`reg` residue is (d') + (e) + (f); the `addr` class is now the largest
+loss and is (a).

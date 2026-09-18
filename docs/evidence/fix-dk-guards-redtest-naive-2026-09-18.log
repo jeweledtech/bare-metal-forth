@@ -1,0 +1,13 @@
+# guard red-test: NAIVE scratch fix extends *reg_out inside decode_modrm (the selector); the four group guards must FAIL
+e2af44c903441093dc813178b4dca077f51ac4db65cf221791eb7d8d590d59ab  /tmp/claude-1000/-home-bbrown-projects-forthos/6b731f8b-ff5a-4ace-bd00-77dec936fa93/scratchpad/naive/x86_decoder_naive.c
+bed98db1a06fdfb342d75ebdfd6d22dfab2773e8f33d4673b86de09e54349709  tests/test_x86_decoder.c
+  TEST: x64_RED_rex_r_reg_field_r8                    XPASS: expected failure PASSED - stop; correct the register, then remove from xfail_names
+  TEST: x64_GUARD_rex_r_ignored_on_group3_digit       FAIL: digit 3 must select NEG (REX.R ignored)
+  TEST: x64_GUARD_rex_wr_ignored_on_group3_digit      FAIL: digit 3 must select NEG (REX.R ignored)
+  TEST: x64_GUARD_rex_r_ignored_on_group5_digit       FAIL: digit 2 must select CALL (REX.R ignored)
+  TEST: x64_GUARD_rex_r_ignored_on_group1_digit       FAIL: digit 0 must select ADD (REX.R ignored)
+  TEST: x64_GUARD_opcode_82_not_an_alu_op_in_64bit    PASS
+  TEST: x64_GUARD_rex_does_not_leak_to_next_insn      PASS
+Results: pass=54 xfail=7 fail=4 xpass=1 (tests=66)
+HARD FAILURE: 1 expected failure(s) passed (XPASS). The 64-bit finding is wrong somewhere; correct the register before removing the name from xfail_names.
+exit=0

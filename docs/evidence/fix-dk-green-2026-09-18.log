@@ -1,0 +1,79 @@
+# fix (d)+(k) applied, names (d)(k) removed from xfail_names
+65761e4a832a9386fbca7e0577e21cc459b2b83edeaac0e36b2bf64bb7370439  src/decoders/x86_decoder.c
+6715dc1ec984b46904f14e35e9eb8696dd3ced8e2248d291d8efdd5fcb7a0e03  tests/test_x86_decoder.c
+[36mTesting x86 decoder...[0m
+gcc -Wall -Wextra -Wpedantic -O2 -std=c11 -D_POSIX_C_SOURCE=200809L -Isrc -Iinclude -o build/tests/test_x86_decoder \
+	tests/test_x86_decoder.c \
+	src/decoders/x86_decoder.c
+./build/tests/test_x86_decoder
+x86 Decoder Tests
+=================
+  TEST: NOP                                           PASS
+  TEST: RET                                           PASS
+  TEST: PUSH_EAX                                      PASS
+  TEST: POP_EBX                                       PASS
+  TEST: MOV_EAX_imm32                                 PASS
+  TEST: MOV_AL_imm8                                   PASS
+  TEST: IN_AL_imm8                                    PASS
+  TEST: OUT_imm8_AL                                   PASS
+  TEST: IN_EAX_DX                                     PASS
+  TEST: OUT_DX_AL                                     PASS
+  TEST: CALL_rel32                                    PASS
+  TEST: JMP_short                                     PASS
+  TEST: JMP_rel32                                     PASS
+  TEST: JE_short                                      PASS
+  TEST: MOV_mem_EAX_to_EBX                            PASS
+  TEST: MOV_EAX_from_EBP_plus_8                       PASS
+  TEST: MOV_ECX_from_EDI_plus_0x100                   PASS
+  TEST: MOVZX_EAX_byte_ptr_ECX                        PASS
+  TEST: JNE_near                                      PASS
+  TEST: ADD_EAX_imm8                                  PASS
+  TEST: CMP_EAX_imm8                                  PASS
+  TEST: decode_range                                  PASS
+  TEST: LEA_EAX_EBP_plus_8                            PASS
+  TEST: MOV_EAX_ESI_plus_EDI_x4                       PASS
+  TEST: CLI_STI                                       PASS
+  TEST: LEAVE                                         PASS
+  TEST: XOR_EAX_EAX                                   PASS
+  TEST: TEST_AL_imm8                                  PASS
+  TEST: 16bit_MOV_AX_imm16                            PASS
+  TEST: 16bit_opsize_gives_32bit                      PASS
+  TEST: 16bit_IN_OUT_ports                            PASS
+  TEST: REX_W_MOV_RBP_RSP                             PASS
+  TEST: REX_B_PUSH_R8                                 PASS
+  TEST: no_REX_in_32bit_mode                          PASS
+  TEST: x64_RED_lea_rip_relative                      XFAIL (expected): base is -1: disp32 taken as absolute, RIP not applied
+  TEST: x64_RED_mov_rax_imm64_len10                   PASS
+  TEST: x64_RED_rex_b_base_r8                         PASS
+  TEST: x64_RED_rex_r_reg_field_r8                    PASS
+  TEST: x64_RED_rex_b_push_r12                        XFAIL (expected): opcode-embedded reg: expected 12 (R12)
+  TEST: x64_RED_push_default_size_64                  XFAIL (expected): operand size: expected 8 (64-bit default in long mode)
+  TEST: x64_RED_byte_reg_sil_under_rex                XFAIL (expected): source reg: expected 18 (SIL)
+  TEST: x64_RED_truncated_imm32_refused               XFAIL (expected): truncated imm32: decoder returned nonzero for a 2-byte buffer (read past the end)
+  TEST: x64_RED_truncated_disp32_refused              XFAIL (expected): truncated disp32: decoder returned nonzero for a 3-byte buffer (read past the end)
+  TEST: x64_RED_rex_x_sib_index_r8                    PASS
+  TEST: x64_RED_rex_x_sib_index_r12_escape            PASS
+  TEST: x64_RED_rex_b_rm_register_r8                  PASS
+  TEST: x64_GUARD_rex_r_ignored_on_group3_digit       PASS
+  TEST: x64_GUARD_rex_wr_ignored_on_group3_digit      PASS
+  TEST: x64_GUARD_rex_r_ignored_on_group5_digit       PASS
+  TEST: x64_GUARD_rex_r_ignored_on_group1_digit       PASS
+  TEST: x64_GUARD_opcode_82_not_an_alu_op_in_64bit    PASS
+  TEST: x64_GUARD_rex_does_not_leak_to_next_insn      PASS
+  TEST: INSB                                          PASS
+  TEST: INSD                                          PASS
+  TEST: OUTSB                                         PASS
+  TEST: REP_INSB                                      PASS
+  TEST: multibyte_nop_0F1F                            PASS
+  TEST: cmovcc_0F44                                   PASS
+  TEST: bt_rm_r_0FA3                                  PASS
+  TEST: bt_rm_imm8_0FBA                               PASS
+  TEST: cmpxchg_0FB1                                  PASS
+  TEST: xadd_0FC1                                     PASS
+  TEST: unknown_0f_modrm_recovery                     PASS
+  TEST: desync_recovery_BT_then_IN                    PASS
+  TEST: three_byte_0F38                               PASS
+  TEST: three_byte_0F3A                               PASS
+
+Results: pass=60 xfail=6 fail=0 xpass=0 (tests=66)
+exit=0
