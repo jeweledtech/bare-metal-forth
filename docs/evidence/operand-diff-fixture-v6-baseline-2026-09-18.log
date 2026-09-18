@@ -1,0 +1,23 @@
+# fixture v6 baseline at the CURRENT decoder (post fix b, pre fix c)
+CODE 173322d6f0170fd47ffef35a7fd1377d53e153deeb8ff6646e250ce856001850  src/decoders/x86_decoder.c
+CODE 392857a2fbce6aba843816b44008f7345704a22df95708e78ac51291c8770fe4  scripts/compare_operands.py
+CODE 9f58313511ad2eeaa806b75c157bb0c10e91a07d8ec16933cbcd750f702f6ab5  tests/data/x64_reds/x64_reds.elf
+INPUT 9f58313511ad2eeaa806b75c157bb0c10e91a07d8ec16933cbcd750f702f6ab5  tests/data/x64_reds/x64_reds.elf
+OURS dump_starts format=ELF mode=64 text_vaddr=401000
+OURS .text decoded=11 covered=45 of 45 bytes
+SUMMARY x64_reds_x64_reds.elf ghidra=11 ours=11 match=11 mid=0 none=0 longest_run=0 agree=100.0%
+OPD x64_reds_x64_reds.elf aliases=12 alias_sha256=02101788edd26bac8803d544f0389d730ac677bfc7df0d4016efc67fe44948f0
+OPD   section      ghidra   agreed  mnem_ok  opnd_ok   score | nostart undecoded mnemonic opcount reg mem imm addr other
+OPD     .text+0  mem       MOV RAX{R:RAX} qword ptr [R8]{R:R8} | ours: MOV R:RAX M:RAX,-,1,0x0  [M:RAX,-,1,0x0 vs M:R8,-,1,0x0]
+OPD     .text+3  addr      LEA RAX{R:RAX} [0x40101a]{S:64:0x40101a} | ours: LEA R:RAX A:0x10  [A:0x10 vs A:0x40101a]
+OPD     .text+a  reg       MOV R8{R:R8} RAX{R:RAX} | ours: MOV R:RAX R:RAX  [R:RAX vs R:R8]
+OPD     .text+d  reg       PUSH R12{R:R12} | ours: PUSH R:ESP  [R:ESP vs R:R12]
+OPD     .text+f  reg       PUSH RBP{R:RBP} | ours: PUSH R:EBP  [R:EBP vs R:RBP]
+OPD     .text+10  ok        MOV RAX{R:RAX} -0x1{S:32:-0x1} | ours: MOV R:RAX I:0xffffffffffffffff
+OPD     .text+17  reg       MOV AL{R:AL} SIL{R:SIL} | ours: MOV R:AL R:DH  [R:DH vs R:SIL]
+OPD     .text+1a  mem       MOV RAX{R:RAX} qword ptr [RAX + R8*0x1]{R:RAX,R:R8,S:64:0x1} | ours: MOV R:RAX M:RAX,RAX,1,0x0  [M:RAX,RAX,1,0x0 vs M:RAX,R8,1,0x0]
+OPD     .text+1e  mem       MOV RAX{R:RAX} qword ptr [RAX + R12*0x1]{R:RAX,R:R12,S:64:0x1} | ours: MOV R:RAX M:RAX,-,1,0x0  [M:RAX,-,1,0x0 vs M:RAX,R12,1,0x0]
+OPD     .text+22  ok        MOV RAX{R:RAX} 0x1122334455667788{S:64:0x1122334455667788} | ours: MOV R:RAX I:0x1122334455667788
+OPD     .text+2c  ok        RET  | ours: RET 
+OPD   .text            11       11       11        3   27.3% | nostart=0 undecoded=0 mnemonic=0 opcount=0 reg=4 mem=3 imm=0 addr=1 other=0
+OPSUMMARY x64_reds_x64_reds.elf ghidra=11 operand_ok=3 mnem_ok=11 score=27.3% nostart=0 undecoded=0 mnemonic=0 opcount=0 reg=4 mem=3 imm=0 addr=1 other=0 alias_sha256=02101788edd2

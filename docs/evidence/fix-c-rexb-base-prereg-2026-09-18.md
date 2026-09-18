@@ -101,3 +101,69 @@ named. Boundary line unchanged (no length changes).
   should have kept a disp-only form (base 5 / mod 0); stop.
 
 ---
+
+## Amendment before any line changes (owner review, 2026-09-18)
+
+**Correction to "The change": the index escape was stated backwards.**
+The two SIB escapes go opposite ways (Intel SDM Vol 2A Table 2-5,
+Special Cases of REX Encodings): SIB.base = 101b with mod = 00 is
+disp32/no-base and REX.B does NOT rescue it (test the RAW field);
+SIB.index = 100b is "no index" ONLY when REX.X is clear, and with
+REX.X set it is R12, a usable index (test the EXTENDED value). My
+sentence "the no-index test stays on the raw field" would have made
+the fix drop every `[base + R12*scale + disp]` as `[base + disp]`:
+wrong address, valid-looking instruction, UNCHANGED length, invisible
+to the boundary harness. (h)'s bytes (raw index 000) could not catch
+it. Withdrawn; the fix tests the extended index value.
+
+**Red (i), written first:** fixture v6 (sha256
+`9f58313511ad2eeaa806b75c157bb0c10e91a07d8ec16933cbcd750f702f6ab5`)
+adds `4A 8B 04 20` after (h); oracle over every byte,
+`x64-reds-v6-oracle-2026-09-18.log`: `MOV RAX,qword ptr [RAX +
+R12*0x1]` @40101e len 4. Test `x64_RED_rex_x_sib_index_r12_escape`
+asserts REX detected, len 4, base 0, **index 12**. Predicted first
+failure: `index: expected 12 (R12), raw 100b + REX.X taken as
+no-index` (index = -1 today: raw 4 → "no index"). XFAIL becomes ten.
+
+**Decision on carrying REX: the decoder field, cleared per
+instruction.** `decode_modrm` has ~60 call sites; a parameter would
+touch all of them. `x86_decode_one` sets the field to 0 at entry and
+to the REX byte when one is parsed, so it is cleared by construction
+on every decode. That form can leak if the clear is ever missed, so it
+gets a GUARD: `x64_GUARD_rex_does_not_leak_to_next_insn` decodes
+`49 8B 00` then `8B 00` from one decoder and asserts the second has no
+REX and no extension. It is GREEN on HEAD by vacuity (no extension
+exists yet) and is therefore NOT on the XFAIL list; its teeth appear
+with (c) and it must stay green through every REX fix.
+
+**Gate restated:** run 1 (fix in, names listed) must XPASS on (c),
+(h) AND (i): pass=50 xfail=7 fail=0 xpass=3 (the guard counts as a
+pass). Run 2 (three names removed): pass=53 xfail=7 fail=0 xpass=0
+(tests=60).
+
+**Fixture prediction restated for v6** (baseline at the current
+decoder re-measured: `operand-diff-fixture-v6-baseline-2026-09-18.log`,
+predicted `ghidra=11 operand_ok=3 reg=4 mem=3 addr=1 nostart=0`):
+after (c) `mem 3 → 0`, `operand_ok 3 → 6`, reg 4 and addr 1 UNCHANGED.
+Three rows, three named instructions.
+
+**Owed AFTER the fix (owner, 2026-09-18): red-test the guard.** A guard
+that passes vacuously is indistinguishable from one that passes
+correctly. Once (c) lands and an extension exists, remove the
+per-decode clear of the REX field in a SCRATCH copy, confirm
+`x64_GUARD_rex_does_not_leak_to_next_insn` FAILS there, restore. Banked
+with the fix's outcome, the same way the XPASS machinery was red-tested
+before it was trusted.
+
+**Observed before the fix:** fixture v6 baseline
+(`operand-diff-fixture-v6-baseline-2026-09-18.log`): `ghidra=11
+operand_ok=3 reg=4 mem=3 addr=1 nostart=0`, as predicted; red (i)
+(`x64-reds-i-red-2026-09-18.log`): first failure `index: expected 12
+(R12), raw 100b + REX.X taken as no-index`, as predicted; guard green;
+pass=50 xfail=10 fail=0 xpass=0 (tests=60).
+
+**Scope note added before the fix:** `decode_modrm`'s register-direct
+path (mod = 3 sets `rm_op->reg`) also takes REX.B (e.g. `49 8B C0` =
+MOV RAX,R8). That is a different output field with no red. (c) leaves
+it untouched; its red (k) is owed this session, before any fix touches
+that path.
