@@ -1,0 +1,43 @@
+	-overwrite -deleteProject 2>&1 | grep -E 'INSTRAT|ERROR' | sed -E 's/^INFO +//; s/ \(GhidraScript\).*//'
+InstrAt.java> INSTRAT image_base=00400000
+InstrAt.java> INSTRAT 401000 START MOV | MOV RAX,qword ptr [R8] | len=3 | fn=entry
+InstrAt.java> INSTRAT 401001 MID 00401000 MOV RAX,qword ptr [R8] | fn=entry
+InstrAt.java> INSTRAT 401002 MID 00401000 MOV RAX,qword ptr [R8] | fn=entry
+InstrAt.java> INSTRAT 401003 START LEA | LEA RAX,[0x40101a] | len=7 | fn=entry
+InstrAt.java> INSTRAT 401004 MID 00401003 LEA RAX,[0x40101a] | fn=entry
+InstrAt.java> INSTRAT 401005 MID 00401003 LEA RAX,[0x40101a] | fn=entry
+InstrAt.java> INSTRAT 401006 MID 00401003 LEA RAX,[0x40101a] | fn=entry
+InstrAt.java> INSTRAT 401007 MID 00401003 LEA RAX,[0x40101a] | fn=entry
+InstrAt.java> INSTRAT 401008 MID 00401003 LEA RAX,[0x40101a] | fn=entry
+InstrAt.java> INSTRAT 401009 MID 00401003 LEA RAX,[0x40101a] | fn=entry
+InstrAt.java> INSTRAT 40100a START MOV | MOV R8,RAX | len=3 | fn=entry
+InstrAt.java> INSTRAT 40100b MID 0040100a MOV R8,RAX | fn=entry
+InstrAt.java> INSTRAT 40100c MID 0040100a MOV R8,RAX | fn=entry
+InstrAt.java> INSTRAT 40100d START PUSH | PUSH R12 | len=2 | fn=entry
+InstrAt.java> INSTRAT 40100e MID 0040100d PUSH R12 | fn=entry
+InstrAt.java> INSTRAT 40100f START PUSH | PUSH RBP | len=1 | fn=entry
+InstrAt.java> INSTRAT 401010 START MOV | MOV RAX,-0x1 | len=7 | fn=entry
+InstrAt.java> INSTRAT 401011 MID 00401010 MOV RAX,-0x1 | fn=entry
+InstrAt.java> INSTRAT 401012 MID 00401010 MOV RAX,-0x1 | fn=entry
+InstrAt.java> INSTRAT 401013 MID 00401010 MOV RAX,-0x1 | fn=entry
+InstrAt.java> INSTRAT 401014 MID 00401010 MOV RAX,-0x1 | fn=entry
+InstrAt.java> INSTRAT 401015 MID 00401010 MOV RAX,-0x1 | fn=entry
+InstrAt.java> INSTRAT 401016 MID 00401010 MOV RAX,-0x1 | fn=entry
+InstrAt.java> INSTRAT 401017 START MOV | MOV AL,SIL | len=3 | fn=entry
+InstrAt.java> INSTRAT 401018 MID 00401017 MOV AL,SIL | fn=entry
+InstrAt.java> INSTRAT 401019 MID 00401017 MOV AL,SIL | fn=entry
+InstrAt.java> INSTRAT 40101a START MOV | MOV RAX,qword ptr [RAX + R8*0x1] | len=4 | fn=entry
+InstrAt.java> INSTRAT 40101b MID 0040101a MOV RAX,qword ptr [RAX + R8*0x1] | fn=entry
+InstrAt.java> INSTRAT 40101c MID 0040101a MOV RAX,qword ptr [RAX + R8*0x1] | fn=entry
+InstrAt.java> INSTRAT 40101d MID 0040101a MOV RAX,qword ptr [RAX + R8*0x1] | fn=entry
+InstrAt.java> INSTRAT 40101e START MOV | MOV RAX,0x1122334455667788 | len=10 | fn=entry
+InstrAt.java> INSTRAT 40101f MID 0040101e MOV RAX,0x1122334455667788 | fn=entry
+InstrAt.java> INSTRAT 401020 MID 0040101e MOV RAX,0x1122334455667788 | fn=entry
+InstrAt.java> INSTRAT 401021 MID 0040101e MOV RAX,0x1122334455667788 | fn=entry
+InstrAt.java> INSTRAT 401022 MID 0040101e MOV RAX,0x1122334455667788 | fn=entry
+InstrAt.java> INSTRAT 401023 MID 0040101e MOV RAX,0x1122334455667788 | fn=entry
+InstrAt.java> INSTRAT 401024 MID 0040101e MOV RAX,0x1122334455667788 | fn=entry
+InstrAt.java> INSTRAT 401025 MID 0040101e MOV RAX,0x1122334455667788 | fn=entry
+InstrAt.java> INSTRAT 401026 MID 0040101e MOV RAX,0x1122334455667788 | fn=entry
+InstrAt.java> INSTRAT 401027 MID 0040101e MOV RAX,0x1122334455667788 | fn=entry
+InstrAt.java> INSTRAT 401028 START RET | RET | len=1 | fn=entry
