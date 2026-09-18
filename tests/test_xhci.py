@@ -2539,8 +2539,72 @@ else:
     for _n in HW_4:
         check(_n, False, 'red by guard: step-4 words absent')
 
+# ============================================================
+# Phase 13: page-pointer cell guard sweep (owner filing 2026-09-16;
+# docs/evidence/xhci-guard-sweep-prereg-2026-09-17.md)
+# ============================================================
+# After phase 12's teardown every page cell (XCRING, XERING, XICTX,
+# XODC, XEP0R, XEP1R, HIDBUF) is 0: the hazard state in which
+# BUILD-ICTX (3D) and CMD-ENQ (2026-09-16) wrote physical 0.  Each
+# write-capable word is called in that state; it must return its
+# refusal value AND leave the 16 dwords at physical 0..0x3C unchanged
+# (PSUM).  14 new checks: 13 words + a DEPTH control.  Predicted red on
+# HEAD: 13 (PSUM moves), DEPTH control green on red.  305 -> 319, read
+# from the log.  Reading physical 0 in protected mode is harmless;
+# writing it is the defect.
+print('\n=== Phase 13: page-pointer cell guards (refuse when unbound) ===')
+send('DECIMAL')
+# PSUM covers the WHOLE of physical page 0.  Red run 1 (2026-09-17)
+# summed only 0..0x3C and let nine words pass: CMD-ENQ writes at
+# XCRING + XENQ*16 and XENQ is not reset by teardown, so with the cell
+# at 0 the TRB lands at a nonzero offset inside page 0 (probe 1 saw
+# offset 0xC only because XENQ was 0 on a fresh boot); EP0-ENQ likewise
+# via XEP0ENQ.  A ring's 16 TRB slots span 0..0xFF; a context page
+# spans the page.  1024 dwords, ~1 s on QEMU.
+send(': PSUM 0 4096 0 DO I @ + 4 +LOOP ;')
+v, raw = val('DEF? PSUM 0<>')
+instrument_unscored('PSUM defined (phys page 0 checksum, 4096 bytes)', v == -1,
+                    f'got {v}: {body_of(raw)!r}')
+print(f'  (phase 13: ring enqueue indices XENQ/XEP0ENQ/XEP1ENQ at entry = '
+      f'{body_of(send("HEX XENQ @ . XEP0ENQ @ . XEP1ENQ @ . DECIMAL")).strip()!r})')
+v, raw = val('XCRING @ XERING @ OR XICTX @ OR XEP0R @ OR XEP1R @ OR HIDBUF @ OR')
+instrument_unscored('all page cells read 0 after phase-12 teardown (hazard state)',
+                    v == 0, f'got {v}: {body_of(raw)!r}')
+GUARD_13 = [
+    # (name, setup+call expression, expected value or None for no-return words)
+    ('guard: CMD-ENQ with no ring writes nothing', '0 0 0 9216 CMD-ENQ', None),        # 1
+    ('guard: CMD-RUN with no ring returns 0 0, writes nothing',
+     '0 0 0 9216 CMD-RUN 0= SWAP 0= AND', -1),                                        # 2
+    ('guard: TRB-NOP! with no ring writes nothing', 'TRB-NOP!', None),                # 3
+    ('guard: BUILD-ICTX with no input ctx writes nothing', '5 1 BUILD-ICTX', None),   # 4
+    ('guard: EVAL-MPS with no input ctx returns 0', '64 EVAL-MPS', 0),               # 5
+    ('guard: EP0-ENQ with no EP0 ring writes nothing', '0 0 0 9216 EP0-ENQ', None),  # 6
+    ('guard: GET-DESC with no EP0 ring returns 0', '1 0 8 0 GET-DESC', 0),           # 7
+    ('guard: SET-CONFIG with no EP0 ring returns 0', '1 SET-CONFIG', 0),             # 8
+    ('guard: SET-PROTOCOL with no EP0 ring returns 0', '0 SET-PROTOCOL', 0),         # 9
+    ('guard: BUILD-EPCTX with no input ctx writes nothing', 'BUILD-EPCTX', None),    # 10
+    ('guard: CONFIGURE-EP with no input ctx returns 0', 'CONFIGURE-EP', 0),          # 11
+    ('guard: STOP-EP with no slot/ring returns 0', '3 STOP-EP', 0),                  # 12
+    ('guard: EP1-ENQ with no EP1 ring writes nothing', '0 0 0 1060 EP1-ENQ', None),  # 13
+]
+d13_a, _ = val('DEPTH')
+for _n, _e, _w in GUARD_13:
+    ps_a, _ = val('PSUM')
+    if _w is None:
+        send(_e, 3.0)
+        v = None
+        raw = ''
+    else:
+        v, raw = val(_e, 4.0)
+    ps_b, raw2 = val('PSUM')
+    ok = (ps_a is not None and ps_b == ps_a) and (_w is None or v == _w)
+    check(_n, ok, f'ret {v} (want {_w}), PSUM {ps_a} -> {ps_b}: {body_of(raw)!r}')
+d13_b, raw = val('DEPTH')
+check('guard sweep: DEPTH unchanged across the phase', d13_a == d13_b,   # 14
+      f'DEPTH {d13_a} -> {d13_b}: {body_of(raw)!r}')
+
 raw = send('BASE @ DECIMAL .')
-check('BASE tripwire: reads 10 at exit',                     # 305 (was 240)
+check('BASE tripwire: reads 10 at exit',                     # 319 (was 305, was 240)
       re.search(r'\b10\b', body_of(raw)) is not None,
       f'got: {body_of(raw)!r}')
 

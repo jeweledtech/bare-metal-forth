@@ -302,6 +302,7 @@ VARIABLE XEDQ    VARIABLE XECS
 VARIABLE TRA
 : CR-TRB ( -- addr ) XCRING @ XENQ @ 10 * + ;
 : TRB-NOP! ( -- )
+    XCRING @ 0= IF EXIT THEN
     CR-TRB TRA !
     0 TRA @ !  0 TRA @ 4 + !  0 TRA @ 8 + !
     5C00 XCCS @ OR TRA @ C + !
@@ -540,6 +541,7 @@ VARIABLE CTX-MPS   \ 3b default EP0 max packet, read back by 3c
 \ so params+status land before control|cycle.
 VARIABLE CMA  VARIABLE CMCTL  VARIABLE CMCC  VARIABLE CMSLOT
 : CMD-ENQ ( plo phi sts ctl -- )
+    XCRING @ 0= IF 2DROP 2DROP EXIT THEN
     XCCS @ OR CMCTL !
     XCRING @ XENQ @ 10 * + CMA !
     CMA @ 8 + !
@@ -556,6 +558,7 @@ VARIABLE CMA  VARIABLE CMCTL  VARIABLE CMCC  VARIABLE CMSLOT
 \ read completion code + slot, consume it.  ( -- cc slot ); on a
 \ poll timeout returns 0 0 (never a valid completion).
 : CMD-RUN ( plo phi sts ctl -- cc slot )
+    XCRING @ 0= IF 2DROP 2DROP 0 0 EXIT THEN
     CMD-ENQ DOORBELL0
     21 EV-WAIT IF
         EV-CC CMCC !  EV-SLOT CMSLOT !  EV-NEXT
@@ -580,6 +583,7 @@ VARIABLE CMA  VARIABLE CMCTL  VARIABLE CMCC  VARIABLE CMSLOT
 \ Control(4)<<3 | CErr(3)<<1 = mps<<16|26; dword2 = ring|DCS;
 \ dword4 = avg TRB length 8.
 : BUILD-ICTX ( port# speed -- )
+    XICTX @ 0= IF 2DROP EXIT THEN
     XICTX @ PG0
     3 XICTX @ 4 + !
     DUP SPEED>MPS DUP CTX-MPS !
@@ -674,6 +678,7 @@ VARIABLE EPA  VARIABLE EPCTL  VARIABLE GDBUF  VARIABLE GDLEN
 \ EP0 transfer-ring producer (mirror of CMD-ENQ on XEP0R;
 \ cycle written last, link TRB at slot 15).
 : EP0-ENQ ( plo phi sts ctl -- )
+    XEP0R @ 0= IF 2DROP 2DROP EXIT THEN
     XEP0CCS @ OR EPCTL !
     XEP0R @ XEP0ENQ @ 10 * + EPA !
     EPA @ 8 + !
@@ -707,6 +712,7 @@ VARIABLE GD-RESID
 \ GET_DESCRIPTOR: bmRequestType 80, bRequest 6, wValue =
 \ dtype<<8 | dindex, wLength = wlen, data IN to buf.
 : GET-DESC ( dtype dindex wlen buf -- cc )
+    XEP0R @ 0= IF 2DROP 2DROP 0 EXIT THEN
     GDBUF !  GDLEN !
     SWAP 8 LSHIFT OR 10 LSHIFT 680 OR   \ d0=wValue<<16|0680
     GDLEN @ 10 LSHIFT                     \ d1 = wLen<<16
@@ -720,6 +726,7 @@ VARIABLE GD-RESID
 \ xhci_evaluate_slot updates output ep0 ctx; real-controller
 \ acceptance is an iron finding.
 : EVAL-MPS ( mps -- cc )
+    XICTX @ 0= IF DROP 0 EXIT THEN
     XICTX @ PG0
     2 XICTX @ 4 + !
     10 LSHIFT 26 OR XICTX @ I-EP0 4 + !
@@ -730,12 +737,14 @@ VARIABLE GD-RESID
 
 \ SET_CONFIGURATION (OUT no-data): status stage is IN, CC 1.
 : SET-CONFIG ( value -- cc )
+    XEP0R @ 0= IF DROP 0 EXIT THEN
     10 LSHIFT 900 OR                   \ d0=value<<16|0900
     0 8 840 EP0-ENQ                      \ setup, len 8 per spec
     0 0 0 11020 EP0-ENQ                   \ status IN, IOC
     EP0-BELL EP0-WAIT ;
 \ GET_CONFIGURATION (IN 1 byte): current config value -> buf.
 : GET-CONFIG ( buf -- cc )
+    XEP0R @ 0= IF DROP 0 EXIT THEN
     880 10000 8 30840 EP0-ENQ          \ setup d0=880 d1=1<<16
     0 1 10C00 EP0-ENQ                   \ data IN 1 byte (buf)
     0 0 0 1020 EP0-ENQ                    \ status OUT, IOC
@@ -829,6 +838,7 @@ VARIABLE EFP  VARIABLE EFL  VARIABLE EFO  VARIABLE EFB
 \ Speed (slot dword0 bits 23:20): 1 FS / 2 LS -> INTERVAL-FS,
 \ 3 HS / 4 SS -> INTERVAL-HS.  Stack-neutral (check 29).
 : BUILD-EPCTX ( -- )
+    XICTX @ 0= IF EXIT THEN
     XICTX @ PG0
     0 XICTX @ !
     1 HID-DCI @ LSHIFT 1 OR XICTX @ 4 + !
@@ -844,14 +854,17 @@ VARIABLE EFP  VARIABLE EFL  VARIABLE EFO  VARIABLE EFB
     HID-MPS @ 10 LSHIFT 8 OR XICTX @ HID-DCI @ I-EPN 10 + ! ;
 
 : CONFIGURE-EP ( -- cc )
+    XICTX @ 0= IF 0 EXIT THEN
     XICTX @ 0 0 XSLOT @ 18 LSHIFT 3000 OR CMD-RUN DROP ;
 : STOP-EP ( dci -- cc )
+    XSLOT @ 0= IF DROP 0 EXIT THEN
     10 LSHIFT 3C00 OR XSLOT @ 18 LSHIFT OR >R
     0 0 0 R> CMD-RUN DROP ;
 : EP-BELL ( dci -- ) XSLOT @ 4 * DB-BASE + ! ;
 
 \ EP1 transfer-ring producer (mirror of EP0-ENQ on XEP1R).
 : EP1-ENQ ( plo phi sts ctl -- )
+    XEP1R @ 0= IF 2DROP 2DROP EXIT THEN
     XEP1CCS @ OR E1CTL !
     XEP1R @ XEP1ENQ @ 10 * + E1A !
     E1A @ 8 + !
@@ -880,6 +893,7 @@ VARIABLE EFP  VARIABLE EFL  VARIABLE EFO  VARIABLE EFB
 \ SET_PROTOCOL (HID 1.11 7.2.6): bmRequestType 21, bRequest 0B,
 \ wValue = proto, wIndex = HID-IFACE, no data; SET-CONFIG shape.
 : SET-PROTOCOL ( proto -- cc )
+    XEP0R @ 0= IF DROP 0 EXIT THEN
     10 LSHIFT B21 OR  HID-IFACE @
     8 840 EP0-ENQ
     0 0 0 11020 EP0-ENQ
