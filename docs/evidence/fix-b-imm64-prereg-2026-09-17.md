@@ -113,3 +113,65 @@ by at most the site count above.
   quoting.
 
 ---
+
+## Outcome (appended after the runs, 2026-09-18)
+
+**Gate run 1** (`fix-b-imm64-xpass-gate-2026-09-18.log`): fix in, name
+listed → `XPASS: x64_RED_mov_rax_imm64_len10`, HARD FAILURE line,
+pass=48 xfail=8 fail=0 xpass=1, exit nonzero. The gate fired as built.
+**Gate run 2** (`fix-b-imm64-green-2026-09-18.log`): name removed →
+pass=49 xfail=8 fail=0 xpass=0 (tests=57), exit 0. Eight reds remain.
+
+**Fixture** (`operand-diff-fix-b-2026-09-18.log`, alias_sha256
+02101788edd2… equal to baseline): operand_ok 1 → **3**, imm 1 → **0**,
+nostart 1 → **0**, reg 4, mem 1, addr 1 UNCHANGED; boundary mid 2 → 0,
+agree 100%. Exactly the prediction, two rows, RET reached again.
+
+**Controls**: ReactOS serial.sys 4215/4220, beep.sys 447/447,
+nmap_service.exe 7885/8299: every number IDENTICAL to baseline.
+
+**Near-controls** (one imm64 site each): via-rng.ko operand_ok 104 →
+105, iTCO_wdt.ko 592 → 594. Within what one site and its shadow allow.
+
+**14 inputs, measured (attributable to nothing in particular):**
+
+| input | operand_ok before → after | score | imm | nostart | reg | addr | mem |
+|---|---|---|---|---|---|---|---|
+| ACPI.sys | 92933 → 94198 | 62.4 → 63.3 | 646 → 0 | 1247 → 190 | 29893 → 30222 | 11529 → 11612 | 5064 → 5081 |
+| disk.sys | 7733 → 7744 | 62.7 → 62.8 | 5 → 0 | 19 → 11 | 2354 → 2354 | 834 → 835 | 690 → 691 |
+| HDAudBus.sys | 14246 → 14253 | 58.8 → 58.9 | 3 → 0 | 56 → 50 | 5362 → 5362 | 2852 → 2854 | 691 → 691 |
+| i8042prt.sys | 10947 → 10985 | 57.3 → 57.5 | 16 → 0 | 37 → 8 | 3999 → 4000 | 2492 → 2497 | 792 → 793 |
+| pci.sys | 55919 → 56114 | 64.4 → 64.6 | 134 → 0 | 127 → 49 | 17535 → 17544 | 5026 → 5031 | 3044 → 3047 |
+| serial.sys (hp) | 8730 → 8738 | 63.0 → 63.1 | 2 → 0 | 39 → 32 | 2961 → 2961 | 879 → 880 | 463 → 463 |
+| storport.sys | 65179 → 65523 | 66.4 → 66.7 | 133 → 0 | 446 → 192 | 18679 → 18702 | 4603 → 4607 | 4395 → 4402 |
+| usbxhci.sys | 55767 → 55902 | 62.5 → 62.6 | 76 → 0 | 274 → 177 | 17979 → 17997 | 7751 → 7758 | 3795 → 3806 |
+| ne2k-pci.ko | 617 → 622 | 51.7 → 52.1 | 32 → 28 | 15 → 13 | 259 → 260 | 184 → 184 | 67 → 67 |
+| 8139too.ko | 1881 → 1893 | 46.7 → 47.0 | 113 → 109 | 20 → 11 | 1003 → 1004 | 806 → 806 | 147 → 147 |
+| iTCO_wdt.ko | 592 → 594 | 65.3 → 65.5 | 22 → 23 | 12 → 8 | 107 → 108 | 157 → 157 | 10 → 10 |
+| via-rng.ko | 104 → 105 | 59.1 → 59.7 | 4 → 3 | 0 → 0 | 30 → 30 | 33 → 33 | 2 → 2 |
+
+**Named alternative fired and resolved by observation:** reg/addr/mem/
+mnemonic INCREASED on the HP drivers. Transition matrix on ACPI.sys
+(pre-fix decoder rebuilt from a scratch copy with the hunk reverted,
+dumps compared per Ghidra instruction): imm→ok 646, nostart→ok 619,
+nostart→reg 329, nostart→addr 83, nostart→mem 17, nostart→mnemonic 8,
+nostart→undecoded 1, unchanged 147218, **instructions that left
+operand_ok: 0**. Every newly reached instruction lies 1..44 bytes
+after an imm64 site (median 13). The increases are instructions that
+were hidden in the desync shadow and now show the REMAINING defects.
+The prediction "no class may increase" was wrong as stated; the
+correct invariant, now recorded for the next fix: no instruction moves
+OUT of operand_ok, and every class increase is fed only from nostart.
+The modules' residual `imm` (28/109/23/3) is not imm64 (relocation-
+zeroed immediates against Ghidra's relocated values, to be measured
+separately); iTCO's imm 22 → 23 is one newly reached instruction.
+
+**FINDING, ruling owed:** the translator's full chain now FAILS at
+`test-hp-drivers`: `storport_hw_function_count` expected ≥ 20, got
+13; `usbxhci_hw_function_count` expected ≥ 5, got 2. Those floors were
+calibrated on desync noise (2026-09-14: usbxhci's "hardware functions"
+were phantom INS/OUTS decoded inside imm64 immediates). The fix
+removed the phantoms and the floors no longer hold. Not moved here:
+lowering them to the new output would be copying the run. Post-fix
+counts, all eight: ACPI 13, disk 1, HDAudBus 1, i8042prt 2, pci 1,
+serial 31, storport 13, usbxhci 2.
