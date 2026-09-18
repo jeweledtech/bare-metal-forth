@@ -1,0 +1,6 @@
+# guard red-test: scratch decoder with the per-decode 'dec->rex = 0' REMOVED; the leak guard must FAIL
+ff8e4a5913f2c5c43e06e1c1309af385057ae728508a854297daf2e5341892cb  /tmp/claude-1000/-home-bbrown-projects-forthos/6b731f8b-ff5a-4ace-bd00-77dec936fa93/scratchpad/noclear/x86_decoder_noclear.c
+211f782a1ee1ac7f3c9bbd7d32507c7ebab25e84f63cee659115e7899bb1285e  tests/test_x86_decoder.c
+  TEST: x64_GUARD_rex_does_not_leak_to_next_insn      FAIL: REX leaked: second instruction's base extended (expected RAX = 0)
+Results: pass=52 xfail=7 fail=1 xpass=0 (tests=60)
+exit=0

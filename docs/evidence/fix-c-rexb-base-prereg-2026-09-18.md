@@ -167,3 +167,70 @@ path (mod = 3 sets `rm_op->reg`) also takes REX.B (e.g. `49 8B C0` =
 MOV RAX,R8). That is a different output field with no red. (c) leaves
 it untouched; its red (k) is owed this session, before any fix touches
 that path.
+
+---
+
+## Outcome (appended after the runs, 2026-09-18)
+
+**Gate run 1** (`fix-c-rexb-xpass-gate-2026-09-18.log`): fix in, names
+listed → XPASS on `x64_RED_rex_b_base_r8`, `x64_RED_rex_x_sib_index_r8`
+AND `x64_RED_rex_x_sib_index_r12_escape`; HARD FAILURE; pass=50 xfail=7
+fail=0 xpass=3 (tests=60); guard PASS. As predicted.
+**Gate run 2** (`fix-c-rexb-green-2026-09-18.log`): three names removed
+→ pass=53 xfail=7 fail=0 xpass=0 (tests=60), exit 0. Translator chain
+(23 suites) green. Seven reds remain: (a), (d), (d'), (e), (f), (g)×2.
+
+**Guard red-tested** (`fix-c-guard-redtest-2026-09-18.log`): a scratch
+decoder with the per-decode `dec->rex = 0` removed FAILS the leak guard
+(`REX leaked: second instruction's base extended`). The guard has
+teeth; it is no longer green by vacuity.
+
+**Fixture** (`operand-diff-fix-c-2026-09-18.log`, alias hash equal):
+operand_ok 3 → **6**, mem 3 → **0**, reg 4, addr 1, nostart 0
+UNCHANGED; boundary 11/11, mid 0. Exactly the prediction: three rows,
+the three named instructions.
+
+**Controls**: ReactOS serial.sys 4215/4220, beep.sys 447/447,
+nmap_service.exe 7885/8299, every number identical.
+**Near-control** via-rng.ko: mem 2 → 0, operand_ok 105 → 107, every
+other class identical, as bounded.
+
+**14 inputs, measured (attributable to nothing in particular):**
+
+| input | operand_ok (post-b → post-c) | score | mem | reg | nostart / addr / undecoded / mnemonic / opcount |
+|---|---|---|---|---|---|
+| ACPI.sys | 94198 → 99023 | 63.3 → 66.5 | 5081 → 0 | 30222 → 30479 | identical |
+| disk.sys | 7744 → 8332 | 62.8 → 67.5 | 691 → 0 | 2354 → 2457 | identical |
+| HDAudBus.sys | 14253 → 14895 | 58.9 → 61.5 | 691 → 0 | 5362 → 5412 | identical |
+| i8042prt.sys | 10985 → 11723 | 57.5 → 61.4 | 793 → 0 | 4000 → 4055 | identical |
+| pci.sys | 56114 → 58953 | 64.6 → 67.9 | 3047 → 0 | 17544 → 17752 | identical |
+| serial.sys (hp) | 8738 → 9146 | 63.1 → 66.0 | 463 → 0 | 2961 → 3016 | identical |
+| storport.sys | 65523 → 69567 | 66.7 → 70.8 | 4402 → 0 | 18702 → 19060 | identical |
+| usbxhci.sys | 55902 → 59552 | 62.6 → 66.7 | 3806 → 0 | 17997 → 18153 | identical |
+| ne2k-pci.ko | 622 → 677 | 52.1 → 56.7 | 67 → 4 | 260 → 263 | imm 28 → 33, rest identical |
+| 8139too.ko | 1893 → 2019 | 47.0 → 50.1 | 147 → 17 | 1004 → 1008 | identical |
+| iTCO_wdt.ko | 594 → 604 | 65.5 → 66.6 | 10 → 0 | 108 → 108 | identical |
+| via-rng.ko | 105 → 107 | 59.7 → 60.8 | 2 → 0 | 30 → 30 | identical |
+
+`nostart` identical on every input: no length changed, as predicted.
+The modules' residual `mem` (ne2k 4, 8139too 17) is not a REX case
+(relocated displacements against Ghidra's relocated values; the same
+family as their residual `imm`), to be measured separately.
+
+**Named alternative "reg may not increase" fired; resolved by the
+matrix and it CLOSES.** ACPI.sys, pre-(c) decoder rebuilt from the
+private head, per Ghidra instruction: mem→ok 4824, mem→reg 257,
+other→ok 1, unchanged 143839, **instructions that left operand_ok: 0**;
+residual against the two logs zero on all ten classes. The 257 are
+instructions whose FIRST mismatching operand was the base and whose
+NEXT mismatch is a register: e.g. `.text+595` `MOV byte ptr [R13],DIL`,
+ours before `M:RBP.. R:BH` (class mem), after `M:R13.. R:BH` (class
+reg: defect (f), DIL vs BH). The classifier reports the first mismatch,
+so fixing one class exposes each instruction's next. Corrected
+invariant, second revision, for every later fix: **no instruction
+leaves operand_ok; every class increase is fed only from `nostart` or
+from the class the fix addresses.** ne2k's imm 28 → 33 is the same
+mechanic (mem → imm).
+
+**Scope kept:** the reg field (REX.R), the register-direct rm (mod 3,
+REX.B), and the disp-only forms were not touched; (d), (k), (a) remain.
