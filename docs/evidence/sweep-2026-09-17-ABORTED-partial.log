@@ -1,0 +1,312 @@
+ahci.fth: OK (57 BASE note(s))
+arm64-asm.fth: OK (27 BASE note(s))
+asm-vocab.fth: OK (20 BASE note(s))
+atapi-ahci.fth: OK (32 BASE note(s))
+audio.fth: OK (27 BASE note(s))
+auto-detect.fth: OK (15 BASE note(s))
+cab-extract.fth: OK (27 BASE note(s))
+catalog-resolver.fth: OK (26 BASE note(s))
+cd-atapi.fth: OK
+deflate.fth: OK (23 BASE note(s))
+dict_system.fth: OK
+disasm.fth: OK (6 BASE note(s))
+disk-survey-form.fth: OK
+echoport.fth: OK (2 BASE note(s))
+editor.fth: OK (32 BASE note(s))
+fat32.fth: OK (25 BASE note(s))
+file-browser-form.fth: OK (4 BASE note(s))
+file-browser.fth: OK (11 BASE note(s))
+file-editor-core.fth: OK (72 BASE note(s))
+file-editor-disk.fth: OK (3 BASE note(s))
+file-stream.fth: OK
+graphics.fth: OK
+gui-harvest.fth: OK
+hardware.fth: OK (15 BASE note(s))
+hello-app.fth: OK
+hello-form.fth: OK (4 BASE note(s))
+install.fth: OK
+meta-compiler.fth: OK (3 BASE note(s))
+mirror.fth: OK (32 BASE note(s))
+msi-reader.fth: OK (28 BASE note(s))
+ne2000.fth: OK (4 BASE note(s))
+net-dict.fth: OK (14 BASE note(s))
+notepad-form.fth: OK (4 BASE note(s))
+notepad.fth: OK
+ntfs.fth: OK (33 BASE note(s))
+pci-enum.fth: OK (22 BASE note(s))
+pit-timer.fth: OK
+port-mapper.fth: OK (22 BASE note(s))
+port-monitor-form.fth: OK
+port-monitor.fth: OK
+ps2-keyboard.fth: OK (3 BASE note(s))
+ps2-mouse.fth: OK
+rtl8139.fth: OK (10 BASE note(s))
+rtl8168.fth: OK (42 BASE note(s))
+serial-16550.fth: OK (3 BASE note(s))
+settings-dash.fth: OK
+settings-form.fth: OK (4 BASE note(s))
+settings.fth: OK (21 BASE note(s))
+shutdown.fth: OK (40 BASE note(s))
+stub-dispatch.fth: OK
+surveyor-deep.fth: OK (18 BASE note(s))
+surveyor-detail.fth: OK (4 BASE note(s))
+surveyor.fth: OK (26 BASE note(s))
+target-arm64.fth: OK (77 BASE note(s))
+target-cortex-m.fth: OK (40 BASE note(s))
+target-x86.fth: OK (212 BASE note(s))
+thumb2-asm.fth: OK (40 BASE note(s))
+ui-core.fth: OK (7 BASE note(s))
+ui-events.fth: OK (1 BASE note(s))
+ui-parser.fth: OK (1 BASE note(s))
+vga-graphics.fth: OK (2 BASE note(s))
+video.fth: OK (7 BASE note(s))
+x86-asm.fth: OK (57 BASE note(s))
+xhci.fth: OK (141 BASE note(s))
+zip-reader.fth: OK (9 BASE note(s))
+
+65 files: 0 error(s), 1355 warning(s)
+Run with --verbose to see BASE tracking details.
+forth.asm: OK
+Running smoke test...
+  PASS: WORDS shows DROP
+  PASS: WORDS shows DUMP
+  PASS: basic arithmetic
+  PASS: S" interpret mode
+  PASS: ." compile mode
+  PASS: IF/ELSE/THEN
+  PASS: DO/LOOP
+
+Passed: 7/7
+Running loop control flow test...
+
+Test 1: BEGIN/WHILE/REPEAT countdown
+  define: ': COUNT-DOWN 0 CNT ! 5 BEGIN DUP WHILE 1 CNT +! 1- REPEAT DROP CNT @ ;\r\nok'
+  result: 'COUNT-DOWN .\r\n5 ok' (parsed: 5)
+  PASS: BEGIN/WHILE/REPEAT counts 5 iterations
+
+Test 2: BEGIN/UNTIL countdown
+  define: ': COUNT-UP 0 BEGIN 1+ DUP 10 = UNTIL ;\r\nok'
+  result: 'COUNT-UP .\r\n10 ok' (parsed: 10)
+  PASS: BEGIN/UNTIL counts to 10
+
+Test 3: BEGIN/AGAIN with EXIT
+  define: ': FIND-3 0 BEGIN 1+ DUP 3 = IF EXIT THEN AGAIN ;\r\nok'
+  result: 'FIND-3 .\r\n3 ok' (parsed: 3)
+  PASS: BEGIN/AGAIN with EXIT at 3
+
+Test 4: DO/LOOP then BEGIN/WHILE/REPEAT
+  define: ': MIXED 0 3 0 DO 1+ LOOP 5 BEGIN DUP WHILE 1- SWAP 1+ SWAP REPEAT DROP ;\r\nok'
+  result: 'MIXED .\r\n8 ok' (parsed: 8)
+  PASS: DO/LOOP(+3) then WHILE(+5) = 8
+
+Test 5: Stack clean
+  PASS: Stack clean
+
+Passed: 5/5
+Running ABORT/ABORT" kernel test...
+
+Test 1: ABORT" compiles (word exists)
+  PASS: definition using ABORT" compiles without ?
+
+Test 2: FALSE path is transparent
+  PASS: FALSE path leaves 42
+  PASS: FALSE path prints nothing
+  PASS: stack clean after FALSE path (DEPTH = 0)
+
+Test 3: TRUE path fires
+  PASS: TRUE path prints the message
+  PASS: TRUE path does NOT run the rest of the definition
+  PASS: interpreter alive after abort
+  PASS: stack empty after abort (DEPTH = 0)
+
+Test 4: abort empties a non-empty stack
+  PASS: abort with junk on stack prints message
+  PASS: junk discarded by abort (DEPTH = 0)
+  PASS: interpreter alive after discarding junk
+
+Test 5: abort unwinds nested calls
+  PASS: nested abort prints the message
+  PASS: nested abort skips both callers tails
+  PASS: stack empty after nested abort (DEPTH = 0)
+  PASS: interpreter alive after nested abort
+
+Test 6: bare ABORT
+  PASS: bare ABORT does not wedge the interpreter
+  PASS: bare ABORT empties the stack (DEPTH = 0)
+
+Test 7: compilation state reset
+  PASS: STATE is interpreting after aborts (STATE @ = 0)
+  PASS: can still define after aborts
+  PASS: post-abort definition runs (T-AFTER = 10)
+
+Passed: 20/20
+Running dictionary bounds test...
+input sha256 dfd7c5f30e22ecf3c662f9f84756eb801e7629658d19d61fb06e9e636986473b  build/bmforth.img
+
+Test 1: positive controls
+  PASS: interpreter alive at start
+  PASS: STATE probe reads 0 in interpret mode
+  PASS: STATE probe reads 1 in compile mode
+  PASS: negative literals parse
+  PASS: HERE plausible (in dict region)
+
+Test 2: small ALLOT round trip (guard must not tax legitimate use)
+  PASS: 8 ALLOT moved HERE by 8
+  PASS: HERE restored
+
+Test 3: overflow ALLOT is refused, before mutation
+  PASS: overflow ALLOT refused with a message
+  PASS: overflow ALLOT left HERE unchanged
+  PASS: interpreter alive after refused ALLOT
+
+Test 3b: floor -- negative ALLOT below DICT_START is refused
+  PASS: floor ALLOT refused with a message
+  PASS: floor ALLOT left HERE unchanged
+  PASS: interpreter alive after refused floor ALLOT
+  PASS: large negative ALLOT refused (control)
+  PASS: large negative ALLOT attributed as underflow
+
+Test 4: compile-path backstop fires (the guard covering the ~40 unedited inline sites)
+  PASS: compile-path backstop fired
+  PASS: backstop blocked the definition
+  PASS: interpreter alive after backstop
+  PASS: HERE below ceiling after backstop
+  PASS: STATE cleared by refusal (escape hatch open)
+  PASS: interpret-mode poke lands after refusal
+
+Test 5: recovered -- definitions work again below the ceiling
+  PASS: post-restore definition compiles
+  PASS: post-restore definition runs (BT-REC = 10)
+  PASS: interpreter alive at end
+
+Passed: 24/24
+Running physical allocator test...
+input sha256 dfd7c5f30e22ecf3c662f9f84756eb801e7629658d19d61fb06e9e636986473b  build/bmforth.img
+
+=== Phase 0: instrument controls ===
+  PASS: interpreter alive
+  PASS: CURRENT kernel word exists
+  PASS: CURRENT @ at prompt is FORTH cell (28048)
+
+=== Phase 1: boot-state allocations (pre-registered) ===
+  PASS: CL-BUF at pre-registered 0x103000
+  PASS: FIS-BUF at pre-registered 0x104000
+  PASS: CT-BUF at pre-registered 0x105000
+  PASS: SEC-BUF at pre-registered 0x106000
+  PASS: TX-DESC at pre-registered 0x107000
+  PASS: TX-BUF at pre-registered 0x108000
+  PASS: MFT-BUF at pre-registered 0x109000 (400 rounds up)
+  PASS: PHYS-AUDIT exists
+  PASS: boot audit: live 7
+  PASS: boot audit: unattributed 0 (all 7 tagged by owner)
+  PASS: boot audit sum closes to 300000
+
+=== Phase 2: release and reuse ===
+  PASS: fresh alloc at pre-registered 10A000
+  PASS: PHYS-RELEASE exists
+  PASS: re-alloc reuses freed extent (10A000 again)
+  PASS: live == 8 (7 boot + 1 held)
+
+=== Phase 3: refusals, each by name ===
+  PASS: size mismatch refused by name (full prefixed string)
+  PASS: mismatched release left the allocation live
+  PASS: release with unrounded size (rounding rule)
+  PASS: rounding-rule release took effect (live 8 -> 7)
+  PASS: double release refused by name
+  PASS: never-allocated refused by name
+
+=== Phase 4: 200 varying alloc/release cycles ===
+  PASS: 10-cycle calibration completed
+  PASS: 200 cycles completed, not exceeded time budget
+  PASS: interpreter alive after churn (before audit read)
+  PASS: no refusal fired during cycles
+  PASS: flat occupancy across 200 cycles
+  PASS: audit sum still closes after churn
+  PASS: free list returned to pre-churn shape (extents ==)
+
+=== Phase 5: unattributed detection ===
+  PASS: prompt-side run-time alloc counted unattributed
+  PASS: boot allocations still attributed (unat exactly 1)
+
+=== Phase 6: exhaustion is bare 0, not table-full ===
+  PASS: oversize alloc returns 0
+  PASS: OOM did NOT say table full (distinct refusals)
+
+=== Phase 7 (destructive, last): corrupted free list ===
+  PASS: corruption-victim alloc succeeded
+  PASS: audit refused with "free list corrupt" (in-pool check)
+  PASS: walk did NOT misreport as too-long (wrong discriminator)
+  PASS: interpreter alive after refusal
+  PASS: release on corrupt list: membership unanswerable by name
+  PASS: release on corrupt list: NO membership verdict printed
+  PASS: interpreter alive after unanswerable refusal
+
+Passed: 42/42
+Running PCI class-code typing test...
+input sha256 dfd7c5f30e22ecf3c662f9f84756eb801e7629658d19d61fb06e9e636986473b  build/bmforth.img
+
+=== Phase 0: instrument controls (green both runs) ===
+  PASS: interpreter alive
+  PASS: PCI-COUNT nonzero (boot auto-scan populated PCI-TBL)
+  PASS: qemu-xhci 1B36:000D found via OLD PCI-FIND (control)
+  probe sanity: DEF? PCI-FIND=211124 ZZZ-NEVER-DEFINED=0 -> OK
+
+=== Phase 1: prog-IF read ===
+  PASS: PCI-PROGIF@ defined (DEF? nonzero)
+  PASS: prog-IF of 1B36:000D is 30 (xHCI, known nonzero)
+
+=== Phase 2: find-by-class ===
+  PASS: PCI-FIND-CLASS defined (DEF? nonzero)
+  PASS: class 0C sub 03 found (xHCI present by construction)
+  PASS: round-trip: found b/d/f reads back class 0C sub 03
+  PASS: negative control: class 0F sub 00 returns 0
+
+=== Phase 3: typed find (prog-IF discriminates) ===
+  PASS: FIND-XHCI finds the controller
+  PASS: typed find landed on prog-IF 30
+  PASS: negative: prog-IF 10 (OHCI) on this machine returns 0
+  PASS: BAR0 at found function nonzero
+  PASS: BAR0 bit 0 clear (MMIO, not I/O)
+
+=== Phase 4: PCI-TYPES, both BASE legs ===
+  PASS: entered DECIMAL: typed listing names USB host (xHCI) + MMIO
+  PASS: entered DECIMAL: BASE untouched by the listing (reads 10)
+  PASS: entered HEX: typed listing names USB host (xHCI) + MMIO
+  PASS: entered HEX: BASE untouched by the listing (reads 16)
+
+Passed: 18/18
+Running xHCI vocab test...
+make: *** [Makefile:484: test-xhci] Terminated
+exit=143
+input sha256 a68b406be0526186bb13d0b820e0b826fbadf0fa90a5ffdfe41e323e53333036  build/combined.img
+
+=== Phase 0: instrument controls (fatal on failure) ===
+  INSTRUMENT: monitor answers info version (control) -- OK
+  PASS: interpreter alive
+  PASS: qemu-xhci found via FIND-XHCI (control)
+  PASS: host catalog resolver resolves RTL8139 (control)
+  probe sanity: DEF? PCI-FIND=211124 ZZZ-NEVER-DEFINED=0 -> OK
+
+=== Phase 1: block-load XHCI (pre-registered red) ===
+  continuity: nonce OK (phase 1)
+  PASS: XHCI has catalog placement
+  loading XHCI (1724-1782 THRU)...
+  PASS: XHCI blocks load (interpreter alive after THRU)
+  PASS: XHCI vocabulary defined (DEF? nonzero)
+  PASS: BAR64-MASK defined (DEF? nonzero)
+  PASS: PCI-BAR64@ defined (DEF? nonzero)
+
+=== Phase 2: BAR64-MASK logic (pushed literals) ===
+  continuity: nonce OK (phase 2)
+Traceback (most recent call last):
+  File "/home/bbrown/projects/forthos/tests/test_xhci.py", line 625, in <module>
+    zap()
+  File "/home/bbrown/projects/forthos/tests/test_xhci.py", line 577, in zap
+    v, raw = val('ZBAD @')
+             ^^^^^^^^^^^^^
+  File "/home/bbrown/projects/forthos/tests/test_xhci.py", line 417, in val
+    raw = send(f'DECIMAL {expr} .', wait)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/bbrown/projects/forthos/tests/test_xhci.py", line 393, in send
+    s.sendall((cmd + '\r').encode())
+BrokenPipeError: [Errno 32] Broken pipe
