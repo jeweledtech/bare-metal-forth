@@ -175,3 +175,18 @@ removed the phantoms and the floors no longer hold. Not moved here:
 lowering them to the new output would be copying the run. Post-fix
 counts, all eight: ACPI 13, disk 1, HDAudBus 1, i8042prt 2, pci 1,
 serial 31, storport 13, usbxhci 2.
+
+**The matrix CLOSES (checked 2026-09-18 from the two logs, not from
+the table):** every class's delta between `operand-diff-2026-09-15.log`
+and `operand-diff-fix-b-2026-09-18.log` equals its matrix inflow minus
+outflow with ZERO residual on all ten classes (operand_ok +1265 = 646
+imm→ok + 619 nostart→ok; nostart −1057 = 619+329+83+17+8+1; reg +329,
+addr +83, mem +17, mnemonic +8, undecoded +1, imm −646, opcount 0,
+other 0), and the after-run's classes sum to Ghidra's 148921. The
+transitions account for the entire movement.
+
+**Ruling (owner, 2026-09-18): `test-hp-drivers` SUSPENDED, not
+re-floored.** Exempt from the chain with the defect named and the
+re-enable condition stated (front end complete, xfail_names empty,
+assertion rewritten against Ghidra). Post-fix counts recorded as an
+observation in the test's header and the Makefile.
