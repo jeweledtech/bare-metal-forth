@@ -1,0 +1,16 @@
+# ACPI.sys transition matrix, fix (e)+(m): pre = private 3e799e8 decoder (post d+k, pre e) dump_starts; post = working tree (private bf97521, post e+m)
+# ghidra 59c5f17e2cf8  pre 29b279639229  post 2e4293aea029  alias_sha256=02101788edd2
+# transitions (pre -> post): count
+        ok -> ok         118914
+      addr -> addr       12610
+       reg -> reg        6272
+   opcount -> opcount    3352
+       reg -> ok         3317
+  mnemonic -> mnemonic   3277
+ undecoded -> undecoded  988
+   nostart -> nostart    190
+        ok -> nostart    1
+# instructions that left operand_ok: 1
+  left_ok ('.text', 433484, 'nostart')
+# new nostart rows: 1; nostart rows that closed: 0
+  new_nostart ('.text', 433484, 'ok') ghidra: ('MOV', ['RAX{R:RAX}', 'qword ptr [RBX + 0x58]{R:RBX,S:64:0x58}'])

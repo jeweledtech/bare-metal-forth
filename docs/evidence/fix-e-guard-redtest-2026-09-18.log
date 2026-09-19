@@ -1,0 +1,24 @@
+# guard red-tests for fix (e): each scratch decoder is the real fix with ONE discipline removed; the named guard must FAIL
+## scratch 1: stack_size = 8 unconditionally (no mode test, no 0x66 handling)
+expect FAIL: x64_GUARD_push_size_stays_4_in_32bit_mode, x64_RED_push_opsize_prefix_16 (now unlisted)
+  TEST: x64_RED_lea_rip_relative                      XFAIL (expected): base is -1: disp32 taken as absolute, RIP not applied
+  TEST: x64_RED_rex_b_push_r12                        XFAIL (expected): opcode-embedded reg: expected 12 (R12)
+  TEST: x64_RED_byte_reg_sil_under_rex                XFAIL (expected): source reg: expected 18 (SIL)
+  TEST: x64_RED_truncated_imm32_refused               XFAIL (expected): truncated imm32: decoder returned nonzero for a 2-byte buffer (read past the end)
+  TEST: x64_RED_truncated_disp32_refused              XFAIL (expected): truncated disp32: decoder returned nonzero for a 3-byte buffer (read past the end)
+  TEST: x64_RED_push_opsize_prefix_16                 FAIL: operand size: expected 2 (0x66 prefix on PUSH)
+  TEST: x64_RED_pop_rm_decoded                        XFAIL (expected): length: expected 2
+  TEST: x64_GUARD_opsize_prefix_call_is_16            FAIL: 0x66 on a near indirect CALL: 16-bit operand
+  TEST: x64_GUARD_push_size_stays_4_in_32bit_mode     FAIL: 32-bit mode PUSH must stay EBP, size 4
+Results: pass=68 xfail=6 fail=3 xpass=0 (tests=77)
+## scratch 2: FF keyed on opcode (all digits take stack_size)
+expect FAIL: x64_GUARD_far_call_ff3_keeps_default_size, x64_GUARD_inc_ff0_keeps_normal_size
+  TEST: x64_RED_lea_rip_relative                      XFAIL (expected): base is -1: disp32 taken as absolute, RIP not applied
+  TEST: x64_RED_rex_b_push_r12                        XFAIL (expected): opcode-embedded reg: expected 12 (R12)
+  TEST: x64_RED_byte_reg_sil_under_rex                XFAIL (expected): source reg: expected 18 (SIL)
+  TEST: x64_RED_truncated_imm32_refused               XFAIL (expected): truncated imm32: decoder returned nonzero for a 2-byte buffer (read past the end)
+  TEST: x64_RED_truncated_disp32_refused              XFAIL (expected): truncated disp32: decoder returned nonzero for a 3-byte buffer (read past the end)
+  TEST: x64_RED_pop_rm_decoded                        XFAIL (expected): length: expected 2
+  TEST: x64_GUARD_far_call_ff3_keeps_default_size     FAIL: far CALL (/3) must NOT take the 64-bit default
+  TEST: x64_GUARD_inc_ff0_keeps_normal_size           FAIL: INC r/m32 keeps the normal 32-bit operand size
+Results: pass=69 xfail=6 fail=2 xpass=0 (tests=77)

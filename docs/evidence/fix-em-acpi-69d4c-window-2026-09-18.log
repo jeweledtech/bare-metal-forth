@@ -1,0 +1,44 @@
+# ACPI.sys .text+0x69d4c (VA 0x1c006ad4c): the one row that left operand_ok between the pre-(e) decoder (private 3e799e8) and the post-(e)+(m) decoder (private bf97521).
+# Files: ghidra 59c5f17e2cf8  pre 29b279639229  post 2e4293aea029
+# bytes (objdump -d -M intel, Binutils 2.42):
+   1c006ad3d:	4c 63 c0             	movsxd r8,eax
+   1c006ad40:	4c 3b c5             	cmp    r8,rbp
+   1c006ad43:	7c 29                	jl     0x1c006ad6e
+   1c006ad45:	4c 8d 15 ac 8f 00 00 	lea    r10,[rip+0x8fac]        # 0x1c0073cf8
+   1c006ad4c:	48 8b 43 58          	mov    rax,QWORD PTR [rbx+0x58]
+   1c006ad50:	49 8b d1             	mov    rdx,r9
+# --- GHIDRA starts in [.text+69d3a, .text+69d53]
+  +69d3a len= 3 LEA      EAX{R:EAX} [RDI + -0x1]{R:RDI,S:64:-0x1}
+  +69d3d len= 3 MOVSXD   R8{R:R8} EAX{R:EAX}
+  +69d40 len= 3 CMP      R8{R:R8} RBP{R:RBP}
+  +69d43 len= 2 JL       0x1c006ad6e{A:0x1c006ad6e}
+  +69d45 len= 7 LEA      R10{R:R10} [0x1c0073cf8]{S:64:0x1c0073cf8}
+  +69d4c len= 4 MOV      RAX{R:RAX} qword ptr [RBX + 0x58]{R:RBX,S:64:0x58}
+  +69d50 len= 3 MOV      RDX{R:RDX} R9{R:R9}
+  +69d53 len= 3 AND      EDX{R:EDX} 0xf{S:32:0xf}
+# --- PRE (3e799e8) starts in [.text+69d3a, .text+69d53]
+  +69d3a len= 3 LEA      R:EAX M:RDI,-,1,-0x1
+  +69d3d len= 2 ???      
+  +69d3f len= 5 ROR      M:RBX,RDI,1,-0x3b I:0x7c
+  +69d44 len= 4 SUB      M:RBP,RCX,4,0x15 R:ECX
+  +69d48 len= 1 ???      
+  +69d49 len= 1 ???      
+  +69d4a len= 2 ADD      M:RAX,-,1,0x0 R:AL
+  +69d4c len= 4 MOV      R:RAX M:RBX,-,1,0x58
+  +69d50 len= 3 MOV      R:RDX R:R9
+  +69d53 len= 3 AND      R:EDX I:0xf
+# --- POST (bf97521) starts in [.text+69d3a, .text+69d53]
+  +69d3a len= 3 LEA      R:EAX M:RDI,-,1,-0x1
+  +69d3d len= 2 ???      
+  +69d3f len= 5 ROR      M:RBX,RDI,1,-0x3b I:0x7c
+  +69d44 len= 4 SUB      M:RBP,RCX,4,0x15 R:ECX
+  +69d48 len= 1 ???      
+  +69d49 len= 2 POP      M:RAX,-,1,0x0
+  +69d4b len= 3 ADD      M:RAX,-,1,-0x75 R:CL
+  +69d4e len= 2 POP      R:RAX
+  +69d50 len= 3 MOV      R:RDX R:R9
+  +69d53 len= 3 AND      R:EDX I:0xf
+# Reading: the run opens at +69d3d (4c 63 c0 MOVSXD R8,EAX): the decoder returns UNKNOWN length 2 (REX + opcode, nothing consumed after it) = defect (n). The walk is then inside real instructions' bytes.
+# PRE: ... +69d48 ??? len 1 (0xac), +69d49 ??? len 1 (0x8f), +69d4a ADD len 2 (00 00), re-sync by chance at +69d4c = operand_ok by accident.
+# POST: +69d49 POP M:RAX len 2 (8f 00 consumed as POP r/m, fix m), +69d4b ADD len 3 (00 48 8b), +69d4e POP RAX (58), re-sync at +69d50. The 8f is the second displacement byte of LEA R10,[rip+0x8fac].
+# Verdict: the row was operand-correct by accident inside a desync run owned by (n); (m)'s digit guard is not under-tight (8f 00 is a valid POP encoding wherever a walker lands on it). Expected to return to operand_ok when (n) fixes the MOVSXD length.

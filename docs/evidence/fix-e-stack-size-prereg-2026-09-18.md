@@ -271,3 +271,204 @@ the pair. For (m) the `nostart`-identical invariant is NOT expected to
 hold (a length changes on every input that contains `8F`); it is
 expected to hold for (e) alone and is checked on the (e) gate runs
 only through the fixture (no length assertion moves).
+
+## Outcome, fix (e) (2026-09-18, written after the gate; private commit `558240a`)
+
+Applied as amended: `stack_size` computed once after `op_size` (8 in
+64-bit mode; 2 under `0x66` without REX.W; 8 under `0x66`+REX.W; equal
+to `op_size` in every other mode), applied to `50-5F`, `58-5F`, `6A`,
+`68` (encoded immediate widths untouched: `read_i8`/`read_i32` as
+before) and on `FF` to raw digits 2/4/6 only, after the `group_op`
+lookup. No other line changed.
+
+**Gate run 1** (`fix-e-xpass-gate-2026-09-18.log`, six names still
+listed): XPASS on exactly the six (e)-family names; (m) XFAIL on
+`length: expected 2`; all eleven guards PASS;
+`pass=65 xfail=6 fail=0 xpass=6 (tests=77)`, exit 2 (hard failure by
+design). **Gate run 2** (`fix-e-gate2-2026-09-18.log`, six names
+removed): `pass=71 xfail=6 fail=0 xpass=0 (tests=77)`. Both totals
+are 77; 65+6+6 = 71+6.
+
+**(d') discharged by the gate:** `xpass` was 6, not 7.
+`x64_RED_rex_b_push_r12` still fails on the register (`expected 12
+(R12)`), so that red asserts the register and not only the size; (e)
+did not close it silently.
+
+**Guards red-tested** (`fix-e-guard-redtest-2026-09-18.log`), each
+scratch being the real fix with one discipline removed:
+- `stack_size = 8` unconditionally: FAILS
+  `x64_GUARD_push_size_stays_4_in_32bit_mode`,
+  `x64_GUARD_opsize_prefix_call_is_16` and the (now unlisted) red
+  `x64_RED_push_opsize_prefix_16`; `pass=68 fail=3`.
+- `FF` keyed on the opcode (every digit takes `stack_size`): FAILS
+  `x64_GUARD_far_call_ff3_keeps_default_size` and
+  `x64_GUARD_inc_ff0_keeps_normal_size`; `pass=69 fail=2`.
+
+**Condition 1, the instrument's limit, stated for the record.** The
+canonical operand form prints register names, so `RAX` versus `EAX`
+is visible to `compare_operands.py` and the register half of (e)
+(`50-5F`, `58-5F`, `FF /2 /4 /6` with a register or memory operand)
+is measurable on the corpus. An immediate is canonicalized at the
+destination's width, and `PUSH imm` (`68`/`6A`) has no destination
+register: its slot size is not printed by either side. **The `68`/`6A`
+half of (e) exists only in the unit suite
+(`x64_RED_push_imm_default_size_64`).** On that half the corpus
+*cannot* move; "did not move" would be the wrong reading. The
+differential re-run after (m) is therefore evidence for the register
+half and silent on the immediate half.
+
+**`9C`/`9D` (PUSHF/POPF), asked at review:** the decoder does not
+model them. The one-byte opcodes `9C`/`9D` appear nowhere in
+`x86_decode_one` (the only `0x9C`/`0x9D` cases are the two-byte
+`0F 9C-9F` SETcc arms); they fall to the one-byte `default:` and
+decode as UNKNOWN, length 1. That length happens to be right, the
+instruction is not. Their implicit 64-bit operand is therefore
+neither modeled nor wrong today; they join the unknown-opcode set
+that (n) below measures, and become a decode-gap red of their own if
+the corpus shows them (none of the 15 inputs is known to; not
+searched).
+
+**(m) split at review.** The observed first failure of
+`x64_RED_pop_rm_decoded` was length, not recognition. The mechanism:
+the one-byte `default:` arm sets UNKNOWN and consumes nothing after
+the opcode, so every unknown one-byte opcode reports
+`length = prefixes + 1` whatever its ModRM/immediate bytes; the
+two-byte `0F` path has a ModRM fallback (`decode_modrm` unless the
+opcode is on a no-ModRM list), the one-byte path has none. That is a
+general length-recovery defect, a desync engine on every input where
+any unknown one-byte opcode occurs, same family as (b). Fixing (m)
+alone would make the fixture clean and leave the engine running.
+Ruling: (m) stays "POP r/m (`8F /0`) is not decoded"; **(n) is minted
+today** as its own red, "unknown one-byte opcode length recovery
+consumes only the opcode", measured on an opcode unknown for a reason
+other than `8F`, pre-registered in
+`x64-reds-n-prereg-2026-09-18.md` BEFORE the (m) fix is written.
+
+## Outcome, fix (m) (2026-09-18, after (n) was pre-registered; private commit follows `b776e34`)
+
+(n), (o) and (p) were pre-registered and their nine reds committed
+red (`b776e34`, `x64-reds-n-red-2026-09-18.log`: `pass=71 xfail=15`)
+before a line of the (m) fix was written. Fix: `case 0x8F` reads the
+digit from the raw ModRM without consuming it; digit 0 decodes as POP
+r/m with `stack_size`; other digits stay UNKNOWN, length 1 (as before).
+
+**Gate run 1** (`fix-m-xpass-gate-2026-09-18.log`, name listed): XPASS
+on `x64_RED_pop_rm_decoded` only; the nine (n)/(o)/(p) reds and the
+five older reds XFAIL (14); new guard
+`x64_GUARD_pop_rm_digit_nonzero_not_pop` PASS;
+`pass=72 xfail=14 fail=0 xpass=1 (tests=87)`. **That the (n) reds
+stayed red through the (m) fix is the evidence the owner asked for:
+(m) did not eat (n).** **Gate run 2** (`fix-m-gate2-2026-09-18.log`,
+name removed): `pass=73 xfail=14 fail=0 xpass=0 (tests=87)`.
+**Guard red-test** (`fix-m-guard-redtest-2026-09-18.log`): the fix
+with the digit test removed fails the guard on `8F /1 is undefined,
+must not decode as POP`.
+
+**Fixture prediction restated for v10** (the v9 prediction above
+assumed the fixture ended at the imm64 row; v10 has the (n)/(o) rows
+between `8F` and the imm64): rows 1-16 as predicted for (e)+(m)
+(`operand_ok` 13, `reg` 2 = PUSH R12 and MOV AL,SIL, `addr` 1 = LEA
+RIP, `undecoded` 0); row 17 (`63 C0`) is a matched start that is
+`undecoded`; rows 18-23 are behind the first (n) desync and are NOT
+predicted (they are (n)'s to move). Boundary: at least 17/23 starts
+matched.
+
+**Corpus prediction for the single re-run after (e)+(m)**
+(`operand-diff-fix-e-2026-09-18.log`): `8F` occurs at no Ghidra start
+on any of the 14 corpus inputs (`nostart-run-attribution-2026-09-18.log`
+tallies POP-triggered runs: only the fixture), so **every corpus input's
+`nostart` count is identical to the (d)+(k) log**; `reg` falls on the
+64-bit inputs by their PUSH/POP r and near CALL/JMP r/m rows, fed to
+`operand_ok`; the three 32-bit controls are identical in every class;
+the alias hash is unchanged. The ACPI transition matrix against the
+pre-(e) decoder (private `3e799e8`) must close with `reg → ok` and no
+row leaving `operand_ok`.
+
+## Outcome, the single differential after (e)+(m) (`operand-diff-fix-e-2026-09-18.log`, run 2026-09-19 06:5x local, decoder = private `bf97521`)
+
+**Run provenance.** A first launch died at input 12 of 16 (its
+background subshell went down with the tool call that started it;
+the partial log is not banked and its name was reused). The rerun is
+one whole run: 16 `INPUT` lines and 16 `OPSUMMARY` lines (fixture +
+8 HP drivers + 4 modules + 2 ReactOS + nmap); its first eleven
+`OPSUMMARY` lines are byte-identical to the killed attempt's. That
+the subshell can die with its launching call is now a known failure
+mode of this harness: completeness is checked against the log, never
+inferred from the relaunch.
+
+**Fixture v10** (`ghidra=23`): `operand_ok=11 reg=2 addr=1
+undecoded=1 nostart=8`, boundary `match=15 mid=14`. My restated
+prediction above said "rows 1-16, operand_ok 13"; that bookkeeping
+was wrong, not the mechanism: v9's imm64 and RET rows are now rows 22
+and 23, behind the (n) rows. Rows 1-14 (through `8F 00`): 11 ok
+(6 + the four (e) rows + POP) , `reg` 2 (PUSH R12 = (d'), MOV AL,SIL
+= (f)), `addr` 1 (LEA RIP = (a)); row 15 `63 C0` matched start,
+`undecoded`; rows 16-23 all `nostart` behind the first (n) desync.
+Exactly the predicted classes once the rows are counted right.
+
+**Corpus, before ((d)+(k) log) → after:**
+
+| input | operand_ok | score | reg | nostart | every other class |
+|---|---|---|---|---|---|
+| ACPI.sys | 118915 → 122231 | 79.9 → 82.1 | 9589 → 6272 | 190 → **191** | identical |
+| disk.sys | 9853 → 10081 | 79.9 → 81.7 | 747 → 519 | 11 | identical |
+| HDAudBus.sys | 18103 → 18694 | 74.8 → 77.2 | 1888 → 1297 | 50 | identical |
+| i8042prt.sys | 14077 → 14373 | 73.7 → 75.3 | 1508 → 1212 | 8 | identical |
+| pci.sys | 70832 → 73087 | 81.6 → 84.2 | 5585 → 3330 | 49 | identical |
+| serial.sys | 11336 → 11609 | 81.8 → 83.8 | 772 → 499 | 32 | identical |
+| storport.sys | 82687 → 85041 | 84.2 → 86.6 | 5500 → 3146 | 192 | identical |
+| usbxhci.sys | 70399 → 72503 | 78.9 → 81.3 | 6232 → 4128 | 177 | identical |
+| ne2k-pci.ko | 841 → 889 | 70.5 → 74.5 | 99 → 51 | 13 | identical |
+| 8139too.ko | 2588 → 2758 | 64.3 → 68.5 | 432 → 262 | 11 | identical |
+| iTCO_wdt.ko | 652 → 690 | 71.9 → 76.1 | 59 → 21 | 8 | identical |
+| via-rng.ko | 118 → 126 | 67.0 → 71.6 | 19 → 11 | 0 | identical |
+| serial.sys (ReactOS) | 4215 | 99.9 | 0 | 0 | identical |
+| beep.sys (ReactOS) | 447 | 100.0 | 0 | 0 | identical |
+| nmap_service.exe | 7885 | 95.0 | 0 | 145 | identical |
+
+Alias hash `02101788edd2` on every line. Controls identical in every
+class. `nostart` identical on every input except ACPI (+1) and the
+fixture (v8 → v10, not comparable). 64-bit inputs now 68.5% to 86.6%
+operand-correct (after (d)+(k): 64.3% to 84.2%; baseline 46.7% to
+66.4%).
+
+**ACPI matrix** (`fix-e-matrix-acpi-2026-09-18.log`, pre = `3e799e8`
+dump, post = `bf97521` dump, same Ghidra file): `reg → ok` 3317; every
+other class diagonal; **`ok → nostart` 1** (`.text+0x69d4c`). No other
+row left `operand_ok`; no class increased from anything but `reg`.
+
+**The one row, read from bytes** (`fix-em-acpi-69d4c-window-2026-09-18.log`).
+The invariant "no instruction leaves `operand_ok`" is violated by one
+row and the read settles why. At +69d3d the real instruction is `4c
+63 c0` MOVSXD R8,EAX; the decoder returns UNKNOWN length 2 (defect
+(n)), so the walk is inside the bytes of the following real
+instructions. Pre-(m) it stepped `ac` (len 1), `8f` (len 1), `00 00`
+(ADD, len 2) and re-synced by chance at +69d4c, where MOV RAX,[RBX+0x58]
+was operand-correct **by accident**. Post-(m), `8f 00`, the second and
+third displacement bytes of `4c 8d 15 ac 8f 00 00` LEA R10,[rip+0x8fac],
+decode as POP [RAX] (length 2), the walk re-syncs at +69d50 instead,
+and +69d4c is `nostart`. (m)'s digit guard is not under-tight: `8f 00`
+is a valid POP encoding wherever a walker lands on it; no correct
+decoder could do otherwise. **This is the invariant's first recorded
+exception, with its mechanism: a row inside a desync run can be
+operand-correct only by accident, and any length change in the garbage
+walk, correct or not, can move the re-sync point either way.** The row
+belongs to (n) (MOVSXD trigger, the largest class in
+`nostart-run-attribution-2026-09-18.log`) and is predicted to return
+to `operand_ok` when (n) fixes the `63` length. The invariant is
+restated: it holds for rows outside desync runs; inside a run it
+cannot be asserted at all.
+
+**Scope of the attribution script's counting bug, for the record.**
+The bug (counting Ghidra starts in sections our dump does not emit)
+lives only in `nostart-run-attribution-2026-09-18.log`, written today.
+Every earlier `nostart` figure in this arc came from
+`compare_operands.py`'s `OPSUMMARY`/`OPD` lines, which iterate only
+sections present on both sides (`for sec in ob: if sec not in gb:
+continue`), so the (b), (c) and (d)+(k) "nostart identical" claims and
+their tables are untouched. The per-instruction matrices ((b) and
+today's) skip sections absent on our side; a section absent on both
+before and after could only contribute `nostart → nostart`, never a
+claimed transition. Today's matrix script is the one in
+`fix-e-matrix-acpi-2026-09-18.log`'s header and does the skip
+explicitly. No previously recorded figure changes.

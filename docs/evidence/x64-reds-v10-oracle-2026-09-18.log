@@ -1,0 +1,30 @@
+# fixture v10 oracle 2026-09-18: sha256 cfe593571ed3014cb152165ab3f5ff62bddeb73e0a31ecaf9efa7962512ba3a9; rows (n1-n6),(o) appended after (m); a first draft carried a RETF row (n7) which ended the flow (rows after it NONE) and was removed; ADDRS=401000 401003 40100a 40100d 40100f 401010 401017 40101a 40101e 401022 401025 401027 401029 40102b 40102d 40102f 401035 401038 40103a 40103e 401040 401049 401053
+JAVA_HOME=/snap/ghidra/47/usr/lib/jvm/java-21-openjdk-amd64 /snap/ghidra/47/ghidra/support/analyzeHeadless /tmp/ghidra_instrat InstrAt \
+	-import tests/data/x64_reds/x64_reds.elf \
+	-postScript InstrAt.java 401000 401003 40100a 40100d 40100f 401010 401017 40101a 40101e 401022 401025 401027 401029 40102b 40102d 40102f 401035 401038 40103a 40103e 401040 401049 401053 \
+	-scriptPath ../../tools/ghidra \
+	-overwrite -deleteProject 2>&1 | grep -E 'INSTRAT|ERROR' | sed -E 's/^INFO +//; s/ \(GhidraScript\).*//'
+InstrAt.java> INSTRAT image_base=00400000
+InstrAt.java> INSTRAT 401000 START MOV | MOV RAX,qword ptr [R8] | len=3 | fn=entry
+InstrAt.java> INSTRAT 401003 START LEA | LEA RAX,[0x40101a] | len=7 | fn=entry
+InstrAt.java> INSTRAT 40100a START MOV | MOV R8,RAX | len=3 | fn=entry
+InstrAt.java> INSTRAT 40100d START PUSH | PUSH R12 | len=2 | fn=entry
+InstrAt.java> INSTRAT 40100f START PUSH | PUSH RBP | len=1 | fn=entry
+InstrAt.java> INSTRAT 401010 START MOV | MOV RAX,-0x1 | len=7 | fn=entry
+InstrAt.java> INSTRAT 401017 START MOV | MOV AL,SIL | len=3 | fn=entry
+InstrAt.java> INSTRAT 40101a START MOV | MOV RAX,qword ptr [RAX + R8*0x1] | len=4 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 40101e START MOV | MOV RAX,qword ptr [RAX + R12*0x1] | len=4 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 401022 START MOV | MOV RAX,R8 | len=3 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 401025 START CALL | CALL RAX | len=2 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 401027 START PUSH | PUSH BP | len=2 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 401029 START PUSH | PUSH RBP | len=2 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 40102b START POP | POP qword ptr [RAX] | len=2 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 40102d START MOVSXD | MOVSXD EAX,EAX | len=2 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 40102f START IMUL | IMUL EAX,EAX,0x10 | len=6 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 401035 START IMUL | IMUL EAX,EAX,0x10 | len=3 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 401038 START FLD | FLD float ptr [RAX] | len=2 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 40103a START ENTER | ENTER 0x10,0x0 | len=4 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 40103e START JRCXZ | JRCXZ 0x00401040 | len=2 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 401040 START MOV | MOV EAX,[0x1122334455667788] | len=9 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 401049 START MOV | MOV RAX,0x1122334455667788 | len=10 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 401053 START RET | RET | len=1 | fn=FUN_0040101a

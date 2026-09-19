@@ -1,0 +1,277 @@
+# one-byte opcode survey, 2026-09-18: each first byte 00-FF followed by nine 0x00 bytes, decoded in 64-bit mode by src/decoders/x86_decoder.c at private HEAD 558240a (post fix e), versus the first-instruction length from objdump -D -b binary -m i386:x86-64 (Binutils 2.42). objdump is the screening tool; expected values for any red come from the pinned Ghidra oracle.
+# columns: opcode  ours_len  ours_ins  objdump_len  objdump_text
+# survey program:
+#   #include <stdio.h>
+#   #include <string.h>
+#   #include "x86_decoder.h"
+#   int main(void){
+#     for(int b=0;b<256;b++){
+#       uint8_t code[10]={0}; code[0]=(uint8_t)b;
+#       x86_decoder_t dec; x86_decoded_t d; memset(&d,0,sizeof d);
+#       x86_decoder_init(&dec,X86_MODE_64,code,sizeof code,0x1000);
+#       int n=x86_decode_one(&dec,&d);
+#       printf("%02X ours_len=%d ours_ins=%s\n",b,n,x86_ins_name(d.instruction));
+#     }
+#     return 0;
+#   }
+
+00	2	add	-1	<no objdump line>
+01	2	add	2	add    %eax,(%rax)
+02	2	add	2	add    (%rax),%al
+03	2	add	2	add    (%rax),%eax
+04	2	add	2	add    $0x0,%al
+05	5	add	5	add    $0x0,%eax
+06	1	???	1	(bad)
+07	1	???	1	(bad)
+08	2	or	2	or     %al,(%rax)
+09	2	or	2	or     %eax,(%rax)
+0A	2	or	2	or     (%rax),%al
+0B	2	or	2	or     (%rax),%eax
+0C	2	or	2	or     $0x0,%al
+0D	5	or	5	or     $0x0,%eax
+0E	1	???	1	(bad)
+0F	3	nop	3	sldt   (%rax)
+10	2	adc	2	adc    %al,(%rax)
+11	2	adc	2	adc    %eax,(%rax)
+12	2	adc	2	adc    (%rax),%al
+13	2	adc	2	adc    (%rax),%eax
+14	2	adc	2	adc    $0x0,%al
+15	5	adc	5	adc    $0x0,%eax
+16	1	???	1	(bad)
+17	1	???	1	(bad)
+18	2	sbb	2	sbb    %al,(%rax)
+19	2	sbb	2	sbb    %eax,(%rax)
+1A	2	sbb	2	sbb    (%rax),%al
+1B	2	sbb	2	sbb    (%rax),%eax
+1C	2	sbb	2	sbb    $0x0,%al
+1D	5	sbb	5	sbb    $0x0,%eax
+1E	1	???	1	(bad)
+1F	1	???	1	(bad)
+20	2	and	2	and    %al,(%rax)
+21	2	and	2	and    %eax,(%rax)
+22	2	and	2	and    (%rax),%al
+23	2	and	2	and    (%rax),%eax
+24	2	and	2	and    $0x0,%al
+25	5	and	5	and    $0x0,%eax
+26	3	add	3	es add %al,(%rax)
+27	1	???	1	(bad)
+28	2	sub	2	sub    %al,(%rax)
+29	2	sub	2	sub    %eax,(%rax)
+2A	2	sub	2	sub    (%rax),%al
+2B	2	sub	2	sub    (%rax),%eax
+2C	2	sub	2	sub    $0x0,%al
+2D	5	sub	5	sub    $0x0,%eax
+2E	3	add	3	cs add %al,(%rax)
+2F	1	???	1	(bad)
+30	2	xor	2	xor    %al,(%rax)
+31	2	xor	2	xor    %eax,(%rax)
+32	2	xor	2	xor    (%rax),%al
+33	2	xor	2	xor    (%rax),%eax
+34	2	xor	2	xor    $0x0,%al
+35	5	xor	5	xor    $0x0,%eax
+36	3	add	3	ss add %al,(%rax)
+37	1	???	1	(bad)
+38	2	cmp	2	cmp    %al,(%rax)
+39	2	cmp	2	cmp    %eax,(%rax)
+3A	2	cmp	2	cmp    (%rax),%al
+3B	2	cmp	2	cmp    (%rax),%eax
+3C	2	cmp	2	cmp    $0x0,%al
+3D	5	cmp	5	cmp    $0x0,%eax
+3E	3	add	3	ds add %al,(%rax)
+3F	1	???	1	(bad)
+40	3	add	3	rex add %al,(%rax)
+41	3	add	3	add    %al,(%r8)
+42	3	add	3	rex.X add %al,(%rax)
+43	3	add	3	rex.XB add %al,(%r8)
+44	3	add	3	add    %r8b,(%rax)
+45	3	add	3	add    %r8b,(%r8)
+46	3	add	3	rex.RX add %r8b,(%rax)
+47	3	add	3	rex.RXB add %r8b,(%r8)
+48	3	add	3	rex.W add %al,(%rax)
+49	3	add	3	rex.WB add %al,(%r8)
+4A	3	add	3	rex.WX add %al,(%rax)
+4B	3	add	3	rex.WXB add %al,(%r8)
+4C	3	add	3	rex.WR add %r8b,(%rax)
+4D	3	add	3	rex.WRB add %r8b,(%r8)
+4E	3	add	3	rex.WRX add %r8b,(%rax)
+4F	3	add	3	rex.WRXB add %r8b,(%r8)
+50	1	push	1	push   %rax
+51	1	push	1	push   %rcx
+52	1	push	1	push   %rdx
+53	1	push	1	push   %rbx
+54	1	push	1	push   %rsp
+55	1	push	1	push   %rbp
+56	1	push	1	push   %rsi
+57	1	push	1	push   %rdi
+58	1	pop	1	pop    %rax
+59	1	pop	1	pop    %rcx
+5A	1	pop	1	pop    %rdx
+5B	1	pop	1	pop    %rbx
+5C	1	pop	1	pop    %rsp
+5D	1	pop	1	pop    %rbp
+5E	1	pop	1	pop    %rsi
+5F	1	pop	1	pop    %rdi
+60	1	pushad	1	(bad)
+61	1	popad	1	(bad)
+62	1	???	1	(bad)
+63	1	???	2	movsxd (%rax),%eax
+64	3	add	3	add    %al,%fs:(%rax)
+65	3	add	3	add    %al,%gs:(%rax)
+66	3	add	3	data16 add %al,(%rax)
+67	3	add	3	add    %al,(%eax)
+68	5	push	5	push   $0x0
+69	1	???	6	imul   $0x0,(%rax),%eax
+6A	2	push	2	push   $0x0
+6B	1	???	3	imul   $0x0,(%rax),%eax
+6C	1	ins	1	insb   (%dx),%es:(%rdi)
+6D	1	ins	1	insl   (%dx),%es:(%rdi)
+6E	1	outs	1	outsb  %ds:(%rsi),(%dx)
+6F	1	outs	1	outsl  %ds:(%rsi),(%dx)
+70	2	jcc	2	jo     0x2
+71	2	jcc	2	jno    0x2
+72	2	jcc	2	jb     0x2
+73	2	jcc	2	jae    0x2
+74	2	jcc	2	je     0x2
+75	2	jcc	2	jne    0x2
+76	2	jcc	2	jbe    0x2
+77	2	jcc	2	ja     0x2
+78	2	jcc	2	js     0x2
+79	2	jcc	2	jns    0x2
+7A	2	jcc	2	jp     0x2
+7B	2	jcc	2	jnp    0x2
+7C	2	jcc	2	jl     0x2
+7D	2	jcc	2	jge    0x2
+7E	2	jcc	2	jle    0x2
+7F	2	jcc	2	jg     0x2
+80	3	add	3	addb   $0x0,(%rax)
+81	6	add	6	addl   $0x0,(%rax)
+82	1	???	1	(bad)
+83	3	add	3	addl   $0x0,(%rax)
+84	2	test	2	test   %al,(%rax)
+85	2	test	2	test   %eax,(%rax)
+86	2	xchg	2	xchg   %al,(%rax)
+87	2	xchg	2	xchg   %eax,(%rax)
+88	2	mov	2	mov    %al,(%rax)
+89	2	mov	2	mov    %eax,(%rax)
+8A	2	mov	2	mov    (%rax),%al
+8B	2	mov	2	mov    (%rax),%eax
+8C	1	???	2	mov    %es,(%rax)
+8D	2	lea	2	lea    (%rax),%eax
+8E	1	???	2	mov    (%rax),%es
+8F	1	???	2	pop    (%rax)
+90	1	nop	1	nop
+91	1	???	1	xchg   %eax,%ecx
+92	1	???	1	xchg   %eax,%edx
+93	1	???	1	xchg   %eax,%ebx
+94	1	???	1	xchg   %eax,%esp
+95	1	???	1	xchg   %eax,%ebp
+96	1	???	1	xchg   %eax,%esi
+97	1	???	1	xchg   %eax,%edi
+98	1	cbw	1	cwtl
+99	1	cdq	1	cltd
+9A	1	???	1	(bad)
+9B	1	???	1	fwait
+9C	1	???	1	pushf
+9D	1	???	1	popf
+9E	1	???	1	sahf
+9F	1	???	1	lahf
+A0	5	mov	9	movabs 0x0,%al
+A1	5	mov	9	movabs 0x0,%eax
+A2	5	mov	9	movabs %al,0x0
+A3	5	mov	9	movabs %eax,0x0
+A4	1	nop	1	movsb  %ds:(%rsi),%es:(%rdi)
+A5	1	nop	1	movsl  %ds:(%rsi),%es:(%rdi)
+A6	1	???	1	cmpsb  %es:(%rdi),%ds:(%rsi)
+A7	1	???	1	cmpsl  %es:(%rdi),%ds:(%rsi)
+A8	2	test	2	test   $0x0,%al
+A9	5	test	5	test   $0x0,%eax
+AA	1	nop	1	stos   %al,%es:(%rdi)
+AB	1	nop	1	stos   %eax,%es:(%rdi)
+AC	1	???	1	lods   %ds:(%rsi),%al
+AD	1	???	1	lods   %ds:(%rsi),%eax
+AE	1	???	1	scas   %es:(%rdi),%al
+AF	1	???	1	scas   %es:(%rdi),%eax
+B0	2	mov	2	mov    $0x0,%al
+B1	2	mov	2	mov    $0x0,%cl
+B2	2	mov	2	mov    $0x0,%dl
+B3	2	mov	2	mov    $0x0,%bl
+B4	2	mov	2	mov    $0x0,%ah
+B5	2	mov	2	mov    $0x0,%ch
+B6	2	mov	2	mov    $0x0,%dh
+B7	2	mov	2	mov    $0x0,%bh
+B8	5	mov	5	mov    $0x0,%eax
+B9	5	mov	5	mov    $0x0,%ecx
+BA	5	mov	5	mov    $0x0,%edx
+BB	5	mov	5	mov    $0x0,%ebx
+BC	5	mov	5	mov    $0x0,%esp
+BD	5	mov	5	mov    $0x0,%ebp
+BE	5	mov	5	mov    $0x0,%esi
+BF	5	mov	5	mov    $0x0,%edi
+C0	3	rol	3	rolb   $0x0,(%rax)
+C1	3	rol	3	roll   $0x0,(%rax)
+C2	3	ret	3	ret    $0x0
+C3	1	ret	1	ret
+C4	1	???	1	(bad)
+C5	1	???	3	(bad)
+C6	3	mov	3	movb   $0x0,(%rax)
+C7	6	mov	6	movl   $0x0,(%rax)
+C8	1	???	4	enter  $0x0,$0x0
+C9	1	leave	1	leave
+CA	1	???	3	lret   $0x0
+CB	1	???	1	lret
+CC	1	???	1	int3
+CD	2	int	2	int    $0x0
+CE	1	???	1	(bad)
+CF	1	???	1	iret
+D0	2	rol	2	rolb   $1,(%rax)
+D1	2	rol	2	roll   $1,(%rax)
+D2	2	rol	2	rolb   %cl,(%rax)
+D3	2	rol	2	roll   %cl,(%rax)
+D4	1	???	1	(bad)
+D5	1	???	4	{rex2 0x0} add %al,(%rax)
+D6	1	???	1	(bad)
+D7	1	???	1	xlat   %ds:(%rbx)
+D8	1	???	2	fadds  (%rax)
+D9	1	???	2	flds   (%rax)
+DA	1	???	2	fiaddl (%rax)
+DB	1	???	2	fildl  (%rax)
+DC	1	???	2	faddl  (%rax)
+DD	1	???	2	fldl   (%rax)
+DE	1	???	2	fiadds (%rax)
+DF	1	???	2	filds  (%rax)
+E0	2	loop	2	loopne 0x2
+E1	2	loop	2	loope  0x2
+E2	2	loop	2	loop   0x2
+E3	1	???	2	jrcxz  0x2
+E4	2	in	2	in     $0x0,%al
+E5	2	in	2	in     $0x0,%eax
+E6	2	out	2	out    %al,$0x0
+E7	2	out	2	out    %eax,$0x0
+E8	5	call	5	call   0x5
+E9	5	jmp	5	jmp    0x5
+EA	1	???	1	(bad)
+EB	2	jmp	2	jmp    0x2
+EC	1	in	1	in     (%dx),%al
+ED	1	in	1	in     (%dx),%eax
+EE	1	out	1	out    %al,(%dx)
+EF	1	out	1	out    %eax,(%dx)
+F0	3	add	3	lock add %al,(%rax)
+F1	1	???	1	int1
+F2	3	add	3	repnz add %al,(%rax)
+F3	3	add	3	repz add %al,(%rax)
+F4	1	hlt	1	hlt
+F5	1	???	1	cmc
+F6	3	test	3	testb  $0x0,(%rax)
+F7	6	test	6	testl  $0x0,(%rax)
+F8	1	???	1	clc
+F9	1	???	1	stc
+FA	1	cli	1	cli
+FB	1	sti	1	sti
+FC	1	cld	1	cld
+FD	1	std	1	std
+FE	2	inc	2	incb   (%rax)
+FF	2	inc	2	incl   (%rax)
+# summary: unknown (???) one-byte opcodes: 64; of those wrong length: 19
+# 63 69 6B 8C 8E 8F C8 CA D8 D9 DA DB DC DD DE DF E3 (17, real); C5 (VEX; objdump-version artefact for the zero-padded bytes) and D5 (APX rex2, Binutils >=2.41 only) excluded from the red set
+# not-unknown but wrong: A0 A1 A2 A3 moffs read as 4 bytes; 64-bit mode encodes 8 (separate defect, red owed today)
+# 9C 9D PUSHF/POPF: unknown, length 1, which is correct; a recognition gap not a length gap

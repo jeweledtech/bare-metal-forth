@@ -1,0 +1,4 @@
+# (m) guard red-test: scratch = the real fix with the digit test removed (every 8F digit becomes POP); expect FAIL: x64_GUARD_pop_rm_digit_nonzero_not_pop
+  TEST: x64_GUARD_pop_rm_digit_nonzero_not_pop        FAIL: 8F /1 is undefined, must not decode as POP
+Results: pass=71 xfail=14 fail=1 xpass=1 (tests=87)
+HARD FAILURE: 1 expected failure(s) passed (XPASS). The 64-bit finding is wrong somewhere; correct the register before removing the name from xfail_names.

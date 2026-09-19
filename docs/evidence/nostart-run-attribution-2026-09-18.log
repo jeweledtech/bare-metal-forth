@@ -1,0 +1,32 @@
+# nostart-run attribution, 2026-09-18 (rule 22 for defect (n)): over the per-instruction files of the last differential run
+# (build/differential/*.ghidra.txt / *.ours.txt from operand-diff-fix-dk-2026-09-18.log; ours = decoder after fix (d)+(k), before (e)).
+# A 'run' is a maximal sequence of Ghidra instruction starts that our walk does not start; its trigger is the Ghidra
+# instruction immediately before the run (the one whose length we got wrong). Mnemonic only: bytes are not in these files.
+# Inference, not read from bytes: IMUL runs are 69/6B (0F AF is decoded); MOVSXD is 63; F* are D8-DF; MOV is unattributed (8C/8E, A0-A3 or other).
+controls_nmap_service.exe.ghidra.txt   ghidra=7572e559ba51 ours=67c0071fdd57 nostart=  145 runs=  67 triggers: FLD=21, FLDCW=12, FSUBP=5, FXAM=4, FUCOMIP=4, FSTP=3, FADD=3, FNSTCW=3
+data_beep.sys.ghidra.txt               ghidra=243ba253f50a ours=43ad13528587 nostart=    0 runs=   0 triggers: 
+data_serial.sys.ghidra.txt             ghidra=5a99d28235f1 ours=65da740ce2d2 nostart=    0 runs=   0 triggers: 
+hp_i3_ACPI.sys.ghidra.txt              ghidra=59c5f17e2cf8 ours=29b279639229 nostart=  190 runs=  96 triggers: MOVSXD=52, MOV=22, IMUL=21, TEST=1
+hp_i3_HDAudBus.sys.ghidra.txt          ghidra=dc167b256942 ours=5c58681429c4 nostart=   50 runs=  22 triggers: MOVSXD=16, IMUL=5, TEST=1
+hp_i3_disk.sys.ghidra.txt              ghidra=2c076053a3de ours=321a28fb285f nostart=   11 runs=   5 triggers: MOVSXD=4, TEST=1
+hp_i3_i8042prt.sys.ghidra.txt          ghidra=ec6bde5cdd2f ours=618f76dcce4a nostart=    8 runs=   6 triggers: IMUL=3, TEST=1, MOVSXD=1, MOV=1
+hp_i3_pci.sys.ghidra.txt               ghidra=d348b4159300 ours=5e02221162bd nostart=   49 runs=  37 triggers: IMUL=16, MOVSXD=11, MOV=9, TEST=1
+hp_i3_serial.sys.ghidra.txt            ghidra=34394ce60958 ours=937226b761ce nostart=   32 runs=   6 triggers: MOV=2, MOVSXD=2, TEST=1, INT=1
+hp_i3_storport.sys.ghidra.txt          ghidra=a95f37d3c204 ours=1ecf0055661f nostart=  192 runs=  80 triggers: IMUL=28, MOV=28, MOVSXD=21, TEST=1, PEXTRW=1, INT=1
+hp_i3_usbxhci.sys.ghidra.txt           ghidra=de409ca04007 ours=7d307686b659 nostart=  177 runs=  95 triggers: IMUL=91, MOVSXD=2, TEST=1, MOV=1
+modules_8139too.ko.ghidra.txt          ghidra=ecc25c29aaf2 ours=b6688c23528a nostart=   62 runs=   8 triggers: MOVSXD=6, <section start>=1, TEST=1
+modules_iTCO_wdt.ko.ghidra.txt         ghidra=baadbdcf3d12 ours=6e6d9dde70bb nostart=   57 runs=   2 triggers: <section start>=1, IMUL=1
+modules_ne2k-pci.ko.ghidra.txt         ghidra=a49ec8cf733c ours=aea028dbfcdb nostart=   64 runs=   7 triggers: MOVSXD=6, <section start>=1
+modules_via-rng.ko.ghidra.txt          ghidra=dd777e5e3fc8 ours=6124ea13255f nostart=   70 runs=   1 triggers: <section start>=1
+x64_reds_x64_reds.elf.ghidra.txt       ghidra=97367289a7b3 ours=37e981a6bc11 nostart=    2 runs=   1 triggers: POP=1
+GRAND nostart= 1109 runs= 433 triggers: [('IMUL', 166), ('MOVSXD', 121), ('MOV', 63), ('FLD', 21), ('FLDCW', 12), ('TEST', 9), ('FSUBP', 5), ('FXAM', 4), ('FUCOMIP', 4), ('<section start>', 4), ('FSTP', 3), ('FADD', 3), ('FNSTCW', 3), ('FADDP', 2), ('FSUBRP', 2), ('FUCOMI', 2), ('INT', 2), ('FSTSW', 1), ('FLD1', 1), ('FCHS', 1)]
+# (n)-attributable runs (IMUL+MOVSXD+x87): 353 of 433
+
+# CORRECTION (read back the same day against operand-diff-fix-dk-2026-09-18.log OPSUMMARY lines): per-input nostart totals match the
+# harness for every PE input; for the four .ko modules they do not (8139too 62 vs 11, ne2k-pci 64 vs 13, iTCO_wdt 57 vs 8, via-rng 70 vs 0)
+# because this script counts every Ghidra start in a section our dump does not emit (the four '<section start>' triggers), while the
+# harness compares only sections present on both sides. Row total 1109 is inflated to that extent (harness: 888); run counts and the
+# trigger tally stand, minus the four section-start runs. (n)-attributable: 353 of 433 runs, or 349 of 429 excluding those four.
+# SCOPE of the correction above (read back 2026-09-19 against the fix-b/fix-c/fix-dk pre-registrations): every earlier nostart figure in this
+# arc is an OPSUMMARY/OPD number from scripts/compare_operands.py, which iterates only sections present on both sides; the (b) per-instruction
+# matrix skipped sections absent on our side. This script is the only place the whole-section count was ever made. No earlier figure changes.
