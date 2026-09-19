@@ -45,7 +45,7 @@ moffs) with a 4-byte address; in 64-bit mode the moffs is 8 bytes
 `nostart-run-attribution-2026-09-18.log` (per-instruction files of the
 last differential run, decoder post (d)+(k)): a *run* is a maximal
 sequence of Ghidra starts our walk misses; its trigger is the Ghidra
-instruction immediately before it. Over all 15 inputs: **1109 nostart
+instruction immediately before it. Over all 16 files (15 corpus inputs + the fixture = 16): **1109 nostart
 rows in 433 runs; triggers IMUL 166, MOVSXD 121, x87 (`F*`) 66, MOV
 63, TEST 9, section-start 4, INT 2, PEXTRW 1.** (n)-attributable
 (IMUL + MOVSXD + x87): **353 of 433 runs.** Attribution is by
@@ -126,6 +126,30 @@ operands, destination size 4, source size 4 per Ghidra `EAX,EAX`) and
 operands, immediate `0x10`). x87, ENTER and JRCXZ recognition is out
 of scope and recorded here as such (no UIR meaning for x87; ENTER and
 JRCXZ are rare on the corpus: 0 ENTER starts, 0 JRCXZ starts).
+
+## Invariant for the (n) differential (governing form, owner ruling 2026-09-19)
+
+*No instruction leaves `operand_ok`, and every class increase is fed
+only from `nostart` or from the class the fix addresses, for rows
+outside a desync run. Inside a run no class claim can be asserted at
+all.* The exemption is available only when the run is **named**: its
+start offset, its triggering instruction, and the defect that owns it
+(as for ACPI `.text+0x69d3d`, MOVSXD, (n) in
+`fix-em-acpi-69d4c-window-2026-09-18.log`). An unnamed run is not an
+exemption; it is an unexplained regression wearing one. Any row that
+leaves `operand_ok` in the (n) differential is therefore read from
+bytes and either named or treated as a regression that stops the fix.
+
+**Standing prediction, to be retired in the same act as (n) landing:**
+ACPI `.text+0x69d4c` (`MOV RAX,qword ptr [RBX+0x58]`), `nostart`
+since (m), returns to `operand_ok` when (n) fixes the `63` length
+(the run's trigger at `+69d3d` is `4c 63 c0`). Its return is read from
+the (n) differential's ACPI matrix (`nostart → ok` at that offset),
+not inferred from the totals.
+
+Input count, pinned: **15 corpus inputs + the fixture = 16** lines in
+every `differential-all` log (8 HP drivers + 4 modules + 2 ReactOS +
+nmap = 15; plus `x64_reds.elf`).
 
 ## Named alternatives for the fix (nothing chosen here)
 

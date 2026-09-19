@@ -78,7 +78,7 @@ RBP` and `@401025 CALL RAX`. `@40100d PUSH R12` stays reg (ours becomes
 `R:RSP`, size right, register wrong: (d')); `@401017 MOV AL,SIL` stays
 reg ((f)); addr 1, nostart 0 unchanged; boundary 13/13 unchanged.
 
-## 14 inputs
+## 14 inputs (as written 2026-09-18 morning: 8 HP + 4 modules + 2 ReactOS = 14; nmap made it 15 corpus inputs + the fixture = 16 by the time of the outcome below)
 
 - Controls IDENTICAL (32-bit mode untouched; guard pins it).
 - No figure predicted. Invariant rev 2: class addressed `reg`;
@@ -375,7 +375,7 @@ matched.
 
 **Corpus prediction for the single re-run after (e)+(m)**
 (`operand-diff-fix-e-2026-09-18.log`): `8F` occurs at no Ghidra start
-on any of the 14 corpus inputs (`nostart-run-attribution-2026-09-18.log`
+on any of the 15 corpus inputs (8 HP + 4 modules + 2 ReactOS + nmap = 15; `nostart-run-attribution-2026-09-18.log`
 tallies POP-triggered runs: only the fixture), so **every corpus input's
 `nostart` count is identical to the (d)+(k) log**; `reg` falls on the
 64-bit inputs by their PUSH/POP r and near CALL/JMP r/m rows, fed to
@@ -389,8 +389,9 @@ row leaving `operand_ok`.
 **Run provenance.** A first launch died at input 12 of 16 (its
 background subshell went down with the tool call that started it;
 the partial log is not banked and its name was reused). The rerun is
-one whole run: 16 `INPUT` lines and 16 `OPSUMMARY` lines (fixture +
-8 HP drivers + 4 modules + 2 ReactOS + nmap); its first eleven
+one whole run: 16 `INPUT` lines and 16 `OPSUMMARY` lines (15 corpus
+inputs + the fixture = 16; the 15 are 8 HP drivers + 4 modules + 2
+ReactOS + nmap); its first eleven
 `OPSUMMARY` lines are byte-identical to the killed attempt's. That
 the subshell can die with its launching call is now a known failure
 mode of this harness: completeness is checked against the log, never
