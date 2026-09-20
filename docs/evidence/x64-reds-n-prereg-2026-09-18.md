@@ -824,3 +824,68 @@ exact set shrinks by hand to {68 A0 A1 A2 A3 A9 F7} / {68 A9 F7};
 (r1)-(r3) reds minted from the table rows `66 68`, `66 A9`, `66 F7 00`
 (4, 4, 5, double-attested) before commit 4 so they are on the list when
 it lands. Commit 5: the differential.
+
+---
+
+# Commit 3 as built, 2026-09-19: INVALID, its reds, the guards, the scratch
+
+**Header.** `X86_INS_INVALID` added to the enum before `X86_INS_COUNT`
+and `ins_names[X86_INS_INVALID] = "invalid"` (dump_starts prints it
+upper-cased as INVALID; the disasm target prints "invalid"). No decode
+path produces the value: the suite is unchanged in outcome by these
+two lines (pass 77, xfail 27 after the mints below). The lifter's
+`default:` still maps it to NOP, as UNKNOWN is today.
+
+**Comparer.** `compare_operands.py`: class `invalid_at_start` (our
+INVALID at a Ghidra START), inserted before the `???` test so it can
+never fall into `mnemonic`; excluded from `mnem_ok`. **Prediction 0 on
+all 16 inputs** when the differential runs after the fix.
+
+**Reds minted (XFAIL), predicted first failure in brackets, all
+observed as predicted:**
+- `x64_RED_n_invalid_06_refused`: `06` → INVALID, length 1
+  ["instruction: expected INVALID (UNKNOWN today)"].
+- `x64_RED_n_invalid_82_mode_split`: `82 C0 10` 64-bit → INVALID, 1;
+  32-bit → length 3, not INVALID ["64-bit: instruction: expected
+  INVALID"; the 32-bit half is also red today, length 1].
+- `x64_RED_n_invalid_walk_continues`: `x86_decode_range` over `06 90`
+  → first INVALID length 1, second NOP at offset 1 ["first: expected
+  INVALID length 1"]. The second clause is the walker decision: it
+  holds today (the range loop already continues past UNKNOWN) and must
+  still hold when INVALID exists, so a fix that `break`s on INVALID
+  turns this red into a different failure, not a pass.
+- `x64_RED_w_pushad_invalid_64`: `60`/`61` → INVALID ["60: expected
+  INVALID (PUSHAD today)"].
+
+**Guards written (PASS today):** `x64_GUARD_n_pushf_stays_len1` (`9C`
+at `40102d`) and `x64_GUARD_n_popf_stays_len1` (`9D` at `401030`),
+expected values from the v11 oracle (PUSHFQ/POPFQ len=1).
+
+**Scratch-fail run** (`fix-n-guard-scratch-2026-09-19.log`): the
+default arm temporarily consumed a ModRM after every unknown opcode;
+the real file was saved first and restored byte-for-byte (sha256
+`b9edaf32…` before and after, suite back to 77/27/0/0).
+
+| predicted | observed |
+|---|---|
+| both guards FAIL | both FAIL ("length: expected 1") |
+| n1 `63 C0` and n4 `D9 00` XPASS | XPASS |
+| n2, n3, n5, **n6** stay XFAIL | n2, n3, n5 XFAIL; **n6 `E3 00` XPASS** |
+| (u) unaffected | unaffected |
+| fixture walk loses starts `40102e`, `401030` | loses `40102e`, `401030`, `401031` **and every later oracle start**: `9C` + fake ModRM `89` (mod=10) pulled a disp32, a 6-byte "instruction" at `40102d`, and the walk never re-synced on the fixture |
+
+**The n6 miss is a defect in the red, repaired the same session:** a
+rel8 of `00` and a bare ModRM `00` are both one byte, so the JRCXZ red
+could not distinguish the naive fix from the real one (mask blindness:
+a red verified only against a fixture sharing its blind spot). It now
+also asserts `E3 80` → 2 (rel8 = 0x80; a ModRM-consuming fix reads
+mod=10 and returns 6); oracle row `E380` = 2, double-attested. Red
+again on the real decoder ("length: expected 2"). The same blindness
+does not affect n1/n4 (they are ModRM-only and XPASS under the naive
+fix by design, which is what makes the guards the discriminator) nor
+n2/n3/n5 (immediates beyond one byte).
+
+Suite after commit 3: pass=77 xfail=27 fail=0 xpass=0 (tests=104).
+Remaining before the fix: (r1)-(r3) reds minted from the table rows
+`66 68` (4), `66 A9` (4), `66 F7 00` (5), double-attested, so they are
+on the list when the sweep's exact set is reduced by hand.

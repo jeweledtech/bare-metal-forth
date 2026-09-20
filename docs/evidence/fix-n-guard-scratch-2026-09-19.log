@@ -1,0 +1,69 @@
+# (n) guard scratch-fail run, 2026-09-19: the one-byte default arm is TEMPORARILY changed to consume a ModRM after every unknown opcode (the naive length-recovery fix), the suite and the fixture walk are run, and the real file is restored byte-for-byte (sha256 of the real file recorded before and after). Nothing here is committed as decoder code.
+# PREDICTED before the run: x64_GUARD_n_pushf_stays_len1 and x64_GUARD_n_popf_stays_len1 FAIL (9C/9D read length 2); the ModRM-only (n) reds XPASS: x64_RED_n_movsxd_length (63 C0) and x64_RED_n_x87_modrm_length (D9 00); the immediate-class (n) reds stay XFAIL (69, 6B, C8, E3); (u) unaffected (0F arm untouched); dump_starts on fixture v12 loses the starts at 40102e (the separator MOV) and 401030 (9D): 9C eats 89, C0 becomes an opcode whose ModRM 9D pulls a disp32 + imm8.
+# scratch diff:
+#   --- /tmp/claude-1000/-home-bbrown-projects-forthos/c351ac93-95ad-4231-9155-e60637625172/scratchpad/x86_decoder.c.real	2026-09-19 20:35:45.081342718 -0700
+#   +++ src/decoders/x86_decoder.c	2026-09-19 20:35:45.087571053 -0700
+#   @@ -1254,6 +1254,8 @@
+#    
+#        default:
+#            out->instruction = X86_INS_UNKNOWN;
+#   +        /* SCRATCH (not committed): naive recovery, consume a ModRM after every unknown opcode */
+#   +        if (has_bytes(dec, 1)) decode_modrm(dec, &out->operands[0], &reg, op_size);
+#            break;
+#        }
+#    
+# ---- make test-x86 under the scratch ----
+  TEST: x64_RED_n_movsxd_length                       XPASS: expected failure PASSED - stop; correct the register, then remove from xfail_names
+  TEST: x64_RED_n_imul_imm32_length                   XFAIL (expected): length: expected 6
+  TEST: x64_RED_n_imul_imm8_length                    XFAIL (expected): length: expected 3
+  TEST: x64_RED_n_x87_modrm_length                    XPASS: expected failure PASSED - stop; correct the register, then remove from xfail_names
+  TEST: x64_RED_n_enter_length                        XFAIL (expected): length: expected 4
+  TEST: x64_RED_n_jrcxz_length                        XPASS: expected failure PASSED - stop; correct the register, then remove from xfail_names
+  TEST: x64_RED_u_0f_map_matches_oracle               XFAIL (expected): checked=2065 wrong_rows=61 wrong_opcodes=10: 0F0F 0F70 0FAA 0FC2 0FC4 0F20 0F21 0F22 0FC5 0F78
+  TEST: x64_RED_n_invalid_06_refused                  XFAIL (expected): instruction: expected INVALID (UNKNOWN today)
+  TEST: x64_RED_n_invalid_82_mode_split               XFAIL (expected): 64-bit: instruction: expected INVALID
+  TEST: x64_RED_n_invalid_walk_continues              XFAIL (expected): first: expected INVALID length 1
+  TEST: x64_GUARD_n_pushf_stays_len1                  FAIL: 9C: length: expected 1 (no operand bytes)
+  TEST: x64_GUARD_n_popf_stays_len1                   FAIL: 9D: length: expected 1 (no operand bytes)
+Results: pass=75 xfail=24 fail=2 xpass=3 (tests=104)
+# ---- dump_starts on fixture v12 under the scratch (offsets relative to 401000) ----
+#   0 3 MOV
+#   3 7 LEA
+#   a 3 MOV
+#   d 2 PUSH
+#   f 1 PUSH
+#   10 7 MOV
+#   17 3 MOV
+#   1a 4 MOV
+#   1e 4 MOV
+#   22 3 MOV
+#   25 2 CALL
+#   27 2 PUSH
+#   29 2 PUSH
+#   2b 2 POP
+#   2d 6 ???
+#   33 2 ???
+#   35 2 ADC
+#   37 2 ADD
+#   39 2 ???
+#   3b 2 ADC
+#   3d 2 ADD
+#   3f 2 ADC
+#   41 2 ADD
+#   43 6 ADD
+#   49 3 XOR
+#   4c 2 ADC
+#   4e 2 JO
+#   50 2 ADD
+#   52 3 RET
+#   55 3 NOP
+#   58 2 ADD
+#   5a 2 ???
+#   5c 2 ADD
+#   5e 6 AND
+#   64 2 PUSH
+#   66 3 XOR
+#   69 2 ADC
+#   6b 2 NOP
+# real file restored; sha256 b9edaf3261db75af10fb73265c892e683b2b1c3ddc6256e1e45d21d680813f1a
+# after restore: Results: pass=77 xfail=27 fail=0 xpass=0 (tests=104)
