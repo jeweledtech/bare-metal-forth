@@ -766,11 +766,37 @@ pre-registered set exactly**, and `checked >= floor`.
 | 64-bit | 1312 (floor) | 480 | 256 | 54 | {60 61 68 A0 A1 A2 A3 A9 F7} |
 | legacy | 720 (floor) | 252 | 52 | 6 | {68 A9 F7} |
 
-Both PASS on the first run with the set equal to the list: (o) A0-A3,
-(r1) 68, (r2) A9, (r3) F7 /0, and (w) 60/61 (below). The `0F` skip
-means (s) does not appear, as required. Nothing else decoded disagrees
-with the table in either mode. Suite: pass=75 xfail=23 fail=0 xpass=0
-(tests=98).
+**This was a failed prediction, and it belongs beside the other two
+(review correction 2026-09-19).** The 64-bit set registered before any
+run was exactly {(o), (r1), (r2), (r3)}: four members. A preview
+(decoder against the double-attested oracle rows, before the sweep
+test existed) surfaced `60` and `61`, the set was amended to six
+members, and *then* the first run of the sweep matched. Predicted 4,
+observed 6; the additions are `60` and `61`, both (w). The same
+preview surfaced the legacy `67` case, which lives outside the sweep
+(PREFIX rows are skipped) as the unit red (v). A set that arrived by
+amendment after a preview has different standing from one that
+survived first contact, and only this record tells them apart later.
+The `0F` skip means (s) does not appear, as required. Nothing else
+decoded disagrees with the table in either mode. Suite: pass=75
+xfail=23 fail=0 xpass=0 (tests=98).
+
+**Condition 1 versus the generator, one example.** Condition 1's i64
+list, a transcription of the SDM, omitted `60`/`61`; the generated
+table found them (NONE in both instruments, every form). The generator
+catching a transcription error is condition 3 justified by one
+instance rather than in principle.
+
+**`F6`/`F7` digit `/1` (review check 2026-09-19):** condition 1
+registered "`/0 /1` take IB / IZ" (the undocumented TEST alias).
+Three instruments, both modes: objdump `f6 c8 10` → `test $0x10,%al`
+(3), `f7 c8 10 00 00 00` (6), `66 f7 c8 10 00` (5); the oracle's
+digit-1 probe rows `F6 08` = 3 and `F7 08` = 6, double-attested; the
+generated table's digit[1] = IB / IZ and `opt_length` returns 3 / 6 /
+5. No oracle-versus-spec disagreement; the alias is in the table.
+(The first objdump attempt of this check fed bytes with spaces between
+them and read `f6 20` MUL; caught by the oracle rows disagreeing with
+it, redone with exact bytes.)
 
 ## Two findings from the sweep preview, minted or scheduled
 
