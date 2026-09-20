@@ -170,3 +170,166 @@ earlier mnemonic screen over the banked Ghidra files agreed (0 of
 input**, and the claim is now "0 of 576,115 by bytes", not "no count
 taken". If a VEX-bearing input ever enters the corpus, (q) is minted
 the same session.
+
+---
+
+# Amendment: nine holds answered (2026-09-20)
+
+## 1. Seven census instances, six residual rows — the seventh is the RSM
+
+Mapped instance by instance from the post-(o) differential's own rows:
+
+| census instance | where | differential row |
+|---|---|---|
+| `66 0F C5` PEXTRW | storport | **`nostart`** |
+| `0F 70` PSHUFW | fixture `+4d` | `mnemonic` (matched start, we emit NOP) |
+| `0F C2` CMPPS | fixture `+51` | **`nostart`** |
+| `0F C4` PINSRW | fixture `+55` | `mnemonic` (matched start) |
+| `0F C5` PEXTRW | fixture `+59` | **`nostart`** |
+| `0F 20 80` MOV CR | fixture `+5d` | **`nostart`** |
+| `0F AA` RSM | fixture `+6b` | **no row of any class** |
+
+Plus two rows dragged behind the CR/DR over-read: `+60` (imm64) and
+`+6a` (RET), both `nostart`. So 6 `nostart` + 2 `mnemonic` = 8 affected
+rows from 7 instances, and **the RSM produces nothing**: it sits after
+the final `C3`, the flow-following oracle never reaches it, so it is
+not a Ghidra row and cannot be `nostart`.
+
+**Consequence, and it changes the standing of hold 3: the ONLY
+instruments that can see the RSM row are the unit red
+`x64_RED_s_rsm_no_modrm_length` and the rule-28 fixture assertion.**
+That assertion is load-bearing, not incidental.
+
+## 2. `0F 20`–`0F 23` ignore `mod` entirely — the scope sentence was wrong
+
+Corrected. SDM Vol. 2B, *MOV — Move to/from Control Registers* and
+*Debug Registers*: these forms are **always register-direct and the
+ModRM `mod` field is ignored**. `0F 20 80` is three bytes — `mod=10`,
+`reg=000` (CR0), `rm=000` (RAX) — and is **not** a displacement form at
+all. Calling `mod≠11` "the defective form", as §2 of this document did,
+invites a fix that adds memory-operand handling, which is wrong in the
+opposite direction from the defect.
+
+**The correct change is: for `0F 20`–`0F 23`, ignore `mod` and never
+read a displacement.**
+
+And the census proves how thin the guard is: **all 218 corpus
+instances are `mod=11`**, the form already decoded correctly, so **no
+instrument in the system would catch a fix that got this backwards
+except the single fixture row** at `+5d` — which is exactly why that
+row is in the fixture.
+
+## 3. The rule-28 assertion is an ordered address sequence, not a count
+
+Withdrawn and replaced. A count is reachable by a fix that deletes a
+real row and adds a spurious one, and this fixture holds defects of
+**both signs**: four missing trailing `imm8` bytes each split one
+instruction into two (adding lines), while the CR/DR over-read consumes
+following bytes (removing them). The net `36 → 32` is a gross mixture
+already nearly cancelling. Rule 26's family: a matching count is not
+matching rows.
+
+**The assertion is the exact start addresses, in order** (31 oracle
+rows plus the post-`RET` `RSM` a linear walk reaches):
+
+```
+401000 401003 40100a 40100d 40100f 401010 401017 40101a 40101e 401022
+401025 401027 401029 40102b 40102d 40102e 401030 401031 401033 401039
+40103c 40103e 401042 401044 40104d 401051 401055 401059 40105d 401060
+40106a 40106b
+```
+
+## 4. The sweep prediction is insensitive by construction
+
+Restated. If both sweeps probe the one-byte map and skip `0F` as an
+`ESCAPE` row, then "the effect on the disagreeing set is the empty
+difference" **cannot fail whatever (s) does**. It is not a satisfied
+prediction; it is an **insensitive instrument**, recorded as such so it
+is never cited as evidence that (s) behaved. **(u) is the only
+load-bearing instrument for the two-byte map**, together with the two
+fixture-only witnesses above.
+
+## 5. The set restatement was a substitution of unchanged cardinality
+
+Member by member, with the finding each maps to:
+
+| member | finding | kind |
+|---|---|---|
+| `68` | (r1) PUSH `Iz` | encoded immediate width under `0x66` |
+| `A9` | (r2) TEST eAX,`Iz` | encoded immediate width under `0x66` |
+| `F7` | (r3) TEST Ev,`Iz` `/0 /1` | encoded immediate width under `0x66` |
+| `8D` | **(y)** LEA register form | **invalid-form disagreement, not width** |
+
+Originally pinned as {(o), (r1), (r2), (r3)} — four members, all
+width-or-address-width. Today: (o) left, **(y) joined**, count
+unchanged at four. **Two members changed while the cardinality did
+not**, which is the event an exact set exists to catch and the one a
+reader skims. The set is now **heterogeneous**: three immediate-width
+members and one invalid-form member.
+
+## 6. Module hashes: identical to the baseline
+
+The differential log records `INPUT <sha256> <path>` per input, which
+is what made this checkable. All four rebuilt modules hash **identical**
+to the values `operand-diff-fix-o-2026-09-20.log` recorded:
+`ne2k-pci.ko`, `8139too.ko`, `iTCO_wdt.ko`, `via-rng.ko`. The census
+and its named baseline describe the same artifacts, and the four module
+rows are **not** provisional.
+
+## 7. (u)'s tenth opcode, named — and one opcode in scope that (u) misses
+
+(u)'s ten: `0F 0F`, `0F 70`, `0F AA`, `0F C2`, `0F C4`, `0F 20`,
+`0F 21`, `0F 22`, `0F C5`, `0F 78`. **The tenth is `0F 0F`, 3DNow** —
+an opcode *suffix* byte after the ModRM, zero corpus instances, carried
+in this document's table as a zero row and easy to skim past. `0F 78`
+is the same shape.
+
+**And `0F 23` is in (s)'s scope but absent from (u)'s failing set**, for
+a reason worth recording: Ghidra returns NONE for `0F 23 00` and
+`0F 23 80` while objdump reads 3, so those rows are **not
+double-attested** and (u) excludes them by design; only `0F 23 C0` is
+checked, where both read 3 and we already agree. `0F 20`/`21`/`22` are
+attested at 3 in all three forms, which is why they appear. So (s)
+must fix `0F 23` **without** (u) being able to confirm it — the fixture
+row and the unit red are again the only witnesses.
+
+## 8. Two instruments, not three
+
+Withdrawn. VEX/EVEX-by-bytes and REX2-by-bytes both read **my own byte
+scan of one objdump run**, and AVX-by-mnemonic reads **the mnemonic
+field of that same run**. Three categories, one failure mode — by the
+standing boundary, they are one instrument, not three.
+
+**The genuinely independent second instrument** is the mnemonic screen
+over the **banked Ghidra per-instruction files** (0 VEX/EVEX-encoded
+mnemonics of 512,213 starts, 2026-09-19). So (q)'s zero rests on
+**two** instruments: objdump over 576,115 instructions in 16 of 16
+inputs, and Ghidra over 512,213 starts in 16 files. That is still a
+corpus-wide measured zero.
+
+The kernel-mode FPU-state account is an **explanation, labelled as
+such**, not a finding, and nothing rests on it.
+
+## 9. The `0x66` handler is shared, and both fixes read it
+
+Enumerated from source. There is **one** flag: `X86_PREFIX_OPSIZE`, set
+at `x86_decoder.c:274`, consumed at **`:300`** (`op_size`) and
+**`:313`** (`stack_size`, fix (e)'s D64 rule). The two-byte arm
+(`:1042`–`:1340`) consults **no mandatory prefix at all** — grep for
+`PREFIX_OPSIZE|REP|REPNE` in that range returns nothing.
+
+So although no *opcode* is in both fixes, **the `0x66` handler is a
+reader of both**: (r1)–(r3) change how that flag drives one-byte
+immediate width, and (s) must make the two-byte arm consult the same
+flag as a **mandatory prefix selector** — a different meaning for the
+same bit. Rule 24 is therefore not discharged by the opcode
+disjointness.
+
+**The rule between them:** (r1)–(r3) may change *how `op_size` is
+derived from the flag*; (s) may add a *separate* consumption of the
+flag in the two-byte arm and must not alter `op_size` or `stack_size`.
+Whichever lands second re-runs the other's reds, and neither redefines
+the flag itself. storport's single row is `66 0F C5`, where the `0x66`
+is a **mandatory prefix selecting the XMM form**, not an operand-size
+override — so that row is (s)'s, not (r)'s, and it is the case that
+makes the shared reader concrete rather than theoretical.
