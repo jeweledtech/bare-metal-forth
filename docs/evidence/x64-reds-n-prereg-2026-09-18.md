@@ -1474,3 +1474,42 @@ red retires in the same commit. Pre-registered movement (previous
 section): residual 180 → 51, (o) rows `addr → ok` on 64 rows, nothing
 leaves any class but `nostart` and `addr`. The (o) red's expected
 value: fixture v12 `401044` `MOV EAX,[0x1122334455667788]` length 9.
+
+## The 17/17, read; the resolver, ruled (owner, 2026-09-19)
+
+**17 on both drivers did not follow from the padding** (334 and 398
+bytes would be 167 and 199 two-byte rows), and I had written it as if
+it did. Read: no cap exists in the comparer, the dump tool or the
+Ghidra dump script. Measured directly: a synthetic ELF with `INT
+0x29` followed by 400 zero bytes gives **exactly 17 `ADD [RAX],AL`
+rows** from Ghidra (flow-following analysis, the differential's own
+script), the same 17 as on both drivers. The cap is the oracle's (a
+run of identical instructions is cut at a fixed count, whatever the
+padding's length; the option's name is not pinned here and does not
+need to be: the number is measured). So the **34 parked rows are the
+number of padding rows the oracle chooses to print, an oracle
+artefact, not the padding**; 180 is the oracle's residual on its own
+terms, the parked 34 will read 34 on every future run for the same
+reason, and none of it is ours.
+
+**`semantic.c:359`, ruled and minted.** The resolver takes any
+memory-indirect call with no base and no index as an IAT site,
+records an IAT edge unconditionally, and only then cross-references
+imports, so an unmatched target still yields an edge: no refusal path
+(nineteenth rule). Ruling: under (o) the site **keeps 32-bit
+behaviour** (only moffs rows move; silent widening there would be an
+unpredicted behavioural change to the IAT path), but not as a bare
+cast: it asserts its input is a 32-bit IAT-slot site and refuses
+otherwise; the decision to widen belongs to (a), which owns the site.
+Red today, in the semantic suite (which now carries the same
+XFAIL/XPASS discipline as the decoder suite):
+`sem_RED_a_iat_resolver_refuses_non_iat_target` (a `call [abs]` whose
+target matches no import must record no IAT edge; predicted first
+failure "IAT edge recorded for a target that matches no import"). A
+second red, for a widened `disp` that does not fit 32 bits, cannot be
+expressed until the field widens and is minted in the (o) commit with
+the refusal.
+
+**Printer.** `uir.c:723` (`%+d`) widens in the same commit as the
+field: a narrow format on a wide field truncates the record, which is
+how a wrong number outlives its defect.
