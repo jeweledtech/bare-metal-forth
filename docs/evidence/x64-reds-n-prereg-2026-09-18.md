@@ -976,9 +976,15 @@ through `40105d`? No: (o) at `401044` is still a desync source until
 plus... restated exactly: starts through `401042` matched, `401044`
 matched at its own start but at length 5, then `401049`.. mid-(o)
 rows: `40104d`, `401051`, `401055`, `401059`, `40105d`, `401060`,
-`40106a` stay `nostart` behind (o) → **v12 after (n): 25 matched
-(through `401044`), 7 `nostart` behind (o), of the 32 oracle rows
+`40106a` stay `nostart` behind (o) → **v12 after (n): 24 matched
+(through `401044`), 7 `nostart` behind (o), of 31 Ghidra rows
 (`40106b` RSM is NONE in the flow-following oracle and not a row)**.
+[Arithmetic correction written 2026-09-19 while the differential was
+running and before its log was read: a first draft said "25 matched of
+32"; the v11 address list through `401044` has 24 entries and 24 + 7 =
+31. The correction is on the record so the prediction and the reading
+can be compared honestly; a re-sync by chance inside the 7 would count
+as a miss, not folded.]
 
 ## The fix, as it will be written
 
