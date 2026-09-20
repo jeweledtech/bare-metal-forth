@@ -1060,3 +1060,131 @@ semantic 37/37, call-graph 8/8, codegen 13/13, pipeline 5/5, 16550
 7/7, beep 7/7, ELF drivers 12/12, and the rest at their full counts);
 test-x86 `pass=87 xfail=20 fail=0 xpass=0 (tests=107)`. Decoder sha256
 `efeaea0e…`, table `4dd9038c…`.
+
+---
+
+# Commit 5 as run, 2026-09-19: the differential, three misses, one stop
+
+`operand-diff-fix-n-2026-09-19.log` (16 inputs, alias hash
+`02101788edd2` unchanged; baseline `operand-diff-fix-e-2026-09-18.log`).
+
+## What moved, against the registered split
+
+| input | Ghidra | nostart b→n | operand_ok b→n | undecoded b→n | invalid_at_start |
+|---|---|---|---|---|---|
+| ACPI | 148921 | 191 → **36** | 122231 → 122373 | 988 → 989 | 0 |
+| disk | 12335 | 11 → 1 | 10081 → 10089 | 55 → 55 | 0 |
+| HDAudBus | 24214 | 50 → 1 | 18694 → 18740 | 88 → 88 | 0 |
+| i8042prt | 19090 | 8 → 2 | 14373 → 14378 | 19 → 19 | 0 |
+| pci | 86827 | 49 → 14 | 73087 → 73117 | 370 → 371 | 0 |
+| serial (HP) | 13852 | 32 → 21 | 11609 → 11620 | 21 → 21 | 0 |
+| storport | 98228 | 192 → 93 | 85041 → 85130 | 425 → 427 | 0 |
+| usbxhci | 89234 | 177 → **2** | 72503 → 72658 | 588 → 588 | 0 |
+| ne2k-pci | 1193 | 13 → 0 | 889 → 897 | 10 → 11 | 0 |
+| 8139too | 4026 | 11 → 4 | 2758 → 2762 | 12 → 12 | 0 |
+| iTCO_wdt | 907 | 8 → 0 | 690 → 696 | 2 → 2 | 0 |
+| via-rng | 176 | 0 → 0 | 126 → 126 | 0 → 0 | 0 |
+| ReactOS serial | 4220 | 0 → 0 | 4215 → 4215 | 1 → 1 | 0 |
+| ReactOS beep | 447 | 0 → 0 | 447 → 447 | 0 → 0 | 0 |
+| nmap (32-bit) | 8299 | 145 → 3 | 7885 → 7962 | 192 → 237 | **19** |
+| fixture v12 | 31 | 8 → 6 | 11 → 12 | 1 → 8 | 0 |
+
+`nostart` fell on every 64-bit input and on nmap; no class other than
+`nostart` decreased on any input by totals; the two ReactOS controls
+are identical to the baseline; `operand_ok` rose everywhere it could.
+**Standing prediction confirmed:** ACPI `.text+0x69d4c` decodes as
+`MOV RAX,[RBX+0x58]` length 4, matching Ghidra (no mismatch row; the
+post-fix dump row read directly), and `+0x69d3d` is `undecoded` as
+predicted.
+
+## Three misses, each read from bytes
+
+1. **`undecoded` barely rose (ACPI +1, pci +1, storport +2).** The
+   commit-5 pre-registration predicted a rise of "one per closed run
+   at least (353)". Wrong: the run *trigger* was already a matched
+   start classed `undecoded` before the fix (the fixture's own v10
+   outcome said so for `63 C0`); only the rows behind it were
+   `nostart`. The 09-18 section had the right form ("by the count of
+   (n) starts previously *inside* a run"), and the commit-5 text
+   overstated it. Direction right, magnitude wrong; recorded.
+2. **Fixture: 6 `nostart`, not 7.** A re-sync by chance, pre-stated
+   as a miss: the desynced walk after (o) landed on `+55` (`0F C4 C0
+   00` PINSRW), which the `0F` arm returns as NOP (class `mnemonic`).
+   The other six rows behind (o) are `nostart` as predicted; 24
+   matched through `+44`.
+3. **`invalid_at_start` = 19 on nmap, predicted 0. This is the stop
+   condition.** All 19 are x87 *register* forms: 13 FXCH (`D9 C8+i`),
+   5 FCOMI (`DB F0+i`), 1 FNINIT (`DB E3`). Mechanism, read from the
+   table and the bytes: the generator's digit probes were memory
+   forms (mod=00), so `D9 /1`, `DB /4`, `DB /6` (and `DD /5`) came
+   out INVALID because their *memory* forms are invalid, and the new
+   default arm applies the digit rule regardless of mod, refusing
+   valid register forms. Bytes: 20 such encodings in the corpus (13 +
+   1 + 6 on nmap, `DD /5` 0; control 119 x87 register forms, 250 x87
+   in all), 19 at attested starts. Walk behaviour at those rows is
+   unchanged (length 1, as UNKNOWN was), so no new desync; the
+   regression is the label: 19 rows **left `undecoded`** for
+   `invalid_at_start`, which the totals masked (nmap `undecoded` rose
+   45 net) and the per-row read found. A table that refuses a real
+   encoding is the direction that hurts. Named **(x)**: digit validity
+   is per mod class; owned by the generator (probe set) and the
+   schema (one digit array), not by the decoder line.
+
+**Corrective (x), pre-registered, not yet written.** A first draft
+proposed seven register-form digit probes at `rm=000` and was refused
+at the gate (owner, 2026-09-19): in the x87 register space the `rm`
+bits are opcode (`D9 C8+i` FXCH ST(i); `DB E0`-`E4` five different
+instructions, so `rm=000` reaches `DB E0`, not the `DB E3` FNINIT the
+prediction named; `D9 D0` FNOP, `D9 D1`-`D7` undefined), a rule fitted
+from 7 of 64 cells reproduces every cell it saw and the refusal check
+has nothing to bite on, and `range(1, 8)` left digit 0 (`D8 C0` FADD
+ST(0),ST(0)) unsampled by either probe set. As redesigned: the blob
+(`--v2`) samples **all 64 register-form cells** `C0`-`FF` per opcode
+with no prefix; the x87 register space `D8`-`DF` mod=11 is a **HAND
+rule with its citation** (SDM Vol. 2A 3.1.1.3 / Vol. 2D Table A-2:
+opcode + ModRM, length 2, always) that the probes confirm rather than
+derive, lenient on undefined cells (a VALID length-2 on an undefined
+sub-opcode walks correctly; an INVALID on a real instruction is (x)
+itself); the fitter emits `digit[8]` for memory forms and
+`digit_reg[8]` for register forms, with register-form validity per
+digit taken as "any `rm` cell valid" and a refusal when the valid cells
+of one digit disagree on length; the arm selects by `mod == 3`.
+
+**Standing check, fourth instance of one class** (ModRM `00`-only hid
+`has_modrm`; `C0`-only hid the memory forms; `E3 00` hid the JRCXZ
+discrimination; `rm=000` hid the x87 opcode bits): **before running a
+probe set, name the field it holds constant and say why that field
+cannot carry information.** Written into the generator's header where
+the next probe set gets written, and into the v2 oracle log headers.
+
+**(n) does not close while (x) is open.** A fix whose own new instrument
+measures a regression it introduced is not finished.
+Reds from the nmap oracle rows (double-attested with objdump): `D9 C9`
+FXCH 2, `DB E3` FNINIT 2, `DB F1` FCOMI 2, each asserting not INVALID
+(red today: INVALID). Predicted movement: nmap `invalid_at_start` 19 →
+0, those 19 rows back to `undecoded`, nothing else moves on any input;
+the 64-bit sweep's `checked`/`tautological` unchanged (register-form
+probes are not sweep forms). The (n) closing waits on (x).
+
+## The rtl8139 expectation, answered
+
+It was corrected to `== 0`, which coincides with the post-fix number,
+and the owner's objection stands: a number this run produced is not a
+basis. The defensible basis exists: Ghidra's own port-instruction
+count on the banked per-instruction file is **0** for 8139too (and 0
+via-rng, 70 ne2k-pci, 33 iTCO_wdt), and post-fix ours equal those
+with every row at a Ghidra start. The suite cannot read the Ghidra
+files (untracked build products), so the treatment per the 09-18
+ruling: the function-level floors (`≥ 10` ne2k, `≥ 5` iTCO, `≥ 1`
+rtl8139) are **suspended** under the condition the x86 XFAIL list is
+empty, with the reason recorded at each; the two zeros are kept as
+assertions against Ghidra's count (0 port instructions on those
+inputs) and say so. The report's instruction-level `port_operations`
+key is the field a future Ghidra-backed assertion would use.
+
+## The four residual missed starts on rtl8139
+
+One run: trigger `.text+271b TEST AX,0xc07f` (`66 A9 7F C0`, Ghidra
+4, ours 6), missed `+271f +2725 +2728 +272c`, the INVALID row `+2721`
+inside it. That is **(r2)** by name, and its one corpus instance;
+(r2)'s red now carries the offset and the predicted movement (4 rows).
