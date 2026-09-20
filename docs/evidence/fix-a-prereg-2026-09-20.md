@@ -213,6 +213,49 @@ they are inside the predicted union above, and **(o) is predicted to
 remove exactly them**, taking storport 93 → 85 and ACPI 47 → 45 when
 it lands. That is a forward prediction for (o), banked here.
 
+**Grounded, not assumed (owner, 2026-09-20: a prediction that fails for
+the right reason still fails).** Each of the ten phantom port ops was
+located against the banked differential dumps: every one sits at an
+offset where Ghidra has **no** instruction start, inside a Ghidra
+instruction, and every one's run trigger is a `MOV` with **Ghidra
+length 10 against our 6** — the moffs64 signature. Examples: storport
+`.text+2e622` INSB inside a 10-byte MOV, trigger `+2e60d`; ACPI
+`.text+48644` INSB, trigger `+4862f`. All ten triggers carry that one
+signature, so the phantoms are (o)-owned by measurement.
+
+### Finding (z): the phantoms reach the emitter, and it cannot refuse them
+
+The control was checking counts and found an output defect. Those port
+operations do not merely inflate `hardware_functions`: they populate
+`sem_function_t.ports_accessed` and the report's `port_operations`, and
+thence the codegen input's `port_ops[]`, which `emit_function` writes
+into a Forth word body as a register access. **The report today states
+that storport.sys accesses port `0xFC`. It does not — that byte is part
+of a 64-bit address constant inside an (o) desync run.** A word that
+reads a port the hardware never reads is worse than an empty stub,
+because the stub announces itself and a fabricated `INSB` does not.
+That is the nineteenth rule at the output layer: no refusal path for a
+port op only one instrument can see.
+
+Remedy shape: **corroboration or abstention** — a port operation that
+reaches a word body is attested by both instruments, or it is not
+emitted. Red minted today, before (a), because it is independent of (a)
+and currently ships fabricated instructions into the one artefact the
+pipeline exists to produce: `test_port_attestation.c`
+(`z_no_unattested_port_reaches_the_emitter`, private `440177e`,
+wired into `test-all`). The attested set is **banked** from objdump
+(`tests/data/port_attestation_2026-09-20.tsv`) so the suite needs no
+disassembler at test time, and across all eight HP drivers that set is
+**empty**: every port instruction they really contain addresses its
+port through DX. Red today on storport's `0xFC`, seen through both
+exposure paths.
+
+**One defect in the red itself, caught and fixed the same hour.** Its
+first version analysed zero drivers in the private checkout (no
+`tests/hp_i3` there) and **passed**, surfacing as an XPASS hard
+failure. A skip must never look like a pass; it now counts drivers
+analysed, skips at zero, and prints the count on success.
+
 ### The desync exemption, its form decided before the run
 
 The standing rule — every row leaving `operand_ok` is read from bytes
