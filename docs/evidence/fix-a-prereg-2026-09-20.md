@@ -640,3 +640,39 @@ Modules and controls identical to the row.
 Open after (o): (p)×2, (r1)-(r3), (s)×7, (u), (v), (y), (d'), (f),
 (g)×2. The largest remaining class is (s), the two-byte map, whose
 pre-registration is already written.
+
+## Twenty-eighth rule, and the check it produced
+
+**A test that builds its subject differently from the way the product
+builds it is testing a different artifact.** The build defect above is
+not a missing check. All 25 suites and 93 decoder tests passed while
+the linked binary was corrupt, because every test target recompiles its
+sources on each run: the apparatus was **structurally incapable** of
+seeing it. Only the differential and the report use the linked binary,
+and the differential is not in the suite.
+
+**The check:** `scripts/smoke_shipped.sh`, run by `test-shipped-binary`,
+**first in `test-all`**. It runs `$(TARGET)` itself on the committed
+fixture and asserts the value whose widening caused the failure — the
+64-bit moffs address `0x1122334455667788` from the pinned oracle — plus
+the mixed-link signature (lines decoded at address 0) and an
+unknown-*mnemonic* ratio. A mixed link now fails in seconds instead of
+an hour later in a differential.
+
+Calibrated against the real output rather than an assumed one:
+addresses print as eight hex digits, and `???` in *operand* position is
+`x86_print_decoded`'s missing names for r8-r15 and RIP — a cosmetic gap
+in that printer, recorded here, not a decode failure.
+
+**Proved with a control, and the first control was wrong.** Staging the
+mixed link in the *semantic* object left the smoke test passing, and
+correctly so: the disassembly path never touches it. Restaged on the
+decoder's caller, it reproduced the original signature exactly — 26
+address-0 lines, exit 2 — and the restore is clean. A control must
+exercise the path under test.
+
+**A corner of the seventeenth rule, from (o)'s own closing:** naming a
+source does not refresh numbers computed from an earlier one. I named
+the right baseline log and carried per-input residuals derived against
+its pre-`beyond_extent` generation. The derivation has to be redone,
+not just re-pointed.
