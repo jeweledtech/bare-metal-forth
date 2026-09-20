@@ -1513,3 +1513,70 @@ the refusal.
 **Printer.** `uir.c:723` (`%+d`) widens in the same commit as the
 field: a narrow format on a wide field truncates the record, which is
 how a wrong number outlives its defect.
+
+## Parked by rule; the resolver counted; (o) held (owner, 2026-09-19)
+
+**Parked by rule, not by number.** The comparer gained the class
+`beyond_extent`: a Ghidra start at an offset ≥ our block's size for
+that section is a byte our loader never had (PE `VirtualSize` versus
+`SizeOfRawData` padding) and is classed on its own, never `nostart`.
+The figure now self-corrects under any oracle or pin change, like the
+join key derived from the blob. Re-compared over the same banked
+post-(x) dumps (no decoder change, no new Ghidra run;
+`operand-diff-fix-x-reclass-2026-09-19.log`, prediction in its
+header): HP serial `nostart` 21 → 4 with `beyond_extent` 17, storport
+93 → 76 with 17, **every other column of every other input
+identical**; residual now reads **146 owned + 34 by rule**. The 34 is
+not a constant anyone carries; it is whatever the oracle prints past
+our extent on the day.
+
+**The resolver, counted by bytes across the corpus before any fix.**
+Two instruments: objdump's memory-indirect CALLs with objdump's own
+resolved targets against each image's IAT directory, and the report's
+`summary.call_graph` block (built 2026-09-17 for this question,
+`iat-xref-prereg-2026-09-17.md`, which measured one driver and derived
+the rest).
+
+| input | mem-indirect CALLs (bytes) | targets in IAT | IAT edges (report) | matched | unmatched |
+|---|---|---|---|---|---|
+| ACPI | 3724 | 3307 | 3724 | 0 | 3724 |
+| HDAudBus | 713 | 391 | 713 | 0 | 713 |
+| disk | 383 | 346 | 383 | 0 | 383 |
+| i8042prt | 525 | 457 | 525 | 0 | 525 |
+| pci | 2691 | 2423 | 2691 | 0 | 2691 |
+| HP serial | 476 | 465 | 476 | 0 | 476 |
+| storport | 2179 | 2031 | 2178 | 0 | 2178 |
+| usbxhci | 2199 | 1294 | 2199 | 0 | 2199 |
+| ReactOS serial (PE32) | 275 | 275 | 275 | 245 | 30 |
+| ReactOS beep (PE32) | 43 | 43 | 43 | 28 | 15 |
+| nmap (PE32) | 45 | 44 | 45 | 0 | 45 |
+| total (11 of 11 PE inputs) | 13253 | 11076 | 13252 | 273 | 12979 |
+
+**Reading.** On every 64-bit driver the resolver records an IAT edge
+for every memory-indirect call (13,252 corpus-wide) and matches
+**zero**, while by bytes 11,076 of those calls do target an IAT slot.
+The mechanism is the one the 09-17 record named and measured on
+i8042prt (523 edges, 0 slot hits: the raw disp32 of a RIP-relative
+`FF 15` is compared as an absolute address against slots above 4
+GiB): (a). On the 32-bit controls the mechanism works (245/275,
+28/43; the unmatched there are imports outside the classifier's
+vocabulary, as the 09-17 record found for nmap). So on the corpus the
+semantic layer's IAT classification has been **100% false-negative on
+64-bit inputs since it was written**, and its call graph carries
+12,979 edges no import backs, with no refusal path. The 09-17 record
+also settles the worse case: no confident wrong name is attributed
+(every 64-bit target is below the slot range), so this is noise and
+blindness, not misattribution.
+
+**This is larger than (o), and (o) is held.** Under the owner's
+instruction the widening does not start; the finding goes up for
+re-ordering. The repair is the one the 09-17 record pre-registered
+for (a): accept the RIP marker and resolve the target as instruction
+address + length + disp; plus the refusal path minted today
+(`sem_RED_a_iat_resolver_refuses_non_iat_target`). Predicted movement
+for (a) on this table: matched on the 64-bit drivers rises from 0
+toward the "targets in IAT" column (11,076 corpus-wide, less
+classifier-vocabulary misses), and unmatched falls to the "not in
+IAT" column (2,177: ACPI 417, usbxhci 905, …), which is then the
+number the refusal path must account for, by bytes, before it is
+called noise.
