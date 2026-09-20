@@ -130,6 +130,70 @@ column on every input and is not (a)'s measure.
 **32-bit controls: every column identical.** They are the control for
 (a) precisely because their slot equality already works.
 
+### Second prediction: the two columns must diverge
+
+An observation found while capturing the widening's before-state, now
+converted to a forward prediction (owner, 2026-09-20: a corroboration
+you do not convert is evidence you only get to use once).
+
+**Observed before (a):** on **every** 64-bit driver
+`hardware_functions` *equals* `port_io_functions` exactly — ACPI 13/13,
+i8042prt 2/2, HP serial 31/31, storport 20/20, and disk, HDAudBus, pci,
+usbxhci all 0/0. On the ReactOS PE32 control they differ, 9 against 8:
+one function is hardware by HAL attribution. The only surviving route
+to `is_hardware` on 64-bit is a literal IN/OUT instruction.
+
+**Predicted after (a):** the columns **diverge on all eight**,
+`hardware_functions` > `port_io_functions`, because HAL attribution
+starts working. Bound, measured by bytes today (call sites targeting a
+slot whose import name carries a hardware category in the frozen
+146-entry vocabulary; 49 such names):
+
+| input | hw slots | call sites to them | `hw_functions` now | predicted |
+|---|---|---|---|---|
+| ACPI | 10 | 46 | 13 | > 13, ≤ 13+46 |
+| HDAudBus | 8 | 33 | **0** | **> 0**, ≤ 33 |
+| disk | 3 | 4 | **0** | **> 0**, ≤ 4 |
+| i8042prt | 8 | 61 | 2 | > 2, ≤ 2+61 |
+| pci | 10 | 31 | **0** | **> 0**, ≤ 31 |
+| HP serial | 8 | 53 | 31 | > 31, ≤ 31+53 |
+| storport | 13 | 98 | 20 | > 20, ≤ 20+98 |
+| usbxhci | 8 | 82 | **0** | **> 0**, ≤ 82 |
+
+The upper bound is the site count because several sites may sit in one
+function; the lower bound is strict because every driver has sites > 0.
+**The four zeros are the sharp half:** disk, HDAudBus, pci and usbxhci
+must become non-zero, and if any stays 0 while its sites are
+attributable, (a) has not done what it was aimed at. `port_io_functions`
+itself is predicted **unchanged on all eight** (a RIP repair adds no
+IN/OUT instruction).
+
+### The desync exemption, its form decided before the run
+
+The standing rule — every row leaving `operand_ok` is read from bytes
+and named, or the fix stops — was written for movements of a few dozen
+rows. (a) moves ≈40,856. At that volume the rule collides with
+arithmetic and gets quietly relaxed mid-run, which is worse than either
+keeping it or replacing it, so it is **replaced deliberately here,
+before the run**, on the same principle that parked the INIT rows by a
+rule rather than by the number 34:
+
+> **A row leaving `operand_ok` is accounted BY RULE when its
+> instruction carries a RIP-relative operand whose printed value
+> changed. Every row outside that rule is read from bytes and named,
+> and the two counts are reported separately.**
+
+The by-rule class is mechanical and expected: those rows were
+`operand_ok` only because both sides printed the same wrong absolute,
+and the repair makes ours right where Ghidra was already right (they
+move *into* `ok`) or reveals a genuine disagreement (they move out,
+by rule). The named class is where a surprise can hide, and it keeps
+the expensive reading pointed at rows that could be telling us
+something. **An unnamed row outside the rule still stops the fix.**
+Both counts, and the by-rule class's per-input totals, are reported in
+the closing matrix; a by-rule count that exceeds the input's
+RIP-relative operand count is itself a finding.
+
 **Differential:** `addr` is the class that moves, ≈40,856 rows, and
 the harness already resolves base 32, so those rows resolve as soon as
 the decoder emits it. Per-input `addr → ok` predictions are written
