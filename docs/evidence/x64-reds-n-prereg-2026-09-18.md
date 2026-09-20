@@ -1328,3 +1328,40 @@ xpass=0 (tests=112).
 `DB F2` at `.text+5720` read again; every other column of every other
 input identical to `operand-diff-fix-n-2026-09-19.log`; fixture line
 identical. Read back below.
+
+## Rerun after (x), read back: (n) + (x) closing matrix
+
+`operand-diff-fix-x-2026-09-19.log`, 16 inputs, alias hash unchanged.
+**Fifteen inputs identical to `operand-diff-fix-n-2026-09-19.log` in
+every column** (the load-bearing half of the prediction, tested by
+running it). nmap, predicted vs observed:
+
+| column | predicted | observed |
+|---|---|---|
+| invalid_at_start | 19 → 0 | **19 → 0** |
+| undecoded | 237 → 256 | 237 → **257** |
+| nostart | 3 → 3 | 3 → **0** |
+| operand_ok | unchanged | 7962 → **7964** |
+
+**One miss, read from the rows.** I had written that the walk
+behaviour at the 19 rows was unchanged by (x) ("length 1, as UNKNOWN
+was") so nothing else on nmap would move. Wrong: before (x) those
+register forms were length 1 and desynced the walk behind them; after
+(x) they are length 2, which is a *repair of reachability*, and the
+three rows behind them closed: the twentieth FCOMI, `DB F2` at
+`.text+5720`, is now a matched start classed `undecoded` (the +1 on
+257), and two further rows returned to `operand_ok`. Direction right,
+the mechanism I had pre-registered for (n) itself, and I failed to
+apply it to (x). Recorded.
+
+**(n) and (x) close together.** The (n) fix: unknown one-byte opcodes
+consume the rule table's bytes; INVALID exists and the walker
+continues; the sweep asserts the decoder against a generated table in
+both modes with an exact disagreeing set; `invalid_at_start` = 0 on all
+16. Missed starts across the corpus, before (n) → after (x): ACPI 191
+→ 36, usbxhci 177 → 2, storport 192 → 93, pci 49 → 14, nmap 145 → 0,
+the four modules 13/11/8/0 → 0/4/0/0, controls unchanged. The 4 on
+8139too are (r2); the 36 on ACPI and the rest are the next reading.
+
+Open after this: (o), (p)×2, (r1)-(r3), (s)×7, (u), (v), (y), (a),
+(d'), (f), (g)×2. Suite pass=91 xfail=21 fail=0 xpass=0 (tests=112).
