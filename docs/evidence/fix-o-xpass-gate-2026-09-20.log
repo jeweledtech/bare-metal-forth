@@ -1,0 +1,71 @@
+# fix (o) XPASS gate, 2026-09-20: moffs (A0-A3) is a 64-bit absolute ADDRESS in 64-bit mode.
+# PREDICTED before the run (fix-a-prereg-2026-09-20.md, public 7da37b3):
+#   XPASS on EXACTLY TWO: x64_RED_o_moffs_64bit_address and z_no_unattested_port_reaches_the_emitter.
+#   (z) is on another suite's list and (o) closes it; unnamed, a correct (o) would report as a hard failure.
+#   Everything else holds; both table sweeps unchanged; test-semantic stays 0 registered.
+#   hardware_functions: ACPI 47 -> 45, storport 93 -> 85, NO other input moves.
+#   Differential vs operand-diff-fix-a-2026-09-20.log: residual 180 -> 51; ACPI 36->1, storport 93->19,
+#   pci 14->1, HP serial 21->18, i8042prt 2->1, usbxhci 2->1, fixture 6->4; disk and HDAudBus MUST NOT MOVE
+#   (they contain no moffs encoding at all: 0 by bytes).
+# ---- make test-x86 / test-port-attestation / test-semantic ----
+  TEST: x64_RED_o_moffs_64bit_address                 XPASS: expected failure PASSED - stop; correct the register, then remove from xfail_names
+  TEST: x64_table_consistency_sweep                   (checked=2184 tautological=504 skipped=384 wrong_rows=25 disagreeing_opcodes=5) FAIL: disagreeing set { 68 8D A0 A9 F7 } != pre-registered { 68 8D A0 A1 A2 A3 A9 F7 }
+  TEST: x86_32_table_consistency_sweep                (checked=1080 tautological=372 skipped=84 wrong_rows=11 disagreeing_opcodes=4) PASS
+Results: pass=91 xfail=19 fail=1 xpass=1 (tests=112)
+HARD FAILURE: 1 expected failure(s) passed (XPASS). The 64-bit finding is wrong somewhere; correct the register before removing the name from xfail_names.
+  TEST: z_no_unattested_port_reaches_the_emitter       (8 drivers analysed) XPASS: expected failure PASSED - stop; correct the register, then remove from xfail_names
+Results: 0/1 passed (xfail=0 xpass=1 skipped=0)
+HARD FAILURE: 1 expected failure(s) passed (XPASS).
+Results: 38/38 passed (xfail=0 of 0 registered, xpass=0)
+# ---- OUTCOME ----
+# XPASS on EXACTLY the two predicted names: x64_RED_o_moffs_64bit_address and
+#   z_no_unattested_port_reaches_the_emitter.  Naming (z) in advance mattered: it is on another
+#   suite's list, and unnamed a correct (o) would have reported as a hard failure.
+# MISS 1, my prediction: 'both table sweeps unchanged' was WRONG for the 64-bit sweep.  (o) IS the
+#   (o) entry in the sweep's permitted-disagreement list, so fixing it must remove A0-A3 by hand --
+#   which is the designed behaviour, and the assertion failing until the list is corrected is the
+#   exact-set rule working.  Set 8 -> 4 members {68 8D A9 F7}; wrong_rows 61 -> 13; legacy sweep
+#   genuinely unchanged (legacy moffs is 4 bytes and always was).
+# MISS 2, THE SWEEP CAUGHT AN INCOMPLETE FIX ON ITS FIRST RUN: A1, A2 and A3 left the disagreeing
+#   set and A0 did NOT.  One of the four decode arms had been missed -- MOV AL,moffs8 still read 4
+#   bytes.  Found by the instrument, not by reading the diff.  Patched; all four now agree.
+# test-x86 pass=93 xfail=19 fail=0 xpass=0 (tests=112); test-port-attestation 1/1 with 8 drivers
+#   analysed and 0 registered; test-semantic 38/38 of 0 registered; full make test exit 0, 25 suites.
+ACPI.sys       storport.sys   hardware_functions=5 port_io=0
+disk.sys       hardware_functions=1 port_io=0
+HDAudBus.sys   hardware_functions=0 port_io=0
+#
+# ---- A BUILD DEFECT NEARLY BURIED THIS FIX: no header dependencies ----
+# First measurement after (o) read: storport total_functions 1620 -> 1207,
+# hardware 93 -> 5, port_io 20 -> 0, slot_hits 2030 -> 159, and ACPI's report
+# failing to parse.  That looked like a catastrophic pipeline regression.
+# It was not (o).  `grep -c "include/.*\.h" Makefile` returned ZERO: the object
+# rule had no header dependencies at all, so widening x86_operand_t.disp from
+# int32_t to int64_t left already-built objects linked against the OLD struct
+# layout.  The mixed binary decoded every instruction after the first as "???"
+# at address 0.  Every unit suite passed throughout, because each test target
+# compiles its sources directly on every run; only the LINKED binary was mixed,
+# and only the linked binary is what the differential and the report use.
+# Diagnosed by measuring rather than reasoning: the decoder's own walk was
+# fine and IMPROVED (storport nostart 76 -> 2, addr 28 -> 0) while the
+# pipeline's disassembly began at "1c0001000: ???" and then ran at address 0.
+# Fix: -MMD -MP on the object rule and -include of the generated .d files.
+# CONTROLS, run to prove the dependency fires rather than assuming it:
+#   touch include/x86_decoder.h  -> 4 objects recompile
+#   no-op build                  -> 0 objects recompile
+#   touch include/semantic.h     -> exactly translator.c and semantic.c
+# (A first control run reported 0 and was RIGHT to: no .d files existed yet,
+# because nothing had been compiled since the flag was added.)
+#
+# ---- OUTCOME after a clean build, every (o) prediction read ----
+# hardware_functions: ACPI 47 -> 45 and storport 93 -> 85 EXACTLY as predicted,
+#   and NO other input moved (HDAudBus 21, disk 3, i8042prt 31, pci 29,
+#   HP serial 48, usbxhci 58; controls 9, 3, 0).
+# port_io_functions: ACPI 13 -> 11, storport 20 -> 12 -- the 2 and 8 phantom
+#   port operations are gone, exactly the ten located on 2026-09-20 as sitting
+#   inside (o) desync runs with a moffs64 trigger.
+# iat_slot_hits: storport 2030 -> 2031.  (o) also closed (a)'s ONE outstanding
+#   miss: the site our walk never reached was hidden behind a moffs desync.
+# test-x86 pass=93 xfail=19 fail=0 xpass=0; test-port-attestation 1/1 with 8
+#   drivers analysed, 0 registered; test-semantic 38/38 of 0 registered;
+#   both sweeps PASS with the reduced set; full make test exit 0, 25 suites.

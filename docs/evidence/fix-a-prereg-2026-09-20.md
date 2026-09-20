@@ -535,3 +535,108 @@ storport 93 → 85, nothing else moving), and in a red changing colour
 ((z)). Three instruments agreeing is different evidence from one
 instrument agreeing three times; if they disagree, the disagreement is
 the finding.
+
+---
+
+# (o) as built and closed, 2026-09-20
+
+## Gate
+
+XPASS on **exactly** the two predicted names — `x64_RED_o_moffs_64bit_address`
+and `z_no_unattested_port_reaches_the_emitter`. Naming (z) in advance is
+what kept a correct (o) from reporting as a hard failure; it is on
+another suite's list and closes for a single reason, storport's
+fabricated `0xFC` being a phantom inside a moffs desync run.
+
+**Two of my own gate predictions missed.**
+1. *"Both table sweeps unchanged"* was wrong for the 64-bit sweep. (o)
+   **is** the moffs entry in that sweep's permitted-disagreement list,
+   so fixing it must remove `A0`-`A3` **by hand** — the exact-set
+   assertion failing until the list is corrected is the rule working,
+   not a defect. Set 8 → 4 members `{68 8D A9 F7}`, wrong rows 61 → 13.
+   The legacy sweep genuinely is unchanged: legacy moffs is 4 bytes and
+   always was.
+2. **The sweep caught an incomplete fix on its first run.** `A1`, `A2`
+   and `A3` left the disagreeing set and `A0` did **not**: one of the
+   four decode arms had been missed, `MOV AL,moffs8` still reading 4
+   bytes. Found by the instrument, not by reading my own diff.
+
+## A build defect nearly buried the fix
+
+The first measurement after (o) showed storport's `total_functions`
+1620 → 1207, hardware 93 → 5, port I/O 20 → 0, slot hits 2030 → 159.
+That is not (o). **The Makefile had no header dependencies at all**
+(`grep -c 'include/.*\.h' Makefile` → 0), so widening
+`x86_operand_t.disp` to 64 bits left already-built objects linked
+against the old struct layout, and the mixed binary decoded everything
+after the first instruction as `???` at address 0. Every unit suite
+passed throughout, because each test target compiles its sources
+directly on every run — **only the linked binary was mixed, and only
+the linked binary is what the differential and the report use.**
+
+Diagnosed by measuring, not reasoning: the decoder's own walk was fine
+and *improved* (storport `nostart` 76 → 2) while the pipeline's
+disassembly ran at address 0. Fixed with `-MMD -MP` and `-include` of
+the generated dependency files, and **proved with controls** rather
+than assumed: touching `x86_decoder.h` recompiles 4 objects, a no-op
+build recompiles 0, touching `semantic.h` recompiles exactly the two
+files that include it. (A first control run reported 0 and was right
+to — no dependency files existed yet.) This is rule 27's family at the
+build layer: a toolchain that cannot tell "rebuilt" from "not rebuilt"
+reports the same either way.
+
+## Every report prediction, exact
+
+| prediction | observed |
+|---|---|
+| ACPI `hardware_functions` 47 → 45 | **45** |
+| storport 93 → 85 | **85** |
+| no other input moves | none moved |
+| phantom port ops removed | ACPI 13 → 11, storport 20 → 12 |
+| storport `iat_slot_hits` | 2030 → **2031** |
+
+The last line **closes (a)'s one outstanding miss**: the site our walk
+never reached was hidden behind a moffs desync, and (o) recovered it.
+The ten phantom port operations located on 2026-09-20 are gone, exactly
+the 2 on ACPI and 8 on storport.
+
+## Differential, against the baseline named in advance
+
+`operand-diff-fix-o-2026-09-20.log` vs `operand-diff-fix-a-2026-09-20.log`.
+
+- **`nostart` 146 → 18**, and **no input lost an `operand_ok` row**.
+- **Only five classes moved**, and they close: `nostart −128`,
+  `addr −64`, `operand_ok +188`, `undecoded +1`, `mnemonic +1`,
+  `reg +2`. **`addr −64` is exactly the moffs run count** (63 corpus +
+  1 fixture) measured by bytes on 2026-09-19.
+- **The controls held exactly.** disk and HDAudBus contain no moffs
+  encoding at all and did not move: 1 → 1 each. That was the
+  proportionality check's predicted exception, and it is the sharpest
+  assertion available — a fix that moved an input containing none of
+  the thing it fixes would be doing something else.
+
+**Per-input `nostart`: ACPI 36 → 1, pci 14 → 1, i8042prt 2 → 1,
+usbxhci 2 → 1, HP serial 4 → 1, storport 76 → 2**, all as the corpus
+apportionment implies.
+
+**Two written per-input numbers were stale and I should have caught
+it:** the (o) section predicted "HP serial 21 → 18, storport 93 → 19"
+using figures computed **before** the `beyond_extent` reclassification,
+which had already moved 17 rows off each of those inputs' `nostart`.
+Against the correctly-reclassified baseline the predictions are 4 → 1
+and 76 → 2, and both are exact. I named the right baseline *log* and
+then carried per-input arithmetic from the wrong generation of it.
+
+**The residual, 18 rows, is fully attributed and every row is on the
+list:** (r3) 8 (one per HP driver), (r2) 4 (8139too), (s) 6 (storport
+1, fixture 5). The corpus total predicted 17 because I had apportioned
+one fixture row to (o) that belongs to (s) — the fixture's tail
+alternates match and miss because the two-byte imm8 defect is still
+open, leaving 5 rows there, not 4.
+
+64-bit operand agreement: **89.4 – 91.8%**, with the fixture at 45.2%.
+Modules and controls identical to the row.
+
+Open after (o): (p)×2, (r1)-(r3), (s)×7, (u), (v), (y), (d'), (f),
+(g)×2. The largest remaining class is (s), the two-byte map, whose
+pre-registration is already written.
