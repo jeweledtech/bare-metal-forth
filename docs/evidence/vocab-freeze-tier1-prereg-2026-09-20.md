@@ -114,6 +114,30 @@ Three pieces, all reporting over data already parsed:
 2. The vocabulary widening above, under its freeze.
 3. A per-input report of DLL set plus function-signature marks.
 
+### A bound on what tier 1 may claim, measured (2026-09-20)
+
+Finding (z)'s attestation table settles a question tier 1 would
+otherwise have to guess at. **Across all eight HP drivers the attested
+immediate-port set is empty**: every port instruction they really
+contain addresses its port *through DX*, resolved at runtime. The only
+immediate port number the system reports on any 64-bit driver is
+storport's `0xFC`, and that is a byte of a 64-bit address constant
+inside an (o) desync run — one fabricated port, zero real ones.
+
+Therefore, on these binaries: **"this function performs port I/O" is
+attestable; "this function accesses port 0xFC" is not, and cannot be**,
+because the number lives in DX at runtime and no static instrument can
+supply it. A classifier that reports port numbers on a 64-bit driver is
+reporting a fabrication or a guess.
+
+**The port signal is a presence signal, not an identity signal.** That
+goes in the analyzer's vocabulary of claims before the analyzer is
+built, because the alternative is that the first plausible-looking
+output gets believed — which is exactly why (z) exists. Where a port
+number *is* attestable (the PE32 controls, where immediates are used),
+it may be reported with its attestation; where it is not, the claim
+stops at presence.
+
 **It is a sort into coarse families, not identification.** The DLL
 sets separate disk (storage), HDAudBus (audio), usbxhci (USB/WDF), pci
 (bus/platform) and ACPI (platform) unambiguously; storport needs its
