@@ -504,10 +504,14 @@ Nothing after step 1 happens before the owner has read this.
 Found by the gap the owner named at the A1 review: the one-byte map
 had been surveyed, the `0F` map had not, and one of the runs this
 document predicts will NOT close is a PEXTRW (`0F C5 /r ib`). Survey:
-`x64-two-byte-opcode-survey-2026-09-19.log`, all 256 `0F xx` at ModRM
-{`00`, `80`, `C0`} (a one-form probe is a floor, not a count: the
-`C0`-only pass found 5 opcodes, the three-form pass finds 9, and the
-four it added are a mechanism `C0` cannot see).
+`x64-two-byte-opcode-survey-2026-09-19.log`, all 256 `0F xx` at
+mandatory prefix {none, `66`, `F2`, `F3`} × ModRM {`00`, `80`, `C0`},
+12 probes per opcode. Each widening changed the count: `C0` only found
+5 opcodes; three ModRM forms found 9 (the four added are a mechanism
+`C0` cannot see); the prefix dimension, which in the two-byte map
+selects the instruction rather than a variant, found a fourth
+mechanism (`0F 78`) and moved the Jcc-near forms into the
+vendor-divergence entry. A one-form probe reports a floor as a count.
 
 **Predicted corpus movement, written before any run: one run, maybe
 zero.** This is a hardware-real, compiler-never fix of the REX.R-on-a-
@@ -521,9 +525,19 @@ prefix/REX):
 | trailing imm8 after ModRM, `0F` default arm reads ModRM only | `0F 70` PSHUFW, `0F C2` CMPPS, `0F C4` PINSRW, `0F C5` PEXTRW | 3 (7 at mod=10) | 4 (8) | PSHUFW 0, CMPPS/CMPEQPS 0, PINSRW 0, **PEXTRW 1** (storport) |
 | no ModRM, arm consumes one | `0F AA` RSM | 3 | 2 | 0 |
 | mod field ignored by hardware, decoder honours it as memory | `0F 20`-`0F 23` MOV CR/DR | 7 at mod=10 | 3 | 217 moves, **0 encoded with mod≠11** (compilers emit mod=11 because mod is ignored) |
+| prefix selects a different-length instruction | `66 0F 78` EXTRQ ib ib, `F2 0F 78` INSERTQ ib ib | 4 | 6 | 0 `0F 78` of any form (bytes, 8 HP drivers) |
+| vendor-divergent, NOT a defect claim | `66 0F 80`-`8F` Jcc near | 7 (rel32) | objdump models 5 (rel16) | 0 (bytes); entry written as "modeled as N by the oracle at pin 12.1.2; known vendor-divergent", same as `66 E8`/`E9` |
+
+Prefixed forms of the imm8 family (`66`/`F2`/`F3 0F 70` PSHUFD/LW/HW,
+`66 0F C2` CMPPD etc., `66 0F C4`/`C5` on xmm) are one short in every
+prefix state too; corpus starts 0 for every one of them (mnemonic
+screen over the 16 files; bytes over the 8 HP drivers agree).
 
 So (s) moves at most the one PEXTRW run on storport; every other row
-of its differential is predicted identical. Handled already and not
+of its differential is predicted identical. The CR/DR row: the count
+that matters is moves encoded with mod≠11, which is 0; the 217 is the
+positive control that the byte scanner sees what the mnemonic screen
+sees. Handled already and not
 in (s): `0F A4`/`0F AC` (SHLD/SHRD ib), `0F BA` (group 8 ib),
 `0F 71`-`73` (groups 12-14 ib), `0F 3A` (three-byte map, ib).
 
@@ -553,10 +567,15 @@ and swept the same way, after (n).
 
 ## (t) the two-byte map has no INVALID either
 
-32 `0F` opcodes are objdump-invalid in all three probe forms (list in
-the survey summary) and the decoder returns a length on every one.
-This is a **floor** of the two-byte invalid set under zero digit and
-no mandatory prefix (`0F 71`-`73` are valid at digits 2/4/6, `0F BA`
+23 `0F` opcodes are objdump-invalid under all 12 probes (list in the
+survey summary) and the decoder returns a length on every one.
+This is a **ceiling**, not a floor (review correction 2026-09-19): the
+count went 43 → 32 → 23 as the probe widened (one ModRM form, three
+forms, three forms × four prefix states), and a wider probe can only
+reclassify an opcode from invalid to valid, never back, so the true
+invalid set is **≤ 23**. "Floor" would
+license refusing real encodings, the direction that hurts. The number
+was taken under zero digit and no mandatory prefix (`0F 71`-`73` are valid at digits 2/4/6, `0F BA`
 at 4-7, `0F C7` at 1/6/7, `0F 3A` is the three-byte map, `0F B8`
 POPCNT under `F3`, `0F D0`/`D6`/`E6` under `66`/`F2`/`F3`), not the
 list. Banked separately from (s) for the table work: the `0F`
@@ -564,3 +583,85 @@ generator run resolves it with digit and mandatory-prefix probes, and
 the walker's INVALID behaviour decided under condition 4 applies
 unchanged. No red minted for (t) until the generator run gives the
 list; recorded here so it does not leave with (s).
+
+## (u) the two-byte no-ModRM hand list against the oracle, minted 2026-09-19
+
+`x86_decoder.c:1217` (the `0F` default arm's `no_modrm` list) is a
+hand-typed shadow of the two-byte map: named in prose above, given a
+letter and a red tonight per the 09-18 ruling (a prose registry is one
+more artefact to keep in sync; the suite is the list).
+
+**Instrument: the no-flow probe, three attempts before it was one.**
+`tools/ghidra/OpcodeLengths.java` (DisassembleCommand at each slot of a
+raw probe blob) over `tests/data/x64_reds/probe0f_2026-09-19.bin`:
+256 `0F xx` × prefix {none, `66`, `F2`, `F3`} × ModRM {`00`, `80`,
+`C0`}, 3072 slots of 16 bytes. Attempt 1 (`followFlow=false`, no
+range): 669 objdump-valid rows NONE, failures alternating by slot
+parity; `followFlow=false` stops at branches only, fall-through ran
+across slot boundaries. Attempt 2 (command restricted to the slot's
+range): 436 NONE, all odd slots; an even slot's odd leftover `0x00`
+straddled into the next slot's first byte. Attempt 3 (padding `0x90`,
+always one byte, never a prefix, restriction kept): clean. Each
+attempt's defect was caught by the objdump screen disagreeing with
+the oracle on rows like SYSCALL and MOVUPS, which is what the screen
+is for; recorded in the oracle log header before each rerun.
+The objdump screen was then regenerated on the blob's exact bytes
+(fourth survey pass) because the three-byte maps and 3DNow read the
+padding byte as ModRM/suffix.
+
+**Table:** `tests/data/x64_reds/oplen0f_2026-09-19.tsv`, generated by
+`scripts/oplen_to_tsv.py` from the oracle log + blob + survey log
+(rows accepted by address inside the run's own header range, never by
+slot number: the fixture's RSM slot 0 had overwritten the blob's slot
+0 in the first output). 3072 rows: **2065 double-attested** (Ghidra
+and objdump print the same length), 1 length disagreement (`F3 0F AE
+/0` mem: Ghidra RDFSBASE 4, objdump FXSAVE 8; the SDM requires mod=11
+for RDFSBASE, so the oracle is lenient here), 47 Ghidra-only rows
+(EMMS/WBINVD under a prefix, where the screen's lone-prefix rule
+called objdump invalid; and MOVMSKPS/PEXTRW/EXTRQ/INSERTQ/BSF/BSR/
+MASKMOVDQU/MOVDQ2Q/MOVQ2DQ/MOVNTI in memory forms the SDM forbids:
+oracle leniency), 83 objdump-only rows (**no Ghidra model at pin
+12.1.2** for: `0F 23` MOV DR,r, `0F 78`/`0F 79` bare VMREAD/VMWRITE,
+`0F 01 C0` ENCLV, `66 0F 35` SYSEXIT, `0F A6`/`0F A7` VIA MONTMUL/
+XSTORE, 3DNow rows objdump names, and **every `66 0F 80`-`8F` row**:
+the vendor-divergent Jcc-near form is not modeled by the oracle at
+all, so its table entry is "no oracle model; decoder keeps rel32; no
+assertion", not "modeled as N"). Instrument disagreements are findings
+for the spec, resolved per row with a HAND mark before any table row
+is emitted from them; never folded either way.
+
+**Red:** `x64_RED_u_0f_map_matches_oracle`: for every double-attested
+row, decode the probe (padded `0x90` as in the blob) and require the
+oracle's length; the checked count has a floor (`checked >= 2065`,
+first-run value, raised by hand only) so the denominator cannot fall
+silently. The failure message names the disagreeing opcodes.
+
+**Pre-registered first failure: 9 opcodes {0F20 0F21 0F22 0F70 0F78
+0FAA 0FC2 0FC4 0FC5}. Observed: `checked=2065 wrong_rows=61
+wrong_opcodes=10: 0F0F 0F70 0FAA 0FC2 0FC4 0F20 0F21 0F22 0FC5
+0F78`.** The miss is `0F 0F` (3DNow: an opcode *suffix* byte after the
+ModRM, decoder 3 vs 4), which the `0x00`-padded screen had marked
+invalid and the `0x90`-padded screen attests: a fifth mechanism, not
+in (s), corpus starts 0 (mnemonic screen, positive control PEXTRW 1).
+`0F 23` is absent from the set only because Ghidra has no model for
+it; its (s6)-class row stays red by the fixture oracle, not by (u).
+
+Two more (s) reds minted from the same table: `x64_RED_s_pextrw_xmm_
+imm8_length` (`66 0F C5 C0 ib`, 5: the corpus PEXTRW on storport is
+this xmm form, found by bytes, the mnemonic screen cannot see the
+prefix) and `x64_RED_s_rsm_no_modrm_length` (`0F AA`, 2: no-flow
+probe at fixture `40106b` and blob row `0FAA00` agree). Suite after
+minting: pass=73 xfail=22 fail=0 xpass=0 (tests=95).
+
+**Gate relation:** (u) closes when the `0F` arm is table-driven (the
+(s) fix); (n) must leave it XFAIL (the one-byte table is consulted by
+the one-byte arm only), so an (n) fix that moves (u) is wrong. When
+(s) lands, (u) may XPASS in the same act; the gate names both, and
+`0F 0F` (3DNow suffix) must be in the (s) pre-reg before then or (u)
+stays red on it alone.
+
+**(t) restated:** both instruments give the same 22 opcodes as invalid
+under all 12 probes: `0F04 0F0A 0F0C 0F24 0F25 0F26 0F27 0F36 0F39
+0F3A 0F3B 0F3C 0F3D 0F3E 0F3F 0F71 0F72 0F73 0F7A 0F7B 0FBA 0FC7`,
+ceiling **≤ 22** (the `0x90` padding attests `0F 0F`, which the
+`0x00` padding could not).
