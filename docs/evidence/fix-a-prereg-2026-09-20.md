@@ -504,3 +504,34 @@ was already there:
    reports the same as one that found nothing.
 
 Worth holding the next time a fix appears to make something worse.
+
+## (o)'s gate: the expected-XPASS set, named before the run
+
+(o) closes two reds, not one, and the second is on a different suite's
+list. **If (z) is not named here, (o) succeeding will be reported as a
+hard failure** — an unlisted pass is an XPASS by design — and the
+instinct at that moment is to go looking for a defect in the fix.
+
+**Expected XPASS on (o)'s gate, exactly these two:**
+1. `x64_RED_o_moffs_64bit_address` (`test_x86_decoder.c`) — (o)'s own
+   red: `A1` + imm64 is 9 bytes and the memory operand's absolute
+   address is `0x1122334455667788`.
+2. `z_no_unattested_port_reaches_the_emitter`
+   (`test_port_attestation.c`) — finding (z). Single-condition and
+   clean: the attested immediate-port set is **empty corpus-wide**, and
+   storport's `0xFC` is the **only** immediate port the system reports
+   on any input, born of a phantom `IN` inside an (o) desync run. (z)
+   goes green exactly when that one row goes, and for no other reason.
+
+Everything else holds: (p)×2, (r1)-(r3), (s)×7, (u), (v), (y), (d'),
+(f), (g)×2 stay XFAIL; both table sweeps unchanged (the moffs path does
+not consult the one-byte table for its ModRM, and `A0`-`A3` have no
+ModRM at all); `test-semantic` stays at 0 registered.
+
+**Three instruments, agreeing or not agreeing separately.** (o)'s
+outcome is predicted in the differential's classes (residual 180 → 51,
+`nostart` per input), in the `hardware_functions` column (ACPI 47 → 45,
+storport 93 → 85, nothing else moving), and in a red changing colour
+((z)). Three instruments agreeing is different evidence from one
+instrument agreeing three times; if they disagree, the disagreement is
+the finding.
