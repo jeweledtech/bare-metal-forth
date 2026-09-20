@@ -160,13 +160,58 @@ slot whose import name carries a hardware category in the frozen
 | storport | 13 | 98 | 20 | > 20, ≤ 20+98 |
 | usbxhci | 8 | 82 | **0** | **> 0**, ≤ 82 |
 
-The upper bound is the site count because several sites may sit in one
-function; the lower bound is strict because every driver has sites > 0.
-**The four zeros are the sharp half:** disk, HDAudBus, pci and usbxhci
-must become non-zero, and if any stays 0 while its sites are
-attributable, (a) has not done what it was aimed at. `port_io_functions`
-itself is predicted **unchanged on all eight** (a RIP repair adds no
-IN/OUT instruction).
+**Sharpened to eight exact numbers (owner, 2026-09-20: a bound is a
+prediction that has not finished being made).** The range above was
+wrong to call its lower end strict: sites > 0 guarantees attribution
+happens, not that a *new* function gets marked — on ACPI, i8042prt, HP
+serial and storport every new site could land inside a function already
+counted, and a correct (a) would leave the column unmoved. So the
+quantity is measured instead of bounded.
+
+Two sets are countable by bytes today: the functions the translator
+already marks hardware (its own `hardware_functions` array, addresses),
+and the functions containing a call site to a hardware-marked import
+slot (`.pdata` extents, objdump's resolved targets). **The predicted
+post-(a) value is the size of their union.** It is exact, not a lower
+bound, because `sem_propagate_callgraph` propagates **scaffolding
+only** — read from source: it sets `has_scaffolding` /
+`transitive_scaffolding`, never `is_hardware`, and a hardware callee
+*blocks* the propagation. No function can become hardware except by
+carrying its own evidence.
+
+| input | hardware now | + functions with a hw-slot call site | **predicted after (a)** |
+|---|---|---|---|
+| ACPI | 13 | 36 | **47** |
+| HDAudBus | 0 | 21 | **21** |
+| disk | 0 | 3 | **3** |
+| i8042prt | 2 | 29 | **31** |
+| pci | 0 | 29 | **29** |
+| HP serial | 31 | 23 | **48** |
+| storport | 20 | 73 | **93** |
+| usbxhci | 0 | 58 | **58** |
+
+`port_io_functions` is predicted **unchanged on all eight** (a RIP
+repair adds no IN/OUT instruction), so the two columns diverge on all
+eight, which was the point. Assumption stated: function extents come
+from `.pdata`, while the translator uses exports **plus** `.pdata`, so
+a site inside an export-only function is not counted here; that is the
+one way the observed value could exceed the prediction, and it is
+checkable by name.
+
+**A control fired while measuring this, and it found phantoms.**
+Counting by bytes the functions that contain a port instruction should
+reproduce `port_io_functions` exactly. It does on six of eight; on
+ACPI it reads 11 against 13 and on storport 12 against 20. Read at
+those addresses: every one of the eight unexplained storport functions
+contains **exactly one port operation in our decode that objdump does
+not see** (seven `INSB`, one `IN`), and the same on ACPI's two. They
+are desync-born phantoms — the class that suspended `test-hp-drivers`
+and produced the rtl8139 phantom `OUT`s. **They are (o)-owned, not
+(a)'s:** storport's 20 is 12 real (6 plain, 6 `REP` Buffer variants)
+plus 8 phantom; ACPI's 13 is 11 plus 2. They persist through (a), so
+they are inside the predicted union above, and **(o) is predicted to
+remove exactly them**, taking storport 93 → 85 and ACPI 47 → 45 when
+it lands. That is a forward prediction for (o), banked here.
 
 ### The desync exemption, its form decided before the run
 
@@ -189,10 +234,35 @@ and the repair makes ours right where Ghidra was already right (they
 move *into* `ok`) or reveals a genuine disagreement (they move out,
 by rule). The named class is where a surprise can hide, and it keeps
 the expensive reading pointed at rows that could be telling us
-something. **An unnamed row outside the rule still stops the fix.**
+something.
+
+**Why the rule is complete — which turns a reading instruction into a
+gate.** (a) reinterprets `mod=00 rm=101`; it does not re-size it. A
+RIP-relative encoding is the same number of bytes before and after, so
+**`nostart` must be identical on every input**, no re-sync point moves,
+and therefore no row can leave `operand_ok` except at an instruction
+whose own operand value changed — which is exactly the rule's scope.
+**A row outside the rule is therefore not merely unexplained: its
+existence is evidence that (a) changed a length, which (a) must not
+do.** It stops the fix because it falsifies the fix's shape, not
+because it is unread. `nostart` identical on all sixteen inputs is
+itself a gate condition, checked before the class counts are read.
+
 Both counts, and the by-rule class's per-input totals, are reported in
 the closing matrix; a by-rule count that exceeds the input's
-RIP-relative operand count is itself a finding.
+RIP-relative operand count is itself a finding (a rule that can
+over-fire needs its own ceiling).
+
+**One design consequence to decide with the CFG edge kind, measured
+here so it is not met mid-run.** `sem_propagate_callgraph` vetoes any
+function carrying an `SEM_EDGE_UNRESOLVABLE` edge: it is permanently
+unclassified. **1,339 functions across the eight drivers contain a
+Control Flow Guard dispatch call** (usbxhci 485 of 1452, ACPI 322 of
+2549, pci 201, storport 121, HDAudBus 117, i8042prt 49, disk 36, HP
+serial 8). If the CFG edge kind is made unresolvable, scaffolding
+propagation is silently switched off for a third of the corpus's
+functions. The CFG kind is therefore **resolved-but-not-IAT**, and the
+veto set is predicted **unchanged** by (a).
 
 **Differential:** `addr` is the class that moves, ≈40,856 rows, and
 the harness already resolves base 32, so those rows resolve as soon as
