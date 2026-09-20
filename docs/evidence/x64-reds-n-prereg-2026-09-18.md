@@ -1365,3 +1365,56 @@ the four modules 13/11/8/0 → 0/4/0/0, controls unchanged. The 4 on
 
 Open after this: (o), (p)×2, (r1)-(r3), (s)×7, (u), (v), (y), (a),
 (d'), (f), (g)×2. Suite pass=91 xfail=21 fail=0 xpass=0 (tests=112).
+
+## Next reading (owner redirection: storport, not ACPI), 2026-09-19
+
+**Correction to the headline first.** "786 → 149" was summed from the
+eight rows my closing table showed; the table omitted disk (1),
+HDAudBus (1), i8042prt (2), HP serial (21) and the fixture (6). Over
+all sixteen harness inputs the residual after (x) is **180** missed
+starts, and the fix-(e) baseline was **895**. Both figures are from
+the OPSUMMARY lines; the partial pair is not wrong on its eight rows,
+but it is not the corpus.
+
+**Storport's 93, by run trigger** (same instrument that named (r2) on
+rtl8139): 31 runs. 28 runs / 74 rows triggered by `MOV RAX,[0xfffff780
+00000xxx]` (and one `MOV AL,[…]`): `48 A1 imm64`, Ghidra 10, ours 6.
+That is **(o)** by name, and the addresses are KUSER_SHARED_DATA
+(InterruptTime `+08`, SystemTime `+14`, `+320`), which storport reads
+constantly and the other drivers rarely: the reason its ratio was out
+of family. The rest: one `INT 0x29` run of 17 rows in INIT (a flow
+terminator, `__fastfail`; not a length defect; the same run shape
+gives HP serial its 17), one (r3) row, one (s) row.
+
+**The whole residual, apportioned** (harness-comparable sections only;
+the modules' 221 "section start" rows are the known non-harness
+sections):
+
+| defect | rows | runs | inputs |
+|---|---|---|---|
+| (o) moffs64 | **129** | 64 | ACPI 35, storport 74, pci 13, serial 3, i8042 1, usbxhci 1, fixture 2 |
+| INT 0x29 flow | 34 | 2 | serial 17, storport 17 |
+| (r3) `66 F7 /0` | 8 | 8 | one per HP driver |
+| (s) `0F C4`/`C5` | 5 | 2 | storport 1, fixture 4 |
+| (r2) `66 A9` | 4 | 1 | 8139too |
+| total | 180 | 77 | |
+
+**Cross-check by bytes (rule 25):** moffs encodings `A0`-`A3` in the
+64-bit inputs = 63 (ACPI 22, storport 28, pci 9, serial 2, i8042 1,
+usbxhci 1; modules 0; control RET 6310) + the fixture's 1 = **64 =
+the number of (o) runs exactly**: every moffs instruction in the
+corpus is a run trigger today. (r3) by bytes 8 = 8 runs, one per HP
+driver. (r2) by bytes 1 = 1 run.
+
+**Pre-registered for the (o) fix, written before it:** residual 180 →
+**51** (129 rows leave `nostart`; the INT 34, (r3) 8, (s) 5, (r2) 4
+stay); by input ACPI 36 → 1, storport 93 → 19, pci 14 → 1, serial 21 →
+18, i8042 2 → 1, usbxhci 2 → 1, fixture 6 → 4; the `undecoded` column
+does not move for (o) (the trigger is already a decoded MOV: `addr`
+class) and the rows behind the triggers feed `operand_ok` and the
+mismatch classes; the (o) row itself moves `addr → ok` on every
+input (64 rows). The mechanism restated for (o) here so it travels
+(refinement of 2026-09-19): a length repair moves the rows *behind*
+the trigger, and the trigger's own class is a separate movement.
+(o) is a `disp` widening: rule 24, readers of `disp` enumerated
+before a line changes.
