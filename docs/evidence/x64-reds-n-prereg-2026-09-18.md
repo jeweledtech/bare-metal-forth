@@ -290,8 +290,15 @@ iw` 3; `8B 00` 2 / `8B 80 xx xx xx xx` 6). The table is
   `D8`-`DF` modrm NONE (every x87 form, `mod=11` included, is opcode +
   ModRM); `E3` JB. Guards: `9C` `9D` no-modrm NONE. Invalid-in-64
   (SDM Table A-2 "i64" marks): `06 07 0E 16 17 1E 1F 27 2F 37 3F 82
-  9A CE D4 D5 D6 EA`, and `C4 C5 62` are legacy LES/LDS/BOUND
-  (modrm) whose 64-bit meaning is a VEX/EVEX escape.
+  9A CE D4 D6 EA`, and `C4 C5 62` are legacy LES/LDS/BOUND (modrm)
+  whose 64-bit meaning is a VEX/EVEX escape. `D5` is listed once, in
+  the ESCAPE set of condition 4, not here (review correction
+  2026-09-19: one byte cannot be in two sets in one mode): classically
+  `AAD ib`, i64; APX repurposes it as the REX2 prefix. Whether Ghidra
+  12.1.2 models REX2 is read off the generator run, and the row's
+  64-bit status is set from that reading (ESCAPE if modeled, INVALID
+  if not), stated in the table header. Legacy column for `D4` and
+  `D5`: no-modrm + IB (AAM/AAD take an imm8), length 2, not 1.
 - Mode scope: 64-bit and legacy 32-bit are generated and swept (both
   are in the corpus; x87 runs are on the 32-bit nmap control). 16-bit
   mode reuses the legacy table through `op_size`; that is an
@@ -324,7 +331,12 @@ decoder-vs-objdump:
   are **skipped with the reason printed** and counted. Three counts on
   the summary line: `checked=N tautological=M skipped=K`; a skip never
   reads as a pass, and `checked` is the denominator the decoder cannot
-  inflate (fewer decoded opcodes = a smaller visible number).
+  inflate (fewer decoded opcodes = a smaller visible number). The
+  deflation side has a floor (review correction 2026-09-19): the sweep
+  asserts `checked >= N` with N pinned at its first-run value and
+  raised by hand only; a later change that turns decoded opcodes into
+  UNKNOWN would otherwise shrink the denominator and open the gate
+  silently.
 - **Permitted disagreements are named, each with its red attached,
   and the assertion is "the disagreeing set equals this list"**: an
   entry that stops disagreeing is a hard failure until it is removed
@@ -382,7 +394,9 @@ decoder-vs-objdump:
 - `tools/translator/scripts/gen_opcode_table.py`: builds the blob (256
   opcodes × [4 or 2 prefix sets × 2 ModRM] + 8 digit probes at
   no-prefix mod=00 = 4096 slots, 64 KiB, per mode), runs the script,
-  fits the rule per opcode (`has_modrm = len(80) − len(00) == 4`;
+  fits the rule per opcode (`has_modrm = (len(80) − len(00) == 4)`,
+  the constant being ModRM+disp32 minus bare ModRM, as in the
+  condition-1 example `8B 00` = 2 / `8B 80 ..` = 6;
   imm kind from `len(00) − 1 − has_modrm` and the `66`/`48` deltas;
   DIGIT if the eight digit probes disagree; INVALID if NONE at
   no-prefix; ESCAPE/PREFIX from a hand list cited to SDM 2.1.1,
@@ -482,3 +496,71 @@ corpus + fixture = 16.
 5. The differential.
 
 Nothing after step 1 happens before the owner has read this.
+
+---
+
+# (s) two-byte map lengths and (t) two-byte INVALID, pre-registered 2026-09-19
+
+Found by the gap the owner named at the A1 review: the one-byte map
+had been surveyed, the `0F` map had not, and one of the runs this
+document predicts will NOT close is a PEXTRW (`0F C5 /r ib`). Survey:
+`x64-two-byte-opcode-survey-2026-09-19.log`, all 256 `0F xx` at ModRM
+{`00`, `80`, `C0`} (a one-form probe is a floor, not a count: the
+`C0`-only pass found 5 opcodes, the three-form pass finds 9, and the
+four it added are a mechanism `C0` cannot see).
+
+**Predicted corpus movement, written before any run: one run, maybe
+zero.** This is a hardware-real, compiler-never fix of the REX.R-on-a-
+group-digit kind, and the unit reds are its instrument. Counts, from
+the 16 banked Ghidra files (mnemonic screen) and, for the CR/DR row,
+from the bytes (objdump over the 8 HP drivers, ModRM read after
+prefix/REX):
+
+| mechanism | opcodes | decoder | true | corpus starts |
+|---|---|---|---|---|
+| trailing imm8 after ModRM, `0F` default arm reads ModRM only | `0F 70` PSHUFW, `0F C2` CMPPS, `0F C4` PINSRW, `0F C5` PEXTRW | 3 (7 at mod=10) | 4 (8) | PSHUFW 0, CMPPS/CMPEQPS 0, PINSRW 0, **PEXTRW 1** (storport) |
+| no ModRM, arm consumes one | `0F AA` RSM | 3 | 2 | 0 |
+| mod field ignored by hardware, decoder honours it as memory | `0F 20`-`0F 23` MOV CR/DR | 7 at mod=10 | 3 | 217 moves, **0 encoded with mod≠11** (compilers emit mod=11 because mod is ignored) |
+
+So (s) moves at most the one PEXTRW run on storport; every other row
+of its differential is predicted identical. Handled already and not
+in (s): `0F A4`/`0F AC` (SHLD/SHRD ib), `0F BA` (group 8 ib),
+`0F 71`-`73` (groups 12-14 ib), `0F 3A` (three-byte map, ib).
+
+## Reds (fixture v12, sha256 `bf7a0e7c5d66bad452a9...` in `x64-reds-v12-oracle-2026-09-19.log`)
+
+Rows appended after (o): every v11 address through `401044`
+unchanged; (b) imm64 `40104d → 401060` and RET `401057 → 40106a`
+(+19); RSM after the RET at `40106b`. Length only, as for (n).
+
+| name | bytes | addr | Ghidra | asserts |
+|---|---|---|---|---|
+| `x64_RED_s_pshufw_imm8_length` (s1) | `0F 70 C0 00` | 40104d | `PSHUFW MM0,MM0,0x0` len=4 | length 4 |
+| `x64_RED_s_cmpps_imm8_length` (s2) | `0F C2 C0 00` | 401051 | `CMPEQPS XMM0,XMM0` len=4 (Ghidra spells the imm-0 form by predicate) | length 4 |
+| `x64_RED_s_pinsrw_imm8_length` (s3) | `0F C4 C0 00` | 401055 | `PINSRW MM0,EAX,0x0` len=4 | length 4 |
+| `x64_RED_s_pextrw_imm8_length` (s4) | `0F C5 C0 00` | 401059 | `PEXTRW EAX,MM0,0x0` len=4 | length 4 |
+| `x64_RED_s_mov_cr_mod_ignored` (s6) | `0F 20 80` | 40105d | `MOV RAX,CR0` len=3 | length 3 |
+| (s5) RSM, `0F AA` | | 40106b | InstrAt: NONE by construction (after RET; RSM ends flow as RETF did) | **not minted yet**: verdict owed from the no-flow probe (`OpcodeLengths.java`, `DisassembleCommand followFlow=false`) at 40106b; objdump screen 2 |
+
+Predicted first failure of s1-s4: `length: expected 4` with the
+decoder returning 3; s6: `expected 3`, decoder 7. All five stay XFAIL
+through (n): the one-byte table is consulted by the one-byte
+`default:` arm only, so an (n) fix that closes any (s) red has changed
+the two-byte arm and is wrong. Fix (s) is its own pre-reg: the same
+rule-table treatment for the `0F` map (its `no_modrm` hand list at
+`x86_decoder.c:1217` is the flat-array bug in miniature), generated
+and swept the same way, after (n).
+
+## (t) the two-byte map has no INVALID either
+
+32 `0F` opcodes are objdump-invalid in all three probe forms (list in
+the survey summary) and the decoder returns a length on every one.
+This is a **floor** of the two-byte invalid set under zero digit and
+no mandatory prefix (`0F 71`-`73` are valid at digits 2/4/6, `0F BA`
+at 4-7, `0F C7` at 1/6/7, `0F 3A` is the three-byte map, `0F B8`
+POPCNT under `F3`, `0F D0`/`D6`/`E6` under `66`/`F2`/`F3`), not the
+list. Banked separately from (s) for the table work: the `0F`
+generator run resolves it with digit and mandatory-prefix probes, and
+the walker's INVALID behaviour decided under condition 4 applies
+unchanged. No red minted for (t) until the generator run gives the
+list; recorded here so it does not leave with (s).

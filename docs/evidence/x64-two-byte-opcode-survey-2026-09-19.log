@@ -1,0 +1,793 @@
+# two-byte (0F xx) opcode survey, 2026-09-19: decoded in 64-bit mode by src/decoders/x86_decoder.c at private HEAD 00c56ad (decoder unchanged since bf97521, post fix (m)), versus the first-instruction length from objdump -D -b binary -m i386:x86-64 --insn-width=16 (Binutils 2.42). objdump is the screening tool; expected values for any red come from the pinned Ghidra oracle (12.1.2, snap rev 47).
+# Probe: 0F xx MODRM + nine 0x00, MODRM in {00 (memory, no disp), 80 (memory, disp32: exposes the has_modrm bit), C0 (register form: reaches mod=11-only opcodes such as PEXTRW)}. A one-form probe is a floor, not a count (review 2026-09-19); an earlier zero-only and C0-only pass of this survey found 5 wrong-length opcodes, this three-form pass finds 9.
+# survey program:
+#   #include <stdio.h>
+#   #include <string.h>
+#   #include "x86_decoder.h"
+#   /* two-byte map survey: 0F xx MODRM + nine 0x00, MODRM in {00,80,C0} */
+#   int main(void){
+#     static const uint8_t forms[3]={0x00,0x80,0xC0};
+#     for(int f=0;f<3;f++) for(int b=0;b<256;b++){
+#       uint8_t code[12]={0}; code[0]=0x0F; code[1]=(uint8_t)b; code[2]=forms[f];
+#       x86_decoder_t dec; x86_decoded_t d; memset(&d,0,sizeof d);
+#       x86_decoder_init(&dec,X86_MODE_64,code,sizeof code,0x1000);
+#       int n=x86_decode_one(&dec,&d);
+#       printf("%02X 0F%02X ours_len=%d ours_ins=%s\n",forms[f],b,n,x86_ins_name(d.instruction));
+#     }
+#     return 0;
+#   }
+# columns: modrm  opcode  ours_len  ours_ins  objdump_len  objdump_text
+00	0F00	3	nop	3	sldt   (%rax)
+00	0F01	3	nop	3	sgdt   (%rax)
+00	0F02	3	nop	3	lar    (%rax),%eax
+00	0F03	3	nop	3	lsl    (%rax),%eax
+00	0F04	3	nop	2	(bad)
+00	0F05	2	nop	2	syscall
+00	0F06	2	nop	2	clts
+00	0F07	2	nop	2	sysretl
+00	0F08	2	nop	2	invd
+00	0F09	2	nop	2	wbinvd
+00	0F0A	2	nop	2	(bad)
+00	0F0B	2	nop	2	ud2
+00	0F0C	3	nop	2	(bad)
+00	0F0D	3	nop	3	prefetch (%rax)
+00	0F0E	2	nop	2	femms
+00	0F0F	3	nop	1	(bad)
+00	0F10	3	nop	3	movups (%rax),%xmm0
+00	0F11	3	nop	3	movups %xmm0,(%rax)
+00	0F12	3	nop	3	movlps (%rax),%xmm0
+00	0F13	3	nop	3	movlps %xmm0,(%rax)
+00	0F14	3	nop	3	unpcklps (%rax),%xmm0
+00	0F15	3	nop	3	unpckhps (%rax),%xmm0
+00	0F16	3	nop	3	movhps (%rax),%xmm0
+00	0F17	3	nop	3	movhps %xmm0,(%rax)
+00	0F18	3	nop	3	prefetchnta (%rax)
+00	0F19	3	nop	3	nopl   (%rax)
+00	0F1A	3	nop	3	bndldx (%rax),%bnd0
+00	0F1B	3	nop	3	bndstx %bnd0,(%rax)
+00	0F1C	3	nop	3	cldemote (%rax)
+00	0F1D	3	nop	3	nopl   (%rax)
+00	0F1E	3	nop	3	nopl   (%rax)
+00	0F1F	3	nop	3	nopl   (%rax)
+00	0F20	3	nop	3	mov    %cr0,%rax
+00	0F21	3	nop	3	mov    %db0,%rax
+00	0F22	3	nop	3	mov    %rax,%cr0
+00	0F23	3	nop	3	mov    %rax,%db0
+00	0F24	3	nop	2	(bad)
+00	0F25	3	nop	2	(bad)
+00	0F26	3	nop	2	(bad)
+00	0F27	3	nop	2	(bad)
+00	0F28	3	nop	3	movaps (%rax),%xmm0
+00	0F29	3	nop	3	movaps %xmm0,(%rax)
+00	0F2A	3	nop	3	cvtpi2ps (%rax),%xmm0
+00	0F2B	3	nop	3	movntps %xmm0,(%rax)
+00	0F2C	3	nop	3	cvttps2pi (%rax),%mm0
+00	0F2D	3	nop	3	cvtps2pi (%rax),%mm0
+00	0F2E	3	nop	3	ucomiss (%rax),%xmm0
+00	0F2F	3	nop	3	comiss (%rax),%xmm0
+00	0F30	2	nop	2	wrmsr
+00	0F31	2	nop	2	rdtsc
+00	0F32	2	nop	2	rdmsr
+00	0F33	2	nop	2	rdpmc
+00	0F34	2	nop	2	sysenter
+00	0F35	2	nop	2	sysexitl
+00	0F36	3	nop	2	(bad)
+00	0F37	2	nop	2	getsec
+00	0F38	4	nop	4	pshufb (%rax),%mm0
+00	0F39	3	nop	2	(bad)
+00	0F3A	5	nop	3	(bad)
+00	0F3B	3	nop	2	(bad)
+00	0F3C	3	nop	2	(bad)
+00	0F3D	3	nop	2	(bad)
+00	0F3E	3	nop	2	(bad)
+00	0F3F	3	nop	2	(bad)
+00	0F40	3	nop	3	cmovo  (%rax),%eax
+00	0F41	3	nop	3	cmovno (%rax),%eax
+00	0F42	3	nop	3	cmovb  (%rax),%eax
+00	0F43	3	nop	3	cmovae (%rax),%eax
+00	0F44	3	nop	3	cmove  (%rax),%eax
+00	0F45	3	nop	3	cmovne (%rax),%eax
+00	0F46	3	nop	3	cmovbe (%rax),%eax
+00	0F47	3	nop	3	cmova  (%rax),%eax
+00	0F48	3	nop	3	cmovs  (%rax),%eax
+00	0F49	3	nop	3	cmovns (%rax),%eax
+00	0F4A	3	nop	3	cmovp  (%rax),%eax
+00	0F4B	3	nop	3	cmovnp (%rax),%eax
+00	0F4C	3	nop	3	cmovl  (%rax),%eax
+00	0F4D	3	nop	3	cmovge (%rax),%eax
+00	0F4E	3	nop	3	cmovle (%rax),%eax
+00	0F4F	3	nop	3	cmovg  (%rax),%eax
+00	0F50	3	nop	1	movmskps (bad),%eax
+00	0F51	3	nop	3	sqrtps (%rax),%xmm0
+00	0F52	3	nop	3	rsqrtps (%rax),%xmm0
+00	0F53	3	nop	3	rcpps  (%rax),%xmm0
+00	0F54	3	nop	3	andps  (%rax),%xmm0
+00	0F55	3	nop	3	andnps (%rax),%xmm0
+00	0F56	3	nop	3	orps   (%rax),%xmm0
+00	0F57	3	nop	3	xorps  (%rax),%xmm0
+00	0F58	3	nop	3	addps  (%rax),%xmm0
+00	0F59	3	nop	3	mulps  (%rax),%xmm0
+00	0F5A	3	nop	3	cvtps2pd (%rax),%xmm0
+00	0F5B	3	nop	3	cvtdq2ps (%rax),%xmm0
+00	0F5C	3	nop	3	subps  (%rax),%xmm0
+00	0F5D	3	nop	3	minps  (%rax),%xmm0
+00	0F5E	3	nop	3	divps  (%rax),%xmm0
+00	0F5F	3	nop	3	maxps  (%rax),%xmm0
+00	0F60	3	nop	3	punpcklbw (%rax),%mm0
+00	0F61	3	nop	3	punpcklwd (%rax),%mm0
+00	0F62	3	nop	3	punpckldq (%rax),%mm0
+00	0F63	3	nop	3	packsswb (%rax),%mm0
+00	0F64	3	nop	3	pcmpgtb (%rax),%mm0
+00	0F65	3	nop	3	pcmpgtw (%rax),%mm0
+00	0F66	3	nop	3	pcmpgtd (%rax),%mm0
+00	0F67	3	nop	3	packuswb (%rax),%mm0
+00	0F68	3	nop	3	punpckhbw (%rax),%mm0
+00	0F69	3	nop	3	punpckhwd (%rax),%mm0
+00	0F6A	3	nop	3	punpckhdq (%rax),%mm0
+00	0F6B	3	nop	3	packssdw (%rax),%mm0
+00	0F6C	3	nop	2	(bad)
+00	0F6D	3	nop	2	(bad)
+00	0F6E	3	nop	3	movd   (%rax),%mm0
+00	0F6F	3	nop	3	movq   (%rax),%mm0
+00	0F70	3	nop	4	pshufw $0x0,(%rax),%mm0
+00	0F71	4	nop	2	(bad)
+00	0F72	4	nop	2	(bad)
+00	0F73	4	nop	2	(bad)
+00	0F74	3	nop	3	pcmpeqb (%rax),%mm0
+00	0F75	3	nop	3	pcmpeqw (%rax),%mm0
+00	0F76	3	nop	3	pcmpeqd (%rax),%mm0
+00	0F77	2	nop	2	emms
+00	0F78	3	nop	3	vmread %rax,(%rax)
+00	0F79	3	nop	3	vmwrite (%rax),%rax
+00	0F7A	3	nop	2	(bad)
+00	0F7B	3	nop	2	(bad)
+00	0F7C	3	nop	2	(bad)
+00	0F7D	3	nop	2	(bad)
+00	0F7E	3	nop	3	movd   %mm0,(%rax)
+00	0F7F	3	nop	3	movq   %mm0,(%rax)
+00	0F80	6	jcc	6	jo     0x6
+00	0F81	6	jcc	6	jno    0x6
+00	0F82	6	jcc	6	jb     0x6
+00	0F83	6	jcc	6	jae    0x6
+00	0F84	6	jcc	6	je     0x6
+00	0F85	6	jcc	6	jne    0x6
+00	0F86	6	jcc	6	jbe    0x6
+00	0F87	6	jcc	6	ja     0x6
+00	0F88	6	jcc	6	js     0x6
+00	0F89	6	jcc	6	jns    0x6
+00	0F8A	6	jcc	6	jp     0x6
+00	0F8B	6	jcc	6	jnp    0x6
+00	0F8C	6	jcc	6	jl     0x6
+00	0F8D	6	jcc	6	jge    0x6
+00	0F8E	6	jcc	6	jle    0x6
+00	0F8F	6	jcc	6	jg     0x6
+00	0F90	3	setcc	3	seto   (%rax)
+00	0F91	3	setcc	3	setno  (%rax)
+00	0F92	3	setcc	3	setb   (%rax)
+00	0F93	3	setcc	3	setae  (%rax)
+00	0F94	3	setcc	3	sete   (%rax)
+00	0F95	3	setcc	3	setne  (%rax)
+00	0F96	3	setcc	3	setbe  (%rax)
+00	0F97	3	setcc	3	seta   (%rax)
+00	0F98	3	setcc	3	sets   (%rax)
+00	0F99	3	setcc	3	setns  (%rax)
+00	0F9A	3	setcc	3	setp   (%rax)
+00	0F9B	3	setcc	3	setnp  (%rax)
+00	0F9C	3	setcc	3	setl   (%rax)
+00	0F9D	3	setcc	3	setge  (%rax)
+00	0F9E	3	setcc	3	setle  (%rax)
+00	0F9F	3	setcc	3	setg   (%rax)
+00	0FA0	2	nop	2	push   %fs
+00	0FA1	2	nop	2	pop    %fs
+00	0FA2	2	nop	2	cpuid
+00	0FA3	3	nop	3	bt     %eax,(%rax)
+00	0FA4	4	nop	4	shld   $0x0,%eax,(%rax)
+00	0FA5	3	nop	3	shld   %cl,%eax,(%rax)
+00	0FA6	3	nop	1	montmul (bad)
+00	0FA7	3	nop	1	xstore-rng (bad)
+00	0FA8	2	nop	2	push   %gs
+00	0FA9	2	nop	2	pop    %gs
+00	0FAA	3	nop	2	rsm
+00	0FAB	3	nop	3	bts    %eax,(%rax)
+00	0FAC	4	nop	4	shrd   $0x0,%eax,(%rax)
+00	0FAD	3	nop	3	shrd   %cl,%eax,(%rax)
+00	0FAE	3	nop	3	fxsave (%rax)
+00	0FAF	3	imul	3	imul   (%rax),%eax
+00	0FB0	3	nop	3	cmpxchg %al,(%rax)
+00	0FB1	3	nop	3	cmpxchg %eax,(%rax)
+00	0FB2	3	nop	3	lss    (%rax),%eax
+00	0FB3	3	nop	3	btr    %eax,(%rax)
+00	0FB4	3	nop	3	lfs    (%rax),%eax
+00	0FB5	3	nop	3	lgs    (%rax),%eax
+00	0FB6	3	movzx	3	movzbl (%rax),%eax
+00	0FB7	3	movzx	3	movzwl (%rax),%eax
+00	0FB8	3	nop	2	(bad)
+00	0FB9	3	nop	3	ud1    (%rax),%eax
+00	0FBA	4	nop	2	(bad)
+00	0FBB	3	nop	3	btc    %eax,(%rax)
+00	0FBC	3	nop	3	bsf    (%rax),%eax
+00	0FBD	3	nop	3	bsr    (%rax),%eax
+00	0FBE	3	movsx	3	movsbl (%rax),%eax
+00	0FBF	3	movsx	3	movswl (%rax),%eax
+00	0FC0	3	nop	3	xadd   %al,(%rax)
+00	0FC1	3	nop	3	xadd   %eax,(%rax)
+00	0FC2	3	nop	4	cmpeqps (%rax),%xmm0
+00	0FC3	3	nop	3	movnti %eax,(%rax)
+00	0FC4	3	nop	4	pinsrw $0x0,(%rax),%mm0
+00	0FC5	3	nop	2	pextrw $0xc5,(bad),%eax
+00	0FC6	4	nop	4	shufps $0x0,(%rax),%xmm0
+00	0FC7	3	nop	2	(bad)
+00	0FC8	2	nop	2	bswap  %eax
+00	0FC9	2	nop	2	bswap  %ecx
+00	0FCA	2	nop	2	bswap  %edx
+00	0FCB	2	nop	2	bswap  %ebx
+00	0FCC	2	nop	2	bswap  %esp
+00	0FCD	2	nop	2	bswap  %ebp
+00	0FCE	2	nop	2	bswap  %esi
+00	0FCF	2	nop	2	bswap  %edi
+00	0FD0	3	nop	2	(bad)
+00	0FD1	3	nop	3	psrlw  (%rax),%mm0
+00	0FD2	3	nop	3	psrld  (%rax),%mm0
+00	0FD3	3	nop	3	psrlq  (%rax),%mm0
+00	0FD4	3	nop	3	paddq  (%rax),%mm0
+00	0FD5	3	nop	3	pmullw (%rax),%mm0
+00	0FD6	3	nop	2	(bad)
+00	0FD7	3	nop	1	pmovmskb (bad),%eax
+00	0FD8	3	nop	3	psubusb (%rax),%mm0
+00	0FD9	3	nop	3	psubusw (%rax),%mm0
+00	0FDA	3	nop	3	pminub (%rax),%mm0
+00	0FDB	3	nop	3	pand   (%rax),%mm0
+00	0FDC	3	nop	3	paddusb (%rax),%mm0
+00	0FDD	3	nop	3	paddusw (%rax),%mm0
+00	0FDE	3	nop	3	pmaxub (%rax),%mm0
+00	0FDF	3	nop	3	pandn  (%rax),%mm0
+00	0FE0	3	nop	3	pavgb  (%rax),%mm0
+00	0FE1	3	nop	3	psraw  (%rax),%mm0
+00	0FE2	3	nop	3	psrad  (%rax),%mm0
+00	0FE3	3	nop	3	pavgw  (%rax),%mm0
+00	0FE4	3	nop	3	pmulhuw (%rax),%mm0
+00	0FE5	3	nop	3	pmulhw (%rax),%mm0
+00	0FE6	3	nop	2	(bad)
+00	0FE7	3	nop	3	movntq %mm0,(%rax)
+00	0FE8	3	nop	3	psubsb (%rax),%mm0
+00	0FE9	3	nop	3	psubsw (%rax),%mm0
+00	0FEA	3	nop	3	pminsw (%rax),%mm0
+00	0FEB	3	nop	3	por    (%rax),%mm0
+00	0FEC	3	nop	3	paddsb (%rax),%mm0
+00	0FED	3	nop	3	paddsw (%rax),%mm0
+00	0FEE	3	nop	3	pmaxsw (%rax),%mm0
+00	0FEF	3	nop	3	pxor   (%rax),%mm0
+00	0FF0	3	nop	2	(bad)
+00	0FF1	3	nop	3	psllw  (%rax),%mm0
+00	0FF2	3	nop	3	pslld  (%rax),%mm0
+00	0FF3	3	nop	3	psllq  (%rax),%mm0
+00	0FF4	3	nop	3	pmuludq (%rax),%mm0
+00	0FF5	3	nop	3	pmaddwd (%rax),%mm0
+00	0FF6	3	nop	3	psadbw (%rax),%mm0
+00	0FF7	3	nop	1	maskmovq (bad),%mm0
+00	0FF8	3	nop	3	psubb  (%rax),%mm0
+00	0FF9	3	nop	3	psubw  (%rax),%mm0
+00	0FFA	3	nop	3	psubd  (%rax),%mm0
+00	0FFB	3	nop	3	psubq  (%rax),%mm0
+00	0FFC	3	nop	3	paddb  (%rax),%mm0
+00	0FFD	3	nop	3	paddw  (%rax),%mm0
+00	0FFE	3	nop	3	paddd  (%rax),%mm0
+00	0FFF	3	nop	3	ud0    (%rax),%eax
+80	0F00	7	nop	7	sldt   0x0(%rax)
+80	0F01	7	nop	7	sgdt   0x0(%rax)
+80	0F02	7	nop	7	lar    0x0(%rax),%eax
+80	0F03	7	nop	7	lsl    0x0(%rax),%eax
+80	0F04	7	nop	2	(bad)
+80	0F05	2	nop	2	syscall
+80	0F06	2	nop	2	clts
+80	0F07	2	nop	2	sysretl
+80	0F08	2	nop	2	invd
+80	0F09	2	nop	2	wbinvd
+80	0F0A	2	nop	2	(bad)
+80	0F0B	2	nop	2	ud2
+80	0F0C	7	nop	2	(bad)
+80	0F0D	7	nop	7	prefetch 0x0(%rax)
+80	0F0E	2	nop	2	femms
+80	0F0F	7	nop	1	(bad)
+80	0F10	7	nop	7	movups 0x0(%rax),%xmm0
+80	0F11	7	nop	7	movups %xmm0,0x0(%rax)
+80	0F12	7	nop	7	movlps 0x0(%rax),%xmm0
+80	0F13	7	nop	7	movlps %xmm0,0x0(%rax)
+80	0F14	7	nop	7	unpcklps 0x0(%rax),%xmm0
+80	0F15	7	nop	7	unpckhps 0x0(%rax),%xmm0
+80	0F16	7	nop	7	movhps 0x0(%rax),%xmm0
+80	0F17	7	nop	7	movhps %xmm0,0x0(%rax)
+80	0F18	7	nop	7	prefetchnta 0x0(%rax)
+80	0F19	7	nop	7	nopl   0x0(%rax)
+80	0F1A	7	nop	7	bndldx 0x0(%rax),%bnd0
+80	0F1B	7	nop	7	bndstx %bnd0,0x0(%rax)
+80	0F1C	7	nop	7	cldemote 0x0(%rax)
+80	0F1D	7	nop	7	nopl   0x0(%rax)
+80	0F1E	7	nop	7	nopl   0x0(%rax)
+80	0F1F	7	nop	7	nopl   0x0(%rax)
+80	0F20	7	nop	3	mov    %cr0,%rax
+80	0F21	7	nop	3	mov    %db0,%rax
+80	0F22	7	nop	3	mov    %rax,%cr0
+80	0F23	7	nop	3	mov    %rax,%db0
+80	0F24	7	nop	2	(bad)
+80	0F25	7	nop	2	(bad)
+80	0F26	7	nop	2	(bad)
+80	0F27	7	nop	2	(bad)
+80	0F28	7	nop	7	movaps 0x0(%rax),%xmm0
+80	0F29	7	nop	7	movaps %xmm0,0x0(%rax)
+80	0F2A	7	nop	7	cvtpi2ps 0x0(%rax),%xmm0
+80	0F2B	7	nop	7	movntps %xmm0,0x0(%rax)
+80	0F2C	7	nop	7	cvttps2pi 0x0(%rax),%mm0
+80	0F2D	7	nop	7	cvtps2pi 0x0(%rax),%mm0
+80	0F2E	7	nop	7	ucomiss 0x0(%rax),%xmm0
+80	0F2F	7	nop	7	comiss 0x0(%rax),%xmm0
+80	0F30	2	nop	2	wrmsr
+80	0F31	2	nop	2	rdtsc
+80	0F32	2	nop	2	rdmsr
+80	0F33	2	nop	2	rdpmc
+80	0F34	2	nop	2	sysenter
+80	0F35	2	nop	2	sysexitl
+80	0F36	7	nop	2	(bad)
+80	0F37	2	nop	2	getsec
+80	0F38	4	nop	3	(bad)
+80	0F39	7	nop	2	(bad)
+80	0F3A	5	nop	3	(bad)
+80	0F3B	7	nop	2	(bad)
+80	0F3C	7	nop	2	(bad)
+80	0F3D	7	nop	2	(bad)
+80	0F3E	7	nop	2	(bad)
+80	0F3F	7	nop	2	(bad)
+80	0F40	7	nop	7	cmovo  0x0(%rax),%eax
+80	0F41	7	nop	7	cmovno 0x0(%rax),%eax
+80	0F42	7	nop	7	cmovb  0x0(%rax),%eax
+80	0F43	7	nop	7	cmovae 0x0(%rax),%eax
+80	0F44	7	nop	7	cmove  0x0(%rax),%eax
+80	0F45	7	nop	7	cmovne 0x0(%rax),%eax
+80	0F46	7	nop	7	cmovbe 0x0(%rax),%eax
+80	0F47	7	nop	7	cmova  0x0(%rax),%eax
+80	0F48	7	nop	7	cmovs  0x0(%rax),%eax
+80	0F49	7	nop	7	cmovns 0x0(%rax),%eax
+80	0F4A	7	nop	7	cmovp  0x0(%rax),%eax
+80	0F4B	7	nop	7	cmovnp 0x0(%rax),%eax
+80	0F4C	7	nop	7	cmovl  0x0(%rax),%eax
+80	0F4D	7	nop	7	cmovge 0x0(%rax),%eax
+80	0F4E	7	nop	7	cmovle 0x0(%rax),%eax
+80	0F4F	7	nop	7	cmovg  0x0(%rax),%eax
+80	0F50	7	nop	1	movmskps (bad),%eax
+80	0F51	7	nop	7	sqrtps 0x0(%rax),%xmm0
+80	0F52	7	nop	7	rsqrtps 0x0(%rax),%xmm0
+80	0F53	7	nop	7	rcpps  0x0(%rax),%xmm0
+80	0F54	7	nop	7	andps  0x0(%rax),%xmm0
+80	0F55	7	nop	7	andnps 0x0(%rax),%xmm0
+80	0F56	7	nop	7	orps   0x0(%rax),%xmm0
+80	0F57	7	nop	7	xorps  0x0(%rax),%xmm0
+80	0F58	7	nop	7	addps  0x0(%rax),%xmm0
+80	0F59	7	nop	7	mulps  0x0(%rax),%xmm0
+80	0F5A	7	nop	7	cvtps2pd 0x0(%rax),%xmm0
+80	0F5B	7	nop	7	cvtdq2ps 0x0(%rax),%xmm0
+80	0F5C	7	nop	7	subps  0x0(%rax),%xmm0
+80	0F5D	7	nop	7	minps  0x0(%rax),%xmm0
+80	0F5E	7	nop	7	divps  0x0(%rax),%xmm0
+80	0F5F	7	nop	7	maxps  0x0(%rax),%xmm0
+80	0F60	7	nop	7	punpcklbw 0x0(%rax),%mm0
+80	0F61	7	nop	7	punpcklwd 0x0(%rax),%mm0
+80	0F62	7	nop	7	punpckldq 0x0(%rax),%mm0
+80	0F63	7	nop	7	packsswb 0x0(%rax),%mm0
+80	0F64	7	nop	7	pcmpgtb 0x0(%rax),%mm0
+80	0F65	7	nop	7	pcmpgtw 0x0(%rax),%mm0
+80	0F66	7	nop	7	pcmpgtd 0x0(%rax),%mm0
+80	0F67	7	nop	7	packuswb 0x0(%rax),%mm0
+80	0F68	7	nop	7	punpckhbw 0x0(%rax),%mm0
+80	0F69	7	nop	7	punpckhwd 0x0(%rax),%mm0
+80	0F6A	7	nop	7	punpckhdq 0x0(%rax),%mm0
+80	0F6B	7	nop	7	packssdw 0x0(%rax),%mm0
+80	0F6C	7	nop	2	(bad)
+80	0F6D	7	nop	2	(bad)
+80	0F6E	7	nop	7	movd   0x0(%rax),%mm0
+80	0F6F	7	nop	7	movq   0x0(%rax),%mm0
+80	0F70	7	nop	8	pshufw $0x0,0x0(%rax),%mm0
+80	0F71	8	nop	2	(bad)
+80	0F72	8	nop	2	(bad)
+80	0F73	8	nop	2	(bad)
+80	0F74	7	nop	7	pcmpeqb 0x0(%rax),%mm0
+80	0F75	7	nop	7	pcmpeqw 0x0(%rax),%mm0
+80	0F76	7	nop	7	pcmpeqd 0x0(%rax),%mm0
+80	0F77	2	nop	2	emms
+80	0F78	7	nop	7	vmread %rax,0x0(%rax)
+80	0F79	7	nop	7	vmwrite 0x0(%rax),%rax
+80	0F7A	7	nop	2	(bad)
+80	0F7B	7	nop	2	(bad)
+80	0F7C	7	nop	2	(bad)
+80	0F7D	7	nop	2	(bad)
+80	0F7E	7	nop	7	movd   %mm0,0x0(%rax)
+80	0F7F	7	nop	7	movq   %mm0,0x0(%rax)
+80	0F80	6	jcc	6	jo     0x86
+80	0F81	6	jcc	6	jno    0x86
+80	0F82	6	jcc	6	jb     0x86
+80	0F83	6	jcc	6	jae    0x86
+80	0F84	6	jcc	6	je     0x86
+80	0F85	6	jcc	6	jne    0x86
+80	0F86	6	jcc	6	jbe    0x86
+80	0F87	6	jcc	6	ja     0x86
+80	0F88	6	jcc	6	js     0x86
+80	0F89	6	jcc	6	jns    0x86
+80	0F8A	6	jcc	6	jp     0x86
+80	0F8B	6	jcc	6	jnp    0x86
+80	0F8C	6	jcc	6	jl     0x86
+80	0F8D	6	jcc	6	jge    0x86
+80	0F8E	6	jcc	6	jle    0x86
+80	0F8F	6	jcc	6	jg     0x86
+80	0F90	7	setcc	7	seto   0x0(%rax)
+80	0F91	7	setcc	7	setno  0x0(%rax)
+80	0F92	7	setcc	7	setb   0x0(%rax)
+80	0F93	7	setcc	7	setae  0x0(%rax)
+80	0F94	7	setcc	7	sete   0x0(%rax)
+80	0F95	7	setcc	7	setne  0x0(%rax)
+80	0F96	7	setcc	7	setbe  0x0(%rax)
+80	0F97	7	setcc	7	seta   0x0(%rax)
+80	0F98	7	setcc	7	sets   0x0(%rax)
+80	0F99	7	setcc	7	setns  0x0(%rax)
+80	0F9A	7	setcc	7	setp   0x0(%rax)
+80	0F9B	7	setcc	7	setnp  0x0(%rax)
+80	0F9C	7	setcc	7	setl   0x0(%rax)
+80	0F9D	7	setcc	7	setge  0x0(%rax)
+80	0F9E	7	setcc	7	setle  0x0(%rax)
+80	0F9F	7	setcc	7	setg   0x0(%rax)
+80	0FA0	2	nop	2	push   %fs
+80	0FA1	2	nop	2	pop    %fs
+80	0FA2	2	nop	2	cpuid
+80	0FA3	7	nop	7	bt     %eax,0x0(%rax)
+80	0FA4	8	nop	8	shld   $0x0,%eax,0x0(%rax)
+80	0FA5	7	nop	7	shld   %cl,%eax,0x0(%rax)
+80	0FA6	7	nop	1	montmul (bad)
+80	0FA7	7	nop	1	xstore-rng (bad)
+80	0FA8	2	nop	2	push   %gs
+80	0FA9	2	nop	2	pop    %gs
+80	0FAA	7	nop	2	rsm
+80	0FAB	7	nop	7	bts    %eax,0x0(%rax)
+80	0FAC	8	nop	8	shrd   $0x0,%eax,0x0(%rax)
+80	0FAD	7	nop	7	shrd   %cl,%eax,0x0(%rax)
+80	0FAE	7	nop	7	fxsave 0x0(%rax)
+80	0FAF	7	imul	7	imul   0x0(%rax),%eax
+80	0FB0	7	nop	7	cmpxchg %al,0x0(%rax)
+80	0FB1	7	nop	7	cmpxchg %eax,0x0(%rax)
+80	0FB2	7	nop	7	lss    0x0(%rax),%eax
+80	0FB3	7	nop	7	btr    %eax,0x0(%rax)
+80	0FB4	7	nop	7	lfs    0x0(%rax),%eax
+80	0FB5	7	nop	7	lgs    0x0(%rax),%eax
+80	0FB6	7	movzx	7	movzbl 0x0(%rax),%eax
+80	0FB7	7	movzx	7	movzwl 0x0(%rax),%eax
+80	0FB8	7	nop	2	(bad)
+80	0FB9	7	nop	7	ud1    0x0(%rax),%eax
+80	0FBA	8	nop	2	(bad)
+80	0FBB	7	nop	7	btc    %eax,0x0(%rax)
+80	0FBC	7	nop	7	bsf    0x0(%rax),%eax
+80	0FBD	7	nop	7	bsr    0x0(%rax),%eax
+80	0FBE	7	movsx	7	movsbl 0x0(%rax),%eax
+80	0FBF	7	movsx	7	movswl 0x0(%rax),%eax
+80	0FC0	7	nop	7	xadd   %al,0x0(%rax)
+80	0FC1	7	nop	7	xadd   %eax,0x0(%rax)
+80	0FC2	7	nop	8	cmpeqps 0x0(%rax),%xmm0
+80	0FC3	7	nop	7	movnti %eax,0x0(%rax)
+80	0FC4	7	nop	8	pinsrw $0x0,0x0(%rax),%mm0
+80	0FC5	7	nop	2	pextrw $0xc5,(bad),%eax
+80	0FC6	8	nop	8	shufps $0x0,0x0(%rax),%xmm0
+80	0FC7	7	nop	2	(bad)
+80	0FC8	2	nop	2	bswap  %eax
+80	0FC9	2	nop	2	bswap  %ecx
+80	0FCA	2	nop	2	bswap  %edx
+80	0FCB	2	nop	2	bswap  %ebx
+80	0FCC	2	nop	2	bswap  %esp
+80	0FCD	2	nop	2	bswap  %ebp
+80	0FCE	2	nop	2	bswap  %esi
+80	0FCF	2	nop	2	bswap  %edi
+80	0FD0	7	nop	2	(bad)
+80	0FD1	7	nop	7	psrlw  0x0(%rax),%mm0
+80	0FD2	7	nop	7	psrld  0x0(%rax),%mm0
+80	0FD3	7	nop	7	psrlq  0x0(%rax),%mm0
+80	0FD4	7	nop	7	paddq  0x0(%rax),%mm0
+80	0FD5	7	nop	7	pmullw 0x0(%rax),%mm0
+80	0FD6	7	nop	2	(bad)
+80	0FD7	7	nop	1	pmovmskb (bad),%eax
+80	0FD8	7	nop	7	psubusb 0x0(%rax),%mm0
+80	0FD9	7	nop	7	psubusw 0x0(%rax),%mm0
+80	0FDA	7	nop	7	pminub 0x0(%rax),%mm0
+80	0FDB	7	nop	7	pand   0x0(%rax),%mm0
+80	0FDC	7	nop	7	paddusb 0x0(%rax),%mm0
+80	0FDD	7	nop	7	paddusw 0x0(%rax),%mm0
+80	0FDE	7	nop	7	pmaxub 0x0(%rax),%mm0
+80	0FDF	7	nop	7	pandn  0x0(%rax),%mm0
+80	0FE0	7	nop	7	pavgb  0x0(%rax),%mm0
+80	0FE1	7	nop	7	psraw  0x0(%rax),%mm0
+80	0FE2	7	nop	7	psrad  0x0(%rax),%mm0
+80	0FE3	7	nop	7	pavgw  0x0(%rax),%mm0
+80	0FE4	7	nop	7	pmulhuw 0x0(%rax),%mm0
+80	0FE5	7	nop	7	pmulhw 0x0(%rax),%mm0
+80	0FE6	7	nop	2	(bad)
+80	0FE7	7	nop	7	movntq %mm0,0x0(%rax)
+80	0FE8	7	nop	7	psubsb 0x0(%rax),%mm0
+80	0FE9	7	nop	7	psubsw 0x0(%rax),%mm0
+80	0FEA	7	nop	7	pminsw 0x0(%rax),%mm0
+80	0FEB	7	nop	7	por    0x0(%rax),%mm0
+80	0FEC	7	nop	7	paddsb 0x0(%rax),%mm0
+80	0FED	7	nop	7	paddsw 0x0(%rax),%mm0
+80	0FEE	7	nop	7	pmaxsw 0x0(%rax),%mm0
+80	0FEF	7	nop	7	pxor   0x0(%rax),%mm0
+80	0FF0	7	nop	2	(bad)
+80	0FF1	7	nop	7	psllw  0x0(%rax),%mm0
+80	0FF2	7	nop	7	pslld  0x0(%rax),%mm0
+80	0FF3	7	nop	7	psllq  0x0(%rax),%mm0
+80	0FF4	7	nop	7	pmuludq 0x0(%rax),%mm0
+80	0FF5	7	nop	7	pmaddwd 0x0(%rax),%mm0
+80	0FF6	7	nop	7	psadbw 0x0(%rax),%mm0
+80	0FF7	7	nop	1	maskmovq (bad),%mm0
+80	0FF8	7	nop	7	psubb  0x0(%rax),%mm0
+80	0FF9	7	nop	7	psubw  0x0(%rax),%mm0
+80	0FFA	7	nop	7	psubd  0x0(%rax),%mm0
+80	0FFB	7	nop	7	psubq  0x0(%rax),%mm0
+80	0FFC	7	nop	7	paddb  0x0(%rax),%mm0
+80	0FFD	7	nop	7	paddw  0x0(%rax),%mm0
+80	0FFE	7	nop	7	paddd  0x0(%rax),%mm0
+80	0FFF	7	nop	7	ud0    0x0(%rax),%eax
+C0	0F00	3	nop	3	sldt   %eax
+C0	0F01	3	nop	3	enclv
+C0	0F02	3	nop	3	lar    %eax,%eax
+C0	0F03	3	nop	3	lsl    %eax,%eax
+C0	0F04	3	nop	2	(bad)
+C0	0F05	2	nop	2	syscall
+C0	0F06	2	nop	2	clts
+C0	0F07	2	nop	2	sysretl
+C0	0F08	2	nop	2	invd
+C0	0F09	2	nop	2	wbinvd
+C0	0F0A	2	nop	2	(bad)
+C0	0F0B	2	nop	2	ud2
+C0	0F0C	3	nop	2	(bad)
+C0	0F0D	3	nop	1	prefetch (bad)
+C0	0F0E	2	nop	2	femms
+C0	0F0F	3	nop	1	(bad)
+C0	0F10	3	nop	3	movups %xmm0,%xmm0
+C0	0F11	3	nop	3	movups %xmm0,%xmm0
+C0	0F12	3	nop	3	movhlps %xmm0,%xmm0
+C0	0F13	3	nop	1	movlps %xmm0,(bad)
+C0	0F14	3	nop	3	unpcklps %xmm0,%xmm0
+C0	0F15	3	nop	3	unpckhps %xmm0,%xmm0
+C0	0F16	3	nop	3	movlhps %xmm0,%xmm0
+C0	0F17	3	nop	1	movhps %xmm0,(bad)
+C0	0F18	3	nop	3	nop    %eax
+C0	0F19	3	nop	3	nop    %eax
+C0	0F1A	3	nop	3	nop    %eax
+C0	0F1B	3	nop	3	nop    %eax
+C0	0F1C	3	nop	3	nop    %eax
+C0	0F1D	3	nop	3	nop    %eax
+C0	0F1E	3	nop	3	nop    %eax
+C0	0F1F	3	nop	3	nop    %eax
+C0	0F20	3	nop	3	mov    %cr0,%rax
+C0	0F21	3	nop	3	mov    %db0,%rax
+C0	0F22	3	nop	3	mov    %rax,%cr0
+C0	0F23	3	nop	3	mov    %rax,%db0
+C0	0F24	3	nop	2	(bad)
+C0	0F25	3	nop	2	(bad)
+C0	0F26	3	nop	2	(bad)
+C0	0F27	3	nop	2	(bad)
+C0	0F28	3	nop	3	movaps %xmm0,%xmm0
+C0	0F29	3	nop	3	movaps %xmm0,%xmm0
+C0	0F2A	3	nop	3	cvtpi2ps %mm0,%xmm0
+C0	0F2B	3	nop	1	movntps %xmm0,(bad)
+C0	0F2C	3	nop	3	cvttps2pi %xmm0,%mm0
+C0	0F2D	3	nop	3	cvtps2pi %xmm0,%mm0
+C0	0F2E	3	nop	3	ucomiss %xmm0,%xmm0
+C0	0F2F	3	nop	3	comiss %xmm0,%xmm0
+C0	0F30	2	nop	2	wrmsr
+C0	0F31	2	nop	2	rdtsc
+C0	0F32	2	nop	2	rdmsr
+C0	0F33	2	nop	2	rdpmc
+C0	0F34	2	nop	2	sysenter
+C0	0F35	2	nop	2	sysexitl
+C0	0F36	3	nop	2	(bad)
+C0	0F37	2	nop	2	getsec
+C0	0F38	4	nop	3	(bad)
+C0	0F39	3	nop	2	(bad)
+C0	0F3A	5	nop	3	(bad)
+C0	0F3B	3	nop	2	(bad)
+C0	0F3C	3	nop	2	(bad)
+C0	0F3D	3	nop	2	(bad)
+C0	0F3E	3	nop	2	(bad)
+C0	0F3F	3	nop	2	(bad)
+C0	0F40	3	nop	3	cmovo  %eax,%eax
+C0	0F41	3	nop	3	cmovno %eax,%eax
+C0	0F42	3	nop	3	cmovb  %eax,%eax
+C0	0F43	3	nop	3	cmovae %eax,%eax
+C0	0F44	3	nop	3	cmove  %eax,%eax
+C0	0F45	3	nop	3	cmovne %eax,%eax
+C0	0F46	3	nop	3	cmovbe %eax,%eax
+C0	0F47	3	nop	3	cmova  %eax,%eax
+C0	0F48	3	nop	3	cmovs  %eax,%eax
+C0	0F49	3	nop	3	cmovns %eax,%eax
+C0	0F4A	3	nop	3	cmovp  %eax,%eax
+C0	0F4B	3	nop	3	cmovnp %eax,%eax
+C0	0F4C	3	nop	3	cmovl  %eax,%eax
+C0	0F4D	3	nop	3	cmovge %eax,%eax
+C0	0F4E	3	nop	3	cmovle %eax,%eax
+C0	0F4F	3	nop	3	cmovg  %eax,%eax
+C0	0F50	3	nop	3	movmskps %xmm0,%eax
+C0	0F51	3	nop	3	sqrtps %xmm0,%xmm0
+C0	0F52	3	nop	3	rsqrtps %xmm0,%xmm0
+C0	0F53	3	nop	3	rcpps  %xmm0,%xmm0
+C0	0F54	3	nop	3	andps  %xmm0,%xmm0
+C0	0F55	3	nop	3	andnps %xmm0,%xmm0
+C0	0F56	3	nop	3	orps   %xmm0,%xmm0
+C0	0F57	3	nop	3	xorps  %xmm0,%xmm0
+C0	0F58	3	nop	3	addps  %xmm0,%xmm0
+C0	0F59	3	nop	3	mulps  %xmm0,%xmm0
+C0	0F5A	3	nop	3	cvtps2pd %xmm0,%xmm0
+C0	0F5B	3	nop	3	cvtdq2ps %xmm0,%xmm0
+C0	0F5C	3	nop	3	subps  %xmm0,%xmm0
+C0	0F5D	3	nop	3	minps  %xmm0,%xmm0
+C0	0F5E	3	nop	3	divps  %xmm0,%xmm0
+C0	0F5F	3	nop	3	maxps  %xmm0,%xmm0
+C0	0F60	3	nop	3	punpcklbw %mm0,%mm0
+C0	0F61	3	nop	3	punpcklwd %mm0,%mm0
+C0	0F62	3	nop	3	punpckldq %mm0,%mm0
+C0	0F63	3	nop	3	packsswb %mm0,%mm0
+C0	0F64	3	nop	3	pcmpgtb %mm0,%mm0
+C0	0F65	3	nop	3	pcmpgtw %mm0,%mm0
+C0	0F66	3	nop	3	pcmpgtd %mm0,%mm0
+C0	0F67	3	nop	3	packuswb %mm0,%mm0
+C0	0F68	3	nop	3	punpckhbw %mm0,%mm0
+C0	0F69	3	nop	3	punpckhwd %mm0,%mm0
+C0	0F6A	3	nop	3	punpckhdq %mm0,%mm0
+C0	0F6B	3	nop	3	packssdw %mm0,%mm0
+C0	0F6C	3	nop	2	(bad)
+C0	0F6D	3	nop	2	(bad)
+C0	0F6E	3	nop	3	movd   %eax,%mm0
+C0	0F6F	3	nop	3	movq   %mm0,%mm0
+C0	0F70	3	nop	4	pshufw $0x0,%mm0,%mm0
+C0	0F71	4	nop	2	(bad)
+C0	0F72	4	nop	2	(bad)
+C0	0F73	4	nop	2	(bad)
+C0	0F74	3	nop	3	pcmpeqb %mm0,%mm0
+C0	0F75	3	nop	3	pcmpeqw %mm0,%mm0
+C0	0F76	3	nop	3	pcmpeqd %mm0,%mm0
+C0	0F77	2	nop	2	emms
+C0	0F78	3	nop	3	vmread %rax,%rax
+C0	0F79	3	nop	3	vmwrite %rax,%rax
+C0	0F7A	3	nop	2	(bad)
+C0	0F7B	3	nop	2	(bad)
+C0	0F7C	3	nop	2	(bad)
+C0	0F7D	3	nop	2	(bad)
+C0	0F7E	3	nop	3	movd   %mm0,%eax
+C0	0F7F	3	nop	3	movq   %mm0,%mm0
+C0	0F80	6	jcc	6	jo     0xc6
+C0	0F81	6	jcc	6	jno    0xc6
+C0	0F82	6	jcc	6	jb     0xc6
+C0	0F83	6	jcc	6	jae    0xc6
+C0	0F84	6	jcc	6	je     0xc6
+C0	0F85	6	jcc	6	jne    0xc6
+C0	0F86	6	jcc	6	jbe    0xc6
+C0	0F87	6	jcc	6	ja     0xc6
+C0	0F88	6	jcc	6	js     0xc6
+C0	0F89	6	jcc	6	jns    0xc6
+C0	0F8A	6	jcc	6	jp     0xc6
+C0	0F8B	6	jcc	6	jnp    0xc6
+C0	0F8C	6	jcc	6	jl     0xc6
+C0	0F8D	6	jcc	6	jge    0xc6
+C0	0F8E	6	jcc	6	jle    0xc6
+C0	0F8F	6	jcc	6	jg     0xc6
+C0	0F90	3	setcc	3	seto   %al
+C0	0F91	3	setcc	3	setno  %al
+C0	0F92	3	setcc	3	setb   %al
+C0	0F93	3	setcc	3	setae  %al
+C0	0F94	3	setcc	3	sete   %al
+C0	0F95	3	setcc	3	setne  %al
+C0	0F96	3	setcc	3	setbe  %al
+C0	0F97	3	setcc	3	seta   %al
+C0	0F98	3	setcc	3	sets   %al
+C0	0F99	3	setcc	3	setns  %al
+C0	0F9A	3	setcc	3	setp   %al
+C0	0F9B	3	setcc	3	setnp  %al
+C0	0F9C	3	setcc	3	setl   %al
+C0	0F9D	3	setcc	3	setge  %al
+C0	0F9E	3	setcc	3	setle  %al
+C0	0F9F	3	setcc	3	setg   %al
+C0	0FA0	2	nop	2	push   %fs
+C0	0FA1	2	nop	2	pop    %fs
+C0	0FA2	2	nop	2	cpuid
+C0	0FA3	3	nop	3	bt     %eax,%eax
+C0	0FA4	4	nop	4	shld   $0x0,%eax,%eax
+C0	0FA5	3	nop	3	shld   %cl,%eax,%eax
+C0	0FA6	3	nop	3	montmul
+C0	0FA7	3	nop	3	xstore-rng
+C0	0FA8	2	nop	2	push   %gs
+C0	0FA9	2	nop	2	pop    %gs
+C0	0FAA	3	nop	2	rsm
+C0	0FAB	3	nop	3	bts    %eax,%eax
+C0	0FAC	4	nop	4	shrd   $0x0,%eax,%eax
+C0	0FAD	3	nop	3	shrd   %cl,%eax,%eax
+C0	0FAE	3	nop	2	(bad)
+C0	0FAF	3	imul	3	imul   %eax,%eax
+C0	0FB0	3	nop	3	cmpxchg %al,%al
+C0	0FB1	3	nop	3	cmpxchg %eax,%eax
+C0	0FB2	3	nop	1	lss    (bad),%eax
+C0	0FB3	3	nop	3	btr    %eax,%eax
+C0	0FB4	3	nop	1	lfs    (bad),%eax
+C0	0FB5	3	nop	1	lgs    (bad),%eax
+C0	0FB6	3	movzx	3	movzbl %al,%eax
+C0	0FB7	3	movzx	3	movzwl %ax,%eax
+C0	0FB8	3	nop	2	(bad)
+C0	0FB9	3	nop	3	ud1    %eax,%eax
+C0	0FBA	4	nop	2	(bad)
+C0	0FBB	3	nop	3	btc    %eax,%eax
+C0	0FBC	3	nop	3	bsf    %eax,%eax
+C0	0FBD	3	nop	3	bsr    %eax,%eax
+C0	0FBE	3	movsx	3	movsbl %al,%eax
+C0	0FBF	3	movsx	3	movswl %ax,%eax
+C0	0FC0	3	nop	3	xadd   %al,%al
+C0	0FC1	3	nop	3	xadd   %eax,%eax
+C0	0FC2	3	nop	4	cmpeqps %xmm0,%xmm0
+C0	0FC3	3	nop	1	movnti %eax,(bad)
+C0	0FC4	3	nop	4	pinsrw $0x0,%eax,%mm0
+C0	0FC5	3	nop	4	pextrw $0x0,%mm0,%eax
+C0	0FC6	4	nop	4	shufps $0x0,%xmm0,%xmm0
+C0	0FC7	3	nop	2	(bad)
+C0	0FC8	2	nop	2	bswap  %eax
+C0	0FC9	2	nop	2	bswap  %ecx
+C0	0FCA	2	nop	2	bswap  %edx
+C0	0FCB	2	nop	2	bswap  %ebx
+C0	0FCC	2	nop	2	bswap  %esp
+C0	0FCD	2	nop	2	bswap  %ebp
+C0	0FCE	2	nop	2	bswap  %esi
+C0	0FCF	2	nop	2	bswap  %edi
+C0	0FD0	3	nop	2	(bad)
+C0	0FD1	3	nop	3	psrlw  %mm0,%mm0
+C0	0FD2	3	nop	3	psrld  %mm0,%mm0
+C0	0FD3	3	nop	3	psrlq  %mm0,%mm0
+C0	0FD4	3	nop	3	paddq  %mm0,%mm0
+C0	0FD5	3	nop	3	pmullw %mm0,%mm0
+C0	0FD6	3	nop	2	(bad)
+C0	0FD7	3	nop	3	pmovmskb %mm0,%eax
+C0	0FD8	3	nop	3	psubusb %mm0,%mm0
+C0	0FD9	3	nop	3	psubusw %mm0,%mm0
+C0	0FDA	3	nop	3	pminub %mm0,%mm0
+C0	0FDB	3	nop	3	pand   %mm0,%mm0
+C0	0FDC	3	nop	3	paddusb %mm0,%mm0
+C0	0FDD	3	nop	3	paddusw %mm0,%mm0
+C0	0FDE	3	nop	3	pmaxub %mm0,%mm0
+C0	0FDF	3	nop	3	pandn  %mm0,%mm0
+C0	0FE0	3	nop	3	pavgb  %mm0,%mm0
+C0	0FE1	3	nop	3	psraw  %mm0,%mm0
+C0	0FE2	3	nop	3	psrad  %mm0,%mm0
+C0	0FE3	3	nop	3	pavgw  %mm0,%mm0
+C0	0FE4	3	nop	3	pmulhuw %mm0,%mm0
+C0	0FE5	3	nop	3	pmulhw %mm0,%mm0
+C0	0FE6	3	nop	2	(bad)
+C0	0FE7	3	nop	1	movntq %mm0,(bad)
+C0	0FE8	3	nop	3	psubsb %mm0,%mm0
+C0	0FE9	3	nop	3	psubsw %mm0,%mm0
+C0	0FEA	3	nop	3	pminsw %mm0,%mm0
+C0	0FEB	3	nop	3	por    %mm0,%mm0
+C0	0FEC	3	nop	3	paddsb %mm0,%mm0
+C0	0FED	3	nop	3	paddsw %mm0,%mm0
+C0	0FEE	3	nop	3	pmaxsw %mm0,%mm0
+C0	0FEF	3	nop	3	pxor   %mm0,%mm0
+C0	0FF0	3	nop	2	(bad)
+C0	0FF1	3	nop	3	psllw  %mm0,%mm0
+C0	0FF2	3	nop	3	pslld  %mm0,%mm0
+C0	0FF3	3	nop	3	psllq  %mm0,%mm0
+C0	0FF4	3	nop	3	pmuludq %mm0,%mm0
+C0	0FF5	3	nop	3	pmaddwd %mm0,%mm0
+C0	0FF6	3	nop	3	psadbw %mm0,%mm0
+C0	0FF7	3	nop	3	maskmovq %mm0,%mm0
+C0	0FF8	3	nop	3	psubb  %mm0,%mm0
+C0	0FF9	3	nop	3	psubw  %mm0,%mm0
+C0	0FFA	3	nop	3	psubd  %mm0,%mm0
+C0	0FFB	3	nop	3	psubq  %mm0,%mm0
+C0	0FFC	3	nop	3	paddb  %mm0,%mm0
+C0	0FFD	3	nop	3	paddw  %mm0,%mm0
+C0	0FFE	3	nop	3	paddd  %mm0,%mm0
+C0	0FFF	3	nop	3	ud0    %eax,%eax
+# summary: wrong-length opcodes (objdump-valid in at least one form): 9, three mechanisms:
+#   trailing imm8 after ModRM (decoder reads ModRM only): 0F70 pshufw, 0FC2 cmpps, 0FC4 pinsrw, 0FC5 pextrw (C0 only; 00/80 forms are (bad)) -- ours 3/7/3 vs 4/8/4
+#   no ModRM (decoder consumes one): 0FAA rsm -- ours 3/7/3 vs 2
+#   mod field ignored by hardware, decoder honours it as a memory form: 0F20 0F21 0F22 0F23 mov cr/dr -- ours 7 vs 3 at modrm 80 (00 and C0 agree at 3)
+# objdump-invalid in ALL three forms (zero digit, no mandatory prefix): 32 opcodes: 0F04 0F0A 0F0C 0F0F 0F24 0F25 0F26 0F27 0F36 0F39 0F3A 0F3B 0F3C 0F3D 0F3E 0F3F 0F6C 0F6D 0F71 0F72 0F73 0F7A 0F7B 0F7C 0F7D 0FB8 0FBA 0FC7 0FD0 0FD6 0FE6 0FF0. This is a FLOOR of the invalid set under these probe conditions, not the two-byte INVALID list: 0F71-73 are valid at digits 2/4/6, 0FBA at 4-7, 0FC7 at 1/6/7, 0F3A is the three-byte map, 0FB8 is POPCNT under F3, 0FD6/0FE6/0FD0 need 66/F2/F3. The decoder returns a length on every one of them (the two-byte default arm has no INVALID either): finding (t), separate from the length defect (s).
+# handled already, not in (s): 0FA4/0FAC shld/shrd ib (line 1207), 0FBA group 8 ib, 0F71-73 groups 12-14 ib, 0F3A three-byte map ib.

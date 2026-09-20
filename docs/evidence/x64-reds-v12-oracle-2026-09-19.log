@@ -1,0 +1,44 @@
+# fixture v12 oracle 2026-09-19: sha256 bf7a0e7c5d66bad452a9a51387e2cc2ec3e0ebdce379ad0e5fd875282cfcf1d2; rows (s1)-(s4) 0F70/0FC2/0FC4/0FC5 C0 00, (s6) 0F 20 80 appended after (o); (b) imm64 and RET shift +19; (s5) 0F AA after the RET. Build: as --64; ld -Ttext=0x401000 (Binutils 2.42). ORACLE: Ghidra 12.1.2 PUBLIC, snap revision 47, InstrAt.java (flow-following).
+# PREDICTED before the run: all 24 v11 rows through 401044 identical to the v11 log | 40104d PSHUFW MM0,MM0,0x0 len=4 | 401051 CMPPS XMM0,XMM0,0x0 len=4 (objdump spells the imm-0 form cmpeqps; Ghidra's spelling is read, length is what the red asserts) | 401055 PINSRW MM0,EAX,0x0 len=4 | 401059 PEXTRW EAX,MM0,0x0 len=4 | 40105d MOV RAX,CR0 len=3 | 401060 MOV RAX,0x1122334455667788 len=10 | 40106a RET len=1 | 40106b NONE by construction (after RET; RSM verdict owed from the no-flow probe).
+# ADDRS=401000 401003 40100a 40100d 40100f 401010 401017 40101a 40101e 401022 401025 401027 401029 40102b 40102d 40102e 401030 401031 401033 401039 40103c 40103e 401042 401044 40104d 401051 401055 401059 40105d 401060 40106a 40106b (32)
+make ghidra-instr-at BIN=tests/data/x64_reds/x64_reds.elf ADDRS="401000 401003 40100a 40100d 40100f 401010 401017 40101a 40101e 401022 401025 401027 401029 40102b 40102d 40102e 401030 401031 401033 401039 40103c 40103e 401042 401044 40104d 401051 401055 401059 40105d 401060 40106a 40106b"
+JAVA_HOME=/snap/ghidra/47/usr/lib/jvm/java-21-openjdk-amd64 /snap/ghidra/47/ghidra/support/analyzeHeadless /tmp/ghidra_instrat InstrAt \
+	-import tests/data/x64_reds/x64_reds.elf \
+	-postScript InstrAt.java 401000 401003 40100a 40100d 40100f 401010 401017 40101a 40101e 401022 401025 401027 401029 40102b 40102d 40102e 401030 401031 401033 401039 40103c 40103e 401042 401044 40104d 401051 401055 401059 40105d 401060 40106a 40106b \
+	-scriptPath ../../tools/ghidra \
+	-overwrite -deleteProject 2>&1 | grep -E 'INSTRAT|ERROR' | sed -E 's/^INFO +//; s/ \(GhidraScript\).*//'
+InstrAt.java> INSTRAT image_base=00400000
+InstrAt.java> INSTRAT 401000 START MOV | MOV RAX,qword ptr [R8] | len=3 | fn=entry
+InstrAt.java> INSTRAT 401003 START LEA | LEA RAX,[0x40101a] | len=7 | fn=entry
+InstrAt.java> INSTRAT 40100a START MOV | MOV R8,RAX | len=3 | fn=entry
+InstrAt.java> INSTRAT 40100d START PUSH | PUSH R12 | len=2 | fn=entry
+InstrAt.java> INSTRAT 40100f START PUSH | PUSH RBP | len=1 | fn=entry
+InstrAt.java> INSTRAT 401010 START MOV | MOV RAX,-0x1 | len=7 | fn=entry
+InstrAt.java> INSTRAT 401017 START MOV | MOV AL,SIL | len=3 | fn=entry
+InstrAt.java> INSTRAT 40101a START MOV | MOV RAX,qword ptr [RAX + R8*0x1] | len=4 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 40101e START MOV | MOV RAX,qword ptr [RAX + R12*0x1] | len=4 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 401022 START MOV | MOV RAX,R8 | len=3 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 401025 START CALL | CALL RAX | len=2 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 401027 START PUSH | PUSH BP | len=2 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 401029 START PUSH | PUSH RBP | len=2 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 40102b START POP | POP qword ptr [RAX] | len=2 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 40102d START PUSHFQ | PUSHFQ | len=1 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 40102e START MOV | MOV EAX,EAX | len=2 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 401030 START POPFQ | POPFQ | len=1 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 401031 START MOVSXD | MOVSXD EAX,EAX | len=2 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 401033 START IMUL | IMUL EAX,EAX,0x10 | len=6 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 401039 START IMUL | IMUL EAX,EAX,0x10 | len=3 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 40103c START FLD | FLD float ptr [RAX] | len=2 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 40103e START ENTER | ENTER 0x10,0x0 | len=4 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 401042 START JRCXZ | JRCXZ 0x00401044 | len=2 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 401044 START MOV | MOV EAX,[0x1122334455667788] | len=9 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 40104d START PSHUFW | PSHUFW MM0,MM0,0x0 | len=4 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 401051 START CMPEQPS | CMPEQPS XMM0,XMM0 | len=4 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 401055 START PINSRW | PINSRW MM0,EAX,0x0 | len=4 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 401059 START PEXTRW | PEXTRW EAX,MM0,0x0 | len=4 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 40105d START MOV | MOV RAX,CR0 | len=3 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 401060 START MOV | MOV RAX,0x1122334455667788 | len=10 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 40106a START RET | RET | len=1 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 40106b NONE (no instruction covers it; data or unreached) | fn=(no function)
+EXIT 0
+# local date at run 2026-09-19 18:51 PDT
