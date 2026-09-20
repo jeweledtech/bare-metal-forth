@@ -3079,3 +3079,11 @@ OpcodeLengths.java> OPLEN 1bff0 slot=3071 UD0 | UD0 EAX,EAX | len=4
 OpcodeLengths.java> OPLEN lang=x86:LE:64:default ghidra=12.1.2 start=40106b count=1 slot=2
 OpcodeLengths.java> OPLEN 40106b slot=0 RSM | RSM | len=2
 # EXIT done 2026-09-19 19:13 PDT
+# DISPOSITION of all 3072 rows (every row in exactly one class; the (u) red checks the first class only, floor 2065):
+#    2065  double-attested (checked)
+#       1  length-disagree
+#      47  ghidra-only
+#      83  objdump-only
+#     264  NONE-in-both, opcode invalid under all 12 probes
+#     612  NONE-in-both, opcode valid elsewhere (this prefix/ModRM form does not exist)
+#    3072  total

@@ -101,7 +101,11 @@ row. `x64_RED_pop_rm_decoded` (m) keeps its own row and its own
 assertions.
 
 Read from the header before the reds were written: `x86_operand_t.disp`
-is `int32_t`. (o)'s address assertion therefore cannot be met by a
+is `int32_t`. The `-Wtype-limits` warning the (o) red raises at its
+displacement comparison (`test_x86_decoder.c`, "comparison is always
+true") is caused by that width and **retires with (o)'s `disp`
+widening**, discharged by the fix that causes it, not carried as
+loose debt. (o)'s address assertion therefore cannot be met by a
 read-width change alone; the field must widen (or a second field must
 carry the 64-bit absolute), which changes what `disp` means for every
 reader (rule 24: readers enumerated from source before a line
@@ -636,6 +640,22 @@ oracle's length; the checked count has a floor (`checked >= 2065`,
 first-run value, raised by hand only) so the denominator cannot fall
 silently. The failure message names the disagreeing opcodes.
 
+**Denominator accounted (review 2026-09-19): every one of the 3072 rows
+is in exactly one class, printed in the oracle log next to the floor.**
+
+| rows | disposition |
+|---|---|
+| 2065 | double-attested: Ghidra and objdump print the same length; the red checks these |
+| 1 | length disagreement (`F3 0F AE /0` mem: RDFSBASE 4 vs FXSAVE 8); finding for the spec |
+| 47 | Ghidra-only (oracle leniency on forbidden memory forms; lone-prefix screen artefact on EMMS/WBINVD) |
+| 83 | objdump-only (no Ghidra model at pin 12.1.2: `0F 23`, bare VMREAD/VMWRITE, ENCLV, `66` SYSEXIT, VIA, 3DNow rows, all `66` Jcc-near) |
+| 264 | NONE in both: the 22 all-probe-invalid opcodes × 12 probes |
+| 612 | NONE in both: an opcode valid elsewhere whose prefix/ModRM form does not exist (e.g. `F2 0F C5`) |
+| 3072 | total |
+
+2065 is the checked count, not "coverage": a third of the probe space
+is legitimately unassertable and is listed as such rather than assumed.
+
 **Pre-registered first failure: 9 opcodes {0F20 0F21 0F22 0F70 0F78
 0FAA 0FC2 0FC4 0FC5}. Observed: `checked=2065 wrong_rows=61
 wrong_opcodes=10: 0F0F 0F70 0FAA 0FC2 0FC4 0F20 0F21 0F22 0FC5
@@ -649,7 +669,10 @@ it; its (s6)-class row stays red by the fixture oracle, not by (u).
 Two more (s) reds minted from the same table: `x64_RED_s_pextrw_xmm_
 imm8_length` (`66 0F C5 C0 ib`, 5: the corpus PEXTRW on storport is
 this xmm form, found by bytes, the mnemonic screen cannot see the
-prefix) and `x64_RED_s_rsm_no_modrm_length` (`0F AA`, 2: no-flow
+prefix; **twenty-fifth rule, docketed 2026-09-19:** a corpus count by
+mnemonic says the instruction occurs, only a count by bytes says which
+encoding occurs, and a red justified by a corpus count is written
+against the encoding the byte count found) and `x64_RED_s_rsm_no_modrm_length` (`0F AA`, 2: no-flow
 probe at fixture `40106b` and blob row `0FAA00` agree). Suite after
 minting: pass=73 xfail=22 fail=0 xpass=0 (tests=95).
 
