@@ -273,8 +273,10 @@ The differential log records `INPUT <sha256> <path>` per input, which
 is what made this checkable. All four rebuilt modules hash **identical**
 to the values `operand-diff-fix-o-2026-09-20.log` recorded:
 `ne2k-pci.ko`, `8139too.ko`, `iTCO_wdt.ko`, `via-rng.ko`. The census
-and its named baseline describe the same artifacts, and the four module
-rows are **not** provisional.
+and its named baseline describe the same artifacts. **The four module
+rows are therefore NOT provisional** — an earlier draft of this
+sentence said "identical … so the rows are provisional", which
+contradicted itself; if they match they are not provisional.
 
 ## 7. (u)'s tenth opcode, named — and one opcode in scope that (u) misses
 
@@ -333,3 +335,124 @@ the flag itself. storport's single row is `66 0F C5`, where the `0x66`
 is a **mandatory prefix selecting the XMM form**, not an operand-size
 override — so that row is (s)'s, not (r)'s, and it is the case that
 makes the shared reader concrete rather than theoretical.
+
+---
+
+# Second amendment: nine items (2026-09-20)
+
+## The mapping surfaced something larger than (s): the silent-NOP default
+
+`0F 70` rendering as **NOP** is not a length defect. Enumerated from
+source: the two-byte arm's `default:` (`x86_decoder.c:1290`–`1317`)
+ends `out->instruction = X86_INS_NOP;`, and **30 of 256 two-byte
+opcodes reach it**: `02 03 04 0C 24 25 26 27 36 39 3B 3C 3D 3E 3F 50
+78 79 7A 7B A6 A7 AA B8 B9 BB C4 C5 F0 FF`. An unknown opcode that
+resolves to a no-op is rule 27 inside the decoder — zero-known and
+zero-doing print the same — and downstream it is worse than a wrong
+length: the analyzer reads a function it cannot decode as a function
+that **does nothing**, a confident wrong answer where `UNKNOWN` would
+be an honest one.
+
+### (aa) minted: the two-byte default arm renders unhandled opcodes as NOP
+
+**Count, by bytes over 16 of 16 inputs (48,305 two-byte instructions):
+5 corpus instructions reach the default arm, and all 5 are not NOPs.**
+
+| instruction | input | in (s)'s scope? |
+|---|---|---|
+| `pextrw r10d,xmm0,0x4` @`1c00308bd` | storport | yes (`0F C5`) |
+| `pinsrw mm0,eax,0x0` @`401055` | fixture | yes (`0F C4`) |
+| `pextrw eax,mm0,0x0` @`401059` | fixture | yes (`0F C5`) |
+| `rsm` @`40106b` | fixture | yes (`0F AA`) |
+| **`xstore-rng` @`9d`** | **via-rng.ko** | **NO — `0F A7`** |
+
+**That last row is the proof the hold asked for.** A real driver
+instruction, in the corpus, silently rendered as a no-op, and **outside
+(s)'s six forms**. (s) repairs six rows of an unbounded class; (aa) is
+the class. Minted now, with its count, before (s) lands. Pass state:
+an unhandled two-byte opcode is `X86_INS_UNKNOWN`, never `NOP`.
+
+### (ab) minted: the two-byte arm is blind to mandatory prefixes
+
+Measured on the same pass: **1,155 of 48,305 two-byte instructions
+(2.4%) carry `66`, `F2` or `F3`** (ACPI 307, usbxhci 230, pci 198,
+storport 195, HDAudBus 80, HP serial 43, i8042prt 36, disk 28, nmap 6,
+modules 32, controls 0). The arm consults **none** of them — the grep
+over `x86_decoder.c:1042`–`1340` for `PREFIX_OPSIZE|REP|REPNE` returns
+nothing. That is an upper bound on the affected class, not a defect
+count: carrying `66` does not prove the opcode is prefix-selected. It
+is minted now with its number so (s)-as-scoped is recorded as a patch
+over a structural gap rather than discovered to be one three fixes
+later.
+
+## 3. 3DNow is dropped from (s)'s scope, with the reason named
+
+`0F 0F` has **zero witnesses**: zero corpus instances and zero fixture
+rows. An arm no instrument can exercise is worse than a deferred one
+because it ships looking finished. Adding a fixture row would need the
+same after-the-`C3` care the RSM needed and would shift every address
+below it. **So 3DNow leaves (s)'s scope**, and the prediction changes
+accordingly:
+
+> **(u) after (s) is predicted to report `wrong_opcodes=1: 0F0F`, not
+> an empty set.** It is not closed by (s) and is not expected to be.
+
+## 4. One arm covers `0F 20`–`0F 23` — shown from source
+
+`x86_decoder.c:1267–1268`: `case 0x20: case 0x21:` / `case 0x22: case
+0x23:` fall into one body. The single fixture row at `+5d` therefore
+exercises the arm that serves all four. (The `0F 23` caveat from the
+first amendment stands: (u) cannot confirm it, because Ghidra returns
+NONE for its memory-form probes.)
+
+## 5. The `mnemonic` class enters the prediction with its denominator
+
+**Before (s), post-(o): 11,048 `mnemonic` rows across 16 inputs** —
+ACPI 3279, storport 2327, pci 2189, usbxhci 1699, HDAudBus 518,
+i8042prt 341, disk 293, HP serial 286, nmap 76, 8139too 21, ne2k 8,
+iTCO 5, via-rng 3, ReactOS serial 1, fixture 2, beep 0.
+
+Predicted after (s): **fixture 2 → 0** (both `0F 70` and `0F C4` rows
+stop rendering as NOP), and **storport's `nostart` + `mnemonic` sum
+falls by exactly 1** (its single `66 0F C5`; which of the two columns
+it leaves depends on where the walk stands, so the conserved quantity
+is the sum). **Every other input's `mnemonic` count is unchanged** —
+including via-rng's 3, which contains the `xstore-rng` row (aa) owns
+and (s) does not.
+
+## 6. The 32 addresses, derived twice
+
+Independently derived from the bytes by a second instrument — objdump's
+own linear walk over the fixture's `0x6d`-byte `.text` — giving **32
+starts**, identical to the oracle-plus-`RSM` construction, address for
+address. The two derivations agree, so the assertion does not inherit
+an oracle gap; and the fixture's difference of exactly one row *is* the
+`RSM`, which is the same fact hold 7 turns on.
+
+## 7. The two denominators, accounted
+
+| instrument | starts |
+|---|---|
+| objdump linear sweep, 16 of 16 inputs | **576,115** |
+| Ghidra flow-following, summed from the post-(o) differential's `ghidra=` | **512,000** |
+| difference | **64,115** |
+
+**What the flow-following walk does not reach**, and why the difference
+is spread across every input at roughly a tenth of it: data embedded in
+executable sections, alignment and file padding, and code no flow
+reaches — a linear sweep decodes all three, a flow-follower none of
+them. **The fixture proves the mechanism in one row: 32 versus 31, and
+the extra is exactly the `RSM` after the final `C3`.** (The earlier
+figure of 512,213 came from the banked per-instruction files, which
+carry sections the harness does not compare; 512,000 is the
+harness-comparable population and is the one used here.)
+
+## 9. The ordering rule, with the addition
+
+> (r1)–(r3) may change how `op_size` derives from `X86_PREFIX_OPSIZE`;
+> (s) adds a **separate** consumption of that flag in the two-byte arm
+> and touches neither `op_size` nor `stack_size`; **whichever lands
+> second re-runs the other's reds *and the differential*.**
+
+The flag is shared and the reds are per-opcode, so a per-opcode red
+cannot see a shared-flag regression. Only the differential can.
