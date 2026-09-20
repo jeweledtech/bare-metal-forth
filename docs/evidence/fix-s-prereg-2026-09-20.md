@@ -385,6 +385,24 @@ is minted now with its number so (s)-as-scoped is recorded as a patch
 over a structural gap rather than discovered to be one three fixes
 later.
 
+**(ab) gets a recorded count, not a red, and the reason is stated.**
+Its only currently-measurable instance is `0F 78`, whose length differs
+by prefix — bare 3 (Ghidra NONE, objdump 3), `66` 6, `F2` 6, both
+double-attested, ours 4 for each — and that opcode is already inside
+(s)'s scope. A separate (ab) red would duplicate an (s) red rather than
+distinguish the class, which is the mask the alias table taught us to
+avoid. (ab) is therefore recorded with its measurement and minted as a
+red when the two-byte map becomes table-driven and an instrument can
+separate "the arm ignored the prefix" from "this opcode's length is
+wrong" — the same treatment (q) received.
+
+**(aa) IS minted as a red today**, because it is separable: `0F A7`
+XSTORE is double-attested at length 3, **our length is already 3**, and
+only the identity is wrong — so the assertion is on identity alone and
+cannot be satisfied by any length fix. `x64_RED_aa_unhandled_two_byte_
+is_not_nop` (private `4e3fd07`), red now, and **(s) cannot close it**:
+`0F A7` is outside (s)'s six forms, which is the point.
+
 ## 3. 3DNow is dropped from (s)'s scope, with the reason named
 
 `0F 0F` has **zero witnesses**: zero corpus instances and zero fixture
