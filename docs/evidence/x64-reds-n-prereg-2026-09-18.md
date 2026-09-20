@@ -889,3 +889,168 @@ Suite after commit 3: pass=77 xfail=27 fail=0 xpass=0 (tests=104).
 Remaining before the fix: (r1)-(r3) reds minted from the table rows
 `66 68` (4), `66 A9` (4), `66 F7 00` (5), double-attested, so they are
 on the list when the sweep's exact set is reduced by hand.
+
+---
+
+# Commit 4 pre-registration, 2026-09-19 (written before any decoder line)
+
+Owner clearance 2026-09-19 with three items pre-registered here.
+
+**Technique extracted (owner):** when two hypotheses agree on a length,
+pick the operand that makes them disagree. The JRCXZ red's `E3 80`
+clause, the sweep's ModRM `0x80` probe and the legacy `0x67` finding
+are the same move.
+
+## 1. The sweep's floors were pinned before INVALID existed
+
+A row is `checked` when the decoder returns anything but UNKNOWN, and
+after commit 4 INVALID is such a return, so rows cross from
+`tautological` into `checked` and the pinned 1312 / 720 stop naming
+the same quantity. Counted from the generated table: the 64-bit table
+has **20 INVALID opcodes** (`06 07 0E 16 17 1E 1F 27 2F 37 3F 60 61
+82 9A CE D4 D5 D6 EA`), × 4 prefix forms × 2 ModRM = 160 rows, of
+which `60`/`61` (16 rows) are already `checked` today (decoded as
+PUSHAD/POPAD). The legacy table has **0 INVALID opcodes** after the
+correction below.
+
+| mode | checked | tautological | skipped | wrong rows | set |
+|---|---|---|---|---|---|
+| 64-bit, predicted after commit 4 | **1456** (= 1312 + 160 − 16) | **336** (= 480 − 144) | 256 | **38** (= 54 − 16: A0-A3 × 8, and 68/A9/F7 under `66` × 2) | {68 A0 A1 A2 A3 A9 F7} |
+| legacy, predicted after commit 4 | **720, unchanged** | **252, unchanged** | 52 | 6 | {68 A9 F7}, **unchanged** |
+
+Floors re-pinned to 1456 / 720 in the same commit. The sweep's
+agreement rule gains INVALID: decoder INVALID on a table-INVALID row
+is agreement at length 1; decoder INVALID on a table-VALID row, or a
+decoded return on a table-INVALID row, is a disagreement.
+
+## 2. The legacy set does not change, and that is the finding
+
+(v)'s `0x67` case is a unit red; the legacy probes are {none, `66`} ×
+{`00`, `80`} and never carry `67`, so nothing in the legacy sweep
+moves at commit 4: triple 720 / 252 / 52 and set {68 A9 F7} are
+predicted **identical**. The 64-bit shrink is exactly `60`/`61`
+leaving.
+
+**Table correction found while counting (before commit 4):** legacy
+`D6` had come out INVALID because the instruments disagree in every
+form (Ghidra models SALC, objdump refuses), and the fitter had
+resolved that silently toward INVALID, which condition 3 forbids. Now:
+the fitter **refuses** any opcode where one instrument prints an
+instruction and the other nothing in every form, and the spec decides
+by a HAND row: legacy `D6` VALID one byte (SALC, undocumented but
+implemented; refusing a real encoding is the direction that hurts),
+64-bit `EA` INVALID (JMP Ap is i64; Ghidra models JMPF there, objdump
+`(bad)`). Both rows carry the note. **Regenerated table diff, read
+back:** two substantive changes (legacy `D6` INVALID → VALID; 64-bit
+`EA` gains the HAND note, status unchanged) and, because the fitter's
+INVALID note text changed from "NONE in every attested form" to "NONE
+in every form, both instruments", a note-only change on the other 19
+64-bit INVALID rows. Predicted "two rows only"; observed 2 substantive
++ 19 comment-only, the prediction having ignored that the note text
+was part of the same edit. Table sha256 `903e2785…` (generator sha in
+its header).
+
+## 3. Commit 5's prediction splits two movements
+
+(n) repairs reachability, not a mismatch class. Therefore, outside a
+named desync run: **nothing leaves any class but `nostart`**, and two
+increases are registered separately:
+- **`undecoded` rises**, fed from `nostart`, by the directly fixed
+  opcodes: a VALID table row consumes its bytes and stays UNKNOWN by
+  design, so every `63`/`69`/`6B`/x87/`C8`/`E3` start that was inside
+  a run lands in `undecoded`, not in `operand_ok`. Order of magnitude:
+  one per closed run at least (353 (n)-attributable runs, each opened
+  by such a trigger; 261 MOVSXD starts exist corpus-wide), plus any
+  further (n) opcodes inside those runs.
+- **`operand_ok` rises** only from the instructions the desyncs were
+  hiding: the rows behind the triggers (the harness's 888 `nostart`
+  rows minus the triggers themselves, minus rows behind the 9 TEST, 4
+  section-start, 2 INT, 1 PEXTRW and 63 MOV runs, which are not
+  predicted to move).
+A large `undecoded` rise is therefore the fix working, not a
+regression; a modest `operand_ok` rise is the same fix, not one that
+underperformed. `invalid_at_start` = 0 on all 16. Standing prediction
+ACPI `.text+0x69d4c` `nostart → ok`. Fixture v12 line: matched starts
+through `40105d`? No: (o) at `401044` is still a desync source until
+(o) lands, so v12 after (n) = the 24 v11-era starts through `401044`
+plus... restated exactly: starts through `401042` matched, `401044`
+matched at its own start but at length 5, then `401049`.. mid-(o)
+rows: `40104d`, `401051`, `401055`, `401059`, `40105d`, `401060`,
+`40106a` stay `nostart` behind (o) → **v12 after (n): 25 matched
+(through `401044`), 7 `nostart` behind (o), of the 32 oracle rows
+(`40106b` RSM is NONE in the flow-following oracle and not a row)**.
+
+## The fix, as it will be written
+
+The one-byte `default:` arm (and `60`/`61` in 64-bit mode, which route
+to it) consults the generated table for the mode (16-bit uses the
+legacy table through `op_size`): VALID → consume ModRM/SIB/disp via
+`decode_modrm` when the rule has one, then the rule's immediate bytes
+(operand-size-16 flag from `op_size`, REX.W from `rex`), instruction
+stays UNKNOWN; an INVALID digit or INVALID status → `X86_INS_INVALID`
+at length 1 (offset rewound to just past the opcode); PREFIX/ESCAPE →
+today's behaviour (UNKNOWN, 1); a truncated immediate → return 0 with
+the offset unchanged (the (g) pass state, applied here from the start).
+Gate: XPASS on exactly `x64_RED_n_movsxd_length`, `_imul_imm32_length`,
+`_imul_imm8_length`, `_x87_modrm_length`, `_enter_length`,
+`_jrcxz_length`, `_invalid_06_refused`, `_invalid_82_mode_split`,
+`_invalid_walk_continues`, `x64_RED_w_pushad_invalid_64` (10 names);
+guards PASS; (r1)-(r3), (o), (p), (s), (u), (v), (a), (d'), (f), (g)
+stay XFAIL; sweeps as in item 1. Predicted suite after the gate
+clears: pass=87 xfail=20 fail=0 xpass=0 (tests=107).
+
+---
+
+# Commit 4 as built, 2026-09-19: the (n) fix
+
+**The change.** `x86_decoder.c`: `table_default_arm()` (included
+`x86_opcode_len.h`); the one-byte `default:` arm and `60`/`61` in
+64-bit mode route through it. VALID: ModRM/SIB/disp via `decode_modrm`
+when the rule has one, then the rule's immediate bytes (operand-size-16
+from `op_size`, REX.W from `rex`); instruction stays UNKNOWN. INVALID
+status or INVALID digit: `X86_INS_INVALID`, nothing after the opcode
+(length = prefixes + 1; the reds use no prefixes). PREFIX/ESCAPE:
+unchanged. Truncated immediate: return 0, offset rewound.
+
+**Gate (`fix-n-xpass-gate-2026-09-19.log`), predicted = observed:**
+XPASS on exactly the ten names, every other XFAIL held (20), guards
+PASS, `pass=77 xfail=20 fail=0 xpass=10`; names removed by hand →
+`pass=87 xfail=20 fail=0 xpass=0 (tests=107)`.
+
+**Sweeps, predicted = observed:** 64-bit checked 1456, tautological
+336, skipped 256, wrong rows 38, set {68 A0 A1 A2 A3 A9 F7}; legacy
+720 / 252 / 52 / 6, set {68 A9 F7} unchanged. Floors re-pinned 1456 /
+720.
+
+**Full translator suite: one red, read from bytes, attributed, and it
+is the fix working.** `rtl8139_hw_function_count` (Linux ELF driver
+validation) expected ≥ 1 hardware function on 8139too.ko and got 0;
+the pre-fix decoder (private 79189c2) gives 1. The one function's
+evidence was two OUT decodes at `.text+1eb1` and `.text+1ef6`, both
+**inside** a Ghidra MOVSXD (`+1eaf` and `+1ef4`), i.e. NO START: a
+desync artefact of the usbxhci 2026-09-14 INS/OUTS shape. Named run:
+first missed start `+1eb2`, trigger `+1eaf MOVSXD R12,R14D` (opcode
+`63`, pre-fix length 2, post-fix 3), owning defect (n). Post-fix the
+module's missed starts fall 11 → 4 of 4026 and the artefact is gone.
+8139too is an MMIO driver; 0 port-I/O functions is the correct answer.
+The expectation was corrected to `== 0` with the run written beside it
+(rule 24: the readers of that field for this module are this test and
+`rtl8139_named_function`, which passes either way). Same shape on
+ne2k-pci: one OUTSB at `.text+59b` inside a MOVSXD at `+599` left
+(port rows 71 → 70; the `≥ 10` expectation holds on the 70 real ones,
+every one a Ghidra START); iTCO_wdt 33 → 33, all at starts. Module
+missed starts: ne2k-pci 13 → 0, iTCO_wdt 8 → 0, via-rng 0 → 0. The
+one INVALID row on 8139too (`.text+2721`) is not a Ghidra start:
+`invalid_at_start` = 0 there, as predicted.
+
+**Table correction in the same commit:** legacy `D6` VALID by hand
+(SALC), 64-bit `EA` HAND note; the fitter now refuses an opcode where
+the instruments disagree in every form.
+
+Suite after commit 4 (full `make test`, read back): exit 0, every
+suite passes (CIL 14/14, CIL semantic 6/6, ARM64 21/21, UIR 22/22,
+semantic 37/37, call-graph 8/8, codegen 13/13, pipeline 5/5, 16550
+6/6, Ghidra compare 4/4, i8042 7/7, serial 11/11, floppy 8/8, pci
+7/7, beep 7/7, ELF drivers 12/12, and the rest at their full counts);
+test-x86 `pass=87 xfail=20 fail=0 xpass=0 (tests=107)`. Decoder sha256
+`efeaea0e…`, table `4dd9038c…`.

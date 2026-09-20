@@ -1,0 +1,33 @@
+# fix (n) XPASS gate, 2026-09-19: decoder default arm now consults the generated table (commit 4); the ten pre-registered names are STILL in xfail_names for this run so the XPASS event is on record; they are removed by hand after.
+# PREDICTED before the run: XPASS on exactly x64_RED_n_movsxd_length _imul_imm32_length _imul_imm8_length _x87_modrm_length _enter_length _jrcxz_length _invalid_06_refused _invalid_82_mode_split _invalid_walk_continues x64_RED_w_pushad_invalid_64 (10); guards PASS; every other XFAIL stays XFAIL ((r1)-(r3), (o), (p)x2, (s)x7, (u), (v), (a), (d'), (f), (g)x2 = 20); sweeps PASS with 64-bit checked=1456 tautological=336 skipped=256 wrong_rows=38 set {68 A0 A1 A2 A3 A9 F7}; legacy 720/252/52 wrong_rows=6 set {68 A9 F7} unchanged; Results: pass=77 xfail=20 fail=0 xpass=10 (tests=107).
+# ---- make test-x86 ----
+  TEST: x64_RED_n_movsxd_length                       XPASS: expected failure PASSED - stop; correct the register, then remove from xfail_names
+  TEST: x64_RED_n_imul_imm32_length                   XPASS: expected failure PASSED - stop; correct the register, then remove from xfail_names
+  TEST: x64_RED_n_imul_imm8_length                    XPASS: expected failure PASSED - stop; correct the register, then remove from xfail_names
+  TEST: x64_RED_n_x87_modrm_length                    XPASS: expected failure PASSED - stop; correct the register, then remove from xfail_names
+  TEST: x64_RED_n_enter_length                        XPASS: expected failure PASSED - stop; correct the register, then remove from xfail_names
+  TEST: x64_RED_n_jrcxz_length                        XPASS: expected failure PASSED - stop; correct the register, then remove from xfail_names
+  TEST: x64_RED_n_invalid_06_refused                  XPASS: expected failure PASSED - stop; correct the register, then remove from xfail_names
+  TEST: x64_RED_n_invalid_82_mode_split               XPASS: expected failure PASSED - stop; correct the register, then remove from xfail_names
+  TEST: x64_RED_n_invalid_walk_continues              XPASS: expected failure PASSED - stop; correct the register, then remove from xfail_names
+  TEST: x64_RED_w_pushad_invalid_64                   XPASS: expected failure PASSED - stop; correct the register, then remove from xfail_names
+  TEST: x64_GUARD_n_pushf_stays_len1                  PASS
+  TEST: x64_GUARD_n_popf_stays_len1                   PASS
+  TEST: x64_table_consistency_sweep                   (checked=1456 tautological=336 skipped=256 wrong_rows=38 disagreeing_opcodes=7) PASS
+  TEST: x86_32_table_consistency_sweep                (checked=720 tautological=252 skipped=52 wrong_rows=6 disagreeing_opcodes=3) PASS
+  TEST: x64_GUARD_pop_rm_digit_nonzero_not_pop        PASS
+  TEST: x64_GUARD_far_call_ff3_keeps_default_size     PASS
+  TEST: x64_GUARD_inc_ff0_keeps_normal_size           PASS
+  TEST: x64_GUARD_opsize_prefix_call_is_16            PASS
+  TEST: x64_GUARD_legacy_segment_push_invalid_in_64bit PASS
+  TEST: x64_GUARD_push_size_stays_4_in_32bit_mode     PASS
+  TEST: x64_GUARD_rex_r_ignored_on_group3_digit       PASS
+  TEST: x64_GUARD_rex_wr_ignored_on_group3_digit      PASS
+  TEST: x64_GUARD_rex_r_ignored_on_group5_digit       PASS
+  TEST: x64_GUARD_rex_r_ignored_on_group1_digit       PASS
+  TEST: x64_GUARD_opcode_82_not_an_alu_op_in_64bit    PASS
+  TEST: x64_GUARD_rex_does_not_leak_to_next_insn      PASS
+Results: pass=77 xfail=20 fail=0 xpass=10 (tests=107)
+HARD FAILURE: 10 expected failure(s) passed (XPASS). The 64-bit finding is wrong somewhere; correct the register before removing the name from xfail_names.
+Results: pass=87 xfail=20 fail=0 xpass=0 (tests=107)
+# ---- after removing the ten names by hand: Results: pass=87 xfail=20 fail=0 xpass=0 (tests=107) ----
