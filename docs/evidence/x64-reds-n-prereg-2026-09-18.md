@@ -1188,3 +1188,143 @@ One run: trigger `.text+271b TEST AX,0xc07f` (`66 A9 7F C0`, Ghidra
 4, ours 6), missed `+271f +2725 +2728 +272c`, the INVALID row `+2721`
 inside it. That is **(r2)** by name, and its one corpus instance;
 (r2)'s red now carries the offset and the predicted movement (4 rows).
+
+## (x) build pre-registration, 2026-09-19 (v2 oracle read, before any table or decoder line)
+
+[A first append of this section was approved at the gate but never
+reached the file: the shell's working directory had moved and the
+redirect failed before the "appended" echo ran. Written by absolute
+path now, read back with a count, with the owner's `C4` correction,
+the rerun ruling, and the legacy sweep prediction that the `C4`
+correction changes, all folded in.]
+
+**v2 oracle runs read back against their headers** (`x64-one-byte-
+oplen-oracle-v2-2026-09-19.log`, `x86-32-…-v2-…`; the first launch
+had no blob because the generator took `--v2` as its output path,
+noted in the headers, relaunched): rows 1-3840 / 1-2816 identical to
+v1 in both modes; x87 register space `D8`-`DF` × `C0`-`FF`: 512 cells,
+**356 defined at length 2 with 0 exceptions**, 156 undefined NONE
+(`D9 D1`-`DF`, `D9 E2 E3 E6 E7 EF`, `DA E0`-`E8`, …), so the cited
+hand rule is *confirmed* by every defined cell, not derived; `D9 C8+i`
+FXCH, `DB E3` FNINIT, `DB F1` FCOMI, `DD E8+i` FUCOMP, `D8 C0` FADD all
+2; `8F` register `/0` POP 2 and `/1`-`/7` NONE; `FF /7` NONE; `C6 F8`
+XABORT 3 and `C7 F8` XBEGIN 6 (modeled); `F6`/`F7 /0 /1` TEST 3 / 6,
+other digits 2; legacy `D4`/`D5` 2 on every cell (no ModRM).
+
+**Legacy `C4`, `C5`, `62` register forms are ESCAPE by hand, all three
+(owner correction).** `C5 C0 90…` probed as KMOVW 8 and `C4 C0 90 90`
+probed NONE, but both readings are accidents of the `0x90` payload
+(one a valid VEX2 body, the other an invalid VEX3 body): in 32-bit
+mode `C4`/`C5` with mod=11 are the VEX3/VEX2 escapes and `62` the
+EVEX escape (SDM Vol. 2A 2.3.5, 2.7), and `C4` is the form modern AVX
+uses. Fitted from the probe, `C4`'s eight register cells would go
+INVALID and refuse real code. `OPT_IMM_ESCAPE` on `digit_reg` means
+"stop after the opcode, UNKNOWN": today's behaviour, the (q) gap, not
+a length claim.
+
+**Table schema:** entries gain `digit_reg[8]`; `opt_length` and the
+arm select `digit_reg` when `mod == 3`. Fitter: x87 register space by
+HAND (SDM Vol. 2A 3.1.1.3 and Vol. 2D Table A-2: opcode + ModRM,
+length 2, lenient on undefined cells), confirmed against all 356
+defined cells, refusing if any defined cell is not 2; every other
+ModRM opcode's `digit_reg[d]` fitted from its 8 `rm` cells:
+NONE/IB/IW/IZ from the double-attested length, INVALID only if all 8
+cells are NONE in both instruments, ESCAPE by hand as above, refusal
+if the attested cells of one digit disagree on length. Predicted
+refusals: 0; suspects: `C6`/`C7` (digit 7 immediates), `8F`.
+
+**Sweep gains a register-form probe (ModRM `C0`)** so `digit_reg` is
+asserted, not just carried; a `mod == 3` row whose `digit_reg` is
+ESCAPE is skipped with the reason counted. Prediction, recomputed
+from the skip rule and the hand list: a prefix-form × opcode row's
+decoded/UNKNOWN status is the same at `C0` as at `00`/`80` **except
+the legacy `C4`/`C5`/`62` rows** (tautological at `00`/`80`: the
+decoder returns UNKNOWN on LES/LDS/BOUND; ESCAPE, hence skipped, at
+`C0`): 3 opcodes × 2 legacy prefix forms = **6 rows move from
+tautological to skipped beyond the half**. 64-bit: checked 1456 →
+**2184**, tautological 336 → **504**, skipped 256 → **384** (those
+three are ESCAPE at every 64-bit form already). Legacy: checked 720 →
+**1080**, tautological 252 → **372** (378 − 6), skipped 52 → **84** (78
++ 6). Disagreeing sets **unchanged** {68 A0 A1 A2 A3 A9 F7} / {68 A9
+F7}. Any deviation is read from the row. Floors re-pinned to 2184 /
+1080.
+
+**Count reconciled from the artefacts:** by bytes over nmap, **20
+encodings** (13 `D9 C8+i` FXCH, 1 `DB E3` FNINIT, 6 `DB F0+i` FCOMI);
+by the comparer, **19 `invalid_at_start` rows**. The twentieth is
+`DB F2` FCOMI at `.text+5720`: a Ghidra start our walk never reaches
+(a `nostart` row inside a preceding desync), so it cannot be classed
+`invalid_at_start` today and will be read again after (x).
+
+**Reds** (each test owns its own FAIL/PASS; a shared helper only
+returns a status): `x64_RED_x_fxch_register_form` (`D9 C9` 2),
+`_fninit_register_form` (`DB E3` 2), `_fcomi_register_form` (`DB F1`
+2), each asserted in **both** modes (the table is per mode, so
+"mode-independent" is a claim only a 64-bit assertion tests; expected
+values: nmap Ghidra starts for 32-bit, blob-v2 rows for 64-bit,
+objdump agreeing on both); `x64_GUARD_x_fadd_st0_register_form` (`D8
+C0` 2, digit 0 register form, unsampled by either v1 probe set, not
+refused today: a guard, off the XFAIL list). Predicted first failures
+of the three reds: "refused (INVALID)".
+
+**Ruling on the rerun: the full sixteen.** Prediction: nmap
+`invalid_at_start` 19 → 0 and those rows back to `undecoded` (237 →
+256); **every other column of every other input identical to
+`operand-diff-fix-n-2026-09-19.log`**; the fixture line identical. A
+partial rerun would leave the load-bearing half of that prediction
+unfalsifiable and the corpus table with two provenances.
+
+## (x) as built, 2026-09-19
+
+**Instrument, read back.** The v2 objdump screens were rebuilt to
+derive their join key from the blob through the parser's own
+`probe_key` (shared function; `--insn-width=16` is in the argv and the
+argv is printed in the header), and the parser now **refuses a join
+whose key set differs from the blob's.** That assertion fired on its
+first run, on the v1 artefacts: the parser's key rule special-cased
+`0x0F` for every layout (right for the two-byte blob, wrong for the
+one-byte ones), so the 15 (64-bit) and 11 (legacy) opcode-`0F` rows of
+the v1 tables had joined nothing and carried a vacuous NONE in the
+objdump column. Regenerated; the diff is exactly those rows, the only
+change the filled objdump cell (`0F` is a hand ESCAPE row, so no fit or
+assertion depended on them). The v2 tables: 20224 and 19200 rows, full
+key sets, 17371 double-attested in 64-bit.
+
+**Fitter, predicted 0 refusals, observed 6, then 6, then 0.** First v2
+fit: `8C /6`, `8E /6`, `8F /1` register forms in both modes,
+"instruments disagree on every rm cell" (objdump prints a segment move
+for the reserved sreg field, Ghidra nothing; for `8F` with reg≠0
+objdump models AMD's XOP escape at 9 bytes). Second fit, after
+hand-rowing those three: the same class one digit over (`8C /7`, `8E
+/7`, `8F /5`). Third fit, after the reserved space was hand-rowed as a
+set: 0. Hand rows, cited: `8C`/`8E` sreg fields 6 and 7 INVALID (SDM
+Vol. 2A MOV: reserved, #UD); `8F /1`-`/7` register ESCAPE (POP r/m is
+`/0` only on Intel, #UD; the bytes are AMD XOP, and refusing them is
+the direction that hurts); legacy `C4`/`C5`/`62` register ESCAPE (owner
+correction); x87 register space HAND, confirmed on all 356 defined
+cells. The suspects list named `8F` and missed `8C`/`8E`: a miss.
+
+**Gate (`fix-x-xpass-gate-2026-09-19.log`):** XPASS on exactly the
+three (x) names; `x64_GUARD_x_fadd_st0_register_form` PASS; every
+other XFAIL held. **Sweep counts, predicted = observed on all six:**
+64-bit 2184 / 504 / 384, legacy 1080 / 372 / 84 (the six legacy
+`C4`/`C5`/`62` rows exactly where the correction put them).
+
+**Sweep sets, predicted unchanged, observed one new member in each
+mode: a miss, read from the row.** `8D` at the `C0` form: `LEA` with a
+register-form ModRM is #UD in every mode (SDM Vol. 2A LEA: the source
+must be a memory operand; both instruments print nothing on `8D C0`),
+the table says INVALID on every register cell, and the decoder's LEA
+arm accepts it at length 2. Named **(y)**, red
+`x64_RED_y_lea_register_form_invalid` minted (both modes), `8D` added
+to both sets as an amended member (7 → 8, 3 → 4, recorded as failed
+predictions). Corpus by bytes: 0 register-form LEAs among 39,243 LEA
+instructions across the 16 inputs (control RET 6458). Suite after the
+gate and the removal of the three names: pass=91 xfail=21 fail=0
+xpass=0 (tests=112).
+
+**Rerun: the full sixteen (owner ruling), prediction unchanged:** nmap
+`invalid_at_start` 19 → 0, those rows to `undecoded` (237 → 256), the
+`DB F2` at `.text+5720` read again; every other column of every other
+input identical to `operand-diff-fix-n-2026-09-19.log`; fixture line
+identical. Read back below.

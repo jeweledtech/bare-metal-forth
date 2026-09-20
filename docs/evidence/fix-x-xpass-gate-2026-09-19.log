@@ -1,0 +1,23 @@
+# corrective (x) XPASS gate, 2026-09-19: table regenerated with digit_reg (v2 tables), arm selects by mod, sweep gains the C0 form. The three (x) names are STILL in xfail_names for this run.
+# PREDICTED before the run: XPASS on exactly x64_RED_x_fxch_register_form _fninit_register_form _fcomi_register_form (3); x64_GUARD_x_fadd_st0_register_form PASS; every other XFAIL held (20); sweeps: 64-bit checked=2184 tautological=504 skipped=384 wrong_rows=57 (38 x 1.5) set {68 A0 A1 A2 A3 A9 F7}; legacy checked=1080 tautological=372 skipped=84 wrong_rows=9 set {68 A9 F7}; Results: pass=88 xfail=20 fail=0 xpass=3 (tests=111). Fitter: predicted 0 refusals, observed 6 on the first v2 fit (8C /6, 8E /6, 8F /1 register, both modes: instruments disagree on every rm cell), resolved by per-digit HAND rows on the SDM, 0 on the second.
+# ---- make test-x86 ----
+# fitter, read back: second fit refused 6 more (8C /7, 8E /7, 8F /5: the same class one digit over), third fit 0 after the reserved sreg fields 6 and 7 (INVALID, SDM) and 8F /1-/7 register (ESCAPE: AMD XOP, Intel #UD) were hand-rowed as a set.
+# ---- make test-x86 ----
+  TEST: x64_RED_x_fxch_register_form                  XPASS: expected failure PASSED - stop; correct the register, then remove from xfail_names
+  TEST: x64_RED_x_fninit_register_form                XPASS: expected failure PASSED - stop; correct the register, then remove from xfail_names
+  TEST: x64_RED_x_fcomi_register_form                 XPASS: expected failure PASSED - stop; correct the register, then remove from xfail_names
+  TEST: x64_GUARD_x_fadd_st0_register_form            PASS
+  TEST: x64_table_consistency_sweep                   (checked=2184 tautological=504 skipped=384 wrong_rows=61 disagreeing_opcodes=8) FAIL: disagreeing set { 68 8D A0 A1 A2 A3 A9 F7 } != pre-registered { 68 A0 A1 A2 A3 A9 F7 }
+  TEST: x86_32_table_consistency_sweep                (checked=1080 tautological=372 skipped=84 wrong_rows=11 disagreeing_opcodes=4) FAIL: disagreeing set { 68 8D A9 F7 } != pre-registered { 68 A9 F7 }
+Results: pass=86 xfail=20 fail=2 xpass=3 (tests=111)
+HARD FAILURE: 3 expected failure(s) passed (XPASS). The 64-bit finding is wrong somewhere; correct the register before removing the name from xfail_names.
+  TEST: x64_RED_rex_x_sib_index_r8                    PASS
+  TEST: x64_RED_rex_x_sib_index_r12_escape            PASS
+  TEST: x64_RED_x_fxch_register_form                  PASS
+  TEST: x64_RED_x_fninit_register_form                PASS
+  TEST: x64_RED_x_fcomi_register_form                 PASS
+  TEST: x64_GUARD_x_fadd_st0_register_form            PASS
+  TEST: x64_RED_y_lea_register_form_invalid           XFAIL (expected): 64-bit: 8D C0 decoded (LEA reg,reg is #UD); expected INVALID
+  TEST: x64_table_consistency_sweep                   (checked=2184 tautological=504 skipped=384 wrong_rows=61 disagreeing_opcodes=8) PASS
+  TEST: x86_32_table_consistency_sweep                (checked=1080 tautological=372 skipped=84 wrong_rows=11 disagreeing_opcodes=4) PASS
+Results: pass=91 xfail=21 fail=0 xpass=0 (tests=112)
