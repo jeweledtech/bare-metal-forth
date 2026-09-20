@@ -327,3 +327,105 @@ XPASS on `x64_RED_lea_rip_relative` and on the resolver's refusal red
 with the plumbing and green in the same commit; every other XFAIL
 holds; both sweeps unchanged (the one-byte table is not consulted by
 the ModRM path); full `make test` green; then ONE differential.
+
+---
+
+# (a) as built and closed, 2026-09-20
+
+**Gate** (`fix-a-xpass-gate-2026-09-20.log`): XPASS on exactly the two
+pre-registered names; every other XFAIL held; both table sweeps
+identical (2184/504/384 and 1080/372/84, sets unchanged), as predicted.
+Names removed by hand: `test-x86` pass=92 xfail=20 fail=0 xpass=0;
+`test-semantic` 38/38 with its XFAIL list now **empty** (a sentinel
+keeps the zero-length array legal — an empty list is the goal state);
+full `make test` exit 0, 25 suites.
+
+**The fix has three parts, not two.** The pre-registration said two
+halves; the UIR instruction carries no length field, so the absolute
+target must be resolved in the *lifter*, where the length is still in
+hand, into the 64-bit `imm`. Decoder marks `X86_REG_RIP = 32`, lifter
+resolves, resolver accepts. The inseparability argument held and was
+stronger than written: with RIP marked and the resolver untouched,
+those calls do not merely stop being IAT edges, they fall into the
+`UNRESOLVABLE` arm, which vetoes scaffolding propagation for every
+function containing one.
+
+## Report predictions
+
+**`hardware_functions`: eight of eight exact** — ACPI 47, HDAudBus 21,
+disk 3, i8042prt 31, pci 29, HP serial 48, storport 93, usbxhci 58,
+with `port_io_functions` unchanged on all eight (13, 0, 0, 2, 0, 31,
+20, 0). The two columns now diverge on all eight where they were equal
+on all eight, which was the second prediction's whole point.
+
+**`iat_slot_hits` 0 → the by-bytes counts: seven of eight exact.**
+Miss: storport predicted 2031, observed 2030. Read: 2030 IAT + 148
+INDIRECT_DATA = 2178 memory-indirect calls reached against objdump's
+2179 sites, and the same 2178/2179 gap is in the 2026-09-19 table, so
+the shortfall **predates (a)** — one site our walk never reaches, owned
+by (o). The prediction took objdump's site count where the report
+counts sites the walk reaches: rule 26's shape, population wrong by one.
+
+**CFG corroborated to the row:** `indirect_data_edges` = 417, 322, 37,
+68, 268, 11, 148, 905 — exactly the per-image guard-dispatch counts
+measured by bytes on 2026-09-19, total 2176. `unresolvable_edges` is 0
+on all eight, so the veto set did not grow, as pre-registered.
+
+**Controls:** both ReactOS drivers identical in every column. nmap's
+classification columns identical; its `iat_edges` fell 45 → 44 because
+the refusal declined its one target in `.data`. My "every column
+identical" was too strong — the refusal is (a)'s other half and acts on
+32-bit inputs too. Restated: every *classification* column identical,
+edge columns change by exactly the non-slot targets.
+
+## Differential: three gates, all passed
+
+Baseline is `operand-diff-fix-x-reclass-2026-09-19.log` — the log made
+with **this** comparer. (A first reading compared against the
+pre-reclassification log and reported the `nostart` gate as failed; the
+17+17 "movement" was the `beyond_extent` class, not the fix. Rule 4:
+attribute a delta from a labelled log pair.)
+
+1. **`nostart` identical on all sixteen inputs.** This was the gate
+   condition, and it is the completeness argument's test: (a)
+   re-interprets `mod=00 rm=101` without re-sizing it, so no re-sync
+   point may move. None did. `beyond_extent` identical too.
+2. **No input lost a single `operand_ok` row.**
+3. **Only two classes moved at all**, and they close exactly:
+   `addr −39600 = operand_ok +39499 + reg +101`. Every other class —
+   mnemonic, opcount, mem, imm, other, undecoded, invalid_at_start,
+   nostart, beyond_extent — is unchanged on every one of the sixteen.
+
+**The exemption never fired: by-rule count 0, named count 0.** The rule
+decided in advance turned out not to be needed, which is the outcome it
+was written to make legible either way.
+
+**The 101 are demasking, not regression, and are read from rows.**
+They moved `addr → reg`: the comparer classes a row by its first
+differing operand, so a row whose address differed *and* whose register
+differed was classed `addr`; with the address now matching, the
+register mismatch surfaces. Grounded on i8042prt: `CMP byte ptr
+[0x1c000f184], SIL` — our address now agrees exactly, and the remainder
+is `R:DH` vs `R:SIL`, which is defect **(f)**, an open XFAIL. (a)
+uncovered 101 instances of a defect that was already on the list.
+
+| input | Ghidra rows | score before → after |
+|---|---|---|
+| ACPI | 148921 | 82.2% → **90.6%** |
+| disk | 12335 | 81.8% → **90.1%** |
+| HDAudBus | 24214 | 77.4% → **90.5%** |
+| i8042prt | 19090 | 75.3% → **89.4%** |
+| pci | 86827 | 84.2% → **90.3%** |
+| HP serial | 13852 | 83.9% → **90.6%** |
+| storport | 98228 | 86.7% → **91.7%** |
+| usbxhci | 89234 | 81.4% → **91.3%** |
+| four modules, two ReactOS controls, nmap | — | identical, to the row |
+| fixture v12 | 31 | 38.7% → 41.9% (its `(a)` LEA row now `ok`) |
+
+**64-bit operand agreement is now 89.4–91.7%**, from 75.3–86.7% before
+(a) and 68.5–86.6% before (e) five days ago. Every 64-bit input is
+above 89% and the spread has closed from 18 points to 2.3.
+
+Open after (a): (o), (p)×2, (r1)-(r3), (s)×7, (u), (v), (y), (z),
+(d'), (f), (g)×2. Next: (o), whose pre-registration and reader
+enumeration are already written and unchanged.

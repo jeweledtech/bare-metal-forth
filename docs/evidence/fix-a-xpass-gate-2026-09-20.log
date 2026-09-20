@@ -1,0 +1,70 @@
+# fix (a) XPASS gate, 2026-09-20: RIP-relative addressing, BOTH HALVES in one commit.
+# PREDICTED before the run (fix-a-prereg-2026-09-20.md, public 9b5ee40):
+#   XPASS on x64_RED_lea_rip_relative and sem_RED_a_iat_resolver_refuses_non_iat_target;
+#   every other XFAIL holds; both table sweeps unchanged (the one-byte table is not consulted by the ModRM path);
+#   hardware_functions: ACPI 47, HDAudBus 21, disk 3, i8042prt 31, pci 29, HP serial 48, storport 93, usbxhci 58;
+#   port_io_functions unchanged on all eight; 32-bit controls every column identical;
+#   iat_slot_hits 0 -> ACPI 3307, HDAudBus 391, disk 346, i8042prt 457, pci 2423, HP serial 465, storport 2031, usbxhci 1294.
+# ---- make test-x86 ----
+  TEST: x64_RED_lea_rip_relative                      XPASS: expected failure PASSED - stop; correct the register, then remove from xfail_names
+  TEST: x64_table_consistency_sweep                   (checked=2184 tautological=504 skipped=384 wrong_rows=61 disagreeing_opcodes=8) PASS
+  TEST: x86_32_table_consistency_sweep                (checked=1080 tautological=372 skipped=84 wrong_rows=11 disagreeing_opcodes=4) PASS
+Results: pass=91 xfail=20 fail=0 xpass=1 (tests=112)
+HARD FAILURE: 1 expected failure(s) passed (XPASS). The 64-bit finding is wrong somewhere; correct the register before removing the name from xfail_names.
+  TEST: sem_RED_a_iat_resolver_refuses_non_iat_target      XPASS: expected failure PASSED - stop; correct the register, then remove from xfail_names
+Results: 37/38 passed (xfail=0 xpass=1)
+HARD FAILURE: 1 expected failure(s) passed (XPASS).
+# ---- report counts, per input ----
+input              hw_fns portio slothit iatedg datedg  unres
+ACPI.sys               47     13   3307   3307    417      0
+disk.sys                3      0    346    346     37      0
+HDAudBus.sys           21      0    391    391    322      0
+i8042prt.sys           31      2    457    457     68      0
+pci.sys                29      0   2423   2423    268      0
+serial.sys             48     31    465    465     11      0
+storport.sys           93     20   2030   2030    148      0
+usbxhci.sys            58      0   1294   1294    905      0
+serial.sys              9      8    275    275      0     41
+beep.sys                3      3     43     43      0      2
+nmap_service.exe        0      0     44     44      1     36
+# ---- OUTCOME, read against the banked predictions ----
+# GATE: XPASS on exactly the two pre-registered names (x64_RED_lea_rip_relative,
+#   sem_RED_a_iat_resolver_refuses_non_iat_target); every other XFAIL held; both
+#   table sweeps identical (2184/504/384/61 and 1080/372/84/11, sets unchanged),
+#   as predicted -- the one-byte table is not consulted by the ModRM path.
+#   Names removed by hand: test-x86 pass=92 xfail=20 fail=0 xpass=0 (tests=112);
+#   test-semantic 38/38 (its xfail list is now EMPTY, a sentinel keeps the array
+#   legal); full make test exit 0, 25 suites.
+#
+# PREDICTION 1 (hardware_functions), EIGHT OF EIGHT EXACT:
+#   predicted ACPI 47, HDAudBus 21, disk 3, i8042prt 31, pci 29, HP serial 48,
+#             storport 93, usbxhci 58
+#   observed  ACPI 47, HDAudBus 21, disk 3, i8042prt 31, pci 29, HP serial 48,
+#             storport 93, usbxhci 58
+#   The columns diverged on all eight: port_io_functions UNCHANGED everywhere
+#   (13, 0, 0, 2, 0, 31, 20, 0), so hw_functions > port_io_functions on all
+#   eight where it was equal on all eight before.
+#
+# PREDICTION 2 (iat_slot_hits 0 -> the by-bytes counts): seven of eight exact
+#   (ACPI 3307, HDAudBus 391, disk 346, i8042prt 457, pci 2423, HP serial 465,
+#   usbxhci 1294).  MISS: storport predicted 2031, observed 2030.  Cause, read:
+#   2030 IAT + 148 INDIRECT_DATA = 2178 memory-indirect calls reached, while
+#   objdump counts 2179 sites.  The one-site shortfall PREDATES (a) -- the same
+#   2178-vs-2179 gap is in the 2026-09-19 table -- so it is a site our walk
+#   never reaches, an (o)-owned loss.  The prediction was taken from objdump's
+#   site count when the report counts sites the walk reaches; direction right,
+#   population wrong by one (rule 26's shape again).
+#
+# CFG, CORROBORATED TO THE ROW: indirect_data_edges = ACPI 417, HDAudBus 322,
+#   disk 37, i8042prt 68, pci 268, HP serial 11, storport 148, usbxhci 905.
+#   Those are EXACTLY the per-image Control Flow Guard dispatch-call counts
+#   measured by bytes on 2026-09-19 (total 2176).  unresolvable_edges is 0 on
+#   all eight, so the propagation veto set did not grow, as pre-registered.
+#
+# CONTROLS: ReactOS serial 275/275/245 and beep 43/43/28 identical in every
+#   column.  nmap: hardware and port columns identical (0/0), matched 0,
+#   slot_hits 44 -- but iat_edges 45 -> 44, because the refusal declined its one
+#   target in .data (0x409054).  My "every column identical" was too strong: the
+#   refusal is (a)'s other half and it acts on 32-bit inputs too.  Restated
+#   correctly: every classification column identical; edge columns change by
+#   exactly the non-slot targets, which is the refusal working.
