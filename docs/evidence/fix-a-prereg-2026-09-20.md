@@ -73,12 +73,29 @@ reader of `.base` is named before a line changes:
 - **`semantic.c`** IAT branch: the site being repaired; its test
   becomes "absolute (`reg < 0`) **or** RIP (`reg == 32`)", with the
   target computed per case.
-- **`dump_starts.c:64,68,76`** — **already prepared**: it has a
-  `base == 32` arm that prints `address + length + disp` and a comment
-  citing the register map (`operand-diff-prereg-2026-09-15.md`:
-  0-15 GPR, 16-19 SPL/BPL/SIL/DIL, **32 RIP**). The differential
-  harness therefore needs no change for (a), and the `addr` rows
-  resolve as soon as the decoder emits base 32.
+- **`dump_starts.c:64,68,76`** — **already prepared, and now
+  exercised**: it has a `base == 32` arm that prints
+  `address + length + disp` and a comment citing the register map
+  (`operand-diff-prereg-2026-09-15.md`: 0-15 GPR, 16-19
+  SPL/BPL/SIL/DIL, **32 RIP**). The differential harness therefore
+  needs no change for (a), and the `addr` rows resolve as soon as the
+  decoder emits base 32.
+  **That arm had never executed** (no operand carries base 32 today),
+  so it was green by vacuity and its first run would have been (a)'s
+  own run, while reporting on ≈40,856 rows; an off-by-one-instruction
+  error in `address + length + disp` is the classic mistake in exactly
+  that computation, and it would have made a correct (a) look broken.
+  Owner ruling 2026-09-20: red-test the instrument first.
+  `tests/test_dump_starts_arm.c` (private `f42cc25`, wired into
+  `test-all`) includes the tool as a translation unit with its `main`
+  renamed, so **the arm itself** is exercised rather than a copy of
+  its arithmetic. Expected values come from the pinned fixture-v12
+  oracle rows: the LEA at `0x401003`, length 7, displacement `0x10`
+  must render `0x40101a`. Five assertions — the oracle target, a
+  negative displacement keeping its sign, resolution relative to the
+  instruction **end** rather than its start, and two controls (the
+  absolute arm, a real base register) — **all pass. The instrument is
+  sound before (a) leans on it.**
 - **test assertions on specific base values**: `test_x86_decoder.c`
   404, 421, 434, 529, 547, 730, 738, 781, 870, 889, 1016, 1692 —
   the (a) red at 730/738 already asserts `base != -1` and a value
