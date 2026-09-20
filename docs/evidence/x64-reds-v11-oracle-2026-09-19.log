@@ -1,0 +1,38 @@
+# fixture v11 oracle 2026-09-19: sha256 537a50cac8a9a2ece09d693c2812dbb4ae77fd8a7950725e72360558589e184b; rows (n-guard) 9C, separator 89 C0, (n-guard) 9D inserted AFTER (m) 8F 00 and BEFORE (n1) 63 C0; every v10 address through 40102b unchanged, (n1)..(b) shifted +4. Build: as --64; ld -Ttext=0x401000 (Binutils 2.42; reproduces v10 sha cfe59357 from x64_reds.s).
+# PREDICTED before the run (fifth rule): 40102d PUSHFQ len=1 | 40102e MOV EAX,EAX len=2 | 401030 POPFQ len=1 | 401031 MOVSXD EAX,EAX len=2 | 401033 IMUL EAX,EAX,0x10 len=6 | 401039 IMUL EAX,EAX,0x10 len=3 | 40103c FLD float ptr [RAX] len=2 | 40103e ENTER 0x10,0x0 len=4 | 401042 JRCXZ 0x00401044 len=2 | 401044 MOV EAX,[0x1122334455667788] len=9 | 40104d MOV RAX,0x1122334455667788 len=10 | 401057 RET len=1; all 14 v10 rows before 40102d identical to the v10 log.
+# ADDRS=401000 401003 40100a 40100d 40100f 401010 401017 40101a 40101e 401022 401025 401027 401029 40102b 40102d 40102e 401030 401031 401033 401039 40103c 40103e 401042 401044 40104d 401057
+make ghidra-instr-at BIN=tests/data/x64_reds/x64_reds.elf ADDRS="401000 401003 40100a 40100d 40100f 401010 401017 40101a 40101e 401022 401025 401027 401029 40102b 40102d 40102e 401030 401031 401033 401039 40103c 40103e 401042 401044 40104d 401057"
+JAVA_HOME=/snap/ghidra/47/usr/lib/jvm/java-21-openjdk-amd64 /snap/ghidra/47/ghidra/support/analyzeHeadless /tmp/ghidra_instrat InstrAt \
+	-import tests/data/x64_reds/x64_reds.elf \
+	-postScript InstrAt.java 401000 401003 40100a 40100d 40100f 401010 401017 40101a 40101e 401022 401025 401027 401029 40102b 40102d 40102e 401030 401031 401033 401039 40103c 40103e 401042 401044 40104d 401057 \
+	-scriptPath ../../tools/ghidra \
+	-overwrite -deleteProject 2>&1 | grep -E 'INSTRAT|ERROR' | sed -E 's/^INFO +//; s/ \(GhidraScript\).*//'
+InstrAt.java> INSTRAT image_base=00400000
+InstrAt.java> INSTRAT 401000 START MOV | MOV RAX,qword ptr [R8] | len=3 | fn=entry
+InstrAt.java> INSTRAT 401003 START LEA | LEA RAX,[0x40101a] | len=7 | fn=entry
+InstrAt.java> INSTRAT 40100a START MOV | MOV R8,RAX | len=3 | fn=entry
+InstrAt.java> INSTRAT 40100d START PUSH | PUSH R12 | len=2 | fn=entry
+InstrAt.java> INSTRAT 40100f START PUSH | PUSH RBP | len=1 | fn=entry
+InstrAt.java> INSTRAT 401010 START MOV | MOV RAX,-0x1 | len=7 | fn=entry
+InstrAt.java> INSTRAT 401017 START MOV | MOV AL,SIL | len=3 | fn=entry
+InstrAt.java> INSTRAT 40101a START MOV | MOV RAX,qword ptr [RAX + R8*0x1] | len=4 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 40101e START MOV | MOV RAX,qword ptr [RAX + R12*0x1] | len=4 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 401022 START MOV | MOV RAX,R8 | len=3 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 401025 START CALL | CALL RAX | len=2 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 401027 START PUSH | PUSH BP | len=2 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 401029 START PUSH | PUSH RBP | len=2 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 40102b START POP | POP qword ptr [RAX] | len=2 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 40102d START PUSHFQ | PUSHFQ | len=1 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 40102e START MOV | MOV EAX,EAX | len=2 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 401030 START POPFQ | POPFQ | len=1 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 401031 START MOVSXD | MOVSXD EAX,EAX | len=2 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 401033 START IMUL | IMUL EAX,EAX,0x10 | len=6 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 401039 START IMUL | IMUL EAX,EAX,0x10 | len=3 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 40103c START FLD | FLD float ptr [RAX] | len=2 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 40103e START ENTER | ENTER 0x10,0x0 | len=4 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 401042 START JRCXZ | JRCXZ 0x00401044 | len=2 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 401044 START MOV | MOV EAX,[0x1122334455667788] | len=9 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 40104d START MOV | MOV RAX,0x1122334455667788 | len=10 | fn=FUN_0040101a
+InstrAt.java> INSTRAT 401057 START RET | RET | len=1 | fn=FUN_0040101a
+EXIT 0
+# ORACLE: Ghidra 12.1.2 PUBLIC, snap revision 47 (/snap/ghidra/47, GHIDRA_HOME pin in tools/translator/Makefile line 218), InstrAt.java; local date at run 2026-09-19 17:41 PDT.
