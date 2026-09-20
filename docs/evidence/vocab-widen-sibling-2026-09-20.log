@@ -1,0 +1,73 @@
+# Vocabulary widening, act 1 of 2 (sibling repair), 2026-09-20.
+# Owner ruling: this runs BEFORE (a), because it is a cheap test that can falsify an expensive one.
+# PREDICTION, banked 2026-09-20 in vocab-freeze-tier1-prereg-2026-09-20.md (public ae6438b) BEFORE this run:
+#   adding MmMapIoSpaceEx (MMIO) and IoConnectInterruptEx (INTERRUPT) raises coverage 397 -> 399 corpus-wide;
+#   hardware_imports rises by the per-input count of those two names;
+#   *** hardware_functions MUST NOT MOVE on any of the eight 64-bit drivers ***, because attributing a call
+#   to a function needs the IAT cross-reference, which matches zero on 64-bit ((a)).  If it DOES move, the
+#   '(a) blocks attribution' diagnosis is wrong and (a) is aimed at the wrong thing.
+# BEFORE vocabulary sha256: 74610f24f1aab1178a867c9523d47a8ef130a90e537be4f6c9389bb590751405
+# columns: input total_imports hardware_imports hardware_functions port_io_functions
+# ---- BEFORE ----
+BEFORE ACPI.sys           272 8 13 13
+BEFORE disk.sys           95 3 0 0
+BEFORE HDAudBus.sys       91 6 0 0
+BEFORE i8042prt.sys       97 7 2 2
+BEFORE pci.sys            256 8 0 0
+BEFORE serial.sys         70 7 31 31
+BEFORE storport.sys       264 11 20 20
+BEFORE usbxhci.sys        143 7 0 0
+BEFORE serial.sys         47 6 9 8
+BEFORE beep.sys           23 1 3 3
+BEFORE nmap_service.exe   70 2 0 0
+# ---- AFTER (vocabulary sha256 b48923e815d3c731534e3d58ee3af484f46a3b7be61ae01368ac1bd56a5d66bf, 146 entries) ----
+AFTER  ACPI.sys           272 10 13 13
+AFTER  disk.sys           95 3 0 0
+AFTER  HDAudBus.sys       91 8 0 0
+AFTER  i8042prt.sys       97 8 2 2
+AFTER  pci.sys            256 10 0 0
+AFTER  serial.sys         70 8 31 31
+AFTER  storport.sys       264 13 20 20
+AFTER  usbxhci.sys        143 8 0 0
+AFTER  serial.sys         47 6 9 8
+AFTER  beep.sys           23 1 3 3
+AFTER  nmap_service.exe   70 2 0 0
+# ---- OUTCOME, read back against the banked prediction ----
+#
+# THE SUBSTANTIVE PREDICTION HELD EXACTLY.
+#   hardware_functions, all eleven inputs, before -> after:
+#     ACPI 13->13  disk 0->0  HDAudBus 0->0  i8042prt 2->2  pci 0->0
+#     HP serial 31->31  storport 20->20  usbxhci 0->0
+#     ReactOS serial 9->9  ReactOS beep 3->3  nmap 0->0
+#   NOT ONE of the eight 64-bit drivers moved.  A vocabulary lookup needs no
+#   call sites, so the import-level count moved; attributing a call to a
+#   function needs the IAT cross-reference, which matches zero on 64-bit.
+#   The "(a) blocks attribution" diagnosis SURVIVES the test that could have
+#   falsified it, and (a) stays aimed where it is aimed.
+#
+#   hardware_imports, before -> after (+11 across seven of the eight):
+#     ACPI 8->10  HDAudBus 6->8  pci 8->10  storport 11->13  (both names)
+#     i8042prt 7->8  HP serial 7->8  usbxhci 7->8            (one name)
+#     disk 3->3 (imports neither), both PE32 controls and nmap unchanged.
+#   By bytes: MmMapIoSpaceEx on 7 inputs, IoConnectInterruptEx on 4 = 11.
+#
+# ONE MISS, ARITHMETIC, RECORDED.
+#   Predicted "coverage 397 -> 399 corpus-wide"; observed 397 -> 408.
+#   Cause: the prediction counted the two NAMES added; coverage counts import
+#   ENTRIES, and those two names occur 11 times across the eleven inputs.  The
+#   same class as summing an eight-row table as if it were the corpus (rule
+#   26): the sum was right for the population I had in mind and the population
+#   was wrong.  Nothing downstream rests on it; the diagnosis test does not.
+#
+# Corroborating detail already visible in the BEFORE block: on every 64-bit
+# driver hardware_functions EQUALS port_io_functions exactly (13/13, 2/2,
+# 31/31, 20/20, and four 0/0), i.e. the only surviving route to is_hardware
+# there is a direct IN/OUT instruction.  On the ReactOS PE32 control the two
+# differ (9 vs 8): one function is hardware by HAL attribution.  The
+# attribution path is visibly alive on PE32 and dead on 64-bit.
+#
+# Vocabulary re-pinned: 146 entries, 197 lines, same extraction rule,
+#   sha256 b48923e815d3c731534e3d58ee3af484f46a3b7be61ae01368ac1bd56a5d66bf
+# Suite after the widening: full `make test` exit 0, 22 suites; test-x86
+#   pass=91 xfail=21 fail=0 xpass=0 (tests=112), unchanged.
+# Act 2 of the widening (class-DLL scaffolding names) is NOT done here.

@@ -4,6 +4,15 @@ Owner ruling 2026-09-19/20: **(a) before (o)**. Written before any
 line of `src/` changes. (o) keeps its enumeration and pre-registration
 and goes next, unchanged.
 
+**A decoder-only (a) is a regression by construction.** The decoder
+half and the resolver half land in one commit or not at all: marking
+RIP makes the resolver's base-less test stop matching, so IAT edges
+fall toward zero with slot hits still zero — a worse state than today,
+reached by fixing something. The mechanism is under "The interaction"
+below; it is stated here because it governs the shape of the work, not
+just its detail. Found by enumerating the readers of the operand base
+field *before* writing a line (rule 24).
+
 ## Why (a) first: three justifications, weakest to strongest
 
 1. **Row count.** `addr` is the differential class (a) moves:

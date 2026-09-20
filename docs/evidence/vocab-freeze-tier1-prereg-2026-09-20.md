@@ -91,6 +91,20 @@ frozen hash, each re-measured on the same eleven inputs:
 is read from bytes.** The hash is re-pinned in the same commit as each
 act, and a coverage table is emitted beside it.
 
+### Act 1 outcome (run 2026-09-20 before (a), log `vocab-widen-sibling-2026-09-20.log`)
+
+**The substantive prediction held exactly: `hardware_functions` moved
+on none of the eleven inputs**, while `hardware_imports` rose by 11
+across seven of the eight 64-bit drivers. The diagnosis that (a)
+blocks attribution survived the test that could have falsified it.
+**One miss, arithmetic:** coverage was predicted 397 → 399 and observed
+397 → **408**, because the prediction counted the two *names* added
+while coverage counts import *entries*, and those names occur 11 times
+across the corpus (`MmMapIoSpaceEx` on 7 inputs, `IoConnectInterruptEx`
+on 4). Rule 26's shape: the sum was right for the population I had in
+mind and the population was wrong. Vocabulary re-pinned at **146
+entries, 197 lines, sha256 `b48923e815d3c731534e3d58ee3af484f46a3b7be61ae01368ac1bd56a5d66bf`**.
+
 ## Tier 1, stated as what it is
 
 Three pieces, all reporting over data already parsed:
