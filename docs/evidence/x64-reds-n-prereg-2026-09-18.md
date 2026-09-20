@@ -1418,3 +1418,59 @@ input (64 rows). The mechanism restated for (o) here so it travels
 the trigger, and the trigger's own class is a separate movement.
 (o) is a `disp` widening: rule 24, readers of `disp` enumerated
 before a line changes.
+
+## Corrections to the reading (owner, 2026-09-19): the 51 split, the INT rows read
+
+**Twenty-sixth rule, docketed:** a table inside a summary is a
+selection until its row count matches the pinned population; count
+the rows before summing them. The 786 → 149 was an eight-row sum
+published as a sixteen-input figure; 895 → 180 is the number.
+
+**180 → 51 = 34 parked + 17 owned.** The 34 `INT 0x29` rows are not a
+decoder row and no red owns them, so they are parked with the
+modules' 221 section-start rows on the same reasoning, read from the
+artefacts on both drivers: Ghidra's INIT block is the section's
+`SizeOfRawData` (serial 0x800, storport 0x200) and ours is its
+`VirtualSize` (0x6b2, 0x72); Ghidra falls through `INT 0x29`
+(`__fastfail`, which it does not model as terminating) into the
+file-alignment zero padding and prints 17 `ADD byte ptr [RAX],AL`
+rows (`00 00`) on each driver, every one at an offset past our last
+byte (`+6b2`, `+72`). The mechanism is a **loader population
+difference** (the PE loader carries the virtual extent, the oracle the
+raw extent), the row class is padding, and it will not move for any
+fix on the list; whether the harness should trim both sides to
+`min(VirtualSize, SizeOfRawData)` is a harness question, filed, not a
+decoder one. The 17 owned rows: (r3) 8, (s) 5, (r2) 4, each with a red
+on the list. A future reading that sees a floor of 34 is reading the
+padding, not a failure to close.
+
+**(o), cleared on the usual terms. Readers of `x86_operand_t.disp`
+(`int32_t`, `include/x86_decoder.h:162`), enumerated from source
+before a line changes (rule 24):**
+- copies across the bridge: `src/main/translator.c:150`,
+  `tests/test_pipeline.c:185,283` (field-for-field into
+  `uir_x86_input_t`, whose `disp` must widen with it), `src/ir/uir.c:127`
+  (into the UIR operand, whose `disp` type is the next reader to
+  enumerate);
+- **one truncating reader: `src/ir/semantic.c:359`**, `call_target =
+  (uint64_t)(uint32_t)ins->dest.disp`, the IAT-call resolver, which
+  today folds a widened displacement back to 32 bits; the (a)
+  RIP-relative fix already named the same site;
+- readers that mask: `src/ir/uir.c:630,634` (port / struct
+  displacement from the previous MOV, `uint16_t` mask and
+  `struct_disp`), unaffected by width;
+- printers: `src/ir/uir.c:723` (`%+d`, must become a 64-bit format),
+  `tests/dump_starts.c:67,73,80` (already cast to `int64_t`),
+  `x86_print_decoded` in the decoder;
+- writers from `imm`: `src/ir/uir.c:971-1006` (`(int32_t)` casts of
+  an immediate into `disp`: unchanged in meaning, casts to revisit);
+- test fixtures that set or assert `disp`: `test_x86_decoder.c:422,
+  435,530,740,1102`, `test_semantic.c:270,335,415,421`,
+  `test_callgraph.c:72`.
+The widening is `int32_t → int64_t` on `x86_operand_t.disp` and on the
+bridge and UIR operand fields that copy it; every reader above is
+touched or explicitly left; the `-Wtype-limits` warning at the (o)
+red retires in the same commit. Pre-registered movement (previous
+section): residual 180 → 51, (o) rows `addr → ok` on 64 rows, nothing
+leaves any class but `nostart` and `addr`. The (o) red's expected
+value: fixture v12 `401044` `MOV EAX,[0x1122334455667788]` length 9.
