@@ -1,0 +1,2818 @@
+# objdump screen over probe1_32_2026-09-19.bin (sha256 0c8c321b815455859af240eff063d5134d84a6b23dc92285978ba5570f575dbc), one slot per line in slot order, objdump -D -b binary -m i386 --insn-width=16 (Binutils 2.42). The prefix length of each row comes from the slot index (form-major layout, scripts/gen_opcode_table.py), never from the bytes: a first pass sniffed 0x48/0x66 from the bytes and marked opcode 48 (DEC EAX, one byte) in 32-bit mode as a lone prefix. A row where objdump printed only the prefix bytes is NONE. Screen only: expected values come from the Ghidra no-flow oracle; a row where the two disagree is a finding for the spec.
+# columns: probe_bytes	objdump_len_or_NONE	objdump_text
+0000	2	add    %al,(%eax)
+0100	2	add    %eax,(%eax)
+0200	2	add    (%eax),%al
+0300	2	add    (%eax),%eax
+0400	2	add    $0x0,%al
+0500	5	add    $0x90909000,%eax
+0600	1	push   %es
+0700	1	pop    %es
+0800	2	or     %al,(%eax)
+0900	2	or     %eax,(%eax)
+0A00	2	or     (%eax),%al
+0B00	2	or     (%eax),%eax
+0C00	2	or     $0x0,%al
+0D00	5	or     $0x90909000,%eax
+0E00	1	push   %cs
+0F00	7	lldt   -0x6f6f6f70(%eax)
+1000	2	adc    %al,(%eax)
+1100	2	adc    %eax,(%eax)
+1200	2	adc    (%eax),%al
+1300	2	adc    (%eax),%eax
+1400	2	adc    $0x0,%al
+1500	5	adc    $0x90909000,%eax
+1600	1	push   %ss
+1700	1	pop    %ss
+1800	2	sbb    %al,(%eax)
+1900	2	sbb    %eax,(%eax)
+1A00	2	sbb    (%eax),%al
+1B00	2	sbb    (%eax),%eax
+1C00	2	sbb    $0x0,%al
+1D00	5	sbb    $0x90909000,%eax
+1E00	1	push   %ds
+1F00	1	pop    %ds
+2000	2	and    %al,(%eax)
+2100	2	and    %eax,(%eax)
+2200	2	and    (%eax),%al
+2300	2	and    (%eax),%eax
+2400	2	and    $0x0,%al
+2500	5	and    $0x90909000,%eax
+2600	7	add    %dl,%es:-0x6f6f6f70(%eax)
+2700	1	daa
+2800	2	sub    %al,(%eax)
+2900	2	sub    %eax,(%eax)
+2A00	2	sub    (%eax),%al
+2B00	2	sub    (%eax),%eax
+2C00	2	sub    $0x0,%al
+2D00	5	sub    $0x90909000,%eax
+2E00	7	add    %dl,%cs:-0x6f6f6f70(%eax)
+2F00	1	das
+3000	2	xor    %al,(%eax)
+3100	2	xor    %eax,(%eax)
+3200	2	xor    (%eax),%al
+3300	2	xor    (%eax),%eax
+3400	2	xor    $0x0,%al
+3500	5	xor    $0x90909000,%eax
+3600	7	add    %dl,%ss:-0x6f6f6f70(%eax)
+3700	1	aaa
+3800	2	cmp    %al,(%eax)
+3900	2	cmp    %eax,(%eax)
+3A00	2	cmp    (%eax),%al
+3B00	2	cmp    (%eax),%eax
+3C00	2	cmp    $0x0,%al
+3D00	5	cmp    $0x90909000,%eax
+3E00	7	add    %dl,%ds:-0x6f6f6f70(%eax)
+3F00	1	aas
+4000	1	inc    %eax
+4100	1	inc    %ecx
+4200	1	inc    %edx
+4300	1	inc    %ebx
+4400	1	inc    %esp
+4500	1	inc    %ebp
+4600	1	inc    %esi
+4700	1	inc    %edi
+4800	1	dec    %eax
+4900	1	dec    %ecx
+4A00	1	dec    %edx
+4B00	1	dec    %ebx
+4C00	1	dec    %esp
+4D00	1	dec    %ebp
+4E00	1	dec    %esi
+4F00	1	dec    %edi
+5000	1	push   %eax
+5100	1	push   %ecx
+5200	1	push   %edx
+5300	1	push   %ebx
+5400	1	push   %esp
+5500	1	push   %ebp
+5600	1	push   %esi
+5700	1	push   %edi
+5800	1	pop    %eax
+5900	1	pop    %ecx
+5A00	1	pop    %edx
+5B00	1	pop    %ebx
+5C00	1	pop    %esp
+5D00	1	pop    %ebp
+5E00	1	pop    %esi
+5F00	1	pop    %edi
+6000	1	pusha
+6100	1	popa
+6200	2	bound  %eax,(%eax)
+6300	2	arpl   %eax,(%eax)
+6400	7	add    %dl,%fs:-0x6f6f6f70(%eax)
+6500	7	add    %dl,%gs:-0x6f6f6f70(%eax)
+6600	7	data16 add %dl,-0x6f6f6f70(%eax)
+6700	5	add    %dl,-0x6f70(%bx,%si)
+6800	5	push   $0x90909000
+6900	6	imul   $0x90909090,(%eax),%eax
+6A00	2	push   $0x0
+6B00	3	imul   $0xffffff90,(%eax),%eax
+6C00	1	insb   (%dx),%es:(%edi)
+6D00	1	insl   (%dx),%es:(%edi)
+6E00	1	outsb  %ds:(%esi),(%dx)
+6F00	1	outsl  %ds:(%esi),(%dx)
+7000	2	jo     0x2
+7100	2	jno    0x2
+7200	2	jb     0x2
+7300	2	jae    0x2
+7400	2	je     0x2
+7500	2	jne    0x2
+7600	2	jbe    0x2
+7700	2	ja     0x2
+7800	2	js     0x2
+7900	2	jns    0x2
+7A00	2	jp     0x2
+7B00	2	jnp    0x2
+7C00	2	jl     0x2
+7D00	2	jge    0x2
+7E00	2	jle    0x2
+7F00	2	jg     0x2
+8000	3	addb   $0x90,(%eax)
+8100	6	addl   $0x90909090,(%eax)
+8200	3	addb   $0x90,(%eax)
+8300	3	addl   $0xffffff90,(%eax)
+8400	2	test   %al,(%eax)
+8500	2	test   %eax,(%eax)
+8600	2	xchg   %al,(%eax)
+8700	2	xchg   %eax,(%eax)
+8800	2	mov    %al,(%eax)
+8900	2	mov    %eax,(%eax)
+8A00	2	mov    (%eax),%al
+8B00	2	mov    (%eax),%eax
+8C00	2	mov    %es,(%eax)
+8D00	2	lea    (%eax),%eax
+8E00	2	mov    (%eax),%es
+8F00	2	pop    (%eax)
+9000	1	nop
+9100	1	xchg   %eax,%ecx
+9200	1	xchg   %eax,%edx
+9300	1	xchg   %eax,%ebx
+9400	1	xchg   %eax,%esp
+9500	1	xchg   %eax,%ebp
+9600	1	xchg   %eax,%esi
+9700	1	xchg   %eax,%edi
+9800	1	cwtl
+9900	1	cltd
+9A00	7	lcall  $0x9090,$0x90909000
+9B00	1	fwait
+9C00	1	pushf
+9D00	1	popf
+9E00	1	sahf
+9F00	1	lahf
+A000	5	mov    0x90909000,%al
+A100	5	mov    0x90909000,%eax
+A200	5	mov    %al,0x90909000
+A300	5	mov    %eax,0x90909000
+A400	1	movsb  %ds:(%esi),%es:(%edi)
+A500	1	movsl  %ds:(%esi),%es:(%edi)
+A600	1	cmpsb  %es:(%edi),%ds:(%esi)
+A700	1	cmpsl  %es:(%edi),%ds:(%esi)
+A800	2	test   $0x0,%al
+A900	5	test   $0x90909000,%eax
+AA00	1	stos   %al,%es:(%edi)
+AB00	1	stos   %eax,%es:(%edi)
+AC00	1	lods   %ds:(%esi),%al
+AD00	1	lods   %ds:(%esi),%eax
+AE00	1	scas   %es:(%edi),%al
+AF00	1	scas   %es:(%edi),%eax
+B000	2	mov    $0x0,%al
+B100	2	mov    $0x0,%cl
+B200	2	mov    $0x0,%dl
+B300	2	mov    $0x0,%bl
+B400	2	mov    $0x0,%ah
+B500	2	mov    $0x0,%ch
+B600	2	mov    $0x0,%dh
+B700	2	mov    $0x0,%bh
+B800	5	mov    $0x90909000,%eax
+B900	5	mov    $0x90909000,%ecx
+BA00	5	mov    $0x90909000,%edx
+BB00	5	mov    $0x90909000,%ebx
+BC00	5	mov    $0x90909000,%esp
+BD00	5	mov    $0x90909000,%ebp
+BE00	5	mov    $0x90909000,%esi
+BF00	5	mov    $0x90909000,%edi
+C000	3	rolb   $0x90,(%eax)
+C100	3	roll   $0x90,(%eax)
+C200	3	ret    $0x9000
+C300	1	ret
+C400	2	les    (%eax),%eax
+C500	2	lds    (%eax),%eax
+C600	3	movb   $0x90,(%eax)
+C700	6	movl   $0x90909090,(%eax)
+C800	4	enter  $0x9000,$0x90
+C900	1	leave
+CA00	3	lret   $0x9000
+CB00	1	lret
+CC00	1	int3
+CD00	2	int    $0x0
+CE00	1	into
+CF00	1	iret
+D000	2	rolb   $1,(%eax)
+D100	2	roll   $1,(%eax)
+D200	2	rolb   %cl,(%eax)
+D300	2	roll   %cl,(%eax)
+D400	2	aam    $0x0
+D500	2	aad    $0x0
+D600	NONE	(bad)
+D700	1	xlat   %ds:(%ebx)
+D800	2	fadds  (%eax)
+D900	2	flds   (%eax)
+DA00	2	fiaddl (%eax)
+DB00	2	fildl  (%eax)
+DC00	2	faddl  (%eax)
+DD00	2	fldl   (%eax)
+DE00	2	fiadds (%eax)
+DF00	2	filds  (%eax)
+E000	2	loopne 0x2
+E100	2	loope  0x2
+E200	2	loop   0x2
+E300	2	jecxz  0x2
+E400	2	in     $0x0,%al
+E500	2	in     $0x0,%eax
+E600	2	out    %al,$0x0
+E700	2	out    %eax,$0x0
+E800	5	call   0x90909005
+E900	5	jmp    0x90909005
+EA00	7	ljmp   $0x9090,$0x90909000
+EB00	2	jmp    0x2
+EC00	1	in     (%dx),%al
+ED00	1	in     (%dx),%eax
+EE00	1	out    %al,(%dx)
+EF00	1	out    %eax,(%dx)
+F000	7	lock add %dl,-0x6f6f6f70(%eax)
+F100	1	int1
+F200	7	repnz add %dl,-0x6f6f6f70(%eax)
+F300	7	repz add %dl,-0x6f6f6f70(%eax)
+F400	1	hlt
+F500	1	cmc
+F600	3	testb  $0x90,(%eax)
+F700	6	testl  $0x90909090,(%eax)
+F800	1	clc
+F900	1	stc
+FA00	1	cli
+FB00	1	sti
+FC00	1	cld
+FD00	1	std
+FE00	2	incb   (%eax)
+FF00	2	incl   (%eax)
+0080	6	add    %al,-0x6f6f6f70(%eax)
+0180	6	add    %eax,-0x6f6f6f70(%eax)
+0280	6	add    -0x6f6f6f70(%eax),%al
+0380	6	add    -0x6f6f6f70(%eax),%eax
+0480	2	add    $0x80,%al
+0580	5	add    $0x90909080,%eax
+0680	1	push   %es
+0780	1	pop    %es
+0880	6	or     %al,-0x6f6f6f70(%eax)
+0980	6	or     %eax,-0x6f6f6f70(%eax)
+0A80	6	or     -0x6f6f6f70(%eax),%al
+0B80	6	or     -0x6f6f6f70(%eax),%eax
+0C80	2	or     $0x80,%al
+0D80	5	or     $0x90909080,%eax
+0E80	1	push   %cs
+0F80	6	jo     0x90909096
+1080	6	adc    %al,-0x6f6f6f70(%eax)
+1180	6	adc    %eax,-0x6f6f6f70(%eax)
+1280	6	adc    -0x6f6f6f70(%eax),%al
+1380	6	adc    -0x6f6f6f70(%eax),%eax
+1480	2	adc    $0x80,%al
+1580	5	adc    $0x90909080,%eax
+1680	1	push   %ss
+1780	1	pop    %ss
+1880	6	sbb    %al,-0x6f6f6f70(%eax)
+1980	6	sbb    %eax,-0x6f6f6f70(%eax)
+1A80	6	sbb    -0x6f6f6f70(%eax),%al
+1B80	6	sbb    -0x6f6f6f70(%eax),%eax
+1C80	2	sbb    $0x80,%al
+1D80	5	sbb    $0x90909080,%eax
+1E80	1	push   %ds
+1F80	1	pop    %ds
+2080	6	and    %al,-0x6f6f6f70(%eax)
+2180	6	and    %eax,-0x6f6f6f70(%eax)
+2280	6	and    -0x6f6f6f70(%eax),%al
+2380	6	and    -0x6f6f6f70(%eax),%eax
+2480	2	and    $0x80,%al
+2580	5	and    $0x90909080,%eax
+2680	8	adcb   $0x90,%es:-0x6f6f6f70(%eax)
+2780	1	daa
+2880	6	sub    %al,-0x6f6f6f70(%eax)
+2980	6	sub    %eax,-0x6f6f6f70(%eax)
+2A80	6	sub    -0x6f6f6f70(%eax),%al
+2B80	6	sub    -0x6f6f6f70(%eax),%eax
+2C80	2	sub    $0x80,%al
+2D80	5	sub    $0x90909080,%eax
+2E80	8	adcb   $0x90,%cs:-0x6f6f6f70(%eax)
+2F80	1	das
+3080	6	xor    %al,-0x6f6f6f70(%eax)
+3180	6	xor    %eax,-0x6f6f6f70(%eax)
+3280	6	xor    -0x6f6f6f70(%eax),%al
+3380	6	xor    -0x6f6f6f70(%eax),%eax
+3480	2	xor    $0x80,%al
+3580	5	xor    $0x90909080,%eax
+3680	8	adcb   $0x90,%ss:-0x6f6f6f70(%eax)
+3780	1	aaa
+3880	6	cmp    %al,-0x6f6f6f70(%eax)
+3980	6	cmp    %eax,-0x6f6f6f70(%eax)
+3A80	6	cmp    -0x6f6f6f70(%eax),%al
+3B80	6	cmp    -0x6f6f6f70(%eax),%eax
+3C80	2	cmp    $0x80,%al
+3D80	5	cmp    $0x90909080,%eax
+3E80	8	adcb   $0x90,%ds:-0x6f6f6f70(%eax)
+3F80	1	aas
+4080	1	inc    %eax
+4180	1	inc    %ecx
+4280	1	inc    %edx
+4380	1	inc    %ebx
+4480	1	inc    %esp
+4580	1	inc    %ebp
+4680	1	inc    %esi
+4780	1	inc    %edi
+4880	1	dec    %eax
+4980	1	dec    %ecx
+4A80	1	dec    %edx
+4B80	1	dec    %ebx
+4C80	1	dec    %esp
+4D80	1	dec    %ebp
+4E80	1	dec    %esi
+4F80	1	dec    %edi
+5080	1	push   %eax
+5180	1	push   %ecx
+5280	1	push   %edx
+5380	1	push   %ebx
+5480	1	push   %esp
+5580	1	push   %ebp
+5680	1	push   %esi
+5780	1	push   %edi
+5880	1	pop    %eax
+5980	1	pop    %ecx
+5A80	1	pop    %edx
+5B80	1	pop    %ebx
+5C80	1	pop    %esp
+5D80	1	pop    %ebp
+5E80	1	pop    %esi
+5F80	1	pop    %edi
+6080	1	pusha
+6180	1	popa
+6280	6	bound  %eax,-0x6f6f6f70(%eax)
+6380	6	arpl   %eax,-0x6f6f6f70(%eax)
+6480	8	adcb   $0x90,%fs:-0x6f6f6f70(%eax)
+6580	8	adcb   $0x90,%gs:-0x6f6f6f70(%eax)
+6680	8	data16 adcb $0x90,-0x6f6f6f70(%eax)
+6780	6	adcb   $0x90,-0x6f70(%bx,%si)
+6880	5	push   $0x90909080
+6980	10	imul   $0x90909090,-0x6f6f6f70(%eax),%eax
+6A80	2	push   $0xffffff80
+6B80	7	imul   $0xffffff90,-0x6f6f6f70(%eax),%eax
+6C80	1	insb   (%dx),%es:(%edi)
+6D80	1	insl   (%dx),%es:(%edi)
+6E80	1	outsb  %ds:(%esi),(%dx)
+6F80	1	outsl  %ds:(%esi),(%dx)
+7080	2	jo     0xffffff82
+7180	2	jno    0xffffff82
+7280	2	jb     0xffffff82
+7380	2	jae    0xffffff82
+7480	2	je     0xffffff82
+7580	2	jne    0xffffff82
+7680	2	jbe    0xffffff82
+7780	2	ja     0xffffff82
+7880	2	js     0xffffff82
+7980	2	jns    0xffffff82
+7A80	2	jp     0xffffff82
+7B80	2	jnp    0xffffff82
+7C80	2	jl     0xffffff82
+7D80	2	jge    0xffffff82
+7E80	2	jle    0xffffff82
+7F80	2	jg     0xffffff82
+8080	7	addb   $0x90,-0x6f6f6f70(%eax)
+8180	10	addl   $0x90909090,-0x6f6f6f70(%eax)
+8280	7	addb   $0x90,-0x6f6f6f70(%eax)
+8380	7	addl   $0xffffff90,-0x6f6f6f70(%eax)
+8480	6	test   %al,-0x6f6f6f70(%eax)
+8580	6	test   %eax,-0x6f6f6f70(%eax)
+8680	6	xchg   %al,-0x6f6f6f70(%eax)
+8780	6	xchg   %eax,-0x6f6f6f70(%eax)
+8880	6	mov    %al,-0x6f6f6f70(%eax)
+8980	6	mov    %eax,-0x6f6f6f70(%eax)
+8A80	6	mov    -0x6f6f6f70(%eax),%al
+8B80	6	mov    -0x6f6f6f70(%eax),%eax
+8C80	6	mov    %es,-0x6f6f6f70(%eax)
+8D80	6	lea    -0x6f6f6f70(%eax),%eax
+8E80	6	mov    -0x6f6f6f70(%eax),%es
+8F80	6	pop    -0x6f6f6f70(%eax)
+9080	1	nop
+9180	1	xchg   %eax,%ecx
+9280	1	xchg   %eax,%edx
+9380	1	xchg   %eax,%ebx
+9480	1	xchg   %eax,%esp
+9580	1	xchg   %eax,%ebp
+9680	1	xchg   %eax,%esi
+9780	1	xchg   %eax,%edi
+9880	1	cwtl
+9980	1	cltd
+9A80	7	lcall  $0x9090,$0x90909080
+9B80	1	fwait
+9C80	1	pushf
+9D80	1	popf
+9E80	1	sahf
+9F80	1	lahf
+A080	5	mov    0x90909080,%al
+A180	5	mov    0x90909080,%eax
+A280	5	mov    %al,0x90909080
+A380	5	mov    %eax,0x90909080
+A480	1	movsb  %ds:(%esi),%es:(%edi)
+A580	1	movsl  %ds:(%esi),%es:(%edi)
+A680	1	cmpsb  %es:(%edi),%ds:(%esi)
+A780	1	cmpsl  %es:(%edi),%ds:(%esi)
+A880	2	test   $0x80,%al
+A980	5	test   $0x90909080,%eax
+AA80	1	stos   %al,%es:(%edi)
+AB80	1	stos   %eax,%es:(%edi)
+AC80	1	lods   %ds:(%esi),%al
+AD80	1	lods   %ds:(%esi),%eax
+AE80	1	scas   %es:(%edi),%al
+AF80	1	scas   %es:(%edi),%eax
+B080	2	mov    $0x80,%al
+B180	2	mov    $0x80,%cl
+B280	2	mov    $0x80,%dl
+B380	2	mov    $0x80,%bl
+B480	2	mov    $0x80,%ah
+B580	2	mov    $0x80,%ch
+B680	2	mov    $0x80,%dh
+B780	2	mov    $0x80,%bh
+B880	5	mov    $0x90909080,%eax
+B980	5	mov    $0x90909080,%ecx
+BA80	5	mov    $0x90909080,%edx
+BB80	5	mov    $0x90909080,%ebx
+BC80	5	mov    $0x90909080,%esp
+BD80	5	mov    $0x90909080,%ebp
+BE80	5	mov    $0x90909080,%esi
+BF80	5	mov    $0x90909080,%edi
+C080	7	rolb   $0x90,-0x6f6f6f70(%eax)
+C180	7	roll   $0x90,-0x6f6f6f70(%eax)
+C280	3	ret    $0x9080
+C380	1	ret
+C480	6	les    -0x6f6f6f70(%eax),%eax
+C580	6	lds    -0x6f6f6f70(%eax),%eax
+C680	7	movb   $0x90,-0x6f6f6f70(%eax)
+C780	10	movl   $0x90909090,-0x6f6f6f70(%eax)
+C880	4	enter  $0x9080,$0x90
+C980	1	leave
+CA80	3	lret   $0x9080
+CB80	1	lret
+CC80	1	int3
+CD80	2	int    $0x80
+CE80	1	into
+CF80	1	iret
+D080	6	rolb   $1,-0x6f6f6f70(%eax)
+D180	6	roll   $1,-0x6f6f6f70(%eax)
+D280	6	rolb   %cl,-0x6f6f6f70(%eax)
+D380	6	roll   %cl,-0x6f6f6f70(%eax)
+D480	2	aam    $0x80
+D580	2	aad    $0x80
+D680	NONE	(bad)
+D780	1	xlat   %ds:(%ebx)
+D880	6	fadds  -0x6f6f6f70(%eax)
+D980	6	flds   -0x6f6f6f70(%eax)
+DA80	6	fiaddl -0x6f6f6f70(%eax)
+DB80	6	fildl  -0x6f6f6f70(%eax)
+DC80	6	faddl  -0x6f6f6f70(%eax)
+DD80	6	fldl   -0x6f6f6f70(%eax)
+DE80	6	fiadds -0x6f6f6f70(%eax)
+DF80	6	filds  -0x6f6f6f70(%eax)
+E080	2	loopne 0xffffff82
+E180	2	loope  0xffffff82
+E280	2	loop   0xffffff82
+E380	2	jecxz  0xffffff82
+E480	2	in     $0x80,%al
+E580	2	in     $0x80,%eax
+E680	2	out    %al,$0x80
+E780	2	out    %eax,$0x80
+E880	5	call   0x90909085
+E980	5	jmp    0x90909085
+EA80	7	ljmp   $0x9090,$0x90909080
+EB80	2	jmp    0xffffff82
+EC80	1	in     (%dx),%al
+ED80	1	in     (%dx),%eax
+EE80	1	out    %al,(%dx)
+EF80	1	out    %eax,(%dx)
+F080	8	lock adcb $0x90,-0x6f6f6f70(%eax)
+F180	1	int1
+F280	8	repnz adcb $0x90,-0x6f6f6f70(%eax)
+F380	8	repz adcb $0x90,-0x6f6f6f70(%eax)
+F480	1	hlt
+F580	1	cmc
+F680	7	testb  $0x90,-0x6f6f6f70(%eax)
+F780	10	testl  $0x90909090,-0x6f6f6f70(%eax)
+F880	1	clc
+F980	1	stc
+FA80	1	cli
+FB80	1	sti
+FC80	1	cld
+FD80	1	std
+FE80	6	incb   -0x6f6f6f70(%eax)
+FF80	6	incl   -0x6f6f6f70(%eax)
+660000	3	data16 add %al,(%eax)
+660100	3	add    %ax,(%eax)
+660200	3	data16 add (%eax),%al
+660300	3	add    (%eax),%ax
+660400	3	data16 add $0x0,%al
+660500	4	add    $0x9000,%ax
+660600	2	pushw  %es
+660700	2	popw   %es
+660800	3	data16 or %al,(%eax)
+660900	3	or     %ax,(%eax)
+660A00	3	data16 or (%eax),%al
+660B00	3	or     (%eax),%ax
+660C00	3	data16 or $0x0,%al
+660D00	4	or     $0x9000,%ax
+660E00	2	pushw  %cs
+660F00	8	data16 lldt -0x6f6f6f70(%eax)
+661000	3	data16 adc %al,(%eax)
+661100	3	adc    %ax,(%eax)
+661200	3	data16 adc (%eax),%al
+661300	3	adc    (%eax),%ax
+661400	3	data16 adc $0x0,%al
+661500	4	adc    $0x9000,%ax
+661600	2	pushw  %ss
+661700	2	popw   %ss
+661800	3	data16 sbb %al,(%eax)
+661900	3	sbb    %ax,(%eax)
+661A00	3	data16 sbb (%eax),%al
+661B00	3	sbb    (%eax),%ax
+661C00	3	data16 sbb $0x0,%al
+661D00	4	sbb    $0x9000,%ax
+661E00	2	pushw  %ds
+661F00	2	popw   %ds
+662000	3	data16 and %al,(%eax)
+662100	3	and    %ax,(%eax)
+662200	3	data16 and (%eax),%al
+662300	3	and    (%eax),%ax
+662400	3	data16 and $0x0,%al
+662500	4	and    $0x9000,%ax
+662600	8	data16 add %dl,%es:-0x6f6f6f70(%eax)
+662700	2	data16 daa
+662800	3	data16 sub %al,(%eax)
+662900	3	sub    %ax,(%eax)
+662A00	3	data16 sub (%eax),%al
+662B00	3	sub    (%eax),%ax
+662C00	3	data16 sub $0x0,%al
+662D00	4	sub    $0x9000,%ax
+662E00	8	data16 add %dl,%cs:-0x6f6f6f70(%eax)
+662F00	2	data16 das
+663000	3	data16 xor %al,(%eax)
+663100	3	xor    %ax,(%eax)
+663200	3	data16 xor (%eax),%al
+663300	3	xor    (%eax),%ax
+663400	3	data16 xor $0x0,%al
+663500	4	xor    $0x9000,%ax
+663600	8	data16 add %dl,%ss:-0x6f6f6f70(%eax)
+663700	2	data16 aaa
+663800	3	data16 cmp %al,(%eax)
+663900	3	cmp    %ax,(%eax)
+663A00	3	data16 cmp (%eax),%al
+663B00	3	cmp    (%eax),%ax
+663C00	3	data16 cmp $0x0,%al
+663D00	4	cmp    $0x9000,%ax
+663E00	8	data16 add %dl,%ds:-0x6f6f6f70(%eax)
+663F00	2	data16 aas
+664000	2	inc    %ax
+664100	2	inc    %cx
+664200	2	inc    %dx
+664300	2	inc    %bx
+664400	2	inc    %sp
+664500	2	inc    %bp
+664600	2	inc    %si
+664700	2	inc    %di
+664800	2	dec    %ax
+664900	2	dec    %cx
+664A00	2	dec    %dx
+664B00	2	dec    %bx
+664C00	2	dec    %sp
+664D00	2	dec    %bp
+664E00	2	dec    %si
+664F00	2	dec    %di
+665000	2	push   %ax
+665100	2	push   %cx
+665200	2	push   %dx
+665300	2	push   %bx
+665400	2	push   %sp
+665500	2	push   %bp
+665600	2	push   %si
+665700	2	push   %di
+665800	2	pop    %ax
+665900	2	pop    %cx
+665A00	2	pop    %dx
+665B00	2	pop    %bx
+665C00	2	pop    %sp
+665D00	2	pop    %bp
+665E00	2	pop    %si
+665F00	2	pop    %di
+666000	2	pushaw
+666100	2	popaw
+666200	3	bound  %ax,(%eax)
+666300	3	arpl   %ax,(%eax)
+666400	8	data16 add %dl,%fs:-0x6f6f6f70(%eax)
+666500	8	data16 add %dl,%gs:-0x6f6f6f70(%eax)
+666600	8	data16 data16 add %dl,-0x6f6f6f70(%eax)
+666700	6	data16 add %dl,-0x6f70(%bx,%si)
+666800	4	pushw  $0x9000
+666900	5	imul   $0x9090,(%eax),%ax
+666A00	3	pushw  $0x0
+666B00	4	imul   $0xff90,(%eax),%ax
+666C00	2	data16 insb (%dx),%es:(%edi)
+666D00	2	insw   (%dx),%es:(%edi)
+666E00	2	data16 outsb %ds:(%esi),(%dx)
+666F00	2	outsw  %ds:(%esi),(%dx)
+667000	3	data16 jo 0x3
+667100	3	data16 jno 0x3
+667200	3	data16 jb 0x3
+667300	3	data16 jae 0x3
+667400	3	data16 je 0x3
+667500	3	data16 jne 0x3
+667600	3	data16 jbe 0x3
+667700	3	data16 ja 0x3
+667800	3	data16 js 0x3
+667900	3	data16 jns 0x3
+667A00	3	data16 jp 0x3
+667B00	3	data16 jnp 0x3
+667C00	3	data16 jl 0x3
+667D00	3	data16 jge 0x3
+667E00	3	data16 jle 0x3
+667F00	3	data16 jg 0x3
+668000	4	data16 addb $0x90,(%eax)
+668100	5	addw   $0x9090,(%eax)
+668200	4	data16 addb $0x90,(%eax)
+668300	4	addw   $0xff90,(%eax)
+668400	3	data16 test %al,(%eax)
+668500	3	test   %ax,(%eax)
+668600	3	data16 xchg %al,(%eax)
+668700	3	xchg   %ax,(%eax)
+668800	3	data16 mov %al,(%eax)
+668900	3	mov    %ax,(%eax)
+668A00	3	data16 mov (%eax),%al
+668B00	3	mov    (%eax),%ax
+668C00	3	data16 mov %es,(%eax)
+668D00	3	lea    (%eax),%ax
+668E00	3	data16 mov (%eax),%es
+668F00	3	popw   (%eax)
+669000	2	xchg   %ax,%ax
+669100	2	xchg   %ax,%cx
+669200	2	xchg   %ax,%dx
+669300	2	xchg   %ax,%bx
+669400	2	xchg   %ax,%sp
+669500	2	xchg   %ax,%bp
+669600	2	xchg   %ax,%si
+669700	2	xchg   %ax,%di
+669800	2	cbtw
+669900	2	cwtd
+669A00	6	lcallw $0x9090,$0x9000
+669B00	2	data16 fwait
+669C00	2	pushfw
+669D00	2	popfw
+669E00	2	data16 sahf
+669F00	2	data16 lahf
+66A000	6	data16 mov 0x90909000,%al
+66A100	6	mov    0x90909000,%ax
+66A200	6	data16 mov %al,0x90909000
+66A300	6	mov    %ax,0x90909000
+66A400	2	data16 movsb %ds:(%esi),%es:(%edi)
+66A500	2	movsw  %ds:(%esi),%es:(%edi)
+66A600	2	data16 cmpsb %es:(%edi),%ds:(%esi)
+66A700	2	cmpsw  %es:(%edi),%ds:(%esi)
+66A800	3	data16 test $0x0,%al
+66A900	4	test   $0x9000,%ax
+66AA00	2	data16 stos %al,%es:(%edi)
+66AB00	2	stos   %ax,%es:(%edi)
+66AC00	2	data16 lods %ds:(%esi),%al
+66AD00	2	lods   %ds:(%esi),%ax
+66AE00	2	data16 scas %es:(%edi),%al
+66AF00	2	scas   %es:(%edi),%ax
+66B000	3	data16 mov $0x0,%al
+66B100	3	data16 mov $0x0,%cl
+66B200	3	data16 mov $0x0,%dl
+66B300	3	data16 mov $0x0,%bl
+66B400	3	data16 mov $0x0,%ah
+66B500	3	data16 mov $0x0,%ch
+66B600	3	data16 mov $0x0,%dh
+66B700	3	data16 mov $0x0,%bh
+66B800	4	mov    $0x9000,%ax
+66B900	4	mov    $0x9000,%cx
+66BA00	4	mov    $0x9000,%dx
+66BB00	4	mov    $0x9000,%bx
+66BC00	4	mov    $0x9000,%sp
+66BD00	4	mov    $0x9000,%bp
+66BE00	4	mov    $0x9000,%si
+66BF00	4	mov    $0x9000,%di
+66C000	4	data16 rolb $0x90,(%eax)
+66C100	4	rolw   $0x90,(%eax)
+66C200	4	retw   $0x9000
+66C300	2	retw
+66C400	3	les    (%eax),%ax
+66C500	3	lds    (%eax),%ax
+66C600	4	data16 movb $0x90,(%eax)
+66C700	5	movw   $0x9090,(%eax)
+66C800	5	enterw $0x9000,$0x90
+66C900	2	leavew
+66CA00	4	lretw  $0x9000
+66CB00	2	lretw
+66CC00	2	data16 int3
+66CD00	3	data16 int $0x0
+66CE00	2	data16 into
+66CF00	2	iretw
+66D000	3	data16 rolb $1,(%eax)
+66D100	3	rolw   $1,(%eax)
+66D200	3	data16 rolb %cl,(%eax)
+66D300	3	rolw   %cl,(%eax)
+66D400	3	data16 aam $0x0
+66D500	3	data16 aad $0x0
+66D600	NONE	data16 (bad)
+66D700	2	data16 xlat %ds:(%ebx)
+66D800	3	data16 fadds (%eax)
+66D900	3	data16 flds (%eax)
+66DA00	3	data16 fiaddl (%eax)
+66DB00	3	data16 fildl (%eax)
+66DC00	3	data16 faddl (%eax)
+66DD00	3	data16 fldl (%eax)
+66DE00	3	data16 fiadds (%eax)
+66DF00	3	data16 filds (%eax)
+66E000	3	data16 loopne 0x3
+66E100	3	data16 loope 0x3
+66E200	3	data16 loop 0x3
+66E300	3	data16 jecxz 0x3
+66E400	3	data16 in $0x0,%al
+66E500	3	in     $0x0,%ax
+66E600	3	data16 out %al,$0x0
+66E700	3	out    %ax,$0x0
+66E800	4	callw  0x9004
+66E900	4	jmpw   0x9004
+66EA00	6	ljmpw  $0x9090,$0x9000
+66EB00	3	data16 jmp 0x3
+66EC00	2	data16 in (%dx),%al
+66ED00	2	in     (%dx),%ax
+66EE00	2	data16 out %al,(%dx)
+66EF00	2	out    %ax,(%dx)
+66F000	8	data16 lock add %dl,-0x6f6f6f70(%eax)
+66F100	2	data16 int1
+66F200	8	data16 repnz add %dl,-0x6f6f6f70(%eax)
+66F300	8	data16 repz add %dl,-0x6f6f6f70(%eax)
+66F400	2	data16 hlt
+66F500	2	data16 cmc
+66F600	4	data16 testb $0x90,(%eax)
+66F700	5	testw  $0x9090,(%eax)
+66F800	2	data16 clc
+66F900	2	data16 stc
+66FA00	2	data16 cli
+66FB00	2	data16 sti
+66FC00	2	data16 cld
+66FD00	2	data16 std
+66FE00	3	data16 incb (%eax)
+66FF00	3	incw   (%eax)
+660080	7	data16 add %al,-0x6f6f6f70(%eax)
+660180	7	add    %ax,-0x6f6f6f70(%eax)
+660280	7	data16 add -0x6f6f6f70(%eax),%al
+660380	7	add    -0x6f6f6f70(%eax),%ax
+660480	3	data16 add $0x80,%al
+660580	4	add    $0x9080,%ax
+660680	2	pushw  %es
+660780	2	popw   %es
+660880	7	data16 or %al,-0x6f6f6f70(%eax)
+660980	7	or     %ax,-0x6f6f6f70(%eax)
+660A80	7	data16 or -0x6f6f6f70(%eax),%al
+660B80	7	or     -0x6f6f6f70(%eax),%ax
+660C80	3	data16 or $0x80,%al
+660D80	4	or     $0x9080,%ax
+660E80	2	pushw  %cs
+660F80	5	jo     0x9095
+661080	7	data16 adc %al,-0x6f6f6f70(%eax)
+661180	7	adc    %ax,-0x6f6f6f70(%eax)
+661280	7	data16 adc -0x6f6f6f70(%eax),%al
+661380	7	adc    -0x6f6f6f70(%eax),%ax
+661480	3	data16 adc $0x80,%al
+661580	4	adc    $0x9080,%ax
+661680	2	pushw  %ss
+661780	2	popw   %ss
+661880	7	data16 sbb %al,-0x6f6f6f70(%eax)
+661980	7	sbb    %ax,-0x6f6f6f70(%eax)
+661A80	7	data16 sbb -0x6f6f6f70(%eax),%al
+661B80	7	sbb    -0x6f6f6f70(%eax),%ax
+661C80	3	data16 sbb $0x80,%al
+661D80	4	sbb    $0x9080,%ax
+661E80	2	pushw  %ds
+661F80	2	popw   %ds
+662080	7	data16 and %al,-0x6f6f6f70(%eax)
+662180	7	and    %ax,-0x6f6f6f70(%eax)
+662280	7	data16 and -0x6f6f6f70(%eax),%al
+662380	7	and    -0x6f6f6f70(%eax),%ax
+662480	3	data16 and $0x80,%al
+662580	4	and    $0x9080,%ax
+662680	9	data16 adcb $0x90,%es:-0x6f6f6f70(%eax)
+662780	2	data16 daa
+662880	7	data16 sub %al,-0x6f6f6f70(%eax)
+662980	7	sub    %ax,-0x6f6f6f70(%eax)
+662A80	7	data16 sub -0x6f6f6f70(%eax),%al
+662B80	7	sub    -0x6f6f6f70(%eax),%ax
+662C80	3	data16 sub $0x80,%al
+662D80	4	sub    $0x9080,%ax
+662E80	9	data16 adcb $0x90,%cs:-0x6f6f6f70(%eax)
+662F80	2	data16 das
+663080	7	data16 xor %al,-0x6f6f6f70(%eax)
+663180	7	xor    %ax,-0x6f6f6f70(%eax)
+663280	7	data16 xor -0x6f6f6f70(%eax),%al
+663380	7	xor    -0x6f6f6f70(%eax),%ax
+663480	3	data16 xor $0x80,%al
+663580	4	xor    $0x9080,%ax
+663680	9	data16 adcb $0x90,%ss:-0x6f6f6f70(%eax)
+663780	2	data16 aaa
+663880	7	data16 cmp %al,-0x6f6f6f70(%eax)
+663980	7	cmp    %ax,-0x6f6f6f70(%eax)
+663A80	7	data16 cmp -0x6f6f6f70(%eax),%al
+663B80	7	cmp    -0x6f6f6f70(%eax),%ax
+663C80	3	data16 cmp $0x80,%al
+663D80	4	cmp    $0x9080,%ax
+663E80	9	data16 adcb $0x90,%ds:-0x6f6f6f70(%eax)
+663F80	2	data16 aas
+664080	2	inc    %ax
+664180	2	inc    %cx
+664280	2	inc    %dx
+664380	2	inc    %bx
+664480	2	inc    %sp
+664580	2	inc    %bp
+664680	2	inc    %si
+664780	2	inc    %di
+664880	2	dec    %ax
+664980	2	dec    %cx
+664A80	2	dec    %dx
+664B80	2	dec    %bx
+664C80	2	dec    %sp
+664D80	2	dec    %bp
+664E80	2	dec    %si
+664F80	2	dec    %di
+665080	2	push   %ax
+665180	2	push   %cx
+665280	2	push   %dx
+665380	2	push   %bx
+665480	2	push   %sp
+665580	2	push   %bp
+665680	2	push   %si
+665780	2	push   %di
+665880	2	pop    %ax
+665980	2	pop    %cx
+665A80	2	pop    %dx
+665B80	2	pop    %bx
+665C80	2	pop    %sp
+665D80	2	pop    %bp
+665E80	2	pop    %si
+665F80	2	pop    %di
+666080	2	pushaw
+666180	2	popaw
+666280	7	bound  %ax,-0x6f6f6f70(%eax)
+666380	7	arpl   %ax,-0x6f6f6f70(%eax)
+666480	9	data16 adcb $0x90,%fs:-0x6f6f6f70(%eax)
+666580	9	data16 adcb $0x90,%gs:-0x6f6f6f70(%eax)
+666680	9	data16 data16 adcb $0x90,-0x6f6f6f70(%eax)
+666780	7	data16 adcb $0x90,-0x6f70(%bx,%si)
+666880	4	pushw  $0x9080
+666980	9	imul   $0x9090,-0x6f6f6f70(%eax),%ax
+666A80	3	pushw  $0xff80
+666B80	8	imul   $0xff90,-0x6f6f6f70(%eax),%ax
+666C80	2	data16 insb (%dx),%es:(%edi)
+666D80	2	insw   (%dx),%es:(%edi)
+666E80	2	data16 outsb %ds:(%esi),(%dx)
+666F80	2	outsw  %ds:(%esi),(%dx)
+667080	3	data16 jo 0xffffff83
+667180	3	data16 jno 0xffffff83
+667280	3	data16 jb 0xffffff83
+667380	3	data16 jae 0xffffff83
+667480	3	data16 je 0xffffff83
+667580	3	data16 jne 0xffffff83
+667680	3	data16 jbe 0xffffff83
+667780	3	data16 ja 0xffffff83
+667880	3	data16 js 0xffffff83
+667980	3	data16 jns 0xffffff83
+667A80	3	data16 jp 0xffffff83
+667B80	3	data16 jnp 0xffffff83
+667C80	3	data16 jl 0xffffff83
+667D80	3	data16 jge 0xffffff83
+667E80	3	data16 jle 0xffffff83
+667F80	3	data16 jg 0xffffff83
+668080	8	data16 addb $0x90,-0x6f6f6f70(%eax)
+668180	9	addw   $0x9090,-0x6f6f6f70(%eax)
+668280	8	data16 addb $0x90,-0x6f6f6f70(%eax)
+668380	8	addw   $0xff90,-0x6f6f6f70(%eax)
+668480	7	data16 test %al,-0x6f6f6f70(%eax)
+668580	7	test   %ax,-0x6f6f6f70(%eax)
+668680	7	data16 xchg %al,-0x6f6f6f70(%eax)
+668780	7	xchg   %ax,-0x6f6f6f70(%eax)
+668880	7	data16 mov %al,-0x6f6f6f70(%eax)
+668980	7	mov    %ax,-0x6f6f6f70(%eax)
+668A80	7	data16 mov -0x6f6f6f70(%eax),%al
+668B80	7	mov    -0x6f6f6f70(%eax),%ax
+668C80	7	data16 mov %es,-0x6f6f6f70(%eax)
+668D80	7	lea    -0x6f6f6f70(%eax),%ax
+668E80	7	data16 mov -0x6f6f6f70(%eax),%es
+668F80	7	popw   -0x6f6f6f70(%eax)
+669080	2	xchg   %ax,%ax
+669180	2	xchg   %ax,%cx
+669280	2	xchg   %ax,%dx
+669380	2	xchg   %ax,%bx
+669480	2	xchg   %ax,%sp
+669580	2	xchg   %ax,%bp
+669680	2	xchg   %ax,%si
+669780	2	xchg   %ax,%di
+669880	2	cbtw
+669980	2	cwtd
+669A80	6	lcallw $0x9090,$0x9080
+669B80	2	data16 fwait
+669C80	2	pushfw
+669D80	2	popfw
+669E80	2	data16 sahf
+669F80	2	data16 lahf
+66A080	6	data16 mov 0x90909080,%al
+66A180	6	mov    0x90909080,%ax
+66A280	6	data16 mov %al,0x90909080
+66A380	6	mov    %ax,0x90909080
+66A480	2	data16 movsb %ds:(%esi),%es:(%edi)
+66A580	2	movsw  %ds:(%esi),%es:(%edi)
+66A680	2	data16 cmpsb %es:(%edi),%ds:(%esi)
+66A780	2	cmpsw  %es:(%edi),%ds:(%esi)
+66A880	3	data16 test $0x80,%al
+66A980	4	test   $0x9080,%ax
+66AA80	2	data16 stos %al,%es:(%edi)
+66AB80	2	stos   %ax,%es:(%edi)
+66AC80	2	data16 lods %ds:(%esi),%al
+66AD80	2	lods   %ds:(%esi),%ax
+66AE80	2	data16 scas %es:(%edi),%al
+66AF80	2	scas   %es:(%edi),%ax
+66B080	3	data16 mov $0x80,%al
+66B180	3	data16 mov $0x80,%cl
+66B280	3	data16 mov $0x80,%dl
+66B380	3	data16 mov $0x80,%bl
+66B480	3	data16 mov $0x80,%ah
+66B580	3	data16 mov $0x80,%ch
+66B680	3	data16 mov $0x80,%dh
+66B780	3	data16 mov $0x80,%bh
+66B880	4	mov    $0x9080,%ax
+66B980	4	mov    $0x9080,%cx
+66BA80	4	mov    $0x9080,%dx
+66BB80	4	mov    $0x9080,%bx
+66BC80	4	mov    $0x9080,%sp
+66BD80	4	mov    $0x9080,%bp
+66BE80	4	mov    $0x9080,%si
+66BF80	4	mov    $0x9080,%di
+66C080	8	data16 rolb $0x90,-0x6f6f6f70(%eax)
+66C180	8	rolw   $0x90,-0x6f6f6f70(%eax)
+66C280	4	retw   $0x9080
+66C380	2	retw
+66C480	7	les    -0x6f6f6f70(%eax),%ax
+66C580	7	lds    -0x6f6f6f70(%eax),%ax
+66C680	8	data16 movb $0x90,-0x6f6f6f70(%eax)
+66C780	9	movw   $0x9090,-0x6f6f6f70(%eax)
+66C880	5	enterw $0x9080,$0x90
+66C980	2	leavew
+66CA80	4	lretw  $0x9080
+66CB80	2	lretw
+66CC80	2	data16 int3
+66CD80	3	data16 int $0x80
+66CE80	2	data16 into
+66CF80	2	iretw
+66D080	7	data16 rolb $1,-0x6f6f6f70(%eax)
+66D180	7	rolw   $1,-0x6f6f6f70(%eax)
+66D280	7	data16 rolb %cl,-0x6f6f6f70(%eax)
+66D380	7	rolw   %cl,-0x6f6f6f70(%eax)
+66D480	3	data16 aam $0x80
+66D580	3	data16 aad $0x80
+66D680	NONE	data16 (bad)
+66D780	2	data16 xlat %ds:(%ebx)
+66D880	7	data16 fadds -0x6f6f6f70(%eax)
+66D980	7	data16 flds -0x6f6f6f70(%eax)
+66DA80	7	data16 fiaddl -0x6f6f6f70(%eax)
+66DB80	7	data16 fildl -0x6f6f6f70(%eax)
+66DC80	7	data16 faddl -0x6f6f6f70(%eax)
+66DD80	7	data16 fldl -0x6f6f6f70(%eax)
+66DE80	7	data16 fiadds -0x6f6f6f70(%eax)
+66DF80	7	data16 filds -0x6f6f6f70(%eax)
+66E080	3	data16 loopne 0xffffff83
+66E180	3	data16 loope 0xffffff83
+66E280	3	data16 loop 0xffffff83
+66E380	3	data16 jecxz 0xffffff83
+66E480	3	data16 in $0x80,%al
+66E580	3	in     $0x80,%ax
+66E680	3	data16 out %al,$0x80
+66E780	3	out    %ax,$0x80
+66E880	4	callw  0x9084
+66E980	4	jmpw   0x9084
+66EA80	6	ljmpw  $0x9090,$0x9080
+66EB80	3	data16 jmp 0xffffff83
+66EC80	2	data16 in (%dx),%al
+66ED80	2	in     (%dx),%ax
+66EE80	2	data16 out %al,(%dx)
+66EF80	2	out    %ax,(%dx)
+66F080	9	data16 lock adcb $0x90,-0x6f6f6f70(%eax)
+66F180	2	data16 int1
+66F280	9	data16 repnz adcb $0x90,-0x6f6f6f70(%eax)
+66F380	9	data16 repz adcb $0x90,-0x6f6f6f70(%eax)
+66F480	2	data16 hlt
+66F580	2	data16 cmc
+66F680	8	data16 testb $0x90,-0x6f6f6f70(%eax)
+66F780	9	testw  $0x9090,-0x6f6f6f70(%eax)
+66F880	2	data16 clc
+66F980	2	data16 stc
+66FA80	2	data16 cli
+66FB80	2	data16 sti
+66FC80	2	data16 cld
+66FD80	2	data16 std
+66FE80	7	data16 incb -0x6f6f6f70(%eax)
+66FF80	7	incw   -0x6f6f6f70(%eax)
+0008	2	add    %cl,(%eax)
+0108	2	add    %ecx,(%eax)
+0208	2	add    (%eax),%cl
+0308	2	add    (%eax),%ecx
+0408	2	add    $0x8,%al
+0508	5	add    $0x90909008,%eax
+0608	1	push   %es
+0708	1	pop    %es
+0808	2	or     %cl,(%eax)
+0908	2	or     %ecx,(%eax)
+0A08	2	or     (%eax),%cl
+0B08	2	or     (%eax),%ecx
+0C08	2	or     $0x8,%al
+0D08	5	or     $0x90909008,%eax
+0E08	1	push   %cs
+0F08	2	invd
+1008	2	adc    %cl,(%eax)
+1108	2	adc    %ecx,(%eax)
+1208	2	adc    (%eax),%cl
+1308	2	adc    (%eax),%ecx
+1408	2	adc    $0x8,%al
+1508	5	adc    $0x90909008,%eax
+1608	1	push   %ss
+1708	1	pop    %ss
+1808	2	sbb    %cl,(%eax)
+1908	2	sbb    %ecx,(%eax)
+1A08	2	sbb    (%eax),%cl
+1B08	2	sbb    (%eax),%ecx
+1C08	2	sbb    $0x8,%al
+1D08	5	sbb    $0x90909008,%eax
+1E08	1	push   %ds
+1F08	1	pop    %ds
+2008	2	and    %cl,(%eax)
+2108	2	and    %ecx,(%eax)
+2208	2	and    (%eax),%cl
+2308	2	and    (%eax),%ecx
+2408	2	and    $0x8,%al
+2508	5	and    $0x90909008,%eax
+2608	7	or     %dl,%es:-0x6f6f6f70(%eax)
+2708	1	daa
+2808	2	sub    %cl,(%eax)
+2908	2	sub    %ecx,(%eax)
+2A08	2	sub    (%eax),%cl
+2B08	2	sub    (%eax),%ecx
+2C08	2	sub    $0x8,%al
+2D08	5	sub    $0x90909008,%eax
+2E08	7	or     %dl,%cs:-0x6f6f6f70(%eax)
+2F08	1	das
+3008	2	xor    %cl,(%eax)
+3108	2	xor    %ecx,(%eax)
+3208	2	xor    (%eax),%cl
+3308	2	xor    (%eax),%ecx
+3408	2	xor    $0x8,%al
+3508	5	xor    $0x90909008,%eax
+3608	7	or     %dl,%ss:-0x6f6f6f70(%eax)
+3708	1	aaa
+3808	2	cmp    %cl,(%eax)
+3908	2	cmp    %ecx,(%eax)
+3A08	2	cmp    (%eax),%cl
+3B08	2	cmp    (%eax),%ecx
+3C08	2	cmp    $0x8,%al
+3D08	5	cmp    $0x90909008,%eax
+3E08	7	or     %dl,%ds:-0x6f6f6f70(%eax)
+3F08	1	aas
+4008	1	inc    %eax
+4108	1	inc    %ecx
+4208	1	inc    %edx
+4308	1	inc    %ebx
+4408	1	inc    %esp
+4508	1	inc    %ebp
+4608	1	inc    %esi
+4708	1	inc    %edi
+4808	1	dec    %eax
+4908	1	dec    %ecx
+4A08	1	dec    %edx
+4B08	1	dec    %ebx
+4C08	1	dec    %esp
+4D08	1	dec    %ebp
+4E08	1	dec    %esi
+4F08	1	dec    %edi
+5008	1	push   %eax
+5108	1	push   %ecx
+5208	1	push   %edx
+5308	1	push   %ebx
+5408	1	push   %esp
+5508	1	push   %ebp
+5608	1	push   %esi
+5708	1	push   %edi
+5808	1	pop    %eax
+5908	1	pop    %ecx
+5A08	1	pop    %edx
+5B08	1	pop    %ebx
+5C08	1	pop    %esp
+5D08	1	pop    %ebp
+5E08	1	pop    %esi
+5F08	1	pop    %edi
+6008	1	pusha
+6108	1	popa
+6208	2	bound  %ecx,(%eax)
+6308	2	arpl   %ecx,(%eax)
+6408	7	or     %dl,%fs:-0x6f6f6f70(%eax)
+6508	7	or     %dl,%gs:-0x6f6f6f70(%eax)
+6608	7	data16 or %dl,-0x6f6f6f70(%eax)
+6708	5	or     %dl,-0x6f70(%bx,%si)
+6808	5	push   $0x90909008
+6908	6	imul   $0x90909090,(%eax),%ecx
+6A08	2	push   $0x8
+6B08	3	imul   $0xffffff90,(%eax),%ecx
+6C08	1	insb   (%dx),%es:(%edi)
+6D08	1	insl   (%dx),%es:(%edi)
+6E08	1	outsb  %ds:(%esi),(%dx)
+6F08	1	outsl  %ds:(%esi),(%dx)
+7008	2	jo     0xa
+7108	2	jno    0xa
+7208	2	jb     0xa
+7308	2	jae    0xa
+7408	2	je     0xa
+7508	2	jne    0xa
+7608	2	jbe    0xa
+7708	2	ja     0xa
+7808	2	js     0xa
+7908	2	jns    0xa
+7A08	2	jp     0xa
+7B08	2	jnp    0xa
+7C08	2	jl     0xa
+7D08	2	jge    0xa
+7E08	2	jle    0xa
+7F08	2	jg     0xa
+8008	3	orb    $0x90,(%eax)
+8108	6	orl    $0x90909090,(%eax)
+8208	3	orb    $0x90,(%eax)
+8308	3	orl    $0xffffff90,(%eax)
+8408	2	test   %cl,(%eax)
+8508	2	test   %ecx,(%eax)
+8608	2	xchg   %cl,(%eax)
+8708	2	xchg   %ecx,(%eax)
+8808	2	mov    %cl,(%eax)
+8908	2	mov    %ecx,(%eax)
+8A08	2	mov    (%eax),%cl
+8B08	2	mov    (%eax),%ecx
+8C08	2	mov    %cs,(%eax)
+8D08	2	lea    (%eax),%ecx
+8E08	2	mov    (%eax),%cs
+8F08	NONE	(bad)
+9008	1	nop
+9108	1	xchg   %eax,%ecx
+9208	1	xchg   %eax,%edx
+9308	1	xchg   %eax,%ebx
+9408	1	xchg   %eax,%esp
+9508	1	xchg   %eax,%ebp
+9608	1	xchg   %eax,%esi
+9708	1	xchg   %eax,%edi
+9808	1	cwtl
+9908	1	cltd
+9A08	7	lcall  $0x9090,$0x90909008
+9B08	1	fwait
+9C08	1	pushf
+9D08	1	popf
+9E08	1	sahf
+9F08	1	lahf
+A008	5	mov    0x90909008,%al
+A108	5	mov    0x90909008,%eax
+A208	5	mov    %al,0x90909008
+A308	5	mov    %eax,0x90909008
+A408	1	movsb  %ds:(%esi),%es:(%edi)
+A508	1	movsl  %ds:(%esi),%es:(%edi)
+A608	1	cmpsb  %es:(%edi),%ds:(%esi)
+A708	1	cmpsl  %es:(%edi),%ds:(%esi)
+A808	2	test   $0x8,%al
+A908	5	test   $0x90909008,%eax
+AA08	1	stos   %al,%es:(%edi)
+AB08	1	stos   %eax,%es:(%edi)
+AC08	1	lods   %ds:(%esi),%al
+AD08	1	lods   %ds:(%esi),%eax
+AE08	1	scas   %es:(%edi),%al
+AF08	1	scas   %es:(%edi),%eax
+B008	2	mov    $0x8,%al
+B108	2	mov    $0x8,%cl
+B208	2	mov    $0x8,%dl
+B308	2	mov    $0x8,%bl
+B408	2	mov    $0x8,%ah
+B508	2	mov    $0x8,%ch
+B608	2	mov    $0x8,%dh
+B708	2	mov    $0x8,%bh
+B808	5	mov    $0x90909008,%eax
+B908	5	mov    $0x90909008,%ecx
+BA08	5	mov    $0x90909008,%edx
+BB08	5	mov    $0x90909008,%ebx
+BC08	5	mov    $0x90909008,%esp
+BD08	5	mov    $0x90909008,%ebp
+BE08	5	mov    $0x90909008,%esi
+BF08	5	mov    $0x90909008,%edi
+C008	3	rorb   $0x90,(%eax)
+C108	3	rorl   $0x90,(%eax)
+C208	3	ret    $0x9008
+C308	1	ret
+C408	2	les    (%eax),%ecx
+C508	2	lds    (%eax),%ecx
+C608	NONE	(bad)
+C708	NONE	(bad)
+C808	4	enter  $0x9008,$0x90
+C908	1	leave
+CA08	3	lret   $0x9008
+CB08	1	lret
+CC08	1	int3
+CD08	2	int    $0x8
+CE08	1	into
+CF08	1	iret
+D008	2	rorb   $1,(%eax)
+D108	2	rorl   $1,(%eax)
+D208	2	rorb   %cl,(%eax)
+D308	2	rorl   %cl,(%eax)
+D408	2	aam    $0x8
+D508	2	aad    $0x8
+D608	NONE	(bad)
+D708	1	xlat   %ds:(%ebx)
+D808	2	fmuls  (%eax)
+D908	NONE	(bad)  (%eax)
+DA08	2	fimull (%eax)
+DB08	2	fisttpl (%eax)
+DC08	2	fmull  (%eax)
+DD08	2	fisttpll (%eax)
+DE08	2	fimuls (%eax)
+DF08	2	fisttps (%eax)
+E008	2	loopne 0xa
+E108	2	loope  0xa
+E208	2	loop   0xa
+E308	2	jecxz  0xa
+E408	2	in     $0x8,%al
+E508	2	in     $0x8,%eax
+E608	2	out    %al,$0x8
+E708	2	out    %eax,$0x8
+E808	5	call   0x9090900d
+E908	5	jmp    0x9090900d
+EA08	7	ljmp   $0x9090,$0x90909008
+EB08	2	jmp    0xa
+EC08	1	in     (%dx),%al
+ED08	1	in     (%dx),%eax
+EE08	1	out    %al,(%dx)
+EF08	1	out    %eax,(%dx)
+F008	7	lock or %dl,-0x6f6f6f70(%eax)
+F108	1	int1
+F208	7	repnz or %dl,-0x6f6f6f70(%eax)
+F308	7	repz or %dl,-0x6f6f6f70(%eax)
+F408	1	hlt
+F508	1	cmc
+F608	3	testb  $0x90,(%eax)
+F708	6	testl  $0x90909090,(%eax)
+F808	1	clc
+F908	1	stc
+FA08	1	cli
+FB08	1	sti
+FC08	1	cld
+FD08	1	std
+FE08	2	decb   (%eax)
+FF08	2	decl   (%eax)
+0010	2	add    %dl,(%eax)
+0110	2	add    %edx,(%eax)
+0210	2	add    (%eax),%dl
+0310	2	add    (%eax),%edx
+0410	2	add    $0x10,%al
+0510	5	add    $0x90909010,%eax
+0610	1	push   %es
+0710	1	pop    %es
+0810	2	or     %dl,(%eax)
+0910	2	or     %edx,(%eax)
+0A10	2	or     (%eax),%dl
+0B10	2	or     (%eax),%edx
+0C10	2	or     $0x10,%al
+0D10	5	or     $0x90909010,%eax
+0E10	1	push   %cs
+0F10	7	movups -0x6f6f6f70(%eax),%xmm2
+1010	2	adc    %dl,(%eax)
+1110	2	adc    %edx,(%eax)
+1210	2	adc    (%eax),%dl
+1310	2	adc    (%eax),%edx
+1410	2	adc    $0x10,%al
+1510	5	adc    $0x90909010,%eax
+1610	1	push   %ss
+1710	1	pop    %ss
+1810	2	sbb    %dl,(%eax)
+1910	2	sbb    %edx,(%eax)
+1A10	2	sbb    (%eax),%dl
+1B10	2	sbb    (%eax),%edx
+1C10	2	sbb    $0x10,%al
+1D10	5	sbb    $0x90909010,%eax
+1E10	1	push   %ds
+1F10	1	pop    %ds
+2010	2	and    %dl,(%eax)
+2110	2	and    %edx,(%eax)
+2210	2	and    (%eax),%dl
+2310	2	and    (%eax),%edx
+2410	2	and    $0x10,%al
+2510	5	and    $0x90909010,%eax
+2610	7	adc    %dl,%es:-0x6f6f6f70(%eax)
+2710	1	daa
+2810	2	sub    %dl,(%eax)
+2910	2	sub    %edx,(%eax)
+2A10	2	sub    (%eax),%dl
+2B10	2	sub    (%eax),%edx
+2C10	2	sub    $0x10,%al
+2D10	5	sub    $0x90909010,%eax
+2E10	7	adc    %dl,%cs:-0x6f6f6f70(%eax)
+2F10	1	das
+3010	2	xor    %dl,(%eax)
+3110	2	xor    %edx,(%eax)
+3210	2	xor    (%eax),%dl
+3310	2	xor    (%eax),%edx
+3410	2	xor    $0x10,%al
+3510	5	xor    $0x90909010,%eax
+3610	7	adc    %dl,%ss:-0x6f6f6f70(%eax)
+3710	1	aaa
+3810	2	cmp    %dl,(%eax)
+3910	2	cmp    %edx,(%eax)
+3A10	2	cmp    (%eax),%dl
+3B10	2	cmp    (%eax),%edx
+3C10	2	cmp    $0x10,%al
+3D10	5	cmp    $0x90909010,%eax
+3E10	7	adc    %dl,%ds:-0x6f6f6f70(%eax)
+3F10	1	aas
+4010	1	inc    %eax
+4110	1	inc    %ecx
+4210	1	inc    %edx
+4310	1	inc    %ebx
+4410	1	inc    %esp
+4510	1	inc    %ebp
+4610	1	inc    %esi
+4710	1	inc    %edi
+4810	1	dec    %eax
+4910	1	dec    %ecx
+4A10	1	dec    %edx
+4B10	1	dec    %ebx
+4C10	1	dec    %esp
+4D10	1	dec    %ebp
+4E10	1	dec    %esi
+4F10	1	dec    %edi
+5010	1	push   %eax
+5110	1	push   %ecx
+5210	1	push   %edx
+5310	1	push   %ebx
+5410	1	push   %esp
+5510	1	push   %ebp
+5610	1	push   %esi
+5710	1	push   %edi
+5810	1	pop    %eax
+5910	1	pop    %ecx
+5A10	1	pop    %edx
+5B10	1	pop    %ebx
+5C10	1	pop    %esp
+5D10	1	pop    %ebp
+5E10	1	pop    %esi
+5F10	1	pop    %edi
+6010	1	pusha
+6110	1	popa
+6210	2	bound  %edx,(%eax)
+6310	2	arpl   %edx,(%eax)
+6410	7	adc    %dl,%fs:-0x6f6f6f70(%eax)
+6510	7	adc    %dl,%gs:-0x6f6f6f70(%eax)
+6610	7	data16 adc %dl,-0x6f6f6f70(%eax)
+6710	5	adc    %dl,-0x6f70(%bx,%si)
+6810	5	push   $0x90909010
+6910	6	imul   $0x90909090,(%eax),%edx
+6A10	2	push   $0x10
+6B10	3	imul   $0xffffff90,(%eax),%edx
+6C10	1	insb   (%dx),%es:(%edi)
+6D10	1	insl   (%dx),%es:(%edi)
+6E10	1	outsb  %ds:(%esi),(%dx)
+6F10	1	outsl  %ds:(%esi),(%dx)
+7010	2	jo     0x12
+7110	2	jno    0x12
+7210	2	jb     0x12
+7310	2	jae    0x12
+7410	2	je     0x12
+7510	2	jne    0x12
+7610	2	jbe    0x12
+7710	2	ja     0x12
+7810	2	js     0x12
+7910	2	jns    0x12
+7A10	2	jp     0x12
+7B10	2	jnp    0x12
+7C10	2	jl     0x12
+7D10	2	jge    0x12
+7E10	2	jle    0x12
+7F10	2	jg     0x12
+8010	3	adcb   $0x90,(%eax)
+8110	6	adcl   $0x90909090,(%eax)
+8210	3	adcb   $0x90,(%eax)
+8310	3	adcl   $0xffffff90,(%eax)
+8410	2	test   %dl,(%eax)
+8510	2	test   %edx,(%eax)
+8610	2	xchg   %dl,(%eax)
+8710	2	xchg   %edx,(%eax)
+8810	2	mov    %dl,(%eax)
+8910	2	mov    %edx,(%eax)
+8A10	2	mov    (%eax),%dl
+8B10	2	mov    (%eax),%edx
+8C10	2	mov    %ss,(%eax)
+8D10	2	lea    (%eax),%edx
+8E10	2	mov    (%eax),%ss
+8F10	NONE	(bad)
+9010	1	nop
+9110	1	xchg   %eax,%ecx
+9210	1	xchg   %eax,%edx
+9310	1	xchg   %eax,%ebx
+9410	1	xchg   %eax,%esp
+9510	1	xchg   %eax,%ebp
+9610	1	xchg   %eax,%esi
+9710	1	xchg   %eax,%edi
+9810	1	cwtl
+9910	1	cltd
+9A10	7	lcall  $0x9090,$0x90909010
+9B10	1	fwait
+9C10	1	pushf
+9D10	1	popf
+9E10	1	sahf
+9F10	1	lahf
+A010	5	mov    0x90909010,%al
+A110	5	mov    0x90909010,%eax
+A210	5	mov    %al,0x90909010
+A310	5	mov    %eax,0x90909010
+A410	1	movsb  %ds:(%esi),%es:(%edi)
+A510	1	movsl  %ds:(%esi),%es:(%edi)
+A610	1	cmpsb  %es:(%edi),%ds:(%esi)
+A710	1	cmpsl  %es:(%edi),%ds:(%esi)
+A810	2	test   $0x10,%al
+A910	5	test   $0x90909010,%eax
+AA10	1	stos   %al,%es:(%edi)
+AB10	1	stos   %eax,%es:(%edi)
+AC10	1	lods   %ds:(%esi),%al
+AD10	1	lods   %ds:(%esi),%eax
+AE10	1	scas   %es:(%edi),%al
+AF10	1	scas   %es:(%edi),%eax
+B010	2	mov    $0x10,%al
+B110	2	mov    $0x10,%cl
+B210	2	mov    $0x10,%dl
+B310	2	mov    $0x10,%bl
+B410	2	mov    $0x10,%ah
+B510	2	mov    $0x10,%ch
+B610	2	mov    $0x10,%dh
+B710	2	mov    $0x10,%bh
+B810	5	mov    $0x90909010,%eax
+B910	5	mov    $0x90909010,%ecx
+BA10	5	mov    $0x90909010,%edx
+BB10	5	mov    $0x90909010,%ebx
+BC10	5	mov    $0x90909010,%esp
+BD10	5	mov    $0x90909010,%ebp
+BE10	5	mov    $0x90909010,%esi
+BF10	5	mov    $0x90909010,%edi
+C010	3	rclb   $0x90,(%eax)
+C110	3	rcll   $0x90,(%eax)
+C210	3	ret    $0x9010
+C310	1	ret
+C410	2	les    (%eax),%edx
+C510	2	lds    (%eax),%edx
+C610	NONE	(bad)
+C710	NONE	(bad)
+C810	4	enter  $0x9010,$0x90
+C910	1	leave
+CA10	3	lret   $0x9010
+CB10	1	lret
+CC10	1	int3
+CD10	2	int    $0x10
+CE10	1	into
+CF10	1	iret
+D010	2	rclb   $1,(%eax)
+D110	2	rcll   $1,(%eax)
+D210	2	rclb   %cl,(%eax)
+D310	2	rcll   %cl,(%eax)
+D410	2	aam    $0x10
+D510	2	aad    $0x10
+D610	NONE	(bad)
+D710	1	xlat   %ds:(%ebx)
+D810	2	fcoms  (%eax)
+D910	2	fsts   (%eax)
+DA10	2	ficoml (%eax)
+DB10	2	fistl  (%eax)
+DC10	2	fcoml  (%eax)
+DD10	2	fstl   (%eax)
+DE10	2	ficoms (%eax)
+DF10	2	fists  (%eax)
+E010	2	loopne 0x12
+E110	2	loope  0x12
+E210	2	loop   0x12
+E310	2	jecxz  0x12
+E410	2	in     $0x10,%al
+E510	2	in     $0x10,%eax
+E610	2	out    %al,$0x10
+E710	2	out    %eax,$0x10
+E810	5	call   0x90909015
+E910	5	jmp    0x90909015
+EA10	7	ljmp   $0x9090,$0x90909010
+EB10	2	jmp    0x12
+EC10	1	in     (%dx),%al
+ED10	1	in     (%dx),%eax
+EE10	1	out    %al,(%dx)
+EF10	1	out    %eax,(%dx)
+F010	7	lock adc %dl,-0x6f6f6f70(%eax)
+F110	1	int1
+F210	7	repnz adc %dl,-0x6f6f6f70(%eax)
+F310	7	repz adc %dl,-0x6f6f6f70(%eax)
+F410	1	hlt
+F510	1	cmc
+F610	2	notb   (%eax)
+F710	2	notl   (%eax)
+F810	1	clc
+F910	1	stc
+FA10	1	cli
+FB10	1	sti
+FC10	1	cld
+FD10	1	std
+FE10	NONE	(bad)
+FF10	2	call   *(%eax)
+0018	2	add    %bl,(%eax)
+0118	2	add    %ebx,(%eax)
+0218	2	add    (%eax),%bl
+0318	2	add    (%eax),%ebx
+0418	2	add    $0x18,%al
+0518	5	add    $0x90909018,%eax
+0618	1	push   %es
+0718	1	pop    %es
+0818	2	or     %bl,(%eax)
+0918	2	or     %ebx,(%eax)
+0A18	2	or     (%eax),%bl
+0B18	2	or     (%eax),%ebx
+0C18	2	or     $0x18,%al
+0D18	5	or     $0x90909018,%eax
+0E18	1	push   %cs
+0F18	7	prefetcht1 -0x6f6f6f70(%eax)
+1018	2	adc    %bl,(%eax)
+1118	2	adc    %ebx,(%eax)
+1218	2	adc    (%eax),%bl
+1318	2	adc    (%eax),%ebx
+1418	2	adc    $0x18,%al
+1518	5	adc    $0x90909018,%eax
+1618	1	push   %ss
+1718	1	pop    %ss
+1818	2	sbb    %bl,(%eax)
+1918	2	sbb    %ebx,(%eax)
+1A18	2	sbb    (%eax),%bl
+1B18	2	sbb    (%eax),%ebx
+1C18	2	sbb    $0x18,%al
+1D18	5	sbb    $0x90909018,%eax
+1E18	1	push   %ds
+1F18	1	pop    %ds
+2018	2	and    %bl,(%eax)
+2118	2	and    %ebx,(%eax)
+2218	2	and    (%eax),%bl
+2318	2	and    (%eax),%ebx
+2418	2	and    $0x18,%al
+2518	5	and    $0x90909018,%eax
+2618	7	sbb    %dl,%es:-0x6f6f6f70(%eax)
+2718	1	daa
+2818	2	sub    %bl,(%eax)
+2918	2	sub    %ebx,(%eax)
+2A18	2	sub    (%eax),%bl
+2B18	2	sub    (%eax),%ebx
+2C18	2	sub    $0x18,%al
+2D18	5	sub    $0x90909018,%eax
+2E18	7	sbb    %dl,%cs:-0x6f6f6f70(%eax)
+2F18	1	das
+3018	2	xor    %bl,(%eax)
+3118	2	xor    %ebx,(%eax)
+3218	2	xor    (%eax),%bl
+3318	2	xor    (%eax),%ebx
+3418	2	xor    $0x18,%al
+3518	5	xor    $0x90909018,%eax
+3618	7	sbb    %dl,%ss:-0x6f6f6f70(%eax)
+3718	1	aaa
+3818	2	cmp    %bl,(%eax)
+3918	2	cmp    %ebx,(%eax)
+3A18	2	cmp    (%eax),%bl
+3B18	2	cmp    (%eax),%ebx
+3C18	2	cmp    $0x18,%al
+3D18	5	cmp    $0x90909018,%eax
+3E18	7	sbb    %dl,%ds:-0x6f6f6f70(%eax)
+3F18	1	aas
+4018	1	inc    %eax
+4118	1	inc    %ecx
+4218	1	inc    %edx
+4318	1	inc    %ebx
+4418	1	inc    %esp
+4518	1	inc    %ebp
+4618	1	inc    %esi
+4718	1	inc    %edi
+4818	1	dec    %eax
+4918	1	dec    %ecx
+4A18	1	dec    %edx
+4B18	1	dec    %ebx
+4C18	1	dec    %esp
+4D18	1	dec    %ebp
+4E18	1	dec    %esi
+4F18	1	dec    %edi
+5018	1	push   %eax
+5118	1	push   %ecx
+5218	1	push   %edx
+5318	1	push   %ebx
+5418	1	push   %esp
+5518	1	push   %ebp
+5618	1	push   %esi
+5718	1	push   %edi
+5818	1	pop    %eax
+5918	1	pop    %ecx
+5A18	1	pop    %edx
+5B18	1	pop    %ebx
+5C18	1	pop    %esp
+5D18	1	pop    %ebp
+5E18	1	pop    %esi
+5F18	1	pop    %edi
+6018	1	pusha
+6118	1	popa
+6218	2	bound  %ebx,(%eax)
+6318	2	arpl   %ebx,(%eax)
+6418	7	sbb    %dl,%fs:-0x6f6f6f70(%eax)
+6518	7	sbb    %dl,%gs:-0x6f6f6f70(%eax)
+6618	7	data16 sbb %dl,-0x6f6f6f70(%eax)
+6718	5	sbb    %dl,-0x6f70(%bx,%si)
+6818	5	push   $0x90909018
+6918	6	imul   $0x90909090,(%eax),%ebx
+6A18	2	push   $0x18
+6B18	3	imul   $0xffffff90,(%eax),%ebx
+6C18	1	insb   (%dx),%es:(%edi)
+6D18	1	insl   (%dx),%es:(%edi)
+6E18	1	outsb  %ds:(%esi),(%dx)
+6F18	1	outsl  %ds:(%esi),(%dx)
+7018	2	jo     0x1a
+7118	2	jno    0x1a
+7218	2	jb     0x1a
+7318	2	jae    0x1a
+7418	2	je     0x1a
+7518	2	jne    0x1a
+7618	2	jbe    0x1a
+7718	2	ja     0x1a
+7818	2	js     0x1a
+7918	2	jns    0x1a
+7A18	2	jp     0x1a
+7B18	2	jnp    0x1a
+7C18	2	jl     0x1a
+7D18	2	jge    0x1a
+7E18	2	jle    0x1a
+7F18	2	jg     0x1a
+8018	3	sbbb   $0x90,(%eax)
+8118	6	sbbl   $0x90909090,(%eax)
+8218	3	sbbb   $0x90,(%eax)
+8318	3	sbbl   $0xffffff90,(%eax)
+8418	2	test   %bl,(%eax)
+8518	2	test   %ebx,(%eax)
+8618	2	xchg   %bl,(%eax)
+8718	2	xchg   %ebx,(%eax)
+8818	2	mov    %bl,(%eax)
+8918	2	mov    %ebx,(%eax)
+8A18	2	mov    (%eax),%bl
+8B18	2	mov    (%eax),%ebx
+8C18	2	mov    %ds,(%eax)
+8D18	2	lea    (%eax),%ebx
+8E18	2	mov    (%eax),%ds
+8F18	NONE	(bad)
+9018	1	nop
+9118	1	xchg   %eax,%ecx
+9218	1	xchg   %eax,%edx
+9318	1	xchg   %eax,%ebx
+9418	1	xchg   %eax,%esp
+9518	1	xchg   %eax,%ebp
+9618	1	xchg   %eax,%esi
+9718	1	xchg   %eax,%edi
+9818	1	cwtl
+9918	1	cltd
+9A18	7	lcall  $0x9090,$0x90909018
+9B18	1	fwait
+9C18	1	pushf
+9D18	1	popf
+9E18	1	sahf
+9F18	1	lahf
+A018	5	mov    0x90909018,%al
+A118	5	mov    0x90909018,%eax
+A218	5	mov    %al,0x90909018
+A318	5	mov    %eax,0x90909018
+A418	1	movsb  %ds:(%esi),%es:(%edi)
+A518	1	movsl  %ds:(%esi),%es:(%edi)
+A618	1	cmpsb  %es:(%edi),%ds:(%esi)
+A718	1	cmpsl  %es:(%edi),%ds:(%esi)
+A818	2	test   $0x18,%al
+A918	5	test   $0x90909018,%eax
+AA18	1	stos   %al,%es:(%edi)
+AB18	1	stos   %eax,%es:(%edi)
+AC18	1	lods   %ds:(%esi),%al
+AD18	1	lods   %ds:(%esi),%eax
+AE18	1	scas   %es:(%edi),%al
+AF18	1	scas   %es:(%edi),%eax
+B018	2	mov    $0x18,%al
+B118	2	mov    $0x18,%cl
+B218	2	mov    $0x18,%dl
+B318	2	mov    $0x18,%bl
+B418	2	mov    $0x18,%ah
+B518	2	mov    $0x18,%ch
+B618	2	mov    $0x18,%dh
+B718	2	mov    $0x18,%bh
+B818	5	mov    $0x90909018,%eax
+B918	5	mov    $0x90909018,%ecx
+BA18	5	mov    $0x90909018,%edx
+BB18	5	mov    $0x90909018,%ebx
+BC18	5	mov    $0x90909018,%esp
+BD18	5	mov    $0x90909018,%ebp
+BE18	5	mov    $0x90909018,%esi
+BF18	5	mov    $0x90909018,%edi
+C018	3	rcrb   $0x90,(%eax)
+C118	3	rcrl   $0x90,(%eax)
+C218	3	ret    $0x9018
+C318	1	ret
+C418	2	les    (%eax),%ebx
+C518	2	lds    (%eax),%ebx
+C618	NONE	(bad)
+C718	NONE	(bad)
+C818	4	enter  $0x9018,$0x90
+C918	1	leave
+CA18	3	lret   $0x9018
+CB18	1	lret
+CC18	1	int3
+CD18	2	int    $0x18
+CE18	1	into
+CF18	1	iret
+D018	2	rcrb   $1,(%eax)
+D118	2	rcrl   $1,(%eax)
+D218	2	rcrb   %cl,(%eax)
+D318	2	rcrl   %cl,(%eax)
+D418	2	aam    $0x18
+D518	2	aad    $0x18
+D618	NONE	(bad)
+D718	1	xlat   %ds:(%ebx)
+D818	2	fcomps (%eax)
+D918	2	fstps  (%eax)
+DA18	2	ficompl (%eax)
+DB18	2	fistpl (%eax)
+DC18	2	fcompl (%eax)
+DD18	2	fstpl  (%eax)
+DE18	2	ficomps (%eax)
+DF18	2	fistps (%eax)
+E018	2	loopne 0x1a
+E118	2	loope  0x1a
+E218	2	loop   0x1a
+E318	2	jecxz  0x1a
+E418	2	in     $0x18,%al
+E518	2	in     $0x18,%eax
+E618	2	out    %al,$0x18
+E718	2	out    %eax,$0x18
+E818	5	call   0x9090901d
+E918	5	jmp    0x9090901d
+EA18	7	ljmp   $0x9090,$0x90909018
+EB18	2	jmp    0x1a
+EC18	1	in     (%dx),%al
+ED18	1	in     (%dx),%eax
+EE18	1	out    %al,(%dx)
+EF18	1	out    %eax,(%dx)
+F018	7	lock sbb %dl,-0x6f6f6f70(%eax)
+F118	1	int1
+F218	7	repnz sbb %dl,-0x6f6f6f70(%eax)
+F318	7	repz sbb %dl,-0x6f6f6f70(%eax)
+F418	1	hlt
+F518	1	cmc
+F618	2	negb   (%eax)
+F718	2	negl   (%eax)
+F818	1	clc
+F918	1	stc
+FA18	1	cli
+FB18	1	sti
+FC18	1	cld
+FD18	1	std
+FE18	NONE	(bad)
+FF18	2	lcall  *(%eax)
+0020	2	add    %ah,(%eax)
+0120	2	add    %esp,(%eax)
+0220	2	add    (%eax),%ah
+0320	2	add    (%eax),%esp
+0420	2	add    $0x20,%al
+0520	5	add    $0x90909020,%eax
+0620	1	push   %es
+0720	1	pop    %es
+0820	2	or     %ah,(%eax)
+0920	2	or     %esp,(%eax)
+0A20	2	or     (%eax),%ah
+0B20	2	or     (%eax),%esp
+0C20	2	or     $0x20,%al
+0D20	5	or     $0x90909020,%eax
+0E20	1	push   %cs
+0F20	3	mov    %cr2,%eax
+1020	2	adc    %ah,(%eax)
+1120	2	adc    %esp,(%eax)
+1220	2	adc    (%eax),%ah
+1320	2	adc    (%eax),%esp
+1420	2	adc    $0x20,%al
+1520	5	adc    $0x90909020,%eax
+1620	1	push   %ss
+1720	1	pop    %ss
+1820	2	sbb    %ah,(%eax)
+1920	2	sbb    %esp,(%eax)
+1A20	2	sbb    (%eax),%ah
+1B20	2	sbb    (%eax),%esp
+1C20	2	sbb    $0x20,%al
+1D20	5	sbb    $0x90909020,%eax
+1E20	1	push   %ds
+1F20	1	pop    %ds
+2020	2	and    %ah,(%eax)
+2120	2	and    %esp,(%eax)
+2220	2	and    (%eax),%ah
+2320	2	and    (%eax),%esp
+2420	2	and    $0x20,%al
+2520	5	and    $0x90909020,%eax
+2620	7	and    %dl,%es:-0x6f6f6f70(%eax)
+2720	1	daa
+2820	2	sub    %ah,(%eax)
+2920	2	sub    %esp,(%eax)
+2A20	2	sub    (%eax),%ah
+2B20	2	sub    (%eax),%esp
+2C20	2	sub    $0x20,%al
+2D20	5	sub    $0x90909020,%eax
+2E20	7	and    %dl,%cs:-0x6f6f6f70(%eax)
+2F20	1	das
+3020	2	xor    %ah,(%eax)
+3120	2	xor    %esp,(%eax)
+3220	2	xor    (%eax),%ah
+3320	2	xor    (%eax),%esp
+3420	2	xor    $0x20,%al
+3520	5	xor    $0x90909020,%eax
+3620	7	and    %dl,%ss:-0x6f6f6f70(%eax)
+3720	1	aaa
+3820	2	cmp    %ah,(%eax)
+3920	2	cmp    %esp,(%eax)
+3A20	2	cmp    (%eax),%ah
+3B20	2	cmp    (%eax),%esp
+3C20	2	cmp    $0x20,%al
+3D20	5	cmp    $0x90909020,%eax
+3E20	7	and    %dl,%ds:-0x6f6f6f70(%eax)
+3F20	1	aas
+4020	1	inc    %eax
+4120	1	inc    %ecx
+4220	1	inc    %edx
+4320	1	inc    %ebx
+4420	1	inc    %esp
+4520	1	inc    %ebp
+4620	1	inc    %esi
+4720	1	inc    %edi
+4820	1	dec    %eax
+4920	1	dec    %ecx
+4A20	1	dec    %edx
+4B20	1	dec    %ebx
+4C20	1	dec    %esp
+4D20	1	dec    %ebp
+4E20	1	dec    %esi
+4F20	1	dec    %edi
+5020	1	push   %eax
+5120	1	push   %ecx
+5220	1	push   %edx
+5320	1	push   %ebx
+5420	1	push   %esp
+5520	1	push   %ebp
+5620	1	push   %esi
+5720	1	push   %edi
+5820	1	pop    %eax
+5920	1	pop    %ecx
+5A20	1	pop    %edx
+5B20	1	pop    %ebx
+5C20	1	pop    %esp
+5D20	1	pop    %ebp
+5E20	1	pop    %esi
+5F20	1	pop    %edi
+6020	1	pusha
+6120	1	popa
+6220	2	bound  %esp,(%eax)
+6320	2	arpl   %esp,(%eax)
+6420	7	and    %dl,%fs:-0x6f6f6f70(%eax)
+6520	7	and    %dl,%gs:-0x6f6f6f70(%eax)
+6620	7	data16 and %dl,-0x6f6f6f70(%eax)
+6720	5	and    %dl,-0x6f70(%bx,%si)
+6820	5	push   $0x90909020
+6920	6	imul   $0x90909090,(%eax),%esp
+6A20	2	push   $0x20
+6B20	3	imul   $0xffffff90,(%eax),%esp
+6C20	1	insb   (%dx),%es:(%edi)
+6D20	1	insl   (%dx),%es:(%edi)
+6E20	1	outsb  %ds:(%esi),(%dx)
+6F20	1	outsl  %ds:(%esi),(%dx)
+7020	2	jo     0x22
+7120	2	jno    0x22
+7220	2	jb     0x22
+7320	2	jae    0x22
+7420	2	je     0x22
+7520	2	jne    0x22
+7620	2	jbe    0x22
+7720	2	ja     0x22
+7820	2	js     0x22
+7920	2	jns    0x22
+7A20	2	jp     0x22
+7B20	2	jnp    0x22
+7C20	2	jl     0x22
+7D20	2	jge    0x22
+7E20	2	jle    0x22
+7F20	2	jg     0x22
+8020	3	andb   $0x90,(%eax)
+8120	6	andl   $0x90909090,(%eax)
+8220	3	andb   $0x90,(%eax)
+8320	3	andl   $0xffffff90,(%eax)
+8420	2	test   %ah,(%eax)
+8520	2	test   %esp,(%eax)
+8620	2	xchg   %ah,(%eax)
+8720	2	xchg   %esp,(%eax)
+8820	2	mov    %ah,(%eax)
+8920	2	mov    %esp,(%eax)
+8A20	2	mov    (%eax),%ah
+8B20	2	mov    (%eax),%esp
+8C20	2	mov    %fs,(%eax)
+8D20	2	lea    (%eax),%esp
+8E20	2	mov    (%eax),%fs
+8F20	NONE	(bad)
+9020	1	nop
+9120	1	xchg   %eax,%ecx
+9220	1	xchg   %eax,%edx
+9320	1	xchg   %eax,%ebx
+9420	1	xchg   %eax,%esp
+9520	1	xchg   %eax,%ebp
+9620	1	xchg   %eax,%esi
+9720	1	xchg   %eax,%edi
+9820	1	cwtl
+9920	1	cltd
+9A20	7	lcall  $0x9090,$0x90909020
+9B20	1	fwait
+9C20	1	pushf
+9D20	1	popf
+9E20	1	sahf
+9F20	1	lahf
+A020	5	mov    0x90909020,%al
+A120	5	mov    0x90909020,%eax
+A220	5	mov    %al,0x90909020
+A320	5	mov    %eax,0x90909020
+A420	1	movsb  %ds:(%esi),%es:(%edi)
+A520	1	movsl  %ds:(%esi),%es:(%edi)
+A620	1	cmpsb  %es:(%edi),%ds:(%esi)
+A720	1	cmpsl  %es:(%edi),%ds:(%esi)
+A820	2	test   $0x20,%al
+A920	5	test   $0x90909020,%eax
+AA20	1	stos   %al,%es:(%edi)
+AB20	1	stos   %eax,%es:(%edi)
+AC20	1	lods   %ds:(%esi),%al
+AD20	1	lods   %ds:(%esi),%eax
+AE20	1	scas   %es:(%edi),%al
+AF20	1	scas   %es:(%edi),%eax
+B020	2	mov    $0x20,%al
+B120	2	mov    $0x20,%cl
+B220	2	mov    $0x20,%dl
+B320	2	mov    $0x20,%bl
+B420	2	mov    $0x20,%ah
+B520	2	mov    $0x20,%ch
+B620	2	mov    $0x20,%dh
+B720	2	mov    $0x20,%bh
+B820	5	mov    $0x90909020,%eax
+B920	5	mov    $0x90909020,%ecx
+BA20	5	mov    $0x90909020,%edx
+BB20	5	mov    $0x90909020,%ebx
+BC20	5	mov    $0x90909020,%esp
+BD20	5	mov    $0x90909020,%ebp
+BE20	5	mov    $0x90909020,%esi
+BF20	5	mov    $0x90909020,%edi
+C020	3	shlb   $0x90,(%eax)
+C120	3	shll   $0x90,(%eax)
+C220	3	ret    $0x9020
+C320	1	ret
+C420	2	les    (%eax),%esp
+C520	2	lds    (%eax),%esp
+C620	NONE	(bad)
+C720	NONE	(bad)
+C820	4	enter  $0x9020,$0x90
+C920	1	leave
+CA20	3	lret   $0x9020
+CB20	1	lret
+CC20	1	int3
+CD20	2	int    $0x20
+CE20	1	into
+CF20	1	iret
+D020	2	shlb   $1,(%eax)
+D120	2	shll   $1,(%eax)
+D220	2	shlb   %cl,(%eax)
+D320	2	shll   %cl,(%eax)
+D420	2	aam    $0x20
+D520	2	aad    $0x20
+D620	NONE	(bad)
+D720	1	xlat   %ds:(%ebx)
+D820	2	fsubs  (%eax)
+D920	2	fldenv (%eax)
+DA20	2	fisubl (%eax)
+DB20	NONE	(bad)  (%eax)
+DC20	2	fsubl  (%eax)
+DD20	2	frstor (%eax)
+DE20	2	fisubs (%eax)
+DF20	2	fbld   (%eax)
+E020	2	loopne 0x22
+E120	2	loope  0x22
+E220	2	loop   0x22
+E320	2	jecxz  0x22
+E420	2	in     $0x20,%al
+E520	2	in     $0x20,%eax
+E620	2	out    %al,$0x20
+E720	2	out    %eax,$0x20
+E820	5	call   0x90909025
+E920	5	jmp    0x90909025
+EA20	7	ljmp   $0x9090,$0x90909020
+EB20	2	jmp    0x22
+EC20	1	in     (%dx),%al
+ED20	1	in     (%dx),%eax
+EE20	1	out    %al,(%dx)
+EF20	1	out    %eax,(%dx)
+F020	7	lock and %dl,-0x6f6f6f70(%eax)
+F120	1	int1
+F220	7	repnz and %dl,-0x6f6f6f70(%eax)
+F320	7	repz and %dl,-0x6f6f6f70(%eax)
+F420	1	hlt
+F520	1	cmc
+F620	2	mulb   (%eax)
+F720	2	mull   (%eax)
+F820	1	clc
+F920	1	stc
+FA20	1	cli
+FB20	1	sti
+FC20	1	cld
+FD20	1	std
+FE20	NONE	(bad)
+FF20	2	jmp    *(%eax)
+0028	2	add    %ch,(%eax)
+0128	2	add    %ebp,(%eax)
+0228	2	add    (%eax),%ch
+0328	2	add    (%eax),%ebp
+0428	2	add    $0x28,%al
+0528	5	add    $0x90909028,%eax
+0628	1	push   %es
+0728	1	pop    %es
+0828	2	or     %ch,(%eax)
+0928	2	or     %ebp,(%eax)
+0A28	2	or     (%eax),%ch
+0B28	2	or     (%eax),%ebp
+0C28	2	or     $0x28,%al
+0D28	5	or     $0x90909028,%eax
+0E28	1	push   %cs
+0F28	7	movaps -0x6f6f6f70(%eax),%xmm2
+1028	2	adc    %ch,(%eax)
+1128	2	adc    %ebp,(%eax)
+1228	2	adc    (%eax),%ch
+1328	2	adc    (%eax),%ebp
+1428	2	adc    $0x28,%al
+1528	5	adc    $0x90909028,%eax
+1628	1	push   %ss
+1728	1	pop    %ss
+1828	2	sbb    %ch,(%eax)
+1928	2	sbb    %ebp,(%eax)
+1A28	2	sbb    (%eax),%ch
+1B28	2	sbb    (%eax),%ebp
+1C28	2	sbb    $0x28,%al
+1D28	5	sbb    $0x90909028,%eax
+1E28	1	push   %ds
+1F28	1	pop    %ds
+2028	2	and    %ch,(%eax)
+2128	2	and    %ebp,(%eax)
+2228	2	and    (%eax),%ch
+2328	2	and    (%eax),%ebp
+2428	2	and    $0x28,%al
+2528	5	and    $0x90909028,%eax
+2628	7	sub    %dl,%es:-0x6f6f6f70(%eax)
+2728	1	daa
+2828	2	sub    %ch,(%eax)
+2928	2	sub    %ebp,(%eax)
+2A28	2	sub    (%eax),%ch
+2B28	2	sub    (%eax),%ebp
+2C28	2	sub    $0x28,%al
+2D28	5	sub    $0x90909028,%eax
+2E28	7	sub    %dl,%cs:-0x6f6f6f70(%eax)
+2F28	1	das
+3028	2	xor    %ch,(%eax)
+3128	2	xor    %ebp,(%eax)
+3228	2	xor    (%eax),%ch
+3328	2	xor    (%eax),%ebp
+3428	2	xor    $0x28,%al
+3528	5	xor    $0x90909028,%eax
+3628	7	sub    %dl,%ss:-0x6f6f6f70(%eax)
+3728	1	aaa
+3828	2	cmp    %ch,(%eax)
+3928	2	cmp    %ebp,(%eax)
+3A28	2	cmp    (%eax),%ch
+3B28	2	cmp    (%eax),%ebp
+3C28	2	cmp    $0x28,%al
+3D28	5	cmp    $0x90909028,%eax
+3E28	7	sub    %dl,%ds:-0x6f6f6f70(%eax)
+3F28	1	aas
+4028	1	inc    %eax
+4128	1	inc    %ecx
+4228	1	inc    %edx
+4328	1	inc    %ebx
+4428	1	inc    %esp
+4528	1	inc    %ebp
+4628	1	inc    %esi
+4728	1	inc    %edi
+4828	1	dec    %eax
+4928	1	dec    %ecx
+4A28	1	dec    %edx
+4B28	1	dec    %ebx
+4C28	1	dec    %esp
+4D28	1	dec    %ebp
+4E28	1	dec    %esi
+4F28	1	dec    %edi
+5028	1	push   %eax
+5128	1	push   %ecx
+5228	1	push   %edx
+5328	1	push   %ebx
+5428	1	push   %esp
+5528	1	push   %ebp
+5628	1	push   %esi
+5728	1	push   %edi
+5828	1	pop    %eax
+5928	1	pop    %ecx
+5A28	1	pop    %edx
+5B28	1	pop    %ebx
+5C28	1	pop    %esp
+5D28	1	pop    %ebp
+5E28	1	pop    %esi
+5F28	1	pop    %edi
+6028	1	pusha
+6128	1	popa
+6228	2	bound  %ebp,(%eax)
+6328	2	arpl   %ebp,(%eax)
+6428	7	sub    %dl,%fs:-0x6f6f6f70(%eax)
+6528	7	sub    %dl,%gs:-0x6f6f6f70(%eax)
+6628	7	data16 sub %dl,-0x6f6f6f70(%eax)
+6728	5	sub    %dl,-0x6f70(%bx,%si)
+6828	5	push   $0x90909028
+6928	6	imul   $0x90909090,(%eax),%ebp
+6A28	2	push   $0x28
+6B28	3	imul   $0xffffff90,(%eax),%ebp
+6C28	1	insb   (%dx),%es:(%edi)
+6D28	1	insl   (%dx),%es:(%edi)
+6E28	1	outsb  %ds:(%esi),(%dx)
+6F28	1	outsl  %ds:(%esi),(%dx)
+7028	2	jo     0x2a
+7128	2	jno    0x2a
+7228	2	jb     0x2a
+7328	2	jae    0x2a
+7428	2	je     0x2a
+7528	2	jne    0x2a
+7628	2	jbe    0x2a
+7728	2	ja     0x2a
+7828	2	js     0x2a
+7928	2	jns    0x2a
+7A28	2	jp     0x2a
+7B28	2	jnp    0x2a
+7C28	2	jl     0x2a
+7D28	2	jge    0x2a
+7E28	2	jle    0x2a
+7F28	2	jg     0x2a
+8028	3	subb   $0x90,(%eax)
+8128	6	subl   $0x90909090,(%eax)
+8228	3	subb   $0x90,(%eax)
+8328	3	subl   $0xffffff90,(%eax)
+8428	2	test   %ch,(%eax)
+8528	2	test   %ebp,(%eax)
+8628	2	xchg   %ch,(%eax)
+8728	2	xchg   %ebp,(%eax)
+8828	2	mov    %ch,(%eax)
+8928	2	mov    %ebp,(%eax)
+8A28	2	mov    (%eax),%ch
+8B28	2	mov    (%eax),%ebp
+8C28	2	mov    %gs,(%eax)
+8D28	2	lea    (%eax),%ebp
+8E28	2	mov    (%eax),%gs
+8F28	NONE	(bad)
+9028	1	nop
+9128	1	xchg   %eax,%ecx
+9228	1	xchg   %eax,%edx
+9328	1	xchg   %eax,%ebx
+9428	1	xchg   %eax,%esp
+9528	1	xchg   %eax,%ebp
+9628	1	xchg   %eax,%esi
+9728	1	xchg   %eax,%edi
+9828	1	cwtl
+9928	1	cltd
+9A28	7	lcall  $0x9090,$0x90909028
+9B28	1	fwait
+9C28	1	pushf
+9D28	1	popf
+9E28	1	sahf
+9F28	1	lahf
+A028	5	mov    0x90909028,%al
+A128	5	mov    0x90909028,%eax
+A228	5	mov    %al,0x90909028
+A328	5	mov    %eax,0x90909028
+A428	1	movsb  %ds:(%esi),%es:(%edi)
+A528	1	movsl  %ds:(%esi),%es:(%edi)
+A628	1	cmpsb  %es:(%edi),%ds:(%esi)
+A728	1	cmpsl  %es:(%edi),%ds:(%esi)
+A828	2	test   $0x28,%al
+A928	5	test   $0x90909028,%eax
+AA28	1	stos   %al,%es:(%edi)
+AB28	1	stos   %eax,%es:(%edi)
+AC28	1	lods   %ds:(%esi),%al
+AD28	1	lods   %ds:(%esi),%eax
+AE28	1	scas   %es:(%edi),%al
+AF28	1	scas   %es:(%edi),%eax
+B028	2	mov    $0x28,%al
+B128	2	mov    $0x28,%cl
+B228	2	mov    $0x28,%dl
+B328	2	mov    $0x28,%bl
+B428	2	mov    $0x28,%ah
+B528	2	mov    $0x28,%ch
+B628	2	mov    $0x28,%dh
+B728	2	mov    $0x28,%bh
+B828	5	mov    $0x90909028,%eax
+B928	5	mov    $0x90909028,%ecx
+BA28	5	mov    $0x90909028,%edx
+BB28	5	mov    $0x90909028,%ebx
+BC28	5	mov    $0x90909028,%esp
+BD28	5	mov    $0x90909028,%ebp
+BE28	5	mov    $0x90909028,%esi
+BF28	5	mov    $0x90909028,%edi
+C028	3	shrb   $0x90,(%eax)
+C128	3	shrl   $0x90,(%eax)
+C228	3	ret    $0x9028
+C328	1	ret
+C428	2	les    (%eax),%ebp
+C528	2	lds    (%eax),%ebp
+C628	NONE	(bad)
+C728	NONE	(bad)
+C828	4	enter  $0x9028,$0x90
+C928	1	leave
+CA28	3	lret   $0x9028
+CB28	1	lret
+CC28	1	int3
+CD28	2	int    $0x28
+CE28	1	into
+CF28	1	iret
+D028	2	shrb   $1,(%eax)
+D128	2	shrl   $1,(%eax)
+D228	2	shrb   %cl,(%eax)
+D328	2	shrl   %cl,(%eax)
+D428	2	aam    $0x28
+D528	2	aad    $0x28
+D628	NONE	(bad)
+D728	1	xlat   %ds:(%ebx)
+D828	2	fsubrs (%eax)
+D928	2	fldcw  (%eax)
+DA28	2	fisubrl (%eax)
+DB28	2	fldt   (%eax)
+DC28	2	fsubrl (%eax)
+DD28	NONE	(bad)  (%eax)
+DE28	2	fisubrs (%eax)
+DF28	2	fildll (%eax)
+E028	2	loopne 0x2a
+E128	2	loope  0x2a
+E228	2	loop   0x2a
+E328	2	jecxz  0x2a
+E428	2	in     $0x28,%al
+E528	2	in     $0x28,%eax
+E628	2	out    %al,$0x28
+E728	2	out    %eax,$0x28
+E828	5	call   0x9090902d
+E928	5	jmp    0x9090902d
+EA28	7	ljmp   $0x9090,$0x90909028
+EB28	2	jmp    0x2a
+EC28	1	in     (%dx),%al
+ED28	1	in     (%dx),%eax
+EE28	1	out    %al,(%dx)
+EF28	1	out    %eax,(%dx)
+F028	7	lock sub %dl,-0x6f6f6f70(%eax)
+F128	1	int1
+F228	7	repnz sub %dl,-0x6f6f6f70(%eax)
+F328	7	repz sub %dl,-0x6f6f6f70(%eax)
+F428	1	hlt
+F528	1	cmc
+F628	2	imulb  (%eax)
+F728	2	imull  (%eax)
+F828	1	clc
+F928	1	stc
+FA28	1	cli
+FB28	1	sti
+FC28	1	cld
+FD28	1	std
+FE28	NONE	(bad)
+FF28	2	ljmp   *(%eax)
+0030	2	add    %dh,(%eax)
+0130	2	add    %esi,(%eax)
+0230	2	add    (%eax),%dh
+0330	2	add    (%eax),%esi
+0430	2	add    $0x30,%al
+0530	5	add    $0x90909030,%eax
+0630	1	push   %es
+0730	1	pop    %es
+0830	2	or     %dh,(%eax)
+0930	2	or     %esi,(%eax)
+0A30	2	or     (%eax),%dh
+0B30	2	or     (%eax),%esi
+0C30	2	or     $0x30,%al
+0D30	5	or     $0x90909030,%eax
+0E30	1	push   %cs
+0F30	2	wrmsr
+1030	2	adc    %dh,(%eax)
+1130	2	adc    %esi,(%eax)
+1230	2	adc    (%eax),%dh
+1330	2	adc    (%eax),%esi
+1430	2	adc    $0x30,%al
+1530	5	adc    $0x90909030,%eax
+1630	1	push   %ss
+1730	1	pop    %ss
+1830	2	sbb    %dh,(%eax)
+1930	2	sbb    %esi,(%eax)
+1A30	2	sbb    (%eax),%dh
+1B30	2	sbb    (%eax),%esi
+1C30	2	sbb    $0x30,%al
+1D30	5	sbb    $0x90909030,%eax
+1E30	1	push   %ds
+1F30	1	pop    %ds
+2030	2	and    %dh,(%eax)
+2130	2	and    %esi,(%eax)
+2230	2	and    (%eax),%dh
+2330	2	and    (%eax),%esi
+2430	2	and    $0x30,%al
+2530	5	and    $0x90909030,%eax
+2630	7	xor    %dl,%es:-0x6f6f6f70(%eax)
+2730	1	daa
+2830	2	sub    %dh,(%eax)
+2930	2	sub    %esi,(%eax)
+2A30	2	sub    (%eax),%dh
+2B30	2	sub    (%eax),%esi
+2C30	2	sub    $0x30,%al
+2D30	5	sub    $0x90909030,%eax
+2E30	7	xor    %dl,%cs:-0x6f6f6f70(%eax)
+2F30	1	das
+3030	2	xor    %dh,(%eax)
+3130	2	xor    %esi,(%eax)
+3230	2	xor    (%eax),%dh
+3330	2	xor    (%eax),%esi
+3430	2	xor    $0x30,%al
+3530	5	xor    $0x90909030,%eax
+3630	7	xor    %dl,%ss:-0x6f6f6f70(%eax)
+3730	1	aaa
+3830	2	cmp    %dh,(%eax)
+3930	2	cmp    %esi,(%eax)
+3A30	2	cmp    (%eax),%dh
+3B30	2	cmp    (%eax),%esi
+3C30	2	cmp    $0x30,%al
+3D30	5	cmp    $0x90909030,%eax
+3E30	7	xor    %dl,%ds:-0x6f6f6f70(%eax)
+3F30	1	aas
+4030	1	inc    %eax
+4130	1	inc    %ecx
+4230	1	inc    %edx
+4330	1	inc    %ebx
+4430	1	inc    %esp
+4530	1	inc    %ebp
+4630	1	inc    %esi
+4730	1	inc    %edi
+4830	1	dec    %eax
+4930	1	dec    %ecx
+4A30	1	dec    %edx
+4B30	1	dec    %ebx
+4C30	1	dec    %esp
+4D30	1	dec    %ebp
+4E30	1	dec    %esi
+4F30	1	dec    %edi
+5030	1	push   %eax
+5130	1	push   %ecx
+5230	1	push   %edx
+5330	1	push   %ebx
+5430	1	push   %esp
+5530	1	push   %ebp
+5630	1	push   %esi
+5730	1	push   %edi
+5830	1	pop    %eax
+5930	1	pop    %ecx
+5A30	1	pop    %edx
+5B30	1	pop    %ebx
+5C30	1	pop    %esp
+5D30	1	pop    %ebp
+5E30	1	pop    %esi
+5F30	1	pop    %edi
+6030	1	pusha
+6130	1	popa
+6230	2	bound  %esi,(%eax)
+6330	2	arpl   %esi,(%eax)
+6430	7	xor    %dl,%fs:-0x6f6f6f70(%eax)
+6530	7	xor    %dl,%gs:-0x6f6f6f70(%eax)
+6630	7	data16 xor %dl,-0x6f6f6f70(%eax)
+6730	5	xor    %dl,-0x6f70(%bx,%si)
+6830	5	push   $0x90909030
+6930	6	imul   $0x90909090,(%eax),%esi
+6A30	2	push   $0x30
+6B30	3	imul   $0xffffff90,(%eax),%esi
+6C30	1	insb   (%dx),%es:(%edi)
+6D30	1	insl   (%dx),%es:(%edi)
+6E30	1	outsb  %ds:(%esi),(%dx)
+6F30	1	outsl  %ds:(%esi),(%dx)
+7030	2	jo     0x32
+7130	2	jno    0x32
+7230	2	jb     0x32
+7330	2	jae    0x32
+7430	2	je     0x32
+7530	2	jne    0x32
+7630	2	jbe    0x32
+7730	2	ja     0x32
+7830	2	js     0x32
+7930	2	jns    0x32
+7A30	2	jp     0x32
+7B30	2	jnp    0x32
+7C30	2	jl     0x32
+7D30	2	jge    0x32
+7E30	2	jle    0x32
+7F30	2	jg     0x32
+8030	3	xorb   $0x90,(%eax)
+8130	6	xorl   $0x90909090,(%eax)
+8230	3	xorb   $0x90,(%eax)
+8330	3	xorl   $0xffffff90,(%eax)
+8430	2	test   %dh,(%eax)
+8530	2	test   %esi,(%eax)
+8630	2	xchg   %dh,(%eax)
+8730	2	xchg   %esi,(%eax)
+8830	2	mov    %dh,(%eax)
+8930	2	mov    %esi,(%eax)
+8A30	2	mov    (%eax),%dh
+8B30	2	mov    (%eax),%esi
+8C30	2	mov    %?,(%eax)
+8D30	2	lea    (%eax),%esi
+8E30	2	mov    (%eax),%?
+8F30	NONE	(bad)
+9030	1	nop
+9130	1	xchg   %eax,%ecx
+9230	1	xchg   %eax,%edx
+9330	1	xchg   %eax,%ebx
+9430	1	xchg   %eax,%esp
+9530	1	xchg   %eax,%ebp
+9630	1	xchg   %eax,%esi
+9730	1	xchg   %eax,%edi
+9830	1	cwtl
+9930	1	cltd
+9A30	7	lcall  $0x9090,$0x90909030
+9B30	1	fwait
+9C30	1	pushf
+9D30	1	popf
+9E30	1	sahf
+9F30	1	lahf
+A030	5	mov    0x90909030,%al
+A130	5	mov    0x90909030,%eax
+A230	5	mov    %al,0x90909030
+A330	5	mov    %eax,0x90909030
+A430	1	movsb  %ds:(%esi),%es:(%edi)
+A530	1	movsl  %ds:(%esi),%es:(%edi)
+A630	1	cmpsb  %es:(%edi),%ds:(%esi)
+A730	1	cmpsl  %es:(%edi),%ds:(%esi)
+A830	2	test   $0x30,%al
+A930	5	test   $0x90909030,%eax
+AA30	1	stos   %al,%es:(%edi)
+AB30	1	stos   %eax,%es:(%edi)
+AC30	1	lods   %ds:(%esi),%al
+AD30	1	lods   %ds:(%esi),%eax
+AE30	1	scas   %es:(%edi),%al
+AF30	1	scas   %es:(%edi),%eax
+B030	2	mov    $0x30,%al
+B130	2	mov    $0x30,%cl
+B230	2	mov    $0x30,%dl
+B330	2	mov    $0x30,%bl
+B430	2	mov    $0x30,%ah
+B530	2	mov    $0x30,%ch
+B630	2	mov    $0x30,%dh
+B730	2	mov    $0x30,%bh
+B830	5	mov    $0x90909030,%eax
+B930	5	mov    $0x90909030,%ecx
+BA30	5	mov    $0x90909030,%edx
+BB30	5	mov    $0x90909030,%ebx
+BC30	5	mov    $0x90909030,%esp
+BD30	5	mov    $0x90909030,%ebp
+BE30	5	mov    $0x90909030,%esi
+BF30	5	mov    $0x90909030,%edi
+C030	3	shlb   $0x90,(%eax)
+C130	3	shll   $0x90,(%eax)
+C230	3	ret    $0x9030
+C330	1	ret
+C430	2	les    (%eax),%esi
+C530	2	lds    (%eax),%esi
+C630	NONE	(bad)
+C730	NONE	(bad)
+C830	4	enter  $0x9030,$0x90
+C930	1	leave
+CA30	3	lret   $0x9030
+CB30	1	lret
+CC30	1	int3
+CD30	2	int    $0x30
+CE30	1	into
+CF30	1	iret
+D030	2	shlb   $1,(%eax)
+D130	2	shll   $1,(%eax)
+D230	2	shlb   %cl,(%eax)
+D330	2	shll   %cl,(%eax)
+D430	2	aam    $0x30
+D530	2	aad    $0x30
+D630	NONE	(bad)
+D730	1	xlat   %ds:(%ebx)
+D830	2	fdivs  (%eax)
+D930	2	fnstenv (%eax)
+DA30	2	fidivl (%eax)
+DB30	NONE	(bad)  (%eax)
+DC30	2	fdivl  (%eax)
+DD30	2	fnsave (%eax)
+DE30	2	fidivs (%eax)
+DF30	2	fbstp  (%eax)
+E030	2	loopne 0x32
+E130	2	loope  0x32
+E230	2	loop   0x32
+E330	2	jecxz  0x32
+E430	2	in     $0x30,%al
+E530	2	in     $0x30,%eax
+E630	2	out    %al,$0x30
+E730	2	out    %eax,$0x30
+E830	5	call   0x90909035
+E930	5	jmp    0x90909035
+EA30	7	ljmp   $0x9090,$0x90909030
+EB30	2	jmp    0x32
+EC30	1	in     (%dx),%al
+ED30	1	in     (%dx),%eax
+EE30	1	out    %al,(%dx)
+EF30	1	out    %eax,(%dx)
+F030	7	lock xor %dl,-0x6f6f6f70(%eax)
+F130	1	int1
+F230	7	repnz xor %dl,-0x6f6f6f70(%eax)
+F330	7	repz xor %dl,-0x6f6f6f70(%eax)
+F430	1	hlt
+F530	1	cmc
+F630	2	divb   (%eax)
+F730	2	divl   (%eax)
+F830	1	clc
+F930	1	stc
+FA30	1	cli
+FB30	1	sti
+FC30	1	cld
+FD30	1	std
+FE30	NONE	(bad)
+FF30	2	push   (%eax)
+0038	2	add    %bh,(%eax)
+0138	2	add    %edi,(%eax)
+0238	2	add    (%eax),%bh
+0338	2	add    (%eax),%edi
+0438	2	add    $0x38,%al
+0538	5	add    $0x90909038,%eax
+0638	1	push   %es
+0738	1	pop    %es
+0838	2	or     %bh,(%eax)
+0938	2	or     %edi,(%eax)
+0A38	2	or     (%eax),%bh
+0B38	2	or     (%eax),%edi
+0C38	2	or     $0x38,%al
+0D38	5	or     $0x90909038,%eax
+0E38	1	push   %cs
+0F38	NONE	(bad)
+1038	2	adc    %bh,(%eax)
+1138	2	adc    %edi,(%eax)
+1238	2	adc    (%eax),%bh
+1338	2	adc    (%eax),%edi
+1438	2	adc    $0x38,%al
+1538	5	adc    $0x90909038,%eax
+1638	1	push   %ss
+1738	1	pop    %ss
+1838	2	sbb    %bh,(%eax)
+1938	2	sbb    %edi,(%eax)
+1A38	2	sbb    (%eax),%bh
+1B38	2	sbb    (%eax),%edi
+1C38	2	sbb    $0x38,%al
+1D38	5	sbb    $0x90909038,%eax
+1E38	1	push   %ds
+1F38	1	pop    %ds
+2038	2	and    %bh,(%eax)
+2138	2	and    %edi,(%eax)
+2238	2	and    (%eax),%bh
+2338	2	and    (%eax),%edi
+2438	2	and    $0x38,%al
+2538	5	and    $0x90909038,%eax
+2638	7	cmp    %dl,%es:-0x6f6f6f70(%eax)
+2738	1	daa
+2838	2	sub    %bh,(%eax)
+2938	2	sub    %edi,(%eax)
+2A38	2	sub    (%eax),%bh
+2B38	2	sub    (%eax),%edi
+2C38	2	sub    $0x38,%al
+2D38	5	sub    $0x90909038,%eax
+2E38	7	cmp    %dl,%cs:-0x6f6f6f70(%eax)
+2F38	1	das
+3038	2	xor    %bh,(%eax)
+3138	2	xor    %edi,(%eax)
+3238	2	xor    (%eax),%bh
+3338	2	xor    (%eax),%edi
+3438	2	xor    $0x38,%al
+3538	5	xor    $0x90909038,%eax
+3638	7	cmp    %dl,%ss:-0x6f6f6f70(%eax)
+3738	1	aaa
+3838	2	cmp    %bh,(%eax)
+3938	2	cmp    %edi,(%eax)
+3A38	2	cmp    (%eax),%bh
+3B38	2	cmp    (%eax),%edi
+3C38	2	cmp    $0x38,%al
+3D38	5	cmp    $0x90909038,%eax
+3E38	7	cmp    %dl,%ds:-0x6f6f6f70(%eax)
+3F38	1	aas
+4038	1	inc    %eax
+4138	1	inc    %ecx
+4238	1	inc    %edx
+4338	1	inc    %ebx
+4438	1	inc    %esp
+4538	1	inc    %ebp
+4638	1	inc    %esi
+4738	1	inc    %edi
+4838	1	dec    %eax
+4938	1	dec    %ecx
+4A38	1	dec    %edx
+4B38	1	dec    %ebx
+4C38	1	dec    %esp
+4D38	1	dec    %ebp
+4E38	1	dec    %esi
+4F38	1	dec    %edi
+5038	1	push   %eax
+5138	1	push   %ecx
+5238	1	push   %edx
+5338	1	push   %ebx
+5438	1	push   %esp
+5538	1	push   %ebp
+5638	1	push   %esi
+5738	1	push   %edi
+5838	1	pop    %eax
+5938	1	pop    %ecx
+5A38	1	pop    %edx
+5B38	1	pop    %ebx
+5C38	1	pop    %esp
+5D38	1	pop    %ebp
+5E38	1	pop    %esi
+5F38	1	pop    %edi
+6038	1	pusha
+6138	1	popa
+6238	2	bound  %edi,(%eax)
+6338	2	arpl   %edi,(%eax)
+6438	7	cmp    %dl,%fs:-0x6f6f6f70(%eax)
+6538	7	cmp    %dl,%gs:-0x6f6f6f70(%eax)
+6638	7	data16 cmp %dl,-0x6f6f6f70(%eax)
+6738	5	cmp    %dl,-0x6f70(%bx,%si)
+6838	5	push   $0x90909038
+6938	6	imul   $0x90909090,(%eax),%edi
+6A38	2	push   $0x38
+6B38	3	imul   $0xffffff90,(%eax),%edi
+6C38	1	insb   (%dx),%es:(%edi)
+6D38	1	insl   (%dx),%es:(%edi)
+6E38	1	outsb  %ds:(%esi),(%dx)
+6F38	1	outsl  %ds:(%esi),(%dx)
+7038	2	jo     0x3a
+7138	2	jno    0x3a
+7238	2	jb     0x3a
+7338	2	jae    0x3a
+7438	2	je     0x3a
+7538	2	jne    0x3a
+7638	2	jbe    0x3a
+7738	2	ja     0x3a
+7838	2	js     0x3a
+7938	2	jns    0x3a
+7A38	2	jp     0x3a
+7B38	2	jnp    0x3a
+7C38	2	jl     0x3a
+7D38	2	jge    0x3a
+7E38	2	jle    0x3a
+7F38	2	jg     0x3a
+8038	3	cmpb   $0x90,(%eax)
+8138	6	cmpl   $0x90909090,(%eax)
+8238	3	cmpb   $0x90,(%eax)
+8338	3	cmpl   $0xffffff90,(%eax)
+8438	2	test   %bh,(%eax)
+8538	2	test   %edi,(%eax)
+8638	2	xchg   %bh,(%eax)
+8738	2	xchg   %edi,(%eax)
+8838	2	mov    %bh,(%eax)
+8938	2	mov    %edi,(%eax)
+8A38	2	mov    (%eax),%bh
+8B38	2	mov    (%eax),%edi
+8C38	2	mov    %?,(%eax)
+8D38	2	lea    (%eax),%edi
+8E38	2	mov    (%eax),%?
+8F38	NONE	(bad)
+9038	1	nop
+9138	1	xchg   %eax,%ecx
+9238	1	xchg   %eax,%edx
+9338	1	xchg   %eax,%ebx
+9438	1	xchg   %eax,%esp
+9538	1	xchg   %eax,%ebp
+9638	1	xchg   %eax,%esi
+9738	1	xchg   %eax,%edi
+9838	1	cwtl
+9938	1	cltd
+9A38	7	lcall  $0x9090,$0x90909038
+9B38	1	fwait
+9C38	1	pushf
+9D38	1	popf
+9E38	1	sahf
+9F38	1	lahf
+A038	5	mov    0x90909038,%al
+A138	5	mov    0x90909038,%eax
+A238	5	mov    %al,0x90909038
+A338	5	mov    %eax,0x90909038
+A438	1	movsb  %ds:(%esi),%es:(%edi)
+A538	1	movsl  %ds:(%esi),%es:(%edi)
+A638	1	cmpsb  %es:(%edi),%ds:(%esi)
+A738	1	cmpsl  %es:(%edi),%ds:(%esi)
+A838	2	test   $0x38,%al
+A938	5	test   $0x90909038,%eax
+AA38	1	stos   %al,%es:(%edi)
+AB38	1	stos   %eax,%es:(%edi)
+AC38	1	lods   %ds:(%esi),%al
+AD38	1	lods   %ds:(%esi),%eax
+AE38	1	scas   %es:(%edi),%al
+AF38	1	scas   %es:(%edi),%eax
+B038	2	mov    $0x38,%al
+B138	2	mov    $0x38,%cl
+B238	2	mov    $0x38,%dl
+B338	2	mov    $0x38,%bl
+B438	2	mov    $0x38,%ah
+B538	2	mov    $0x38,%ch
+B638	2	mov    $0x38,%dh
+B738	2	mov    $0x38,%bh
+B838	5	mov    $0x90909038,%eax
+B938	5	mov    $0x90909038,%ecx
+BA38	5	mov    $0x90909038,%edx
+BB38	5	mov    $0x90909038,%ebx
+BC38	5	mov    $0x90909038,%esp
+BD38	5	mov    $0x90909038,%ebp
+BE38	5	mov    $0x90909038,%esi
+BF38	5	mov    $0x90909038,%edi
+C038	3	sarb   $0x90,(%eax)
+C138	3	sarl   $0x90,(%eax)
+C238	3	ret    $0x9038
+C338	1	ret
+C438	2	les    (%eax),%edi
+C538	2	lds    (%eax),%edi
+C638	NONE	xabort $0x38,(bad)
+C738	NONE	xbegin 0x9090903d,(bad)
+C838	4	enter  $0x9038,$0x90
+C938	1	leave
+CA38	3	lret   $0x9038
+CB38	1	lret
+CC38	1	int3
+CD38	2	int    $0x38
+CE38	1	into
+CF38	1	iret
+D038	2	sarb   $1,(%eax)
+D138	2	sarl   $1,(%eax)
+D238	2	sarb   %cl,(%eax)
+D338	2	sarl   %cl,(%eax)
+D438	2	aam    $0x38
+D538	2	aad    $0x38
+D638	NONE	(bad)
+D738	1	xlat   %ds:(%ebx)
+D838	2	fdivrs (%eax)
+D938	2	fnstcw (%eax)
+DA38	2	fidivrl (%eax)
+DB38	2	fstpt  (%eax)
+DC38	2	fdivrl (%eax)
+DD38	2	fnstsw (%eax)
+DE38	2	fidivrs (%eax)
+DF38	2	fistpll (%eax)
+E038	2	loopne 0x3a
+E138	2	loope  0x3a
+E238	2	loop   0x3a
+E338	2	jecxz  0x3a
+E438	2	in     $0x38,%al
+E538	2	in     $0x38,%eax
+E638	2	out    %al,$0x38
+E738	2	out    %eax,$0x38
+E838	5	call   0x9090903d
+E938	5	jmp    0x9090903d
+EA38	7	ljmp   $0x9090,$0x90909038
+EB38	2	jmp    0x3a
+EC38	1	in     (%dx),%al
+ED38	1	in     (%dx),%eax
+EE38	1	out    %al,(%dx)
+EF38	1	out    %eax,(%dx)
+F038	7	lock cmp %dl,-0x6f6f6f70(%eax)
+F138	1	int1
+F238	7	repnz cmp %dl,-0x6f6f6f70(%eax)
+F338	7	repz cmp %dl,-0x6f6f6f70(%eax)
+F438	1	hlt
+F538	1	cmc
+F638	2	idivb  (%eax)
+F738	2	idivl  (%eax)
+F838	1	clc
+F938	1	stc
+FA38	1	cli
+FB38	1	sti
+FC38	1	cld
+FD38	1	std
+FE38	NONE	(bad)
+FF38	NONE	(bad)

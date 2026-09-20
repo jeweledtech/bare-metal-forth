@@ -1,0 +1,3842 @@
+# objdump screen over probe1_64_2026-09-19.bin (sha256 b86c4eb0e8f0091d1aafbc429e266332bda6f026b41c147a4a10df3aacd72003), one slot per line in slot order, objdump -D -b binary -m i386:x86-64 --insn-width=16 (Binutils 2.42). The prefix length of each row comes from the slot index (form-major layout, scripts/gen_opcode_table.py), never from the bytes: a first pass sniffed 0x48/0x66 from the bytes and marked opcode 48 (DEC EAX, one byte) in 32-bit mode as a lone prefix. A row where objdump printed only the prefix bytes is NONE. Screen only: expected values come from the Ghidra no-flow oracle; a row where the two disagree is a finding for the spec.
+# columns: probe_bytes	objdump_len_or_NONE	objdump_text
+0000	2	add    %al,(%rax)
+0100	2	add    %eax,(%rax)
+0200	2	add    (%rax),%al
+0300	2	add    (%rax),%eax
+0400	2	add    $0x0,%al
+0500	5	add    $0x90909000,%eax
+0600	NONE	(bad)
+0700	NONE	(bad)
+0800	2	or     %al,(%rax)
+0900	2	or     %eax,(%rax)
+0A00	2	or     (%rax),%al
+0B00	2	or     (%rax),%eax
+0C00	2	or     $0x0,%al
+0D00	5	or     $0x90909000,%eax
+0E00	NONE	(bad)
+0F00	7	lldt   -0x6f6f6f70(%rax)
+1000	2	adc    %al,(%rax)
+1100	2	adc    %eax,(%rax)
+1200	2	adc    (%rax),%al
+1300	2	adc    (%rax),%eax
+1400	2	adc    $0x0,%al
+1500	5	adc    $0x90909000,%eax
+1600	NONE	(bad)
+1700	NONE	(bad)
+1800	2	sbb    %al,(%rax)
+1900	2	sbb    %eax,(%rax)
+1A00	2	sbb    (%rax),%al
+1B00	2	sbb    (%rax),%eax
+1C00	2	sbb    $0x0,%al
+1D00	5	sbb    $0x90909000,%eax
+1E00	NONE	(bad)
+1F00	NONE	(bad)
+2000	2	and    %al,(%rax)
+2100	2	and    %eax,(%rax)
+2200	2	and    (%rax),%al
+2300	2	and    (%rax),%eax
+2400	2	and    $0x0,%al
+2500	5	and    $0x90909000,%eax
+2600	7	es add %dl,-0x6f6f6f70(%rax)
+2700	NONE	(bad)
+2800	2	sub    %al,(%rax)
+2900	2	sub    %eax,(%rax)
+2A00	2	sub    (%rax),%al
+2B00	2	sub    (%rax),%eax
+2C00	2	sub    $0x0,%al
+2D00	5	sub    $0x90909000,%eax
+2E00	7	cs add %dl,-0x6f6f6f70(%rax)
+2F00	NONE	(bad)
+3000	2	xor    %al,(%rax)
+3100	2	xor    %eax,(%rax)
+3200	2	xor    (%rax),%al
+3300	2	xor    (%rax),%eax
+3400	2	xor    $0x0,%al
+3500	5	xor    $0x90909000,%eax
+3600	7	ss add %dl,-0x6f6f6f70(%rax)
+3700	NONE	(bad)
+3800	2	cmp    %al,(%rax)
+3900	2	cmp    %eax,(%rax)
+3A00	2	cmp    (%rax),%al
+3B00	2	cmp    (%rax),%eax
+3C00	2	cmp    $0x0,%al
+3D00	5	cmp    $0x90909000,%eax
+3E00	7	ds add %dl,-0x6f6f6f70(%rax)
+3F00	NONE	(bad)
+4000	7	rex add %dl,-0x6f6f6f70(%rax)
+4100	7	add    %dl,-0x6f6f6f70(%r8)
+4200	7	rex.X add %dl,-0x6f6f6f70(%rax)
+4300	7	rex.XB add %dl,-0x6f6f6f70(%r8)
+4400	7	add    %r10b,-0x6f6f6f70(%rax)
+4500	7	add    %r10b,-0x6f6f6f70(%r8)
+4600	7	rex.RX add %r10b,-0x6f6f6f70(%rax)
+4700	7	rex.RXB add %r10b,-0x6f6f6f70(%r8)
+4800	7	rex.W add %dl,-0x6f6f6f70(%rax)
+4900	7	rex.WB add %dl,-0x6f6f6f70(%r8)
+4A00	7	rex.WX add %dl,-0x6f6f6f70(%rax)
+4B00	7	rex.WXB add %dl,-0x6f6f6f70(%r8)
+4C00	7	rex.WR add %r10b,-0x6f6f6f70(%rax)
+4D00	7	rex.WRB add %r10b,-0x6f6f6f70(%r8)
+4E00	7	rex.WRX add %r10b,-0x6f6f6f70(%rax)
+4F00	7	rex.WRXB add %r10b,-0x6f6f6f70(%r8)
+5000	1	push   %rax
+5100	1	push   %rcx
+5200	1	push   %rdx
+5300	1	push   %rbx
+5400	1	push   %rsp
+5500	1	push   %rbp
+5600	1	push   %rsi
+5700	1	push   %rdi
+5800	1	pop    %rax
+5900	1	pop    %rcx
+5A00	1	pop    %rdx
+5B00	1	pop    %rbx
+5C00	1	pop    %rsp
+5D00	1	pop    %rbp
+5E00	1	pop    %rsi
+5F00	1	pop    %rdi
+6000	NONE	(bad)
+6100	NONE	(bad)
+6200	NONE	(bad)
+6300	2	movsxd (%rax),%eax
+6400	7	add    %dl,%fs:-0x6f6f6f70(%rax)
+6500	7	add    %dl,%gs:-0x6f6f6f70(%rax)
+6600	7	data16 add %dl,-0x6f6f6f70(%rax)
+6700	7	add    %dl,-0x6f6f6f70(%eax)
+6800	5	push   $0xffffffff90909000
+6900	6	imul   $0x90909090,(%rax),%eax
+6A00	2	push   $0x0
+6B00	3	imul   $0xffffff90,(%rax),%eax
+6C00	1	insb   (%dx),%es:(%rdi)
+6D00	1	insl   (%dx),%es:(%rdi)
+6E00	1	outsb  %ds:(%rsi),(%dx)
+6F00	1	outsl  %ds:(%rsi),(%dx)
+7000	2	jo     0x2
+7100	2	jno    0x2
+7200	2	jb     0x2
+7300	2	jae    0x2
+7400	2	je     0x2
+7500	2	jne    0x2
+7600	2	jbe    0x2
+7700	2	ja     0x2
+7800	2	js     0x2
+7900	2	jns    0x2
+7A00	2	jp     0x2
+7B00	2	jnp    0x2
+7C00	2	jl     0x2
+7D00	2	jge    0x2
+7E00	2	jle    0x2
+7F00	2	jg     0x2
+8000	3	addb   $0x90,(%rax)
+8100	6	addl   $0x90909090,(%rax)
+8200	NONE	(bad)
+8300	3	addl   $0xffffff90,(%rax)
+8400	2	test   %al,(%rax)
+8500	2	test   %eax,(%rax)
+8600	2	xchg   %al,(%rax)
+8700	2	xchg   %eax,(%rax)
+8800	2	mov    %al,(%rax)
+8900	2	mov    %eax,(%rax)
+8A00	2	mov    (%rax),%al
+8B00	2	mov    (%rax),%eax
+8C00	2	mov    %es,(%rax)
+8D00	2	lea    (%rax),%eax
+8E00	2	mov    (%rax),%es
+8F00	2	pop    (%rax)
+9000	1	nop
+9100	1	xchg   %eax,%ecx
+9200	1	xchg   %eax,%edx
+9300	1	xchg   %eax,%ebx
+9400	1	xchg   %eax,%esp
+9500	1	xchg   %eax,%ebp
+9600	1	xchg   %eax,%esi
+9700	1	xchg   %eax,%edi
+9800	1	cwtl
+9900	1	cltd
+9A00	NONE	(bad)
+9B00	1	fwait
+9C00	1	pushf
+9D00	1	popf
+9E00	1	sahf
+9F00	1	lahf
+A000	9	movabs 0x9090909090909000,%al
+A100	9	movabs 0x9090909090909000,%eax
+A200	9	movabs %al,0x9090909090909000
+A300	9	movabs %eax,0x9090909090909000
+A400	1	movsb  %ds:(%rsi),%es:(%rdi)
+A500	1	movsl  %ds:(%rsi),%es:(%rdi)
+A600	1	cmpsb  %es:(%rdi),%ds:(%rsi)
+A700	1	cmpsl  %es:(%rdi),%ds:(%rsi)
+A800	2	test   $0x0,%al
+A900	5	test   $0x90909000,%eax
+AA00	1	stos   %al,%es:(%rdi)
+AB00	1	stos   %eax,%es:(%rdi)
+AC00	1	lods   %ds:(%rsi),%al
+AD00	1	lods   %ds:(%rsi),%eax
+AE00	1	scas   %es:(%rdi),%al
+AF00	1	scas   %es:(%rdi),%eax
+B000	2	mov    $0x0,%al
+B100	2	mov    $0x0,%cl
+B200	2	mov    $0x0,%dl
+B300	2	mov    $0x0,%bl
+B400	2	mov    $0x0,%ah
+B500	2	mov    $0x0,%ch
+B600	2	mov    $0x0,%dh
+B700	2	mov    $0x0,%bh
+B800	5	mov    $0x90909000,%eax
+B900	5	mov    $0x90909000,%ecx
+BA00	5	mov    $0x90909000,%edx
+BB00	5	mov    $0x90909000,%ebx
+BC00	5	mov    $0x90909000,%esp
+BD00	5	mov    $0x90909000,%ebp
+BE00	5	mov    $0x90909000,%esi
+BF00	5	mov    $0x90909000,%edi
+C000	3	rolb   $0x90,(%rax)
+C100	3	roll   $0x90,(%rax)
+C200	3	ret    $0x9000
+C300	1	ret
+C400	NONE	(bad)
+C500	NONE	(bad)
+C600	3	movb   $0x90,(%rax)
+C700	6	movl   $0x90909090,(%rax)
+C800	4	enter  $0x9000,$0x90
+C900	1	leave
+CA00	3	lret   $0x9000
+CB00	1	lret
+CC00	1	int3
+CD00	2	int    $0x0
+CE00	NONE	(bad)
+CF00	1	iret
+D000	2	rolb   $1,(%rax)
+D100	2	roll   $1,(%rax)
+D200	2	rolb   %cl,(%rax)
+D300	2	roll   %cl,(%rax)
+D400	NONE	(bad)
+D500	3	{rex2 0x0} nop
+D600	NONE	(bad)
+D700	1	xlat   %ds:(%rbx)
+D800	2	fadds  (%rax)
+D900	2	flds   (%rax)
+DA00	2	fiaddl (%rax)
+DB00	2	fildl  (%rax)
+DC00	2	faddl  (%rax)
+DD00	2	fldl   (%rax)
+DE00	2	fiadds (%rax)
+DF00	2	filds  (%rax)
+E000	2	loopne 0x2
+E100	2	loope  0x2
+E200	2	loop   0x2
+E300	2	jrcxz  0x2
+E400	2	in     $0x0,%al
+E500	2	in     $0x0,%eax
+E600	2	out    %al,$0x0
+E700	2	out    %eax,$0x0
+E800	5	call   0xffffffff90909005
+E900	5	jmp    0xffffffff90909005
+EA00	NONE	(bad)
+EB00	2	jmp    0x2
+EC00	1	in     (%dx),%al
+ED00	1	in     (%dx),%eax
+EE00	1	out    %al,(%dx)
+EF00	1	out    %eax,(%dx)
+F000	7	lock add %dl,-0x6f6f6f70(%rax)
+F100	1	int1
+F200	7	repnz add %dl,-0x6f6f6f70(%rax)
+F300	7	repz add %dl,-0x6f6f6f70(%rax)
+F400	1	hlt
+F500	1	cmc
+F600	3	testb  $0x90,(%rax)
+F700	6	testl  $0x90909090,(%rax)
+F800	1	clc
+F900	1	stc
+FA00	1	cli
+FB00	1	sti
+FC00	1	cld
+FD00	1	std
+FE00	2	incb   (%rax)
+FF00	2	incl   (%rax)
+0080	6	add    %al,-0x6f6f6f70(%rax)
+0180	6	add    %eax,-0x6f6f6f70(%rax)
+0280	6	add    -0x6f6f6f70(%rax),%al
+0380	6	add    -0x6f6f6f70(%rax),%eax
+0480	2	add    $0x80,%al
+0580	5	add    $0x90909080,%eax
+0680	NONE	(bad)
+0780	NONE	(bad)
+0880	6	or     %al,-0x6f6f6f70(%rax)
+0980	6	or     %eax,-0x6f6f6f70(%rax)
+0A80	6	or     -0x6f6f6f70(%rax),%al
+0B80	6	or     -0x6f6f6f70(%rax),%eax
+0C80	2	or     $0x80,%al
+0D80	5	or     $0x90909080,%eax
+0E80	NONE	(bad)
+0F80	6	jo     0xffffffff90909096
+1080	6	adc    %al,-0x6f6f6f70(%rax)
+1180	6	adc    %eax,-0x6f6f6f70(%rax)
+1280	6	adc    -0x6f6f6f70(%rax),%al
+1380	6	adc    -0x6f6f6f70(%rax),%eax
+1480	2	adc    $0x80,%al
+1580	5	adc    $0x90909080,%eax
+1680	NONE	(bad)
+1780	NONE	(bad)
+1880	6	sbb    %al,-0x6f6f6f70(%rax)
+1980	6	sbb    %eax,-0x6f6f6f70(%rax)
+1A80	6	sbb    -0x6f6f6f70(%rax),%al
+1B80	6	sbb    -0x6f6f6f70(%rax),%eax
+1C80	2	sbb    $0x80,%al
+1D80	5	sbb    $0x90909080,%eax
+1E80	NONE	(bad)
+1F80	NONE	(bad)
+2080	6	and    %al,-0x6f6f6f70(%rax)
+2180	6	and    %eax,-0x6f6f6f70(%rax)
+2280	6	and    -0x6f6f6f70(%rax),%al
+2380	6	and    -0x6f6f6f70(%rax),%eax
+2480	2	and    $0x80,%al
+2580	5	and    $0x90909080,%eax
+2680	8	es adcb $0x90,-0x6f6f6f70(%rax)
+2780	NONE	(bad)
+2880	6	sub    %al,-0x6f6f6f70(%rax)
+2980	6	sub    %eax,-0x6f6f6f70(%rax)
+2A80	6	sub    -0x6f6f6f70(%rax),%al
+2B80	6	sub    -0x6f6f6f70(%rax),%eax
+2C80	2	sub    $0x80,%al
+2D80	5	sub    $0x90909080,%eax
+2E80	8	cs adcb $0x90,-0x6f6f6f70(%rax)
+2F80	NONE	(bad)
+3080	6	xor    %al,-0x6f6f6f70(%rax)
+3180	6	xor    %eax,-0x6f6f6f70(%rax)
+3280	6	xor    -0x6f6f6f70(%rax),%al
+3380	6	xor    -0x6f6f6f70(%rax),%eax
+3480	2	xor    $0x80,%al
+3580	5	xor    $0x90909080,%eax
+3680	8	ss adcb $0x90,-0x6f6f6f70(%rax)
+3780	NONE	(bad)
+3880	6	cmp    %al,-0x6f6f6f70(%rax)
+3980	6	cmp    %eax,-0x6f6f6f70(%rax)
+3A80	6	cmp    -0x6f6f6f70(%rax),%al
+3B80	6	cmp    -0x6f6f6f70(%rax),%eax
+3C80	2	cmp    $0x80,%al
+3D80	5	cmp    $0x90909080,%eax
+3E80	8	ds adcb $0x90,-0x6f6f6f70(%rax)
+3F80	NONE	(bad)
+4080	8	rex adcb $0x90,-0x6f6f6f70(%rax)
+4180	8	adcb   $0x90,-0x6f6f6f70(%r8)
+4280	8	rex.X adcb $0x90,-0x6f6f6f70(%rax)
+4380	8	rex.XB adcb $0x90,-0x6f6f6f70(%r8)
+4480	8	rex.R adcb $0x90,-0x6f6f6f70(%rax)
+4580	8	rex.RB adcb $0x90,-0x6f6f6f70(%r8)
+4680	8	rex.RX adcb $0x90,-0x6f6f6f70(%rax)
+4780	8	rex.RXB adcb $0x90,-0x6f6f6f70(%r8)
+4880	8	rex.W adcb $0x90,-0x6f6f6f70(%rax)
+4980	8	rex.WB adcb $0x90,-0x6f6f6f70(%r8)
+4A80	8	rex.WX adcb $0x90,-0x6f6f6f70(%rax)
+4B80	8	rex.WXB adcb $0x90,-0x6f6f6f70(%r8)
+4C80	8	rex.WR adcb $0x90,-0x6f6f6f70(%rax)
+4D80	8	rex.WRB adcb $0x90,-0x6f6f6f70(%r8)
+4E80	8	rex.WRX adcb $0x90,-0x6f6f6f70(%rax)
+4F80	8	rex.WRXB adcb $0x90,-0x6f6f6f70(%r8)
+5080	1	push   %rax
+5180	1	push   %rcx
+5280	1	push   %rdx
+5380	1	push   %rbx
+5480	1	push   %rsp
+5580	1	push   %rbp
+5680	1	push   %rsi
+5780	1	push   %rdi
+5880	1	pop    %rax
+5980	1	pop    %rcx
+5A80	1	pop    %rdx
+5B80	1	pop    %rbx
+5C80	1	pop    %rsp
+5D80	1	pop    %rbp
+5E80	1	pop    %rsi
+5F80	1	pop    %rdi
+6080	NONE	(bad)
+6180	NONE	(bad)
+6280	NONE	(bad)
+6380	6	movsxd -0x6f6f6f70(%rax),%eax
+6480	8	adcb   $0x90,%fs:-0x6f6f6f70(%rax)
+6580	8	adcb   $0x90,%gs:-0x6f6f6f70(%rax)
+6680	8	data16 adcb $0x90,-0x6f6f6f70(%rax)
+6780	8	adcb   $0x90,-0x6f6f6f70(%eax)
+6880	5	push   $0xffffffff90909080
+6980	10	imul   $0x90909090,-0x6f6f6f70(%rax),%eax
+6A80	2	push   $0xffffffffffffff80
+6B80	7	imul   $0xffffff90,-0x6f6f6f70(%rax),%eax
+6C80	1	insb   (%dx),%es:(%rdi)
+6D80	1	insl   (%dx),%es:(%rdi)
+6E80	1	outsb  %ds:(%rsi),(%dx)
+6F80	1	outsl  %ds:(%rsi),(%dx)
+7080	2	jo     0xffffffffffffff82
+7180	2	jno    0xffffffffffffff82
+7280	2	jb     0xffffffffffffff82
+7380	2	jae    0xffffffffffffff82
+7480	2	je     0xffffffffffffff82
+7580	2	jne    0xffffffffffffff82
+7680	2	jbe    0xffffffffffffff82
+7780	2	ja     0xffffffffffffff82
+7880	2	js     0xffffffffffffff82
+7980	2	jns    0xffffffffffffff82
+7A80	2	jp     0xffffffffffffff82
+7B80	2	jnp    0xffffffffffffff82
+7C80	2	jl     0xffffffffffffff82
+7D80	2	jge    0xffffffffffffff82
+7E80	2	jle    0xffffffffffffff82
+7F80	2	jg     0xffffffffffffff82
+8080	7	addb   $0x90,-0x6f6f6f70(%rax)
+8180	10	addl   $0x90909090,-0x6f6f6f70(%rax)
+8280	NONE	(bad)
+8380	7	addl   $0xffffff90,-0x6f6f6f70(%rax)
+8480	6	test   %al,-0x6f6f6f70(%rax)
+8580	6	test   %eax,-0x6f6f6f70(%rax)
+8680	6	xchg   %al,-0x6f6f6f70(%rax)
+8780	6	xchg   %eax,-0x6f6f6f70(%rax)
+8880	6	mov    %al,-0x6f6f6f70(%rax)
+8980	6	mov    %eax,-0x6f6f6f70(%rax)
+8A80	6	mov    -0x6f6f6f70(%rax),%al
+8B80	6	mov    -0x6f6f6f70(%rax),%eax
+8C80	6	mov    %es,-0x6f6f6f70(%rax)
+8D80	6	lea    -0x6f6f6f70(%rax),%eax
+8E80	6	mov    -0x6f6f6f70(%rax),%es
+8F80	6	pop    -0x6f6f6f70(%rax)
+9080	1	nop
+9180	1	xchg   %eax,%ecx
+9280	1	xchg   %eax,%edx
+9380	1	xchg   %eax,%ebx
+9480	1	xchg   %eax,%esp
+9580	1	xchg   %eax,%ebp
+9680	1	xchg   %eax,%esi
+9780	1	xchg   %eax,%edi
+9880	1	cwtl
+9980	1	cltd
+9A80	NONE	(bad)
+9B80	1	fwait
+9C80	1	pushf
+9D80	1	popf
+9E80	1	sahf
+9F80	1	lahf
+A080	9	movabs 0x9090909090909080,%al
+A180	9	movabs 0x9090909090909080,%eax
+A280	9	movabs %al,0x9090909090909080
+A380	9	movabs %eax,0x9090909090909080
+A480	1	movsb  %ds:(%rsi),%es:(%rdi)
+A580	1	movsl  %ds:(%rsi),%es:(%rdi)
+A680	1	cmpsb  %es:(%rdi),%ds:(%rsi)
+A780	1	cmpsl  %es:(%rdi),%ds:(%rsi)
+A880	2	test   $0x80,%al
+A980	5	test   $0x90909080,%eax
+AA80	1	stos   %al,%es:(%rdi)
+AB80	1	stos   %eax,%es:(%rdi)
+AC80	1	lods   %ds:(%rsi),%al
+AD80	1	lods   %ds:(%rsi),%eax
+AE80	1	scas   %es:(%rdi),%al
+AF80	1	scas   %es:(%rdi),%eax
+B080	2	mov    $0x80,%al
+B180	2	mov    $0x80,%cl
+B280	2	mov    $0x80,%dl
+B380	2	mov    $0x80,%bl
+B480	2	mov    $0x80,%ah
+B580	2	mov    $0x80,%ch
+B680	2	mov    $0x80,%dh
+B780	2	mov    $0x80,%bh
+B880	5	mov    $0x90909080,%eax
+B980	5	mov    $0x90909080,%ecx
+BA80	5	mov    $0x90909080,%edx
+BB80	5	mov    $0x90909080,%ebx
+BC80	5	mov    $0x90909080,%esp
+BD80	5	mov    $0x90909080,%ebp
+BE80	5	mov    $0x90909080,%esi
+BF80	5	mov    $0x90909080,%edi
+C080	7	rolb   $0x90,-0x6f6f6f70(%rax)
+C180	7	roll   $0x90,-0x6f6f6f70(%rax)
+C280	3	ret    $0x9080
+C380	1	ret
+C480	NONE	(bad)
+C580	NONE	(bad)
+C680	7	movb   $0x90,-0x6f6f6f70(%rax)
+C780	10	movl   $0x90909090,-0x6f6f6f70(%rax)
+C880	4	enter  $0x9080,$0x90
+C980	1	leave
+CA80	3	lret   $0x9080
+CB80	1	lret
+CC80	1	int3
+CD80	2	int    $0x80
+CE80	NONE	(bad)
+CF80	1	iret
+D080	6	rolb   $1,-0x6f6f6f70(%rax)
+D180	6	roll   $1,-0x6f6f6f70(%rax)
+D280	6	rolb   %cl,-0x6f6f6f70(%rax)
+D380	6	roll   %cl,-0x6f6f6f70(%rax)
+D480	NONE	(bad)
+D580	8	{rex2 0x80} seto -0x6f6f6f70(%rax)
+D680	NONE	(bad)
+D780	1	xlat   %ds:(%rbx)
+D880	6	fadds  -0x6f6f6f70(%rax)
+D980	6	flds   -0x6f6f6f70(%rax)
+DA80	6	fiaddl -0x6f6f6f70(%rax)
+DB80	6	fildl  -0x6f6f6f70(%rax)
+DC80	6	faddl  -0x6f6f6f70(%rax)
+DD80	6	fldl   -0x6f6f6f70(%rax)
+DE80	6	fiadds -0x6f6f6f70(%rax)
+DF80	6	filds  -0x6f6f6f70(%rax)
+E080	2	loopne 0xffffffffffffff82
+E180	2	loope  0xffffffffffffff82
+E280	2	loop   0xffffffffffffff82
+E380	2	jrcxz  0xffffffffffffff82
+E480	2	in     $0x80,%al
+E580	2	in     $0x80,%eax
+E680	2	out    %al,$0x80
+E780	2	out    %eax,$0x80
+E880	5	call   0xffffffff90909085
+E980	5	jmp    0xffffffff90909085
+EA80	NONE	(bad)
+EB80	2	jmp    0xffffffffffffff82
+EC80	1	in     (%dx),%al
+ED80	1	in     (%dx),%eax
+EE80	1	out    %al,(%dx)
+EF80	1	out    %eax,(%dx)
+F080	8	lock adcb $0x90,-0x6f6f6f70(%rax)
+F180	1	int1
+F280	8	repnz adcb $0x90,-0x6f6f6f70(%rax)
+F380	8	repz adcb $0x90,-0x6f6f6f70(%rax)
+F480	1	hlt
+F580	1	cmc
+F680	7	testb  $0x90,-0x6f6f6f70(%rax)
+F780	10	testl  $0x90909090,-0x6f6f6f70(%rax)
+F880	1	clc
+F980	1	stc
+FA80	1	cli
+FB80	1	sti
+FC80	1	cld
+FD80	1	std
+FE80	6	incb   -0x6f6f6f70(%rax)
+FF80	6	incl   -0x6f6f6f70(%rax)
+660000	3	data16 add %al,(%rax)
+660100	3	add    %ax,(%rax)
+660200	3	data16 add (%rax),%al
+660300	3	add    (%rax),%ax
+660400	3	data16 add $0x0,%al
+660500	4	add    $0x9000,%ax
+660600	NONE	data16 (bad)
+660700	NONE	data16 (bad)
+660800	3	data16 or %al,(%rax)
+660900	3	or     %ax,(%rax)
+660A00	3	data16 or (%rax),%al
+660B00	3	or     (%rax),%ax
+660C00	3	data16 or $0x0,%al
+660D00	4	or     $0x9000,%ax
+660E00	NONE	data16 (bad)
+660F00	8	data16 lldt -0x6f6f6f70(%rax)
+661000	3	data16 adc %al,(%rax)
+661100	3	adc    %ax,(%rax)
+661200	3	data16 adc (%rax),%al
+661300	3	adc    (%rax),%ax
+661400	3	data16 adc $0x0,%al
+661500	4	adc    $0x9000,%ax
+661600	NONE	data16 (bad)
+661700	NONE	data16 (bad)
+661800	3	data16 sbb %al,(%rax)
+661900	3	sbb    %ax,(%rax)
+661A00	3	data16 sbb (%rax),%al
+661B00	3	sbb    (%rax),%ax
+661C00	3	data16 sbb $0x0,%al
+661D00	4	sbb    $0x9000,%ax
+661E00	NONE	data16 (bad)
+661F00	NONE	data16 (bad)
+662000	3	data16 and %al,(%rax)
+662100	3	and    %ax,(%rax)
+662200	3	data16 and (%rax),%al
+662300	3	and    (%rax),%ax
+662400	3	data16 and $0x0,%al
+662500	4	and    $0x9000,%ax
+662600	8	data16 es add %dl,-0x6f6f6f70(%rax)
+662700	NONE	data16 (bad)
+662800	3	data16 sub %al,(%rax)
+662900	3	sub    %ax,(%rax)
+662A00	3	data16 sub (%rax),%al
+662B00	3	sub    (%rax),%ax
+662C00	3	data16 sub $0x0,%al
+662D00	4	sub    $0x9000,%ax
+662E00	8	data16 cs add %dl,-0x6f6f6f70(%rax)
+662F00	NONE	data16 (bad)
+663000	3	data16 xor %al,(%rax)
+663100	3	xor    %ax,(%rax)
+663200	3	data16 xor (%rax),%al
+663300	3	xor    (%rax),%ax
+663400	3	data16 xor $0x0,%al
+663500	4	xor    $0x9000,%ax
+663600	8	data16 ss add %dl,-0x6f6f6f70(%rax)
+663700	NONE	data16 (bad)
+663800	3	data16 cmp %al,(%rax)
+663900	3	cmp    %ax,(%rax)
+663A00	3	data16 cmp (%rax),%al
+663B00	3	cmp    (%rax),%ax
+663C00	3	data16 cmp $0x0,%al
+663D00	4	cmp    $0x9000,%ax
+663E00	8	data16 ds add %dl,-0x6f6f6f70(%rax)
+663F00	NONE	data16 (bad)
+664000	8	data16 rex add %dl,-0x6f6f6f70(%rax)
+664100	8	data16 add %dl,-0x6f6f6f70(%r8)
+664200	8	data16 rex.X add %dl,-0x6f6f6f70(%rax)
+664300	8	data16 rex.XB add %dl,-0x6f6f6f70(%r8)
+664400	8	data16 add %r10b,-0x6f6f6f70(%rax)
+664500	8	data16 add %r10b,-0x6f6f6f70(%r8)
+664600	8	data16 rex.RX add %r10b,-0x6f6f6f70(%rax)
+664700	8	data16 rex.RXB add %r10b,-0x6f6f6f70(%r8)
+664800	8	data16 rex.W add %dl,-0x6f6f6f70(%rax)
+664900	8	data16 rex.WB add %dl,-0x6f6f6f70(%r8)
+664A00	8	data16 rex.WX add %dl,-0x6f6f6f70(%rax)
+664B00	8	data16 rex.WXB add %dl,-0x6f6f6f70(%r8)
+664C00	8	data16 rex.WR add %r10b,-0x6f6f6f70(%rax)
+664D00	8	data16 rex.WRB add %r10b,-0x6f6f6f70(%r8)
+664E00	8	data16 rex.WRX add %r10b,-0x6f6f6f70(%rax)
+664F00	8	data16 rex.WRXB add %r10b,-0x6f6f6f70(%r8)
+665000	2	push   %ax
+665100	2	push   %cx
+665200	2	push   %dx
+665300	2	push   %bx
+665400	2	push   %sp
+665500	2	push   %bp
+665600	2	push   %si
+665700	2	push   %di
+665800	2	pop    %ax
+665900	2	pop    %cx
+665A00	2	pop    %dx
+665B00	2	pop    %bx
+665C00	2	pop    %sp
+665D00	2	pop    %bp
+665E00	2	pop    %si
+665F00	2	pop    %di
+666000	NONE	data16 (bad)
+666100	NONE	data16 (bad)
+666200	NONE	data16 (bad)
+666300	3	movsxd (%rax),%ax
+666400	8	data16 add %dl,%fs:-0x6f6f6f70(%rax)
+666500	8	data16 add %dl,%gs:-0x6f6f6f70(%rax)
+666600	8	data16 data16 add %dl,-0x6f6f6f70(%rax)
+666700	8	data16 add %dl,-0x6f6f6f70(%eax)
+666800	4	pushw  $0x9000
+666900	5	imul   $0x9090,(%rax),%ax
+666A00	3	pushw  $0x0
+666B00	4	imul   $0xff90,(%rax),%ax
+666C00	2	data16 insb (%dx),%es:(%rdi)
+666D00	2	insw   (%dx),%es:(%rdi)
+666E00	2	data16 outsb %ds:(%rsi),(%dx)
+666F00	2	outsw  %ds:(%rsi),(%dx)
+667000	3	data16 jo 0x3
+667100	3	data16 jno 0x3
+667200	3	data16 jb 0x3
+667300	3	data16 jae 0x3
+667400	3	data16 je 0x3
+667500	3	data16 jne 0x3
+667600	3	data16 jbe 0x3
+667700	3	data16 ja 0x3
+667800	3	data16 js 0x3
+667900	3	data16 jns 0x3
+667A00	3	data16 jp 0x3
+667B00	3	data16 jnp 0x3
+667C00	3	data16 jl 0x3
+667D00	3	data16 jge 0x3
+667E00	3	data16 jle 0x3
+667F00	3	data16 jg 0x3
+668000	4	data16 addb $0x90,(%rax)
+668100	5	addw   $0x9090,(%rax)
+668200	NONE	data16 (bad)
+668300	4	addw   $0xff90,(%rax)
+668400	3	data16 test %al,(%rax)
+668500	3	test   %ax,(%rax)
+668600	3	data16 xchg %al,(%rax)
+668700	3	xchg   %ax,(%rax)
+668800	3	data16 mov %al,(%rax)
+668900	3	mov    %ax,(%rax)
+668A00	3	data16 mov (%rax),%al
+668B00	3	mov    (%rax),%ax
+668C00	3	data16 mov %es,(%rax)
+668D00	3	lea    (%rax),%ax
+668E00	3	data16 mov (%rax),%es
+668F00	3	popw   (%rax)
+669000	2	xchg   %ax,%ax
+669100	2	xchg   %ax,%cx
+669200	2	xchg   %ax,%dx
+669300	2	xchg   %ax,%bx
+669400	2	xchg   %ax,%sp
+669500	2	xchg   %ax,%bp
+669600	2	xchg   %ax,%si
+669700	2	xchg   %ax,%di
+669800	2	cbtw
+669900	2	cwtd
+669A00	NONE	data16 (bad)
+669B00	2	data16 fwait
+669C00	2	pushfw
+669D00	2	popfw
+669E00	2	data16 sahf
+669F00	2	data16 lahf
+66A000	10	data16 movabs 0x9090909090909000,%al
+66A100	10	movabs 0x9090909090909000,%ax
+66A200	10	data16 movabs %al,0x9090909090909000
+66A300	10	movabs %ax,0x9090909090909000
+66A400	2	data16 movsb %ds:(%rsi),%es:(%rdi)
+66A500	2	movsw  %ds:(%rsi),%es:(%rdi)
+66A600	2	data16 cmpsb %es:(%rdi),%ds:(%rsi)
+66A700	2	cmpsw  %es:(%rdi),%ds:(%rsi)
+66A800	3	data16 test $0x0,%al
+66A900	4	test   $0x9000,%ax
+66AA00	2	data16 stos %al,%es:(%rdi)
+66AB00	2	stos   %ax,%es:(%rdi)
+66AC00	2	data16 lods %ds:(%rsi),%al
+66AD00	2	lods   %ds:(%rsi),%ax
+66AE00	2	data16 scas %es:(%rdi),%al
+66AF00	2	scas   %es:(%rdi),%ax
+66B000	3	data16 mov $0x0,%al
+66B100	3	data16 mov $0x0,%cl
+66B200	3	data16 mov $0x0,%dl
+66B300	3	data16 mov $0x0,%bl
+66B400	3	data16 mov $0x0,%ah
+66B500	3	data16 mov $0x0,%ch
+66B600	3	data16 mov $0x0,%dh
+66B700	3	data16 mov $0x0,%bh
+66B800	4	mov    $0x9000,%ax
+66B900	4	mov    $0x9000,%cx
+66BA00	4	mov    $0x9000,%dx
+66BB00	4	mov    $0x9000,%bx
+66BC00	4	mov    $0x9000,%sp
+66BD00	4	mov    $0x9000,%bp
+66BE00	4	mov    $0x9000,%si
+66BF00	4	mov    $0x9000,%di
+66C000	4	data16 rolb $0x90,(%rax)
+66C100	4	rolw   $0x90,(%rax)
+66C200	4	retw   $0x9000
+66C300	2	retw
+66C400	NONE	data16 (bad)
+66C500	NONE	(bad)
+66C600	4	data16 movb $0x90,(%rax)
+66C700	5	movw   $0x9090,(%rax)
+66C800	5	enterw $0x9000,$0x90
+66C900	2	leavew
+66CA00	4	lretw  $0x9000
+66CB00	2	lretw
+66CC00	2	data16 int3
+66CD00	3	data16 int $0x0
+66CE00	NONE	data16 (bad)
+66CF00	2	iretw
+66D000	3	data16 rolb $1,(%rax)
+66D100	3	rolw   $1,(%rax)
+66D200	3	data16 rolb %cl,(%rax)
+66D300	3	rolw   %cl,(%rax)
+66D400	NONE	data16 (bad)
+66D500	4	{rex2 0x0} xchg %ax,%ax
+66D600	NONE	data16 (bad)
+66D700	2	data16 xlat %ds:(%rbx)
+66D800	3	data16 fadds (%rax)
+66D900	3	data16 flds (%rax)
+66DA00	3	data16 fiaddl (%rax)
+66DB00	3	data16 fildl (%rax)
+66DC00	3	data16 faddl (%rax)
+66DD00	3	data16 fldl (%rax)
+66DE00	3	data16 fiadds (%rax)
+66DF00	3	data16 filds (%rax)
+66E000	3	data16 loopne 0x3
+66E100	3	data16 loope 0x3
+66E200	3	data16 loop 0x3
+66E300	3	data16 jrcxz 0x3
+66E400	3	data16 in $0x0,%al
+66E500	3	in     $0x0,%ax
+66E600	3	data16 out %al,$0x0
+66E700	3	out    %ax,$0x0
+66E800	4	callw  0x9004
+66E900	4	jmpw   0x9004
+66EA00	NONE	data16 (bad)
+66EB00	3	data16 jmp 0x3
+66EC00	2	data16 in (%dx),%al
+66ED00	2	in     (%dx),%ax
+66EE00	2	data16 out %al,(%dx)
+66EF00	2	out    %ax,(%dx)
+66F000	8	data16 lock add %dl,-0x6f6f6f70(%rax)
+66F100	2	data16 int1
+66F200	8	data16 repnz add %dl,-0x6f6f6f70(%rax)
+66F300	8	data16 repz add %dl,-0x6f6f6f70(%rax)
+66F400	2	data16 hlt
+66F500	2	data16 cmc
+66F600	4	data16 testb $0x90,(%rax)
+66F700	5	testw  $0x9090,(%rax)
+66F800	2	data16 clc
+66F900	2	data16 stc
+66FA00	2	data16 cli
+66FB00	2	data16 sti
+66FC00	2	data16 cld
+66FD00	2	data16 std
+66FE00	3	data16 incb (%rax)
+66FF00	3	incw   (%rax)
+660080	7	data16 add %al,-0x6f6f6f70(%rax)
+660180	7	add    %ax,-0x6f6f6f70(%rax)
+660280	7	data16 add -0x6f6f6f70(%rax),%al
+660380	7	add    -0x6f6f6f70(%rax),%ax
+660480	3	data16 add $0x80,%al
+660580	4	add    $0x9080,%ax
+660680	NONE	data16 (bad)
+660780	NONE	data16 (bad)
+660880	7	data16 or %al,-0x6f6f6f70(%rax)
+660980	7	or     %ax,-0x6f6f6f70(%rax)
+660A80	7	data16 or -0x6f6f6f70(%rax),%al
+660B80	7	or     -0x6f6f6f70(%rax),%ax
+660C80	3	data16 or $0x80,%al
+660D80	4	or     $0x9080,%ax
+660E80	NONE	data16 (bad)
+660F80	5	jo     0x9095
+661080	7	data16 adc %al,-0x6f6f6f70(%rax)
+661180	7	adc    %ax,-0x6f6f6f70(%rax)
+661280	7	data16 adc -0x6f6f6f70(%rax),%al
+661380	7	adc    -0x6f6f6f70(%rax),%ax
+661480	3	data16 adc $0x80,%al
+661580	4	adc    $0x9080,%ax
+661680	NONE	data16 (bad)
+661780	NONE	data16 (bad)
+661880	7	data16 sbb %al,-0x6f6f6f70(%rax)
+661980	7	sbb    %ax,-0x6f6f6f70(%rax)
+661A80	7	data16 sbb -0x6f6f6f70(%rax),%al
+661B80	7	sbb    -0x6f6f6f70(%rax),%ax
+661C80	3	data16 sbb $0x80,%al
+661D80	4	sbb    $0x9080,%ax
+661E80	NONE	data16 (bad)
+661F80	NONE	data16 (bad)
+662080	7	data16 and %al,-0x6f6f6f70(%rax)
+662180	7	and    %ax,-0x6f6f6f70(%rax)
+662280	7	data16 and -0x6f6f6f70(%rax),%al
+662380	7	and    -0x6f6f6f70(%rax),%ax
+662480	3	data16 and $0x80,%al
+662580	4	and    $0x9080,%ax
+662680	9	data16 es adcb $0x90,-0x6f6f6f70(%rax)
+662780	NONE	data16 (bad)
+662880	7	data16 sub %al,-0x6f6f6f70(%rax)
+662980	7	sub    %ax,-0x6f6f6f70(%rax)
+662A80	7	data16 sub -0x6f6f6f70(%rax),%al
+662B80	7	sub    -0x6f6f6f70(%rax),%ax
+662C80	3	data16 sub $0x80,%al
+662D80	4	sub    $0x9080,%ax
+662E80	9	data16 cs adcb $0x90,-0x6f6f6f70(%rax)
+662F80	NONE	data16 (bad)
+663080	7	data16 xor %al,-0x6f6f6f70(%rax)
+663180	7	xor    %ax,-0x6f6f6f70(%rax)
+663280	7	data16 xor -0x6f6f6f70(%rax),%al
+663380	7	xor    -0x6f6f6f70(%rax),%ax
+663480	3	data16 xor $0x80,%al
+663580	4	xor    $0x9080,%ax
+663680	9	data16 ss adcb $0x90,-0x6f6f6f70(%rax)
+663780	NONE	data16 (bad)
+663880	7	data16 cmp %al,-0x6f6f6f70(%rax)
+663980	7	cmp    %ax,-0x6f6f6f70(%rax)
+663A80	7	data16 cmp -0x6f6f6f70(%rax),%al
+663B80	7	cmp    -0x6f6f6f70(%rax),%ax
+663C80	3	data16 cmp $0x80,%al
+663D80	4	cmp    $0x9080,%ax
+663E80	9	data16 ds adcb $0x90,-0x6f6f6f70(%rax)
+663F80	NONE	data16 (bad)
+664080	9	data16 rex adcb $0x90,-0x6f6f6f70(%rax)
+664180	9	data16 adcb $0x90,-0x6f6f6f70(%r8)
+664280	9	data16 rex.X adcb $0x90,-0x6f6f6f70(%rax)
+664380	9	data16 rex.XB adcb $0x90,-0x6f6f6f70(%r8)
+664480	9	data16 rex.R adcb $0x90,-0x6f6f6f70(%rax)
+664580	9	data16 rex.RB adcb $0x90,-0x6f6f6f70(%r8)
+664680	9	data16 rex.RX adcb $0x90,-0x6f6f6f70(%rax)
+664780	9	data16 rex.RXB adcb $0x90,-0x6f6f6f70(%r8)
+664880	9	data16 rex.W adcb $0x90,-0x6f6f6f70(%rax)
+664980	9	data16 rex.WB adcb $0x90,-0x6f6f6f70(%r8)
+664A80	9	data16 rex.WX adcb $0x90,-0x6f6f6f70(%rax)
+664B80	9	data16 rex.WXB adcb $0x90,-0x6f6f6f70(%r8)
+664C80	9	data16 rex.WR adcb $0x90,-0x6f6f6f70(%rax)
+664D80	9	data16 rex.WRB adcb $0x90,-0x6f6f6f70(%r8)
+664E80	9	data16 rex.WRX adcb $0x90,-0x6f6f6f70(%rax)
+664F80	9	data16 rex.WRXB adcb $0x90,-0x6f6f6f70(%r8)
+665080	2	push   %ax
+665180	2	push   %cx
+665280	2	push   %dx
+665380	2	push   %bx
+665480	2	push   %sp
+665580	2	push   %bp
+665680	2	push   %si
+665780	2	push   %di
+665880	2	pop    %ax
+665980	2	pop    %cx
+665A80	2	pop    %dx
+665B80	2	pop    %bx
+665C80	2	pop    %sp
+665D80	2	pop    %bp
+665E80	2	pop    %si
+665F80	2	pop    %di
+666080	NONE	data16 (bad)
+666180	NONE	data16 (bad)
+666280	NONE	data16 (bad)
+666380	7	movsxd -0x6f6f6f70(%rax),%ax
+666480	9	data16 adcb $0x90,%fs:-0x6f6f6f70(%rax)
+666580	9	data16 adcb $0x90,%gs:-0x6f6f6f70(%rax)
+666680	9	data16 data16 adcb $0x90,-0x6f6f6f70(%rax)
+666780	9	data16 adcb $0x90,-0x6f6f6f70(%eax)
+666880	4	pushw  $0x9080
+666980	9	imul   $0x9090,-0x6f6f6f70(%rax),%ax
+666A80	3	pushw  $0xff80
+666B80	8	imul   $0xff90,-0x6f6f6f70(%rax),%ax
+666C80	2	data16 insb (%dx),%es:(%rdi)
+666D80	2	insw   (%dx),%es:(%rdi)
+666E80	2	data16 outsb %ds:(%rsi),(%dx)
+666F80	2	outsw  %ds:(%rsi),(%dx)
+667080	3	data16 jo 0xffffffffffffff83
+667180	3	data16 jno 0xffffffffffffff83
+667280	3	data16 jb 0xffffffffffffff83
+667380	3	data16 jae 0xffffffffffffff83
+667480	3	data16 je 0xffffffffffffff83
+667580	3	data16 jne 0xffffffffffffff83
+667680	3	data16 jbe 0xffffffffffffff83
+667780	3	data16 ja 0xffffffffffffff83
+667880	3	data16 js 0xffffffffffffff83
+667980	3	data16 jns 0xffffffffffffff83
+667A80	3	data16 jp 0xffffffffffffff83
+667B80	3	data16 jnp 0xffffffffffffff83
+667C80	3	data16 jl 0xffffffffffffff83
+667D80	3	data16 jge 0xffffffffffffff83
+667E80	3	data16 jle 0xffffffffffffff83
+667F80	3	data16 jg 0xffffffffffffff83
+668080	8	data16 addb $0x90,-0x6f6f6f70(%rax)
+668180	9	addw   $0x9090,-0x6f6f6f70(%rax)
+668280	NONE	data16 (bad)
+668380	8	addw   $0xff90,-0x6f6f6f70(%rax)
+668480	7	data16 test %al,-0x6f6f6f70(%rax)
+668580	7	test   %ax,-0x6f6f6f70(%rax)
+668680	7	data16 xchg %al,-0x6f6f6f70(%rax)
+668780	7	xchg   %ax,-0x6f6f6f70(%rax)
+668880	7	data16 mov %al,-0x6f6f6f70(%rax)
+668980	7	mov    %ax,-0x6f6f6f70(%rax)
+668A80	7	data16 mov -0x6f6f6f70(%rax),%al
+668B80	7	mov    -0x6f6f6f70(%rax),%ax
+668C80	7	data16 mov %es,-0x6f6f6f70(%rax)
+668D80	7	lea    -0x6f6f6f70(%rax),%ax
+668E80	7	data16 mov -0x6f6f6f70(%rax),%es
+668F80	7	popw   -0x6f6f6f70(%rax)
+669080	2	xchg   %ax,%ax
+669180	2	xchg   %ax,%cx
+669280	2	xchg   %ax,%dx
+669380	2	xchg   %ax,%bx
+669480	2	xchg   %ax,%sp
+669580	2	xchg   %ax,%bp
+669680	2	xchg   %ax,%si
+669780	2	xchg   %ax,%di
+669880	2	cbtw
+669980	2	cwtd
+669A80	NONE	data16 (bad)
+669B80	2	data16 fwait
+669C80	2	pushfw
+669D80	2	popfw
+669E80	2	data16 sahf
+669F80	2	data16 lahf
+66A080	10	data16 movabs 0x9090909090909080,%al
+66A180	10	movabs 0x9090909090909080,%ax
+66A280	10	data16 movabs %al,0x9090909090909080
+66A380	10	movabs %ax,0x9090909090909080
+66A480	2	data16 movsb %ds:(%rsi),%es:(%rdi)
+66A580	2	movsw  %ds:(%rsi),%es:(%rdi)
+66A680	2	data16 cmpsb %es:(%rdi),%ds:(%rsi)
+66A780	2	cmpsw  %es:(%rdi),%ds:(%rsi)
+66A880	3	data16 test $0x80,%al
+66A980	4	test   $0x9080,%ax
+66AA80	2	data16 stos %al,%es:(%rdi)
+66AB80	2	stos   %ax,%es:(%rdi)
+66AC80	2	data16 lods %ds:(%rsi),%al
+66AD80	2	lods   %ds:(%rsi),%ax
+66AE80	2	data16 scas %es:(%rdi),%al
+66AF80	2	scas   %es:(%rdi),%ax
+66B080	3	data16 mov $0x80,%al
+66B180	3	data16 mov $0x80,%cl
+66B280	3	data16 mov $0x80,%dl
+66B380	3	data16 mov $0x80,%bl
+66B480	3	data16 mov $0x80,%ah
+66B580	3	data16 mov $0x80,%ch
+66B680	3	data16 mov $0x80,%dh
+66B780	3	data16 mov $0x80,%bh
+66B880	4	mov    $0x9080,%ax
+66B980	4	mov    $0x9080,%cx
+66BA80	4	mov    $0x9080,%dx
+66BB80	4	mov    $0x9080,%bx
+66BC80	4	mov    $0x9080,%sp
+66BD80	4	mov    $0x9080,%bp
+66BE80	4	mov    $0x9080,%si
+66BF80	4	mov    $0x9080,%di
+66C080	8	data16 rolb $0x90,-0x6f6f6f70(%rax)
+66C180	8	rolw   $0x90,-0x6f6f6f70(%rax)
+66C280	4	retw   $0x9080
+66C380	2	retw
+66C480	NONE	data16 (bad)
+66C580	NONE	(bad)
+66C680	8	data16 movb $0x90,-0x6f6f6f70(%rax)
+66C780	9	movw   $0x9090,-0x6f6f6f70(%rax)
+66C880	5	enterw $0x9080,$0x90
+66C980	2	leavew
+66CA80	4	lretw  $0x9080
+66CB80	2	lretw
+66CC80	2	data16 int3
+66CD80	3	data16 int $0x80
+66CE80	NONE	data16 (bad)
+66CF80	2	iretw
+66D080	7	data16 rolb $1,-0x6f6f6f70(%rax)
+66D180	7	rolw   $1,-0x6f6f6f70(%rax)
+66D280	7	data16 rolb %cl,-0x6f6f6f70(%rax)
+66D380	7	rolw   %cl,-0x6f6f6f70(%rax)
+66D480	NONE	data16 (bad)
+66D580	9	data16 {rex2 0x80} seto -0x6f6f6f70(%rax)
+66D680	NONE	data16 (bad)
+66D780	2	data16 xlat %ds:(%rbx)
+66D880	7	data16 fadds -0x6f6f6f70(%rax)
+66D980	7	data16 flds -0x6f6f6f70(%rax)
+66DA80	7	data16 fiaddl -0x6f6f6f70(%rax)
+66DB80	7	data16 fildl -0x6f6f6f70(%rax)
+66DC80	7	data16 faddl -0x6f6f6f70(%rax)
+66DD80	7	data16 fldl -0x6f6f6f70(%rax)
+66DE80	7	data16 fiadds -0x6f6f6f70(%rax)
+66DF80	7	data16 filds -0x6f6f6f70(%rax)
+66E080	3	data16 loopne 0xffffffffffffff83
+66E180	3	data16 loope 0xffffffffffffff83
+66E280	3	data16 loop 0xffffffffffffff83
+66E380	3	data16 jrcxz 0xffffffffffffff83
+66E480	3	data16 in $0x80,%al
+66E580	3	in     $0x80,%ax
+66E680	3	data16 out %al,$0x80
+66E780	3	out    %ax,$0x80
+66E880	4	callw  0x9084
+66E980	4	jmpw   0x9084
+66EA80	NONE	data16 (bad)
+66EB80	3	data16 jmp 0xffffffffffffff83
+66EC80	2	data16 in (%dx),%al
+66ED80	2	in     (%dx),%ax
+66EE80	2	data16 out %al,(%dx)
+66EF80	2	out    %ax,(%dx)
+66F080	9	data16 lock adcb $0x90,-0x6f6f6f70(%rax)
+66F180	2	data16 int1
+66F280	9	data16 repnz adcb $0x90,-0x6f6f6f70(%rax)
+66F380	9	data16 repz adcb $0x90,-0x6f6f6f70(%rax)
+66F480	2	data16 hlt
+66F580	2	data16 cmc
+66F680	8	data16 testb $0x90,-0x6f6f6f70(%rax)
+66F780	9	testw  $0x9090,-0x6f6f6f70(%rax)
+66F880	2	data16 clc
+66F980	2	data16 stc
+66FA80	2	data16 cli
+66FB80	2	data16 sti
+66FC80	2	data16 cld
+66FD80	2	data16 std
+66FE80	7	data16 incb -0x6f6f6f70(%rax)
+66FF80	7	incw   -0x6f6f6f70(%rax)
+480000	3	rex.W add %al,(%rax)
+480100	3	add    %rax,(%rax)
+480200	3	rex.W add (%rax),%al
+480300	3	add    (%rax),%rax
+480400	3	rex.W add $0x0,%al
+480500	6	add    $0xffffffff90909000,%rax
+480600	NONE	rex.W (bad)
+480700	NONE	rex.W (bad)
+480800	3	rex.W or %al,(%rax)
+480900	3	or     %rax,(%rax)
+480A00	3	rex.W or (%rax),%al
+480B00	3	or     (%rax),%rax
+480C00	3	rex.W or $0x0,%al
+480D00	6	or     $0xffffffff90909000,%rax
+480E00	NONE	rex.W (bad)
+480F00	8	rex.W lldt -0x6f6f6f70(%rax)
+481000	3	rex.W adc %al,(%rax)
+481100	3	adc    %rax,(%rax)
+481200	3	rex.W adc (%rax),%al
+481300	3	adc    (%rax),%rax
+481400	3	rex.W adc $0x0,%al
+481500	6	adc    $0xffffffff90909000,%rax
+481600	NONE	rex.W (bad)
+481700	NONE	rex.W (bad)
+481800	3	rex.W sbb %al,(%rax)
+481900	3	sbb    %rax,(%rax)
+481A00	3	rex.W sbb (%rax),%al
+481B00	3	sbb    (%rax),%rax
+481C00	3	rex.W sbb $0x0,%al
+481D00	6	sbb    $0xffffffff90909000,%rax
+481E00	NONE	rex.W (bad)
+481F00	NONE	rex.W (bad)
+482000	3	rex.W and %al,(%rax)
+482100	3	and    %rax,(%rax)
+482200	3	rex.W and (%rax),%al
+482300	3	and    (%rax),%rax
+482400	3	rex.W and $0x0,%al
+482500	6	and    $0xffffffff90909000,%rax
+482600	NONE	rex.W
+482700	NONE	rex.W (bad)
+482800	3	rex.W sub %al,(%rax)
+482900	3	sub    %rax,(%rax)
+482A00	3	rex.W sub (%rax),%al
+482B00	3	sub    (%rax),%rax
+482C00	3	rex.W sub $0x0,%al
+482D00	6	sub    $0xffffffff90909000,%rax
+482E00	NONE	rex.W
+482F00	NONE	rex.W (bad)
+483000	3	rex.W xor %al,(%rax)
+483100	3	xor    %rax,(%rax)
+483200	3	rex.W xor (%rax),%al
+483300	3	xor    (%rax),%rax
+483400	3	rex.W xor $0x0,%al
+483500	6	xor    $0xffffffff90909000,%rax
+483600	NONE	rex.W
+483700	NONE	rex.W (bad)
+483800	3	rex.W cmp %al,(%rax)
+483900	3	cmp    %rax,(%rax)
+483A00	3	rex.W cmp (%rax),%al
+483B00	3	cmp    (%rax),%rax
+483C00	3	rex.W cmp $0x0,%al
+483D00	6	cmp    $0xffffffff90909000,%rax
+483E00	NONE	rex.W
+483F00	NONE	rex.W (bad)
+484000	NONE	rex.W
+484100	NONE	rex.W
+484200	NONE	rex.W
+484300	NONE	rex.W
+484400	NONE	rex.W
+484500	NONE	rex.W
+484600	NONE	rex.W
+484700	NONE	rex.W
+484800	NONE	rex.W
+484900	NONE	rex.W
+484A00	NONE	rex.W
+484B00	NONE	rex.W
+484C00	NONE	rex.W
+484D00	NONE	rex.W
+484E00	NONE	rex.W
+484F00	NONE	rex.W
+485000	2	rex.W push %rax
+485100	2	rex.W push %rcx
+485200	2	rex.W push %rdx
+485300	2	rex.W push %rbx
+485400	2	rex.W push %rsp
+485500	2	rex.W push %rbp
+485600	2	rex.W push %rsi
+485700	2	rex.W push %rdi
+485800	2	rex.W pop %rax
+485900	2	rex.W pop %rcx
+485A00	2	rex.W pop %rdx
+485B00	2	rex.W pop %rbx
+485C00	2	rex.W pop %rsp
+485D00	2	rex.W pop %rbp
+485E00	2	rex.W pop %rsi
+485F00	2	rex.W pop %rdi
+486000	NONE	rex.W (bad)
+486100	NONE	rex.W (bad)
+486200	NONE	rex.W (bad)
+486300	3	movslq (%rax),%rax
+486400	NONE	rex.W
+486500	NONE	rex.W
+486600	NONE	rex.W
+486700	NONE	rex.W
+486800	6	rex.W push $0xffffffff90909000
+486900	7	imul   $0xffffffff90909090,(%rax),%rax
+486A00	3	rex.W push $0x0
+486B00	4	imul   $0xffffffffffffff90,(%rax),%rax
+486C00	2	rex.W insb (%dx),%es:(%rdi)
+486D00	2	rex.W insl (%dx),%es:(%rdi)
+486E00	2	rex.W outsb %ds:(%rsi),(%dx)
+486F00	2	rex.W outsl %ds:(%rsi),(%dx)
+487000	3	rex.W jo 0x3
+487100	3	rex.W jno 0x3
+487200	3	rex.W jb 0x3
+487300	3	rex.W jae 0x3
+487400	3	rex.W je 0x3
+487500	3	rex.W jne 0x3
+487600	3	rex.W jbe 0x3
+487700	3	rex.W ja 0x3
+487800	3	rex.W js 0x3
+487900	3	rex.W jns 0x3
+487A00	3	rex.W jp 0x3
+487B00	3	rex.W jnp 0x3
+487C00	3	rex.W jl 0x3
+487D00	3	rex.W jge 0x3
+487E00	3	rex.W jle 0x3
+487F00	3	rex.W jg 0x3
+488000	4	rex.W addb $0x90,(%rax)
+488100	7	addq   $0xffffffff90909090,(%rax)
+488200	NONE	rex.W (bad)
+488300	4	addq   $0xffffffffffffff90,(%rax)
+488400	3	rex.W test %al,(%rax)
+488500	3	test   %rax,(%rax)
+488600	3	rex.W xchg %al,(%rax)
+488700	3	xchg   %rax,(%rax)
+488800	3	rex.W mov %al,(%rax)
+488900	3	mov    %rax,(%rax)
+488A00	3	rex.W mov (%rax),%al
+488B00	3	mov    (%rax),%rax
+488C00	3	rex.W mov %es,(%rax)
+488D00	3	lea    (%rax),%rax
+488E00	3	rex.W mov (%rax),%es
+488F00	3	rex.W pop (%rax)
+489000	2	rex.W nop
+489100	2	xchg   %rax,%rcx
+489200	2	xchg   %rax,%rdx
+489300	2	xchg   %rax,%rbx
+489400	2	xchg   %rax,%rsp
+489500	2	xchg   %rax,%rbp
+489600	2	xchg   %rax,%rsi
+489700	2	xchg   %rax,%rdi
+489800	2	cltq
+489900	2	cqto
+489A00	NONE	rex.W (bad)
+489B00	NONE	rex.W
+489C00	2	rex.W pushf
+489D00	2	rex.W popf
+489E00	2	rex.W sahf
+489F00	2	rex.W lahf
+48A000	10	rex.W movabs 0x9090909090909000,%al
+48A100	10	movabs 0x9090909090909000,%rax
+48A200	10	rex.W movabs %al,0x9090909090909000
+48A300	10	movabs %rax,0x9090909090909000
+48A400	2	rex.W movsb %ds:(%rsi),%es:(%rdi)
+48A500	2	movsq  %ds:(%rsi),%es:(%rdi)
+48A600	2	rex.W cmpsb %es:(%rdi),%ds:(%rsi)
+48A700	2	cmpsq  %es:(%rdi),%ds:(%rsi)
+48A800	3	rex.W test $0x0,%al
+48A900	6	test   $0xffffffff90909000,%rax
+48AA00	2	rex.W stos %al,%es:(%rdi)
+48AB00	2	stos   %rax,%es:(%rdi)
+48AC00	2	rex.W lods %ds:(%rsi),%al
+48AD00	2	lods   %ds:(%rsi),%rax
+48AE00	2	rex.W scas %es:(%rdi),%al
+48AF00	2	scas   %es:(%rdi),%rax
+48B000	3	rex.W mov $0x0,%al
+48B100	3	rex.W mov $0x0,%cl
+48B200	3	rex.W mov $0x0,%dl
+48B300	3	rex.W mov $0x0,%bl
+48B400	3	rex.W mov $0x0,%spl
+48B500	3	rex.W mov $0x0,%bpl
+48B600	3	rex.W mov $0x0,%sil
+48B700	3	rex.W mov $0x0,%dil
+48B800	10	movabs $0x9090909090909000,%rax
+48B900	10	movabs $0x9090909090909000,%rcx
+48BA00	10	movabs $0x9090909090909000,%rdx
+48BB00	10	movabs $0x9090909090909000,%rbx
+48BC00	10	movabs $0x9090909090909000,%rsp
+48BD00	10	movabs $0x9090909090909000,%rbp
+48BE00	10	movabs $0x9090909090909000,%rsi
+48BF00	10	movabs $0x9090909090909000,%rdi
+48C000	4	rex.W rolb $0x90,(%rax)
+48C100	4	rolq   $0x90,(%rax)
+48C200	4	rex.W ret $0x9000
+48C300	2	rex.W ret
+48C400	NONE	rex.W (bad)
+48C500	NONE	(bad)
+48C600	4	rex.W movb $0x90,(%rax)
+48C700	7	movq   $0xffffffff90909090,(%rax)
+48C800	5	rex.W enter $0x9000,$0x90
+48C900	2	rex.W leave
+48CA00	4	lretq  $0x9000
+48CB00	2	lretq
+48CC00	2	rex.W int3
+48CD00	3	rex.W int $0x0
+48CE00	NONE	rex.W (bad)
+48CF00	2	iretq
+48D000	3	rex.W rolb $1,(%rax)
+48D100	3	rolq   $1,(%rax)
+48D200	3	rex.W rolb %cl,(%rax)
+48D300	3	rolq   %cl,(%rax)
+48D400	NONE	rex.W (bad)
+48D500	NONE	rex.W
+48D600	NONE	rex.W (bad)
+48D700	2	rex.W xlat %ds:(%rbx)
+48D800	3	rex.W fadds (%rax)
+48D900	3	rex.W flds (%rax)
+48DA00	3	rex.W fiaddl (%rax)
+48DB00	3	rex.W fildl (%rax)
+48DC00	3	rex.W faddl (%rax)
+48DD00	3	rex.W fldl (%rax)
+48DE00	3	rex.W fiadds (%rax)
+48DF00	3	rex.W filds (%rax)
+48E000	3	rex.W loopne 0x3
+48E100	3	rex.W loope 0x3
+48E200	3	rex.W loop 0x3
+48E300	3	rex.W jrcxz 0x3
+48E400	3	rex.W in $0x0,%al
+48E500	3	rex.W in $0x0,%eax
+48E600	3	rex.W out %al,$0x0
+48E700	3	rex.W out %eax,$0x0
+48E800	6	rex.W call 0xffffffff90909006
+48E900	6	rex.W jmp 0xffffffff90909006
+48EA00	NONE	rex.W (bad)
+48EB00	3	rex.W jmp 0x3
+48EC00	2	rex.W in (%dx),%al
+48ED00	2	rex.W in (%dx),%eax
+48EE00	2	rex.W out %al,(%dx)
+48EF00	2	rex.W out %eax,(%dx)
+48F000	NONE	rex.W
+48F100	2	rex.W int1
+48F200	NONE	rex.W
+48F300	NONE	rex.W
+48F400	2	rex.W hlt
+48F500	2	rex.W cmc
+48F600	4	rex.W testb $0x90,(%rax)
+48F700	7	testq  $0xffffffff90909090,(%rax)
+48F800	2	rex.W clc
+48F900	2	rex.W stc
+48FA00	2	rex.W cli
+48FB00	2	rex.W sti
+48FC00	2	rex.W cld
+48FD00	2	rex.W std
+48FE00	3	rex.W incb (%rax)
+48FF00	3	incq   (%rax)
+480080	7	rex.W add %al,-0x6f6f6f70(%rax)
+480180	7	add    %rax,-0x6f6f6f70(%rax)
+480280	7	rex.W add -0x6f6f6f70(%rax),%al
+480380	7	add    -0x6f6f6f70(%rax),%rax
+480480	3	rex.W add $0x80,%al
+480580	6	add    $0xffffffff90909080,%rax
+480680	NONE	rex.W (bad)
+480780	NONE	rex.W (bad)
+480880	7	rex.W or %al,-0x6f6f6f70(%rax)
+480980	7	or     %rax,-0x6f6f6f70(%rax)
+480A80	7	rex.W or -0x6f6f6f70(%rax),%al
+480B80	7	or     -0x6f6f6f70(%rax),%rax
+480C80	3	rex.W or $0x80,%al
+480D80	6	or     $0xffffffff90909080,%rax
+480E80	NONE	rex.W (bad)
+480F80	7	rex.W jo 0xffffffff90909097
+481080	7	rex.W adc %al,-0x6f6f6f70(%rax)
+481180	7	adc    %rax,-0x6f6f6f70(%rax)
+481280	7	rex.W adc -0x6f6f6f70(%rax),%al
+481380	7	adc    -0x6f6f6f70(%rax),%rax
+481480	3	rex.W adc $0x80,%al
+481580	6	adc    $0xffffffff90909080,%rax
+481680	NONE	rex.W (bad)
+481780	NONE	rex.W (bad)
+481880	7	rex.W sbb %al,-0x6f6f6f70(%rax)
+481980	7	sbb    %rax,-0x6f6f6f70(%rax)
+481A80	7	rex.W sbb -0x6f6f6f70(%rax),%al
+481B80	7	sbb    -0x6f6f6f70(%rax),%rax
+481C80	3	rex.W sbb $0x80,%al
+481D80	6	sbb    $0xffffffff90909080,%rax
+481E80	NONE	rex.W (bad)
+481F80	NONE	rex.W (bad)
+482080	7	rex.W and %al,-0x6f6f6f70(%rax)
+482180	7	and    %rax,-0x6f6f6f70(%rax)
+482280	7	rex.W and -0x6f6f6f70(%rax),%al
+482380	7	and    -0x6f6f6f70(%rax),%rax
+482480	3	rex.W and $0x80,%al
+482580	6	and    $0xffffffff90909080,%rax
+482680	NONE	rex.W
+482780	NONE	rex.W (bad)
+482880	7	rex.W sub %al,-0x6f6f6f70(%rax)
+482980	7	sub    %rax,-0x6f6f6f70(%rax)
+482A80	7	rex.W sub -0x6f6f6f70(%rax),%al
+482B80	7	sub    -0x6f6f6f70(%rax),%rax
+482C80	3	rex.W sub $0x80,%al
+482D80	6	sub    $0xffffffff90909080,%rax
+482E80	NONE	rex.W
+482F80	NONE	rex.W (bad)
+483080	7	rex.W xor %al,-0x6f6f6f70(%rax)
+483180	7	xor    %rax,-0x6f6f6f70(%rax)
+483280	7	rex.W xor -0x6f6f6f70(%rax),%al
+483380	7	xor    -0x6f6f6f70(%rax),%rax
+483480	3	rex.W xor $0x80,%al
+483580	6	xor    $0xffffffff90909080,%rax
+483680	NONE	rex.W
+483780	NONE	rex.W (bad)
+483880	7	rex.W cmp %al,-0x6f6f6f70(%rax)
+483980	7	cmp    %rax,-0x6f6f6f70(%rax)
+483A80	7	rex.W cmp -0x6f6f6f70(%rax),%al
+483B80	7	cmp    -0x6f6f6f70(%rax),%rax
+483C80	3	rex.W cmp $0x80,%al
+483D80	6	cmp    $0xffffffff90909080,%rax
+483E80	NONE	rex.W
+483F80	NONE	rex.W (bad)
+484080	NONE	rex.W
+484180	NONE	rex.W
+484280	NONE	rex.W
+484380	NONE	rex.W
+484480	NONE	rex.W
+484580	NONE	rex.W
+484680	NONE	rex.W
+484780	NONE	rex.W
+484880	NONE	rex.W
+484980	NONE	rex.W
+484A80	NONE	rex.W
+484B80	NONE	rex.W
+484C80	NONE	rex.W
+484D80	NONE	rex.W
+484E80	NONE	rex.W
+484F80	NONE	rex.W
+485080	2	rex.W push %rax
+485180	2	rex.W push %rcx
+485280	2	rex.W push %rdx
+485380	2	rex.W push %rbx
+485480	2	rex.W push %rsp
+485580	2	rex.W push %rbp
+485680	2	rex.W push %rsi
+485780	2	rex.W push %rdi
+485880	2	rex.W pop %rax
+485980	2	rex.W pop %rcx
+485A80	2	rex.W pop %rdx
+485B80	2	rex.W pop %rbx
+485C80	2	rex.W pop %rsp
+485D80	2	rex.W pop %rbp
+485E80	2	rex.W pop %rsi
+485F80	2	rex.W pop %rdi
+486080	NONE	rex.W (bad)
+486180	NONE	rex.W (bad)
+486280	NONE	rex.W (bad)
+486380	7	movslq -0x6f6f6f70(%rax),%rax
+486480	NONE	rex.W
+486580	NONE	rex.W
+486680	NONE	rex.W
+486780	NONE	rex.W
+486880	6	rex.W push $0xffffffff90909080
+486980	11	imul   $0xffffffff90909090,-0x6f6f6f70(%rax),%rax
+486A80	3	rex.W push $0xffffffffffffff80
+486B80	8	imul   $0xffffffffffffff90,-0x6f6f6f70(%rax),%rax
+486C80	2	rex.W insb (%dx),%es:(%rdi)
+486D80	2	rex.W insl (%dx),%es:(%rdi)
+486E80	2	rex.W outsb %ds:(%rsi),(%dx)
+486F80	2	rex.W outsl %ds:(%rsi),(%dx)
+487080	3	rex.W jo 0xffffffffffffff83
+487180	3	rex.W jno 0xffffffffffffff83
+487280	3	rex.W jb 0xffffffffffffff83
+487380	3	rex.W jae 0xffffffffffffff83
+487480	3	rex.W je 0xffffffffffffff83
+487580	3	rex.W jne 0xffffffffffffff83
+487680	3	rex.W jbe 0xffffffffffffff83
+487780	3	rex.W ja 0xffffffffffffff83
+487880	3	rex.W js 0xffffffffffffff83
+487980	3	rex.W jns 0xffffffffffffff83
+487A80	3	rex.W jp 0xffffffffffffff83
+487B80	3	rex.W jnp 0xffffffffffffff83
+487C80	3	rex.W jl 0xffffffffffffff83
+487D80	3	rex.W jge 0xffffffffffffff83
+487E80	3	rex.W jle 0xffffffffffffff83
+487F80	3	rex.W jg 0xffffffffffffff83
+488080	8	rex.W addb $0x90,-0x6f6f6f70(%rax)
+488180	11	addq   $0xffffffff90909090,-0x6f6f6f70(%rax)
+488280	NONE	rex.W (bad)
+488380	8	addq   $0xffffffffffffff90,-0x6f6f6f70(%rax)
+488480	7	rex.W test %al,-0x6f6f6f70(%rax)
+488580	7	test   %rax,-0x6f6f6f70(%rax)
+488680	7	rex.W xchg %al,-0x6f6f6f70(%rax)
+488780	7	xchg   %rax,-0x6f6f6f70(%rax)
+488880	7	rex.W mov %al,-0x6f6f6f70(%rax)
+488980	7	mov    %rax,-0x6f6f6f70(%rax)
+488A80	7	rex.W mov -0x6f6f6f70(%rax),%al
+488B80	7	mov    -0x6f6f6f70(%rax),%rax
+488C80	7	rex.W mov %es,-0x6f6f6f70(%rax)
+488D80	7	lea    -0x6f6f6f70(%rax),%rax
+488E80	7	rex.W mov -0x6f6f6f70(%rax),%es
+488F80	7	rex.W pop -0x6f6f6f70(%rax)
+489080	2	rex.W nop
+489180	2	xchg   %rax,%rcx
+489280	2	xchg   %rax,%rdx
+489380	2	xchg   %rax,%rbx
+489480	2	xchg   %rax,%rsp
+489580	2	xchg   %rax,%rbp
+489680	2	xchg   %rax,%rsi
+489780	2	xchg   %rax,%rdi
+489880	2	cltq
+489980	2	cqto
+489A80	NONE	rex.W (bad)
+489B80	NONE	rex.W
+489C80	2	rex.W pushf
+489D80	2	rex.W popf
+489E80	2	rex.W sahf
+489F80	2	rex.W lahf
+48A080	10	rex.W movabs 0x9090909090909080,%al
+48A180	10	movabs 0x9090909090909080,%rax
+48A280	10	rex.W movabs %al,0x9090909090909080
+48A380	10	movabs %rax,0x9090909090909080
+48A480	2	rex.W movsb %ds:(%rsi),%es:(%rdi)
+48A580	2	movsq  %ds:(%rsi),%es:(%rdi)
+48A680	2	rex.W cmpsb %es:(%rdi),%ds:(%rsi)
+48A780	2	cmpsq  %es:(%rdi),%ds:(%rsi)
+48A880	3	rex.W test $0x80,%al
+48A980	6	test   $0xffffffff90909080,%rax
+48AA80	2	rex.W stos %al,%es:(%rdi)
+48AB80	2	stos   %rax,%es:(%rdi)
+48AC80	2	rex.W lods %ds:(%rsi),%al
+48AD80	2	lods   %ds:(%rsi),%rax
+48AE80	2	rex.W scas %es:(%rdi),%al
+48AF80	2	scas   %es:(%rdi),%rax
+48B080	3	rex.W mov $0x80,%al
+48B180	3	rex.W mov $0x80,%cl
+48B280	3	rex.W mov $0x80,%dl
+48B380	3	rex.W mov $0x80,%bl
+48B480	3	rex.W mov $0x80,%spl
+48B580	3	rex.W mov $0x80,%bpl
+48B680	3	rex.W mov $0x80,%sil
+48B780	3	rex.W mov $0x80,%dil
+48B880	10	movabs $0x9090909090909080,%rax
+48B980	10	movabs $0x9090909090909080,%rcx
+48BA80	10	movabs $0x9090909090909080,%rdx
+48BB80	10	movabs $0x9090909090909080,%rbx
+48BC80	10	movabs $0x9090909090909080,%rsp
+48BD80	10	movabs $0x9090909090909080,%rbp
+48BE80	10	movabs $0x9090909090909080,%rsi
+48BF80	10	movabs $0x9090909090909080,%rdi
+48C080	8	rex.W rolb $0x90,-0x6f6f6f70(%rax)
+48C180	8	rolq   $0x90,-0x6f6f6f70(%rax)
+48C280	4	rex.W ret $0x9080
+48C380	2	rex.W ret
+48C480	NONE	rex.W (bad)
+48C580	NONE	(bad)
+48C680	8	rex.W movb $0x90,-0x6f6f6f70(%rax)
+48C780	11	movq   $0xffffffff90909090,-0x6f6f6f70(%rax)
+48C880	5	rex.W enter $0x9080,$0x90
+48C980	2	rex.W leave
+48CA80	4	lretq  $0x9080
+48CB80	2	lretq
+48CC80	2	rex.W int3
+48CD80	3	rex.W int $0x80
+48CE80	NONE	rex.W (bad)
+48CF80	2	iretq
+48D080	7	rex.W rolb $1,-0x6f6f6f70(%rax)
+48D180	7	rolq   $1,-0x6f6f6f70(%rax)
+48D280	7	rex.W rolb %cl,-0x6f6f6f70(%rax)
+48D380	7	rolq   %cl,-0x6f6f6f70(%rax)
+48D480	NONE	rex.W (bad)
+48D580	NONE	rex.W
+48D680	NONE	rex.W (bad)
+48D780	2	rex.W xlat %ds:(%rbx)
+48D880	7	rex.W fadds -0x6f6f6f70(%rax)
+48D980	7	rex.W flds -0x6f6f6f70(%rax)
+48DA80	7	rex.W fiaddl -0x6f6f6f70(%rax)
+48DB80	7	rex.W fildl -0x6f6f6f70(%rax)
+48DC80	7	rex.W faddl -0x6f6f6f70(%rax)
+48DD80	7	rex.W fldl -0x6f6f6f70(%rax)
+48DE80	7	rex.W fiadds -0x6f6f6f70(%rax)
+48DF80	7	rex.W filds -0x6f6f6f70(%rax)
+48E080	3	rex.W loopne 0xffffffffffffff83
+48E180	3	rex.W loope 0xffffffffffffff83
+48E280	3	rex.W loop 0xffffffffffffff83
+48E380	3	rex.W jrcxz 0xffffffffffffff83
+48E480	3	rex.W in $0x80,%al
+48E580	3	rex.W in $0x80,%eax
+48E680	3	rex.W out %al,$0x80
+48E780	3	rex.W out %eax,$0x80
+48E880	6	rex.W call 0xffffffff90909086
+48E980	6	rex.W jmp 0xffffffff90909086
+48EA80	NONE	rex.W (bad)
+48EB80	3	rex.W jmp 0xffffffffffffff83
+48EC80	2	rex.W in (%dx),%al
+48ED80	2	rex.W in (%dx),%eax
+48EE80	2	rex.W out %al,(%dx)
+48EF80	2	rex.W out %eax,(%dx)
+48F080	NONE	rex.W
+48F180	2	rex.W int1
+48F280	NONE	rex.W
+48F380	NONE	rex.W
+48F480	2	rex.W hlt
+48F580	2	rex.W cmc
+48F680	8	rex.W testb $0x90,-0x6f6f6f70(%rax)
+48F780	11	testq  $0xffffffff90909090,-0x6f6f6f70(%rax)
+48F880	2	rex.W clc
+48F980	2	rex.W stc
+48FA80	2	rex.W cli
+48FB80	2	rex.W sti
+48FC80	2	rex.W cld
+48FD80	2	rex.W std
+48FE80	7	rex.W incb -0x6f6f6f70(%rax)
+48FF80	7	incq   -0x6f6f6f70(%rax)
+66480000	4	data16 rex.W add %al,(%rax)
+66480100	4	data16 add %rax,(%rax)
+66480200	4	data16 rex.W add (%rax),%al
+66480300	4	data16 add (%rax),%rax
+66480400	4	data16 rex.W add $0x0,%al
+66480500	7	data16 add $0xffffffff90909000,%rax
+66480600	NONE	data16 rex.W (bad)
+66480700	NONE	data16 rex.W (bad)
+66480800	4	data16 rex.W or %al,(%rax)
+66480900	4	data16 or %rax,(%rax)
+66480A00	4	data16 rex.W or (%rax),%al
+66480B00	4	data16 or (%rax),%rax
+66480C00	4	data16 rex.W or $0x0,%al
+66480D00	7	data16 or $0xffffffff90909000,%rax
+66480E00	NONE	data16 rex.W (bad)
+66480F00	9	data16 rex.W lldt -0x6f6f6f70(%rax)
+66481000	4	data16 rex.W adc %al,(%rax)
+66481100	4	data16 adc %rax,(%rax)
+66481200	4	data16 rex.W adc (%rax),%al
+66481300	4	data16 adc (%rax),%rax
+66481400	4	data16 rex.W adc $0x0,%al
+66481500	7	data16 adc $0xffffffff90909000,%rax
+66481600	NONE	data16 rex.W (bad)
+66481700	NONE	data16 rex.W (bad)
+66481800	4	data16 rex.W sbb %al,(%rax)
+66481900	4	data16 sbb %rax,(%rax)
+66481A00	4	data16 rex.W sbb (%rax),%al
+66481B00	4	data16 sbb (%rax),%rax
+66481C00	4	data16 rex.W sbb $0x0,%al
+66481D00	7	data16 sbb $0xffffffff90909000,%rax
+66481E00	NONE	data16 rex.W (bad)
+66481F00	NONE	data16 rex.W (bad)
+66482000	4	data16 rex.W and %al,(%rax)
+66482100	4	data16 and %rax,(%rax)
+66482200	4	data16 rex.W and (%rax),%al
+66482300	4	data16 and (%rax),%rax
+66482400	4	data16 rex.W and $0x0,%al
+66482500	7	data16 and $0xffffffff90909000,%rax
+66482600	NONE	data16 rex.W
+66482700	NONE	data16 rex.W (bad)
+66482800	4	data16 rex.W sub %al,(%rax)
+66482900	4	data16 sub %rax,(%rax)
+66482A00	4	data16 rex.W sub (%rax),%al
+66482B00	4	data16 sub (%rax),%rax
+66482C00	4	data16 rex.W sub $0x0,%al
+66482D00	7	data16 sub $0xffffffff90909000,%rax
+66482E00	NONE	data16 rex.W
+66482F00	NONE	data16 rex.W (bad)
+66483000	4	data16 rex.W xor %al,(%rax)
+66483100	4	data16 xor %rax,(%rax)
+66483200	4	data16 rex.W xor (%rax),%al
+66483300	4	data16 xor (%rax),%rax
+66483400	4	data16 rex.W xor $0x0,%al
+66483500	7	data16 xor $0xffffffff90909000,%rax
+66483600	NONE	data16 rex.W
+66483700	NONE	data16 rex.W (bad)
+66483800	4	data16 rex.W cmp %al,(%rax)
+66483900	4	data16 cmp %rax,(%rax)
+66483A00	4	data16 rex.W cmp (%rax),%al
+66483B00	4	data16 cmp (%rax),%rax
+66483C00	4	data16 rex.W cmp $0x0,%al
+66483D00	7	data16 cmp $0xffffffff90909000,%rax
+66483E00	NONE	data16 rex.W
+66483F00	NONE	data16 rex.W (bad)
+66484000	NONE	data16 rex.W
+66484100	NONE	data16 rex.W
+66484200	NONE	data16 rex.W
+66484300	NONE	data16 rex.W
+66484400	NONE	data16 rex.W
+66484500	NONE	data16 rex.W
+66484600	NONE	data16 rex.W
+66484700	NONE	data16 rex.W
+66484800	NONE	data16 rex.W
+66484900	NONE	data16 rex.W
+66484A00	NONE	data16 rex.W
+66484B00	NONE	data16 rex.W
+66484C00	NONE	data16 rex.W
+66484D00	NONE	data16 rex.W
+66484E00	NONE	data16 rex.W
+66484F00	NONE	data16 rex.W
+66485000	3	data16 rex.W push %rax
+66485100	3	data16 rex.W push %rcx
+66485200	3	data16 rex.W push %rdx
+66485300	3	data16 rex.W push %rbx
+66485400	3	data16 rex.W push %rsp
+66485500	3	data16 rex.W push %rbp
+66485600	3	data16 rex.W push %rsi
+66485700	3	data16 rex.W push %rdi
+66485800	3	data16 rex.W pop %rax
+66485900	3	data16 rex.W pop %rcx
+66485A00	3	data16 rex.W pop %rdx
+66485B00	3	data16 rex.W pop %rbx
+66485C00	3	data16 rex.W pop %rsp
+66485D00	3	data16 rex.W pop %rbp
+66485E00	3	data16 rex.W pop %rsi
+66485F00	3	data16 rex.W pop %rdi
+66486000	NONE	data16 rex.W (bad)
+66486100	NONE	data16 rex.W (bad)
+66486200	NONE	data16 rex.W (bad)
+66486300	4	data16 movslq (%rax),%rax
+66486400	NONE	data16 rex.W
+66486500	NONE	data16 rex.W
+66486600	NONE	data16 rex.W
+66486700	NONE	data16 rex.W
+66486800	7	data16 rex.W push $0xffffffff90909000
+66486900	8	data16 imul $0xffffffff90909090,(%rax),%rax
+66486A00	4	data16 rex.W push $0x0
+66486B00	5	data16 imul $0xffffffffffffff90,(%rax),%rax
+66486C00	3	data16 rex.W insb (%dx),%es:(%rdi)
+66486D00	3	data16 rex.W insl (%dx),%es:(%rdi)
+66486E00	3	data16 rex.W outsb %ds:(%rsi),(%dx)
+66486F00	3	data16 rex.W outsl %ds:(%rsi),(%dx)
+66487000	4	data16 rex.W jo 0x4
+66487100	4	data16 rex.W jno 0x4
+66487200	4	data16 rex.W jb 0x4
+66487300	4	data16 rex.W jae 0x4
+66487400	4	data16 rex.W je 0x4
+66487500	4	data16 rex.W jne 0x4
+66487600	4	data16 rex.W jbe 0x4
+66487700	4	data16 rex.W ja 0x4
+66487800	4	data16 rex.W js 0x4
+66487900	4	data16 rex.W jns 0x4
+66487A00	4	data16 rex.W jp 0x4
+66487B00	4	data16 rex.W jnp 0x4
+66487C00	4	data16 rex.W jl 0x4
+66487D00	4	data16 rex.W jge 0x4
+66487E00	4	data16 rex.W jle 0x4
+66487F00	4	data16 rex.W jg 0x4
+66488000	5	data16 rex.W addb $0x90,(%rax)
+66488100	8	data16 addq $0xffffffff90909090,(%rax)
+66488200	NONE	data16 rex.W (bad)
+66488300	5	data16 addq $0xffffffffffffff90,(%rax)
+66488400	4	data16 rex.W test %al,(%rax)
+66488500	4	data16 test %rax,(%rax)
+66488600	4	data16 rex.W xchg %al,(%rax)
+66488700	4	data16 xchg %rax,(%rax)
+66488800	4	data16 rex.W mov %al,(%rax)
+66488900	4	data16 mov %rax,(%rax)
+66488A00	4	data16 rex.W mov (%rax),%al
+66488B00	4	data16 mov (%rax),%rax
+66488C00	4	data16 rex.W mov %es,(%rax)
+66488D00	4	data16 lea (%rax),%rax
+66488E00	4	data16 rex.W mov (%rax),%es
+66488F00	4	data16 rex.W pop (%rax)
+66489000	3	xchg   %rax,%rax
+66489100	3	data16 xchg %rax,%rcx
+66489200	3	data16 xchg %rax,%rdx
+66489300	3	data16 xchg %rax,%rbx
+66489400	3	data16 xchg %rax,%rsp
+66489500	3	data16 xchg %rax,%rbp
+66489600	3	data16 xchg %rax,%rsi
+66489700	3	data16 xchg %rax,%rdi
+66489800	3	data16 cltq
+66489900	3	data16 cqto
+66489A00	NONE	data16 rex.W (bad)
+66489B00	NONE	data16 rex.W
+66489C00	3	data16 rex.W pushf
+66489D00	3	data16 rex.W popf
+66489E00	3	data16 rex.W sahf
+66489F00	3	data16 rex.W lahf
+6648A000	11	data16 rex.W movabs 0x9090909090909000,%al
+6648A100	11	data16 movabs 0x9090909090909000,%rax
+6648A200	11	data16 rex.W movabs %al,0x9090909090909000
+6648A300	11	data16 movabs %rax,0x9090909090909000
+6648A400	3	data16 rex.W movsb %ds:(%rsi),%es:(%rdi)
+6648A500	3	data16 movsq %ds:(%rsi),%es:(%rdi)
+6648A600	3	data16 rex.W cmpsb %es:(%rdi),%ds:(%rsi)
+6648A700	3	data16 cmpsq %es:(%rdi),%ds:(%rsi)
+6648A800	4	data16 rex.W test $0x0,%al
+6648A900	7	data16 test $0xffffffff90909000,%rax
+6648AA00	3	data16 rex.W stos %al,%es:(%rdi)
+6648AB00	3	data16 stos %rax,%es:(%rdi)
+6648AC00	3	data16 rex.W lods %ds:(%rsi),%al
+6648AD00	3	data16 lods %ds:(%rsi),%rax
+6648AE00	3	data16 rex.W scas %es:(%rdi),%al
+6648AF00	3	data16 scas %es:(%rdi),%rax
+6648B000	4	data16 rex.W mov $0x0,%al
+6648B100	4	data16 rex.W mov $0x0,%cl
+6648B200	4	data16 rex.W mov $0x0,%dl
+6648B300	4	data16 rex.W mov $0x0,%bl
+6648B400	4	data16 rex.W mov $0x0,%spl
+6648B500	4	data16 rex.W mov $0x0,%bpl
+6648B600	4	data16 rex.W mov $0x0,%sil
+6648B700	4	data16 rex.W mov $0x0,%dil
+6648B800	11	data16 movabs $0x9090909090909000,%rax
+6648B900	11	data16 movabs $0x9090909090909000,%rcx
+6648BA00	11	data16 movabs $0x9090909090909000,%rdx
+6648BB00	11	data16 movabs $0x9090909090909000,%rbx
+6648BC00	11	data16 movabs $0x9090909090909000,%rsp
+6648BD00	11	data16 movabs $0x9090909090909000,%rbp
+6648BE00	11	data16 movabs $0x9090909090909000,%rsi
+6648BF00	11	data16 movabs $0x9090909090909000,%rdi
+6648C000	5	data16 rex.W rolb $0x90,(%rax)
+6648C100	5	data16 rolq $0x90,(%rax)
+6648C200	5	data16 rex.W ret $0x9000
+6648C300	3	data16 rex.W ret
+6648C400	NONE	data16 rex.W (bad)
+6648C500	NONE	(bad)
+6648C600	5	data16 rex.W movb $0x90,(%rax)
+6648C700	8	data16 movq $0xffffffff90909090,(%rax)
+6648C800	6	data16 rex.W enter $0x9000,$0x90
+6648C900	3	data16 rex.W leave
+6648CA00	5	data16 lretq $0x9000
+6648CB00	3	data16 lretq
+6648CC00	3	data16 rex.W int3
+6648CD00	4	data16 rex.W int $0x0
+6648CE00	NONE	data16 rex.W (bad)
+6648CF00	3	data16 iretq
+6648D000	4	data16 rex.W rolb $1,(%rax)
+6648D100	4	data16 rolq $1,(%rax)
+6648D200	4	data16 rex.W rolb %cl,(%rax)
+6648D300	4	data16 rolq %cl,(%rax)
+6648D400	NONE	data16 rex.W (bad)
+6648D500	NONE	data16 rex.W
+6648D600	NONE	data16 rex.W (bad)
+6648D700	3	data16 rex.W xlat %ds:(%rbx)
+6648D800	4	data16 rex.W fadds (%rax)
+6648D900	4	data16 rex.W flds (%rax)
+6648DA00	4	data16 rex.W fiaddl (%rax)
+6648DB00	4	data16 rex.W fildl (%rax)
+6648DC00	4	data16 rex.W faddl (%rax)
+6648DD00	4	data16 rex.W fldl (%rax)
+6648DE00	4	data16 rex.W fiadds (%rax)
+6648DF00	4	data16 rex.W filds (%rax)
+6648E000	4	data16 rex.W loopne 0x4
+6648E100	4	data16 rex.W loope 0x4
+6648E200	4	data16 rex.W loop 0x4
+6648E300	4	data16 rex.W jrcxz 0x4
+6648E400	4	data16 rex.W in $0x0,%al
+6648E500	4	data16 rex.W in $0x0,%eax
+6648E600	4	data16 rex.W out %al,$0x0
+6648E700	4	data16 rex.W out %eax,$0x0
+6648E800	7	data16 rex.W call 0xffffffff90909007
+6648E900	7	data16 rex.W jmp 0xffffffff90909007
+6648EA00	NONE	data16 rex.W (bad)
+6648EB00	4	data16 rex.W jmp 0x4
+6648EC00	3	data16 rex.W in (%dx),%al
+6648ED00	3	data16 rex.W in (%dx),%eax
+6648EE00	3	data16 rex.W out %al,(%dx)
+6648EF00	3	data16 rex.W out %eax,(%dx)
+6648F000	NONE	data16 rex.W
+6648F100	3	data16 rex.W int1
+6648F200	NONE	data16 rex.W
+6648F300	NONE	data16 rex.W
+6648F400	3	data16 rex.W hlt
+6648F500	3	data16 rex.W cmc
+6648F600	5	data16 rex.W testb $0x90,(%rax)
+6648F700	8	data16 testq $0xffffffff90909090,(%rax)
+6648F800	3	data16 rex.W clc
+6648F900	3	data16 rex.W stc
+6648FA00	3	data16 rex.W cli
+6648FB00	3	data16 rex.W sti
+6648FC00	3	data16 rex.W cld
+6648FD00	3	data16 rex.W std
+6648FE00	4	data16 rex.W incb (%rax)
+6648FF00	4	data16 incq (%rax)
+66480080	8	data16 rex.W add %al,-0x6f6f6f70(%rax)
+66480180	8	data16 add %rax,-0x6f6f6f70(%rax)
+66480280	8	data16 rex.W add -0x6f6f6f70(%rax),%al
+66480380	8	data16 add -0x6f6f6f70(%rax),%rax
+66480480	4	data16 rex.W add $0x80,%al
+66480580	7	data16 add $0xffffffff90909080,%rax
+66480680	NONE	data16 rex.W (bad)
+66480780	NONE	data16 rex.W (bad)
+66480880	8	data16 rex.W or %al,-0x6f6f6f70(%rax)
+66480980	8	data16 or %rax,-0x6f6f6f70(%rax)
+66480A80	8	data16 rex.W or -0x6f6f6f70(%rax),%al
+66480B80	8	data16 or -0x6f6f6f70(%rax),%rax
+66480C80	4	data16 rex.W or $0x80,%al
+66480D80	7	data16 or $0xffffffff90909080,%rax
+66480E80	NONE	data16 rex.W (bad)
+66480F80	8	data16 rex.W jo 0xffffffff90909098
+66481080	8	data16 rex.W adc %al,-0x6f6f6f70(%rax)
+66481180	8	data16 adc %rax,-0x6f6f6f70(%rax)
+66481280	8	data16 rex.W adc -0x6f6f6f70(%rax),%al
+66481380	8	data16 adc -0x6f6f6f70(%rax),%rax
+66481480	4	data16 rex.W adc $0x80,%al
+66481580	7	data16 adc $0xffffffff90909080,%rax
+66481680	NONE	data16 rex.W (bad)
+66481780	NONE	data16 rex.W (bad)
+66481880	8	data16 rex.W sbb %al,-0x6f6f6f70(%rax)
+66481980	8	data16 sbb %rax,-0x6f6f6f70(%rax)
+66481A80	8	data16 rex.W sbb -0x6f6f6f70(%rax),%al
+66481B80	8	data16 sbb -0x6f6f6f70(%rax),%rax
+66481C80	4	data16 rex.W sbb $0x80,%al
+66481D80	7	data16 sbb $0xffffffff90909080,%rax
+66481E80	NONE	data16 rex.W (bad)
+66481F80	NONE	data16 rex.W (bad)
+66482080	8	data16 rex.W and %al,-0x6f6f6f70(%rax)
+66482180	8	data16 and %rax,-0x6f6f6f70(%rax)
+66482280	8	data16 rex.W and -0x6f6f6f70(%rax),%al
+66482380	8	data16 and -0x6f6f6f70(%rax),%rax
+66482480	4	data16 rex.W and $0x80,%al
+66482580	7	data16 and $0xffffffff90909080,%rax
+66482680	NONE	data16 rex.W
+66482780	NONE	data16 rex.W (bad)
+66482880	8	data16 rex.W sub %al,-0x6f6f6f70(%rax)
+66482980	8	data16 sub %rax,-0x6f6f6f70(%rax)
+66482A80	8	data16 rex.W sub -0x6f6f6f70(%rax),%al
+66482B80	8	data16 sub -0x6f6f6f70(%rax),%rax
+66482C80	4	data16 rex.W sub $0x80,%al
+66482D80	7	data16 sub $0xffffffff90909080,%rax
+66482E80	NONE	data16 rex.W
+66482F80	NONE	data16 rex.W (bad)
+66483080	8	data16 rex.W xor %al,-0x6f6f6f70(%rax)
+66483180	8	data16 xor %rax,-0x6f6f6f70(%rax)
+66483280	8	data16 rex.W xor -0x6f6f6f70(%rax),%al
+66483380	8	data16 xor -0x6f6f6f70(%rax),%rax
+66483480	4	data16 rex.W xor $0x80,%al
+66483580	7	data16 xor $0xffffffff90909080,%rax
+66483680	NONE	data16 rex.W
+66483780	NONE	data16 rex.W (bad)
+66483880	8	data16 rex.W cmp %al,-0x6f6f6f70(%rax)
+66483980	8	data16 cmp %rax,-0x6f6f6f70(%rax)
+66483A80	8	data16 rex.W cmp -0x6f6f6f70(%rax),%al
+66483B80	8	data16 cmp -0x6f6f6f70(%rax),%rax
+66483C80	4	data16 rex.W cmp $0x80,%al
+66483D80	7	data16 cmp $0xffffffff90909080,%rax
+66483E80	NONE	data16 rex.W
+66483F80	NONE	data16 rex.W (bad)
+66484080	NONE	data16 rex.W
+66484180	NONE	data16 rex.W
+66484280	NONE	data16 rex.W
+66484380	NONE	data16 rex.W
+66484480	NONE	data16 rex.W
+66484580	NONE	data16 rex.W
+66484680	NONE	data16 rex.W
+66484780	NONE	data16 rex.W
+66484880	NONE	data16 rex.W
+66484980	NONE	data16 rex.W
+66484A80	NONE	data16 rex.W
+66484B80	NONE	data16 rex.W
+66484C80	NONE	data16 rex.W
+66484D80	NONE	data16 rex.W
+66484E80	NONE	data16 rex.W
+66484F80	NONE	data16 rex.W
+66485080	3	data16 rex.W push %rax
+66485180	3	data16 rex.W push %rcx
+66485280	3	data16 rex.W push %rdx
+66485380	3	data16 rex.W push %rbx
+66485480	3	data16 rex.W push %rsp
+66485580	3	data16 rex.W push %rbp
+66485680	3	data16 rex.W push %rsi
+66485780	3	data16 rex.W push %rdi
+66485880	3	data16 rex.W pop %rax
+66485980	3	data16 rex.W pop %rcx
+66485A80	3	data16 rex.W pop %rdx
+66485B80	3	data16 rex.W pop %rbx
+66485C80	3	data16 rex.W pop %rsp
+66485D80	3	data16 rex.W pop %rbp
+66485E80	3	data16 rex.W pop %rsi
+66485F80	3	data16 rex.W pop %rdi
+66486080	NONE	data16 rex.W (bad)
+66486180	NONE	data16 rex.W (bad)
+66486280	NONE	data16 rex.W (bad)
+66486380	8	data16 movslq -0x6f6f6f70(%rax),%rax
+66486480	NONE	data16 rex.W
+66486580	NONE	data16 rex.W
+66486680	NONE	data16 rex.W
+66486780	NONE	data16 rex.W
+66486880	7	data16 rex.W push $0xffffffff90909080
+66486980	12	data16 imul $0xffffffff90909090,-0x6f6f6f70(%rax),%rax
+66486A80	4	data16 rex.W push $0xffffffffffffff80
+66486B80	9	data16 imul $0xffffffffffffff90,-0x6f6f6f70(%rax),%rax
+66486C80	3	data16 rex.W insb (%dx),%es:(%rdi)
+66486D80	3	data16 rex.W insl (%dx),%es:(%rdi)
+66486E80	3	data16 rex.W outsb %ds:(%rsi),(%dx)
+66486F80	3	data16 rex.W outsl %ds:(%rsi),(%dx)
+66487080	4	data16 rex.W jo 0xffffffffffffff84
+66487180	4	data16 rex.W jno 0xffffffffffffff84
+66487280	4	data16 rex.W jb 0xffffffffffffff84
+66487380	4	data16 rex.W jae 0xffffffffffffff84
+66487480	4	data16 rex.W je 0xffffffffffffff84
+66487580	4	data16 rex.W jne 0xffffffffffffff84
+66487680	4	data16 rex.W jbe 0xffffffffffffff84
+66487780	4	data16 rex.W ja 0xffffffffffffff84
+66487880	4	data16 rex.W js 0xffffffffffffff84
+66487980	4	data16 rex.W jns 0xffffffffffffff84
+66487A80	4	data16 rex.W jp 0xffffffffffffff84
+66487B80	4	data16 rex.W jnp 0xffffffffffffff84
+66487C80	4	data16 rex.W jl 0xffffffffffffff84
+66487D80	4	data16 rex.W jge 0xffffffffffffff84
+66487E80	4	data16 rex.W jle 0xffffffffffffff84
+66487F80	4	data16 rex.W jg 0xffffffffffffff84
+66488080	9	data16 rex.W addb $0x90,-0x6f6f6f70(%rax)
+66488180	12	data16 addq $0xffffffff90909090,-0x6f6f6f70(%rax)
+66488280	NONE	data16 rex.W (bad)
+66488380	9	data16 addq $0xffffffffffffff90,-0x6f6f6f70(%rax)
+66488480	8	data16 rex.W test %al,-0x6f6f6f70(%rax)
+66488580	8	data16 test %rax,-0x6f6f6f70(%rax)
+66488680	8	data16 rex.W xchg %al,-0x6f6f6f70(%rax)
+66488780	8	data16 xchg %rax,-0x6f6f6f70(%rax)
+66488880	8	data16 rex.W mov %al,-0x6f6f6f70(%rax)
+66488980	8	data16 mov %rax,-0x6f6f6f70(%rax)
+66488A80	8	data16 rex.W mov -0x6f6f6f70(%rax),%al
+66488B80	8	data16 mov -0x6f6f6f70(%rax),%rax
+66488C80	8	data16 rex.W mov %es,-0x6f6f6f70(%rax)
+66488D80	8	data16 lea -0x6f6f6f70(%rax),%rax
+66488E80	8	data16 rex.W mov -0x6f6f6f70(%rax),%es
+66488F80	8	data16 rex.W pop -0x6f6f6f70(%rax)
+66489080	3	xchg   %rax,%rax
+66489180	3	data16 xchg %rax,%rcx
+66489280	3	data16 xchg %rax,%rdx
+66489380	3	data16 xchg %rax,%rbx
+66489480	3	data16 xchg %rax,%rsp
+66489580	3	data16 xchg %rax,%rbp
+66489680	3	data16 xchg %rax,%rsi
+66489780	3	data16 xchg %rax,%rdi
+66489880	3	data16 cltq
+66489980	3	data16 cqto
+66489A80	NONE	data16 rex.W (bad)
+66489B80	NONE	data16 rex.W
+66489C80	3	data16 rex.W pushf
+66489D80	3	data16 rex.W popf
+66489E80	3	data16 rex.W sahf
+66489F80	3	data16 rex.W lahf
+6648A080	11	data16 rex.W movabs 0x9090909090909080,%al
+6648A180	11	data16 movabs 0x9090909090909080,%rax
+6648A280	11	data16 rex.W movabs %al,0x9090909090909080
+6648A380	11	data16 movabs %rax,0x9090909090909080
+6648A480	3	data16 rex.W movsb %ds:(%rsi),%es:(%rdi)
+6648A580	3	data16 movsq %ds:(%rsi),%es:(%rdi)
+6648A680	3	data16 rex.W cmpsb %es:(%rdi),%ds:(%rsi)
+6648A780	3	data16 cmpsq %es:(%rdi),%ds:(%rsi)
+6648A880	4	data16 rex.W test $0x80,%al
+6648A980	7	data16 test $0xffffffff90909080,%rax
+6648AA80	3	data16 rex.W stos %al,%es:(%rdi)
+6648AB80	3	data16 stos %rax,%es:(%rdi)
+6648AC80	3	data16 rex.W lods %ds:(%rsi),%al
+6648AD80	3	data16 lods %ds:(%rsi),%rax
+6648AE80	3	data16 rex.W scas %es:(%rdi),%al
+6648AF80	3	data16 scas %es:(%rdi),%rax
+6648B080	4	data16 rex.W mov $0x80,%al
+6648B180	4	data16 rex.W mov $0x80,%cl
+6648B280	4	data16 rex.W mov $0x80,%dl
+6648B380	4	data16 rex.W mov $0x80,%bl
+6648B480	4	data16 rex.W mov $0x80,%spl
+6648B580	4	data16 rex.W mov $0x80,%bpl
+6648B680	4	data16 rex.W mov $0x80,%sil
+6648B780	4	data16 rex.W mov $0x80,%dil
+6648B880	11	data16 movabs $0x9090909090909080,%rax
+6648B980	11	data16 movabs $0x9090909090909080,%rcx
+6648BA80	11	data16 movabs $0x9090909090909080,%rdx
+6648BB80	11	data16 movabs $0x9090909090909080,%rbx
+6648BC80	11	data16 movabs $0x9090909090909080,%rsp
+6648BD80	11	data16 movabs $0x9090909090909080,%rbp
+6648BE80	11	data16 movabs $0x9090909090909080,%rsi
+6648BF80	11	data16 movabs $0x9090909090909080,%rdi
+6648C080	9	data16 rex.W rolb $0x90,-0x6f6f6f70(%rax)
+6648C180	9	data16 rolq $0x90,-0x6f6f6f70(%rax)
+6648C280	5	data16 rex.W ret $0x9080
+6648C380	3	data16 rex.W ret
+6648C480	NONE	data16 rex.W (bad)
+6648C580	NONE	(bad)
+6648C680	9	data16 rex.W movb $0x90,-0x6f6f6f70(%rax)
+6648C780	12	data16 movq $0xffffffff90909090,-0x6f6f6f70(%rax)
+6648C880	6	data16 rex.W enter $0x9080,$0x90
+6648C980	3	data16 rex.W leave
+6648CA80	5	data16 lretq $0x9080
+6648CB80	3	data16 lretq
+6648CC80	3	data16 rex.W int3
+6648CD80	4	data16 rex.W int $0x80
+6648CE80	NONE	data16 rex.W (bad)
+6648CF80	3	data16 iretq
+6648D080	8	data16 rex.W rolb $1,-0x6f6f6f70(%rax)
+6648D180	8	data16 rolq $1,-0x6f6f6f70(%rax)
+6648D280	8	data16 rex.W rolb %cl,-0x6f6f6f70(%rax)
+6648D380	8	data16 rolq %cl,-0x6f6f6f70(%rax)
+6648D480	NONE	data16 rex.W (bad)
+6648D580	NONE	data16 rex.W
+6648D680	NONE	data16 rex.W (bad)
+6648D780	3	data16 rex.W xlat %ds:(%rbx)
+6648D880	8	data16 rex.W fadds -0x6f6f6f70(%rax)
+6648D980	8	data16 rex.W flds -0x6f6f6f70(%rax)
+6648DA80	8	data16 rex.W fiaddl -0x6f6f6f70(%rax)
+6648DB80	8	data16 rex.W fildl -0x6f6f6f70(%rax)
+6648DC80	8	data16 rex.W faddl -0x6f6f6f70(%rax)
+6648DD80	8	data16 rex.W fldl -0x6f6f6f70(%rax)
+6648DE80	8	data16 rex.W fiadds -0x6f6f6f70(%rax)
+6648DF80	8	data16 rex.W filds -0x6f6f6f70(%rax)
+6648E080	4	data16 rex.W loopne 0xffffffffffffff84
+6648E180	4	data16 rex.W loope 0xffffffffffffff84
+6648E280	4	data16 rex.W loop 0xffffffffffffff84
+6648E380	4	data16 rex.W jrcxz 0xffffffffffffff84
+6648E480	4	data16 rex.W in $0x80,%al
+6648E580	4	data16 rex.W in $0x80,%eax
+6648E680	4	data16 rex.W out %al,$0x80
+6648E780	4	data16 rex.W out %eax,$0x80
+6648E880	7	data16 rex.W call 0xffffffff90909087
+6648E980	7	data16 rex.W jmp 0xffffffff90909087
+6648EA80	NONE	data16 rex.W (bad)
+6648EB80	4	data16 rex.W jmp 0xffffffffffffff84
+6648EC80	3	data16 rex.W in (%dx),%al
+6648ED80	3	data16 rex.W in (%dx),%eax
+6648EE80	3	data16 rex.W out %al,(%dx)
+6648EF80	3	data16 rex.W out %eax,(%dx)
+6648F080	NONE	data16 rex.W
+6648F180	3	data16 rex.W int1
+6648F280	NONE	data16 rex.W
+6648F380	NONE	data16 rex.W
+6648F480	3	data16 rex.W hlt
+6648F580	3	data16 rex.W cmc
+6648F680	9	data16 rex.W testb $0x90,-0x6f6f6f70(%rax)
+6648F780	12	data16 testq $0xffffffff90909090,-0x6f6f6f70(%rax)
+6648F880	3	data16 rex.W clc
+6648F980	3	data16 rex.W stc
+6648FA80	3	data16 rex.W cli
+6648FB80	3	data16 rex.W sti
+6648FC80	3	data16 rex.W cld
+6648FD80	3	data16 rex.W std
+6648FE80	8	data16 rex.W incb -0x6f6f6f70(%rax)
+6648FF80	8	data16 incq -0x6f6f6f70(%rax)
+0008	2	add    %cl,(%rax)
+0108	2	add    %ecx,(%rax)
+0208	2	add    (%rax),%cl
+0308	2	add    (%rax),%ecx
+0408	2	add    $0x8,%al
+0508	5	add    $0x90909008,%eax
+0608	NONE	(bad)
+0708	NONE	(bad)
+0808	2	or     %cl,(%rax)
+0908	2	or     %ecx,(%rax)
+0A08	2	or     (%rax),%cl
+0B08	2	or     (%rax),%ecx
+0C08	2	or     $0x8,%al
+0D08	5	or     $0x90909008,%eax
+0E08	NONE	(bad)
+0F08	2	invd
+1008	2	adc    %cl,(%rax)
+1108	2	adc    %ecx,(%rax)
+1208	2	adc    (%rax),%cl
+1308	2	adc    (%rax),%ecx
+1408	2	adc    $0x8,%al
+1508	5	adc    $0x90909008,%eax
+1608	NONE	(bad)
+1708	NONE	(bad)
+1808	2	sbb    %cl,(%rax)
+1908	2	sbb    %ecx,(%rax)
+1A08	2	sbb    (%rax),%cl
+1B08	2	sbb    (%rax),%ecx
+1C08	2	sbb    $0x8,%al
+1D08	5	sbb    $0x90909008,%eax
+1E08	NONE	(bad)
+1F08	NONE	(bad)
+2008	2	and    %cl,(%rax)
+2108	2	and    %ecx,(%rax)
+2208	2	and    (%rax),%cl
+2308	2	and    (%rax),%ecx
+2408	2	and    $0x8,%al
+2508	5	and    $0x90909008,%eax
+2608	7	es or  %dl,-0x6f6f6f70(%rax)
+2708	NONE	(bad)
+2808	2	sub    %cl,(%rax)
+2908	2	sub    %ecx,(%rax)
+2A08	2	sub    (%rax),%cl
+2B08	2	sub    (%rax),%ecx
+2C08	2	sub    $0x8,%al
+2D08	5	sub    $0x90909008,%eax
+2E08	7	cs or  %dl,-0x6f6f6f70(%rax)
+2F08	NONE	(bad)
+3008	2	xor    %cl,(%rax)
+3108	2	xor    %ecx,(%rax)
+3208	2	xor    (%rax),%cl
+3308	2	xor    (%rax),%ecx
+3408	2	xor    $0x8,%al
+3508	5	xor    $0x90909008,%eax
+3608	7	ss or  %dl,-0x6f6f6f70(%rax)
+3708	NONE	(bad)
+3808	2	cmp    %cl,(%rax)
+3908	2	cmp    %ecx,(%rax)
+3A08	2	cmp    (%rax),%cl
+3B08	2	cmp    (%rax),%ecx
+3C08	2	cmp    $0x8,%al
+3D08	5	cmp    $0x90909008,%eax
+3E08	7	ds or  %dl,-0x6f6f6f70(%rax)
+3F08	NONE	(bad)
+4008	7	rex or %dl,-0x6f6f6f70(%rax)
+4108	7	or     %dl,-0x6f6f6f70(%r8)
+4208	7	rex.X or %dl,-0x6f6f6f70(%rax)
+4308	7	rex.XB or %dl,-0x6f6f6f70(%r8)
+4408	7	or     %r10b,-0x6f6f6f70(%rax)
+4508	7	or     %r10b,-0x6f6f6f70(%r8)
+4608	7	rex.RX or %r10b,-0x6f6f6f70(%rax)
+4708	7	rex.RXB or %r10b,-0x6f6f6f70(%r8)
+4808	7	rex.W or %dl,-0x6f6f6f70(%rax)
+4908	7	rex.WB or %dl,-0x6f6f6f70(%r8)
+4A08	7	rex.WX or %dl,-0x6f6f6f70(%rax)
+4B08	7	rex.WXB or %dl,-0x6f6f6f70(%r8)
+4C08	7	rex.WR or %r10b,-0x6f6f6f70(%rax)
+4D08	7	rex.WRB or %r10b,-0x6f6f6f70(%r8)
+4E08	7	rex.WRX or %r10b,-0x6f6f6f70(%rax)
+4F08	7	rex.WRXB or %r10b,-0x6f6f6f70(%r8)
+5008	1	push   %rax
+5108	1	push   %rcx
+5208	1	push   %rdx
+5308	1	push   %rbx
+5408	1	push   %rsp
+5508	1	push   %rbp
+5608	1	push   %rsi
+5708	1	push   %rdi
+5808	1	pop    %rax
+5908	1	pop    %rcx
+5A08	1	pop    %rdx
+5B08	1	pop    %rbx
+5C08	1	pop    %rsp
+5D08	1	pop    %rbp
+5E08	1	pop    %rsi
+5F08	1	pop    %rdi
+6008	NONE	(bad)
+6108	NONE	(bad)
+6208	NONE	(bad)
+6308	2	movsxd (%rax),%ecx
+6408	7	or     %dl,%fs:-0x6f6f6f70(%rax)
+6508	7	or     %dl,%gs:-0x6f6f6f70(%rax)
+6608	7	data16 or %dl,-0x6f6f6f70(%rax)
+6708	7	or     %dl,-0x6f6f6f70(%eax)
+6808	5	push   $0xffffffff90909008
+6908	6	imul   $0x90909090,(%rax),%ecx
+6A08	2	push   $0x8
+6B08	3	imul   $0xffffff90,(%rax),%ecx
+6C08	1	insb   (%dx),%es:(%rdi)
+6D08	1	insl   (%dx),%es:(%rdi)
+6E08	1	outsb  %ds:(%rsi),(%dx)
+6F08	1	outsl  %ds:(%rsi),(%dx)
+7008	2	jo     0xa
+7108	2	jno    0xa
+7208	2	jb     0xa
+7308	2	jae    0xa
+7408	2	je     0xa
+7508	2	jne    0xa
+7608	2	jbe    0xa
+7708	2	ja     0xa
+7808	2	js     0xa
+7908	2	jns    0xa
+7A08	2	jp     0xa
+7B08	2	jnp    0xa
+7C08	2	jl     0xa
+7D08	2	jge    0xa
+7E08	2	jle    0xa
+7F08	2	jg     0xa
+8008	3	orb    $0x90,(%rax)
+8108	6	orl    $0x90909090,(%rax)
+8208	NONE	(bad)
+8308	3	orl    $0xffffff90,(%rax)
+8408	2	test   %cl,(%rax)
+8508	2	test   %ecx,(%rax)
+8608	2	xchg   %cl,(%rax)
+8708	2	xchg   %ecx,(%rax)
+8808	2	mov    %cl,(%rax)
+8908	2	mov    %ecx,(%rax)
+8A08	2	mov    (%rax),%cl
+8B08	2	mov    (%rax),%ecx
+8C08	2	mov    %cs,(%rax)
+8D08	2	lea    (%rax),%ecx
+8E08	2	mov    (%rax),%cs
+8F08	NONE	(bad)
+9008	1	nop
+9108	1	xchg   %eax,%ecx
+9208	1	xchg   %eax,%edx
+9308	1	xchg   %eax,%ebx
+9408	1	xchg   %eax,%esp
+9508	1	xchg   %eax,%ebp
+9608	1	xchg   %eax,%esi
+9708	1	xchg   %eax,%edi
+9808	1	cwtl
+9908	1	cltd
+9A08	NONE	(bad)
+9B08	1	fwait
+9C08	1	pushf
+9D08	1	popf
+9E08	1	sahf
+9F08	1	lahf
+A008	9	movabs 0x9090909090909008,%al
+A108	9	movabs 0x9090909090909008,%eax
+A208	9	movabs %al,0x9090909090909008
+A308	9	movabs %eax,0x9090909090909008
+A408	1	movsb  %ds:(%rsi),%es:(%rdi)
+A508	1	movsl  %ds:(%rsi),%es:(%rdi)
+A608	1	cmpsb  %es:(%rdi),%ds:(%rsi)
+A708	1	cmpsl  %es:(%rdi),%ds:(%rsi)
+A808	2	test   $0x8,%al
+A908	5	test   $0x90909008,%eax
+AA08	1	stos   %al,%es:(%rdi)
+AB08	1	stos   %eax,%es:(%rdi)
+AC08	1	lods   %ds:(%rsi),%al
+AD08	1	lods   %ds:(%rsi),%eax
+AE08	1	scas   %es:(%rdi),%al
+AF08	1	scas   %es:(%rdi),%eax
+B008	2	mov    $0x8,%al
+B108	2	mov    $0x8,%cl
+B208	2	mov    $0x8,%dl
+B308	2	mov    $0x8,%bl
+B408	2	mov    $0x8,%ah
+B508	2	mov    $0x8,%ch
+B608	2	mov    $0x8,%dh
+B708	2	mov    $0x8,%bh
+B808	5	mov    $0x90909008,%eax
+B908	5	mov    $0x90909008,%ecx
+BA08	5	mov    $0x90909008,%edx
+BB08	5	mov    $0x90909008,%ebx
+BC08	5	mov    $0x90909008,%esp
+BD08	5	mov    $0x90909008,%ebp
+BE08	5	mov    $0x90909008,%esi
+BF08	5	mov    $0x90909008,%edi
+C008	3	rorb   $0x90,(%rax)
+C108	3	rorl   $0x90,(%rax)
+C208	3	ret    $0x9008
+C308	1	ret
+C408	NONE	(bad)
+C508	NONE	(bad)
+C608	NONE	(bad)
+C708	NONE	(bad)
+C808	4	enter  $0x9008,$0x90
+C908	1	leave
+CA08	3	lret   $0x9008
+CB08	1	lret
+CC08	1	int3
+CD08	2	int    $0x8
+CE08	NONE	(bad)
+CF08	1	iret
+D008	2	rorb   $1,(%rax)
+D108	2	rorl   $1,(%rax)
+D208	2	rorb   %cl,(%rax)
+D308	2	rorl   %cl,(%rax)
+D408	NONE	(bad)
+D508	3	{rex2 0x8} nop
+D608	NONE	(bad)
+D708	1	xlat   %ds:(%rbx)
+D808	2	fmuls  (%rax)
+D908	NONE	(bad)  (%rax)
+DA08	2	fimull (%rax)
+DB08	2	fisttpl (%rax)
+DC08	2	fmull  (%rax)
+DD08	2	fisttpll (%rax)
+DE08	2	fimuls (%rax)
+DF08	2	fisttps (%rax)
+E008	2	loopne 0xa
+E108	2	loope  0xa
+E208	2	loop   0xa
+E308	2	jrcxz  0xa
+E408	2	in     $0x8,%al
+E508	2	in     $0x8,%eax
+E608	2	out    %al,$0x8
+E708	2	out    %eax,$0x8
+E808	5	call   0xffffffff9090900d
+E908	5	jmp    0xffffffff9090900d
+EA08	NONE	(bad)
+EB08	2	jmp    0xa
+EC08	1	in     (%dx),%al
+ED08	1	in     (%dx),%eax
+EE08	1	out    %al,(%dx)
+EF08	1	out    %eax,(%dx)
+F008	7	lock or %dl,-0x6f6f6f70(%rax)
+F108	1	int1
+F208	7	repnz or %dl,-0x6f6f6f70(%rax)
+F308	7	repz or %dl,-0x6f6f6f70(%rax)
+F408	1	hlt
+F508	1	cmc
+F608	3	testb  $0x90,(%rax)
+F708	6	testl  $0x90909090,(%rax)
+F808	1	clc
+F908	1	stc
+FA08	1	cli
+FB08	1	sti
+FC08	1	cld
+FD08	1	std
+FE08	2	decb   (%rax)
+FF08	2	decl   (%rax)
+0010	2	add    %dl,(%rax)
+0110	2	add    %edx,(%rax)
+0210	2	add    (%rax),%dl
+0310	2	add    (%rax),%edx
+0410	2	add    $0x10,%al
+0510	5	add    $0x90909010,%eax
+0610	NONE	(bad)
+0710	NONE	(bad)
+0810	2	or     %dl,(%rax)
+0910	2	or     %edx,(%rax)
+0A10	2	or     (%rax),%dl
+0B10	2	or     (%rax),%edx
+0C10	2	or     $0x10,%al
+0D10	5	or     $0x90909010,%eax
+0E10	NONE	(bad)
+0F10	7	movups -0x6f6f6f70(%rax),%xmm2
+1010	2	adc    %dl,(%rax)
+1110	2	adc    %edx,(%rax)
+1210	2	adc    (%rax),%dl
+1310	2	adc    (%rax),%edx
+1410	2	adc    $0x10,%al
+1510	5	adc    $0x90909010,%eax
+1610	NONE	(bad)
+1710	NONE	(bad)
+1810	2	sbb    %dl,(%rax)
+1910	2	sbb    %edx,(%rax)
+1A10	2	sbb    (%rax),%dl
+1B10	2	sbb    (%rax),%edx
+1C10	2	sbb    $0x10,%al
+1D10	5	sbb    $0x90909010,%eax
+1E10	NONE	(bad)
+1F10	NONE	(bad)
+2010	2	and    %dl,(%rax)
+2110	2	and    %edx,(%rax)
+2210	2	and    (%rax),%dl
+2310	2	and    (%rax),%edx
+2410	2	and    $0x10,%al
+2510	5	and    $0x90909010,%eax
+2610	7	es adc %dl,-0x6f6f6f70(%rax)
+2710	NONE	(bad)
+2810	2	sub    %dl,(%rax)
+2910	2	sub    %edx,(%rax)
+2A10	2	sub    (%rax),%dl
+2B10	2	sub    (%rax),%edx
+2C10	2	sub    $0x10,%al
+2D10	5	sub    $0x90909010,%eax
+2E10	7	cs adc %dl,-0x6f6f6f70(%rax)
+2F10	NONE	(bad)
+3010	2	xor    %dl,(%rax)
+3110	2	xor    %edx,(%rax)
+3210	2	xor    (%rax),%dl
+3310	2	xor    (%rax),%edx
+3410	2	xor    $0x10,%al
+3510	5	xor    $0x90909010,%eax
+3610	7	ss adc %dl,-0x6f6f6f70(%rax)
+3710	NONE	(bad)
+3810	2	cmp    %dl,(%rax)
+3910	2	cmp    %edx,(%rax)
+3A10	2	cmp    (%rax),%dl
+3B10	2	cmp    (%rax),%edx
+3C10	2	cmp    $0x10,%al
+3D10	5	cmp    $0x90909010,%eax
+3E10	7	ds adc %dl,-0x6f6f6f70(%rax)
+3F10	NONE	(bad)
+4010	7	rex adc %dl,-0x6f6f6f70(%rax)
+4110	7	adc    %dl,-0x6f6f6f70(%r8)
+4210	7	rex.X adc %dl,-0x6f6f6f70(%rax)
+4310	7	rex.XB adc %dl,-0x6f6f6f70(%r8)
+4410	7	adc    %r10b,-0x6f6f6f70(%rax)
+4510	7	adc    %r10b,-0x6f6f6f70(%r8)
+4610	7	rex.RX adc %r10b,-0x6f6f6f70(%rax)
+4710	7	rex.RXB adc %r10b,-0x6f6f6f70(%r8)
+4810	7	rex.W adc %dl,-0x6f6f6f70(%rax)
+4910	7	rex.WB adc %dl,-0x6f6f6f70(%r8)
+4A10	7	rex.WX adc %dl,-0x6f6f6f70(%rax)
+4B10	7	rex.WXB adc %dl,-0x6f6f6f70(%r8)
+4C10	7	rex.WR adc %r10b,-0x6f6f6f70(%rax)
+4D10	7	rex.WRB adc %r10b,-0x6f6f6f70(%r8)
+4E10	7	rex.WRX adc %r10b,-0x6f6f6f70(%rax)
+4F10	7	rex.WRXB adc %r10b,-0x6f6f6f70(%r8)
+5010	1	push   %rax
+5110	1	push   %rcx
+5210	1	push   %rdx
+5310	1	push   %rbx
+5410	1	push   %rsp
+5510	1	push   %rbp
+5610	1	push   %rsi
+5710	1	push   %rdi
+5810	1	pop    %rax
+5910	1	pop    %rcx
+5A10	1	pop    %rdx
+5B10	1	pop    %rbx
+5C10	1	pop    %rsp
+5D10	1	pop    %rbp
+5E10	1	pop    %rsi
+5F10	1	pop    %rdi
+6010	NONE	(bad)
+6110	NONE	(bad)
+6210	NONE	(bad)
+6310	2	movsxd (%rax),%edx
+6410	7	adc    %dl,%fs:-0x6f6f6f70(%rax)
+6510	7	adc    %dl,%gs:-0x6f6f6f70(%rax)
+6610	7	data16 adc %dl,-0x6f6f6f70(%rax)
+6710	7	adc    %dl,-0x6f6f6f70(%eax)
+6810	5	push   $0xffffffff90909010
+6910	6	imul   $0x90909090,(%rax),%edx
+6A10	2	push   $0x10
+6B10	3	imul   $0xffffff90,(%rax),%edx
+6C10	1	insb   (%dx),%es:(%rdi)
+6D10	1	insl   (%dx),%es:(%rdi)
+6E10	1	outsb  %ds:(%rsi),(%dx)
+6F10	1	outsl  %ds:(%rsi),(%dx)
+7010	2	jo     0x12
+7110	2	jno    0x12
+7210	2	jb     0x12
+7310	2	jae    0x12
+7410	2	je     0x12
+7510	2	jne    0x12
+7610	2	jbe    0x12
+7710	2	ja     0x12
+7810	2	js     0x12
+7910	2	jns    0x12
+7A10	2	jp     0x12
+7B10	2	jnp    0x12
+7C10	2	jl     0x12
+7D10	2	jge    0x12
+7E10	2	jle    0x12
+7F10	2	jg     0x12
+8010	3	adcb   $0x90,(%rax)
+8110	6	adcl   $0x90909090,(%rax)
+8210	NONE	(bad)
+8310	3	adcl   $0xffffff90,(%rax)
+8410	2	test   %dl,(%rax)
+8510	2	test   %edx,(%rax)
+8610	2	xchg   %dl,(%rax)
+8710	2	xchg   %edx,(%rax)
+8810	2	mov    %dl,(%rax)
+8910	2	mov    %edx,(%rax)
+8A10	2	mov    (%rax),%dl
+8B10	2	mov    (%rax),%edx
+8C10	2	mov    %ss,(%rax)
+8D10	2	lea    (%rax),%edx
+8E10	2	mov    (%rax),%ss
+8F10	NONE	(bad)
+9010	1	nop
+9110	1	xchg   %eax,%ecx
+9210	1	xchg   %eax,%edx
+9310	1	xchg   %eax,%ebx
+9410	1	xchg   %eax,%esp
+9510	1	xchg   %eax,%ebp
+9610	1	xchg   %eax,%esi
+9710	1	xchg   %eax,%edi
+9810	1	cwtl
+9910	1	cltd
+9A10	NONE	(bad)
+9B10	1	fwait
+9C10	1	pushf
+9D10	1	popf
+9E10	1	sahf
+9F10	1	lahf
+A010	9	movabs 0x9090909090909010,%al
+A110	9	movabs 0x9090909090909010,%eax
+A210	9	movabs %al,0x9090909090909010
+A310	9	movabs %eax,0x9090909090909010
+A410	1	movsb  %ds:(%rsi),%es:(%rdi)
+A510	1	movsl  %ds:(%rsi),%es:(%rdi)
+A610	1	cmpsb  %es:(%rdi),%ds:(%rsi)
+A710	1	cmpsl  %es:(%rdi),%ds:(%rsi)
+A810	2	test   $0x10,%al
+A910	5	test   $0x90909010,%eax
+AA10	1	stos   %al,%es:(%rdi)
+AB10	1	stos   %eax,%es:(%rdi)
+AC10	1	lods   %ds:(%rsi),%al
+AD10	1	lods   %ds:(%rsi),%eax
+AE10	1	scas   %es:(%rdi),%al
+AF10	1	scas   %es:(%rdi),%eax
+B010	2	mov    $0x10,%al
+B110	2	mov    $0x10,%cl
+B210	2	mov    $0x10,%dl
+B310	2	mov    $0x10,%bl
+B410	2	mov    $0x10,%ah
+B510	2	mov    $0x10,%ch
+B610	2	mov    $0x10,%dh
+B710	2	mov    $0x10,%bh
+B810	5	mov    $0x90909010,%eax
+B910	5	mov    $0x90909010,%ecx
+BA10	5	mov    $0x90909010,%edx
+BB10	5	mov    $0x90909010,%ebx
+BC10	5	mov    $0x90909010,%esp
+BD10	5	mov    $0x90909010,%ebp
+BE10	5	mov    $0x90909010,%esi
+BF10	5	mov    $0x90909010,%edi
+C010	3	rclb   $0x90,(%rax)
+C110	3	rcll   $0x90,(%rax)
+C210	3	ret    $0x9010
+C310	1	ret
+C410	NONE	(bad)
+C510	NONE	(bad)
+C610	NONE	(bad)
+C710	NONE	(bad)
+C810	4	enter  $0x9010,$0x90
+C910	1	leave
+CA10	3	lret   $0x9010
+CB10	1	lret
+CC10	1	int3
+CD10	2	int    $0x10
+CE10	NONE	(bad)
+CF10	1	iret
+D010	2	rclb   $1,(%rax)
+D110	2	rcll   $1,(%rax)
+D210	2	rclb   %cl,(%rax)
+D310	2	rcll   %cl,(%rax)
+D410	NONE	(bad)
+D510	3	{rex2 0x10} nop
+D610	NONE	(bad)
+D710	1	xlat   %ds:(%rbx)
+D810	2	fcoms  (%rax)
+D910	2	fsts   (%rax)
+DA10	2	ficoml (%rax)
+DB10	2	fistl  (%rax)
+DC10	2	fcoml  (%rax)
+DD10	2	fstl   (%rax)
+DE10	2	ficoms (%rax)
+DF10	2	fists  (%rax)
+E010	2	loopne 0x12
+E110	2	loope  0x12
+E210	2	loop   0x12
+E310	2	jrcxz  0x12
+E410	2	in     $0x10,%al
+E510	2	in     $0x10,%eax
+E610	2	out    %al,$0x10
+E710	2	out    %eax,$0x10
+E810	5	call   0xffffffff90909015
+E910	5	jmp    0xffffffff90909015
+EA10	NONE	(bad)
+EB10	2	jmp    0x12
+EC10	1	in     (%dx),%al
+ED10	1	in     (%dx),%eax
+EE10	1	out    %al,(%dx)
+EF10	1	out    %eax,(%dx)
+F010	7	lock adc %dl,-0x6f6f6f70(%rax)
+F110	1	int1
+F210	7	repnz adc %dl,-0x6f6f6f70(%rax)
+F310	7	repz adc %dl,-0x6f6f6f70(%rax)
+F410	1	hlt
+F510	1	cmc
+F610	2	notb   (%rax)
+F710	2	notl   (%rax)
+F810	1	clc
+F910	1	stc
+FA10	1	cli
+FB10	1	sti
+FC10	1	cld
+FD10	1	std
+FE10	NONE	(bad)
+FF10	2	call   *(%rax)
+0018	2	add    %bl,(%rax)
+0118	2	add    %ebx,(%rax)
+0218	2	add    (%rax),%bl
+0318	2	add    (%rax),%ebx
+0418	2	add    $0x18,%al
+0518	5	add    $0x90909018,%eax
+0618	NONE	(bad)
+0718	NONE	(bad)
+0818	2	or     %bl,(%rax)
+0918	2	or     %ebx,(%rax)
+0A18	2	or     (%rax),%bl
+0B18	2	or     (%rax),%ebx
+0C18	2	or     $0x18,%al
+0D18	5	or     $0x90909018,%eax
+0E18	NONE	(bad)
+0F18	7	prefetcht1 -0x6f6f6f70(%rax)
+1018	2	adc    %bl,(%rax)
+1118	2	adc    %ebx,(%rax)
+1218	2	adc    (%rax),%bl
+1318	2	adc    (%rax),%ebx
+1418	2	adc    $0x18,%al
+1518	5	adc    $0x90909018,%eax
+1618	NONE	(bad)
+1718	NONE	(bad)
+1818	2	sbb    %bl,(%rax)
+1918	2	sbb    %ebx,(%rax)
+1A18	2	sbb    (%rax),%bl
+1B18	2	sbb    (%rax),%ebx
+1C18	2	sbb    $0x18,%al
+1D18	5	sbb    $0x90909018,%eax
+1E18	NONE	(bad)
+1F18	NONE	(bad)
+2018	2	and    %bl,(%rax)
+2118	2	and    %ebx,(%rax)
+2218	2	and    (%rax),%bl
+2318	2	and    (%rax),%ebx
+2418	2	and    $0x18,%al
+2518	5	and    $0x90909018,%eax
+2618	7	es sbb %dl,-0x6f6f6f70(%rax)
+2718	NONE	(bad)
+2818	2	sub    %bl,(%rax)
+2918	2	sub    %ebx,(%rax)
+2A18	2	sub    (%rax),%bl
+2B18	2	sub    (%rax),%ebx
+2C18	2	sub    $0x18,%al
+2D18	5	sub    $0x90909018,%eax
+2E18	7	cs sbb %dl,-0x6f6f6f70(%rax)
+2F18	NONE	(bad)
+3018	2	xor    %bl,(%rax)
+3118	2	xor    %ebx,(%rax)
+3218	2	xor    (%rax),%bl
+3318	2	xor    (%rax),%ebx
+3418	2	xor    $0x18,%al
+3518	5	xor    $0x90909018,%eax
+3618	7	ss sbb %dl,-0x6f6f6f70(%rax)
+3718	NONE	(bad)
+3818	2	cmp    %bl,(%rax)
+3918	2	cmp    %ebx,(%rax)
+3A18	2	cmp    (%rax),%bl
+3B18	2	cmp    (%rax),%ebx
+3C18	2	cmp    $0x18,%al
+3D18	5	cmp    $0x90909018,%eax
+3E18	7	ds sbb %dl,-0x6f6f6f70(%rax)
+3F18	NONE	(bad)
+4018	7	rex sbb %dl,-0x6f6f6f70(%rax)
+4118	7	sbb    %dl,-0x6f6f6f70(%r8)
+4218	7	rex.X sbb %dl,-0x6f6f6f70(%rax)
+4318	7	rex.XB sbb %dl,-0x6f6f6f70(%r8)
+4418	7	sbb    %r10b,-0x6f6f6f70(%rax)
+4518	7	sbb    %r10b,-0x6f6f6f70(%r8)
+4618	7	rex.RX sbb %r10b,-0x6f6f6f70(%rax)
+4718	7	rex.RXB sbb %r10b,-0x6f6f6f70(%r8)
+4818	7	rex.W sbb %dl,-0x6f6f6f70(%rax)
+4918	7	rex.WB sbb %dl,-0x6f6f6f70(%r8)
+4A18	7	rex.WX sbb %dl,-0x6f6f6f70(%rax)
+4B18	7	rex.WXB sbb %dl,-0x6f6f6f70(%r8)
+4C18	7	rex.WR sbb %r10b,-0x6f6f6f70(%rax)
+4D18	7	rex.WRB sbb %r10b,-0x6f6f6f70(%r8)
+4E18	7	rex.WRX sbb %r10b,-0x6f6f6f70(%rax)
+4F18	7	rex.WRXB sbb %r10b,-0x6f6f6f70(%r8)
+5018	1	push   %rax
+5118	1	push   %rcx
+5218	1	push   %rdx
+5318	1	push   %rbx
+5418	1	push   %rsp
+5518	1	push   %rbp
+5618	1	push   %rsi
+5718	1	push   %rdi
+5818	1	pop    %rax
+5918	1	pop    %rcx
+5A18	1	pop    %rdx
+5B18	1	pop    %rbx
+5C18	1	pop    %rsp
+5D18	1	pop    %rbp
+5E18	1	pop    %rsi
+5F18	1	pop    %rdi
+6018	NONE	(bad)
+6118	NONE	(bad)
+6218	NONE	(bad)
+6318	2	movsxd (%rax),%ebx
+6418	7	sbb    %dl,%fs:-0x6f6f6f70(%rax)
+6518	7	sbb    %dl,%gs:-0x6f6f6f70(%rax)
+6618	7	data16 sbb %dl,-0x6f6f6f70(%rax)
+6718	7	sbb    %dl,-0x6f6f6f70(%eax)
+6818	5	push   $0xffffffff90909018
+6918	6	imul   $0x90909090,(%rax),%ebx
+6A18	2	push   $0x18
+6B18	3	imul   $0xffffff90,(%rax),%ebx
+6C18	1	insb   (%dx),%es:(%rdi)
+6D18	1	insl   (%dx),%es:(%rdi)
+6E18	1	outsb  %ds:(%rsi),(%dx)
+6F18	1	outsl  %ds:(%rsi),(%dx)
+7018	2	jo     0x1a
+7118	2	jno    0x1a
+7218	2	jb     0x1a
+7318	2	jae    0x1a
+7418	2	je     0x1a
+7518	2	jne    0x1a
+7618	2	jbe    0x1a
+7718	2	ja     0x1a
+7818	2	js     0x1a
+7918	2	jns    0x1a
+7A18	2	jp     0x1a
+7B18	2	jnp    0x1a
+7C18	2	jl     0x1a
+7D18	2	jge    0x1a
+7E18	2	jle    0x1a
+7F18	2	jg     0x1a
+8018	3	sbbb   $0x90,(%rax)
+8118	6	sbbl   $0x90909090,(%rax)
+8218	NONE	(bad)
+8318	3	sbbl   $0xffffff90,(%rax)
+8418	2	test   %bl,(%rax)
+8518	2	test   %ebx,(%rax)
+8618	2	xchg   %bl,(%rax)
+8718	2	xchg   %ebx,(%rax)
+8818	2	mov    %bl,(%rax)
+8918	2	mov    %ebx,(%rax)
+8A18	2	mov    (%rax),%bl
+8B18	2	mov    (%rax),%ebx
+8C18	2	mov    %ds,(%rax)
+8D18	2	lea    (%rax),%ebx
+8E18	2	mov    (%rax),%ds
+8F18	NONE	(bad)
+9018	1	nop
+9118	1	xchg   %eax,%ecx
+9218	1	xchg   %eax,%edx
+9318	1	xchg   %eax,%ebx
+9418	1	xchg   %eax,%esp
+9518	1	xchg   %eax,%ebp
+9618	1	xchg   %eax,%esi
+9718	1	xchg   %eax,%edi
+9818	1	cwtl
+9918	1	cltd
+9A18	NONE	(bad)
+9B18	1	fwait
+9C18	1	pushf
+9D18	1	popf
+9E18	1	sahf
+9F18	1	lahf
+A018	9	movabs 0x9090909090909018,%al
+A118	9	movabs 0x9090909090909018,%eax
+A218	9	movabs %al,0x9090909090909018
+A318	9	movabs %eax,0x9090909090909018
+A418	1	movsb  %ds:(%rsi),%es:(%rdi)
+A518	1	movsl  %ds:(%rsi),%es:(%rdi)
+A618	1	cmpsb  %es:(%rdi),%ds:(%rsi)
+A718	1	cmpsl  %es:(%rdi),%ds:(%rsi)
+A818	2	test   $0x18,%al
+A918	5	test   $0x90909018,%eax
+AA18	1	stos   %al,%es:(%rdi)
+AB18	1	stos   %eax,%es:(%rdi)
+AC18	1	lods   %ds:(%rsi),%al
+AD18	1	lods   %ds:(%rsi),%eax
+AE18	1	scas   %es:(%rdi),%al
+AF18	1	scas   %es:(%rdi),%eax
+B018	2	mov    $0x18,%al
+B118	2	mov    $0x18,%cl
+B218	2	mov    $0x18,%dl
+B318	2	mov    $0x18,%bl
+B418	2	mov    $0x18,%ah
+B518	2	mov    $0x18,%ch
+B618	2	mov    $0x18,%dh
+B718	2	mov    $0x18,%bh
+B818	5	mov    $0x90909018,%eax
+B918	5	mov    $0x90909018,%ecx
+BA18	5	mov    $0x90909018,%edx
+BB18	5	mov    $0x90909018,%ebx
+BC18	5	mov    $0x90909018,%esp
+BD18	5	mov    $0x90909018,%ebp
+BE18	5	mov    $0x90909018,%esi
+BF18	5	mov    $0x90909018,%edi
+C018	3	rcrb   $0x90,(%rax)
+C118	3	rcrl   $0x90,(%rax)
+C218	3	ret    $0x9018
+C318	1	ret
+C418	NONE	(bad)
+C518	NONE	(bad)
+C618	NONE	(bad)
+C718	NONE	(bad)
+C818	4	enter  $0x9018,$0x90
+C918	1	leave
+CA18	3	lret   $0x9018
+CB18	1	lret
+CC18	1	int3
+CD18	2	int    $0x18
+CE18	NONE	(bad)
+CF18	1	iret
+D018	2	rcrb   $1,(%rax)
+D118	2	rcrl   $1,(%rax)
+D218	2	rcrb   %cl,(%rax)
+D318	2	rcrl   %cl,(%rax)
+D418	NONE	(bad)
+D518	3	{rex2 0x18} nop
+D618	NONE	(bad)
+D718	1	xlat   %ds:(%rbx)
+D818	2	fcomps (%rax)
+D918	2	fstps  (%rax)
+DA18	2	ficompl (%rax)
+DB18	2	fistpl (%rax)
+DC18	2	fcompl (%rax)
+DD18	2	fstpl  (%rax)
+DE18	2	ficomps (%rax)
+DF18	2	fistps (%rax)
+E018	2	loopne 0x1a
+E118	2	loope  0x1a
+E218	2	loop   0x1a
+E318	2	jrcxz  0x1a
+E418	2	in     $0x18,%al
+E518	2	in     $0x18,%eax
+E618	2	out    %al,$0x18
+E718	2	out    %eax,$0x18
+E818	5	call   0xffffffff9090901d
+E918	5	jmp    0xffffffff9090901d
+EA18	NONE	(bad)
+EB18	2	jmp    0x1a
+EC18	1	in     (%dx),%al
+ED18	1	in     (%dx),%eax
+EE18	1	out    %al,(%dx)
+EF18	1	out    %eax,(%dx)
+F018	7	lock sbb %dl,-0x6f6f6f70(%rax)
+F118	1	int1
+F218	7	repnz sbb %dl,-0x6f6f6f70(%rax)
+F318	7	repz sbb %dl,-0x6f6f6f70(%rax)
+F418	1	hlt
+F518	1	cmc
+F618	2	negb   (%rax)
+F718	2	negl   (%rax)
+F818	1	clc
+F918	1	stc
+FA18	1	cli
+FB18	1	sti
+FC18	1	cld
+FD18	1	std
+FE18	NONE	(bad)
+FF18	2	lcall  *(%rax)
+0020	2	add    %ah,(%rax)
+0120	2	add    %esp,(%rax)
+0220	2	add    (%rax),%ah
+0320	2	add    (%rax),%esp
+0420	2	add    $0x20,%al
+0520	5	add    $0x90909020,%eax
+0620	NONE	(bad)
+0720	NONE	(bad)
+0820	2	or     %ah,(%rax)
+0920	2	or     %esp,(%rax)
+0A20	2	or     (%rax),%ah
+0B20	2	or     (%rax),%esp
+0C20	2	or     $0x20,%al
+0D20	5	or     $0x90909020,%eax
+0E20	NONE	(bad)
+0F20	3	mov    %cr2,%rax
+1020	2	adc    %ah,(%rax)
+1120	2	adc    %esp,(%rax)
+1220	2	adc    (%rax),%ah
+1320	2	adc    (%rax),%esp
+1420	2	adc    $0x20,%al
+1520	5	adc    $0x90909020,%eax
+1620	NONE	(bad)
+1720	NONE	(bad)
+1820	2	sbb    %ah,(%rax)
+1920	2	sbb    %esp,(%rax)
+1A20	2	sbb    (%rax),%ah
+1B20	2	sbb    (%rax),%esp
+1C20	2	sbb    $0x20,%al
+1D20	5	sbb    $0x90909020,%eax
+1E20	NONE	(bad)
+1F20	NONE	(bad)
+2020	2	and    %ah,(%rax)
+2120	2	and    %esp,(%rax)
+2220	2	and    (%rax),%ah
+2320	2	and    (%rax),%esp
+2420	2	and    $0x20,%al
+2520	5	and    $0x90909020,%eax
+2620	7	es and %dl,-0x6f6f6f70(%rax)
+2720	NONE	(bad)
+2820	2	sub    %ah,(%rax)
+2920	2	sub    %esp,(%rax)
+2A20	2	sub    (%rax),%ah
+2B20	2	sub    (%rax),%esp
+2C20	2	sub    $0x20,%al
+2D20	5	sub    $0x90909020,%eax
+2E20	7	cs and %dl,-0x6f6f6f70(%rax)
+2F20	NONE	(bad)
+3020	2	xor    %ah,(%rax)
+3120	2	xor    %esp,(%rax)
+3220	2	xor    (%rax),%ah
+3320	2	xor    (%rax),%esp
+3420	2	xor    $0x20,%al
+3520	5	xor    $0x90909020,%eax
+3620	7	ss and %dl,-0x6f6f6f70(%rax)
+3720	NONE	(bad)
+3820	2	cmp    %ah,(%rax)
+3920	2	cmp    %esp,(%rax)
+3A20	2	cmp    (%rax),%ah
+3B20	2	cmp    (%rax),%esp
+3C20	2	cmp    $0x20,%al
+3D20	5	cmp    $0x90909020,%eax
+3E20	7	ds and %dl,-0x6f6f6f70(%rax)
+3F20	NONE	(bad)
+4020	7	rex and %dl,-0x6f6f6f70(%rax)
+4120	7	and    %dl,-0x6f6f6f70(%r8)
+4220	7	rex.X and %dl,-0x6f6f6f70(%rax)
+4320	7	rex.XB and %dl,-0x6f6f6f70(%r8)
+4420	7	and    %r10b,-0x6f6f6f70(%rax)
+4520	7	and    %r10b,-0x6f6f6f70(%r8)
+4620	7	rex.RX and %r10b,-0x6f6f6f70(%rax)
+4720	7	rex.RXB and %r10b,-0x6f6f6f70(%r8)
+4820	7	rex.W and %dl,-0x6f6f6f70(%rax)
+4920	7	rex.WB and %dl,-0x6f6f6f70(%r8)
+4A20	7	rex.WX and %dl,-0x6f6f6f70(%rax)
+4B20	7	rex.WXB and %dl,-0x6f6f6f70(%r8)
+4C20	7	rex.WR and %r10b,-0x6f6f6f70(%rax)
+4D20	7	rex.WRB and %r10b,-0x6f6f6f70(%r8)
+4E20	7	rex.WRX and %r10b,-0x6f6f6f70(%rax)
+4F20	7	rex.WRXB and %r10b,-0x6f6f6f70(%r8)
+5020	1	push   %rax
+5120	1	push   %rcx
+5220	1	push   %rdx
+5320	1	push   %rbx
+5420	1	push   %rsp
+5520	1	push   %rbp
+5620	1	push   %rsi
+5720	1	push   %rdi
+5820	1	pop    %rax
+5920	1	pop    %rcx
+5A20	1	pop    %rdx
+5B20	1	pop    %rbx
+5C20	1	pop    %rsp
+5D20	1	pop    %rbp
+5E20	1	pop    %rsi
+5F20	1	pop    %rdi
+6020	NONE	(bad)
+6120	NONE	(bad)
+6220	NONE	(bad)
+6320	2	movsxd (%rax),%esp
+6420	7	and    %dl,%fs:-0x6f6f6f70(%rax)
+6520	7	and    %dl,%gs:-0x6f6f6f70(%rax)
+6620	7	data16 and %dl,-0x6f6f6f70(%rax)
+6720	7	and    %dl,-0x6f6f6f70(%eax)
+6820	5	push   $0xffffffff90909020
+6920	6	imul   $0x90909090,(%rax),%esp
+6A20	2	push   $0x20
+6B20	3	imul   $0xffffff90,(%rax),%esp
+6C20	1	insb   (%dx),%es:(%rdi)
+6D20	1	insl   (%dx),%es:(%rdi)
+6E20	1	outsb  %ds:(%rsi),(%dx)
+6F20	1	outsl  %ds:(%rsi),(%dx)
+7020	2	jo     0x22
+7120	2	jno    0x22
+7220	2	jb     0x22
+7320	2	jae    0x22
+7420	2	je     0x22
+7520	2	jne    0x22
+7620	2	jbe    0x22
+7720	2	ja     0x22
+7820	2	js     0x22
+7920	2	jns    0x22
+7A20	2	jp     0x22
+7B20	2	jnp    0x22
+7C20	2	jl     0x22
+7D20	2	jge    0x22
+7E20	2	jle    0x22
+7F20	2	jg     0x22
+8020	3	andb   $0x90,(%rax)
+8120	6	andl   $0x90909090,(%rax)
+8220	NONE	(bad)
+8320	3	andl   $0xffffff90,(%rax)
+8420	2	test   %ah,(%rax)
+8520	2	test   %esp,(%rax)
+8620	2	xchg   %ah,(%rax)
+8720	2	xchg   %esp,(%rax)
+8820	2	mov    %ah,(%rax)
+8920	2	mov    %esp,(%rax)
+8A20	2	mov    (%rax),%ah
+8B20	2	mov    (%rax),%esp
+8C20	2	mov    %fs,(%rax)
+8D20	2	lea    (%rax),%esp
+8E20	2	mov    (%rax),%fs
+8F20	NONE	(bad)
+9020	1	nop
+9120	1	xchg   %eax,%ecx
+9220	1	xchg   %eax,%edx
+9320	1	xchg   %eax,%ebx
+9420	1	xchg   %eax,%esp
+9520	1	xchg   %eax,%ebp
+9620	1	xchg   %eax,%esi
+9720	1	xchg   %eax,%edi
+9820	1	cwtl
+9920	1	cltd
+9A20	NONE	(bad)
+9B20	1	fwait
+9C20	1	pushf
+9D20	1	popf
+9E20	1	sahf
+9F20	1	lahf
+A020	9	movabs 0x9090909090909020,%al
+A120	9	movabs 0x9090909090909020,%eax
+A220	9	movabs %al,0x9090909090909020
+A320	9	movabs %eax,0x9090909090909020
+A420	1	movsb  %ds:(%rsi),%es:(%rdi)
+A520	1	movsl  %ds:(%rsi),%es:(%rdi)
+A620	1	cmpsb  %es:(%rdi),%ds:(%rsi)
+A720	1	cmpsl  %es:(%rdi),%ds:(%rsi)
+A820	2	test   $0x20,%al
+A920	5	test   $0x90909020,%eax
+AA20	1	stos   %al,%es:(%rdi)
+AB20	1	stos   %eax,%es:(%rdi)
+AC20	1	lods   %ds:(%rsi),%al
+AD20	1	lods   %ds:(%rsi),%eax
+AE20	1	scas   %es:(%rdi),%al
+AF20	1	scas   %es:(%rdi),%eax
+B020	2	mov    $0x20,%al
+B120	2	mov    $0x20,%cl
+B220	2	mov    $0x20,%dl
+B320	2	mov    $0x20,%bl
+B420	2	mov    $0x20,%ah
+B520	2	mov    $0x20,%ch
+B620	2	mov    $0x20,%dh
+B720	2	mov    $0x20,%bh
+B820	5	mov    $0x90909020,%eax
+B920	5	mov    $0x90909020,%ecx
+BA20	5	mov    $0x90909020,%edx
+BB20	5	mov    $0x90909020,%ebx
+BC20	5	mov    $0x90909020,%esp
+BD20	5	mov    $0x90909020,%ebp
+BE20	5	mov    $0x90909020,%esi
+BF20	5	mov    $0x90909020,%edi
+C020	3	shlb   $0x90,(%rax)
+C120	3	shll   $0x90,(%rax)
+C220	3	ret    $0x9020
+C320	1	ret
+C420	NONE	(bad)
+C520	NONE	(bad)
+C620	NONE	(bad)
+C720	NONE	(bad)
+C820	4	enter  $0x9020,$0x90
+C920	1	leave
+CA20	3	lret   $0x9020
+CB20	1	lret
+CC20	1	int3
+CD20	2	int    $0x20
+CE20	NONE	(bad)
+CF20	1	iret
+D020	2	shlb   $1,(%rax)
+D120	2	shll   $1,(%rax)
+D220	2	shlb   %cl,(%rax)
+D320	2	shll   %cl,(%rax)
+D420	NONE	(bad)
+D520	3	{rex2 0x20} nop
+D620	NONE	(bad)
+D720	1	xlat   %ds:(%rbx)
+D820	2	fsubs  (%rax)
+D920	2	fldenv (%rax)
+DA20	2	fisubl (%rax)
+DB20	NONE	(bad)  (%rax)
+DC20	2	fsubl  (%rax)
+DD20	2	frstor (%rax)
+DE20	2	fisubs (%rax)
+DF20	2	fbld   (%rax)
+E020	2	loopne 0x22
+E120	2	loope  0x22
+E220	2	loop   0x22
+E320	2	jrcxz  0x22
+E420	2	in     $0x20,%al
+E520	2	in     $0x20,%eax
+E620	2	out    %al,$0x20
+E720	2	out    %eax,$0x20
+E820	5	call   0xffffffff90909025
+E920	5	jmp    0xffffffff90909025
+EA20	NONE	(bad)
+EB20	2	jmp    0x22
+EC20	1	in     (%dx),%al
+ED20	1	in     (%dx),%eax
+EE20	1	out    %al,(%dx)
+EF20	1	out    %eax,(%dx)
+F020	7	lock and %dl,-0x6f6f6f70(%rax)
+F120	1	int1
+F220	7	repnz and %dl,-0x6f6f6f70(%rax)
+F320	7	repz and %dl,-0x6f6f6f70(%rax)
+F420	1	hlt
+F520	1	cmc
+F620	2	mulb   (%rax)
+F720	2	mull   (%rax)
+F820	1	clc
+F920	1	stc
+FA20	1	cli
+FB20	1	sti
+FC20	1	cld
+FD20	1	std
+FE20	NONE	(bad)
+FF20	2	jmp    *(%rax)
+0028	2	add    %ch,(%rax)
+0128	2	add    %ebp,(%rax)
+0228	2	add    (%rax),%ch
+0328	2	add    (%rax),%ebp
+0428	2	add    $0x28,%al
+0528	5	add    $0x90909028,%eax
+0628	NONE	(bad)
+0728	NONE	(bad)
+0828	2	or     %ch,(%rax)
+0928	2	or     %ebp,(%rax)
+0A28	2	or     (%rax),%ch
+0B28	2	or     (%rax),%ebp
+0C28	2	or     $0x28,%al
+0D28	5	or     $0x90909028,%eax
+0E28	NONE	(bad)
+0F28	7	movaps -0x6f6f6f70(%rax),%xmm2
+1028	2	adc    %ch,(%rax)
+1128	2	adc    %ebp,(%rax)
+1228	2	adc    (%rax),%ch
+1328	2	adc    (%rax),%ebp
+1428	2	adc    $0x28,%al
+1528	5	adc    $0x90909028,%eax
+1628	NONE	(bad)
+1728	NONE	(bad)
+1828	2	sbb    %ch,(%rax)
+1928	2	sbb    %ebp,(%rax)
+1A28	2	sbb    (%rax),%ch
+1B28	2	sbb    (%rax),%ebp
+1C28	2	sbb    $0x28,%al
+1D28	5	sbb    $0x90909028,%eax
+1E28	NONE	(bad)
+1F28	NONE	(bad)
+2028	2	and    %ch,(%rax)
+2128	2	and    %ebp,(%rax)
+2228	2	and    (%rax),%ch
+2328	2	and    (%rax),%ebp
+2428	2	and    $0x28,%al
+2528	5	and    $0x90909028,%eax
+2628	7	es sub %dl,-0x6f6f6f70(%rax)
+2728	NONE	(bad)
+2828	2	sub    %ch,(%rax)
+2928	2	sub    %ebp,(%rax)
+2A28	2	sub    (%rax),%ch
+2B28	2	sub    (%rax),%ebp
+2C28	2	sub    $0x28,%al
+2D28	5	sub    $0x90909028,%eax
+2E28	7	cs sub %dl,-0x6f6f6f70(%rax)
+2F28	NONE	(bad)
+3028	2	xor    %ch,(%rax)
+3128	2	xor    %ebp,(%rax)
+3228	2	xor    (%rax),%ch
+3328	2	xor    (%rax),%ebp
+3428	2	xor    $0x28,%al
+3528	5	xor    $0x90909028,%eax
+3628	7	ss sub %dl,-0x6f6f6f70(%rax)
+3728	NONE	(bad)
+3828	2	cmp    %ch,(%rax)
+3928	2	cmp    %ebp,(%rax)
+3A28	2	cmp    (%rax),%ch
+3B28	2	cmp    (%rax),%ebp
+3C28	2	cmp    $0x28,%al
+3D28	5	cmp    $0x90909028,%eax
+3E28	7	ds sub %dl,-0x6f6f6f70(%rax)
+3F28	NONE	(bad)
+4028	7	rex sub %dl,-0x6f6f6f70(%rax)
+4128	7	sub    %dl,-0x6f6f6f70(%r8)
+4228	7	rex.X sub %dl,-0x6f6f6f70(%rax)
+4328	7	rex.XB sub %dl,-0x6f6f6f70(%r8)
+4428	7	sub    %r10b,-0x6f6f6f70(%rax)
+4528	7	sub    %r10b,-0x6f6f6f70(%r8)
+4628	7	rex.RX sub %r10b,-0x6f6f6f70(%rax)
+4728	7	rex.RXB sub %r10b,-0x6f6f6f70(%r8)
+4828	7	rex.W sub %dl,-0x6f6f6f70(%rax)
+4928	7	rex.WB sub %dl,-0x6f6f6f70(%r8)
+4A28	7	rex.WX sub %dl,-0x6f6f6f70(%rax)
+4B28	7	rex.WXB sub %dl,-0x6f6f6f70(%r8)
+4C28	7	rex.WR sub %r10b,-0x6f6f6f70(%rax)
+4D28	7	rex.WRB sub %r10b,-0x6f6f6f70(%r8)
+4E28	7	rex.WRX sub %r10b,-0x6f6f6f70(%rax)
+4F28	7	rex.WRXB sub %r10b,-0x6f6f6f70(%r8)
+5028	1	push   %rax
+5128	1	push   %rcx
+5228	1	push   %rdx
+5328	1	push   %rbx
+5428	1	push   %rsp
+5528	1	push   %rbp
+5628	1	push   %rsi
+5728	1	push   %rdi
+5828	1	pop    %rax
+5928	1	pop    %rcx
+5A28	1	pop    %rdx
+5B28	1	pop    %rbx
+5C28	1	pop    %rsp
+5D28	1	pop    %rbp
+5E28	1	pop    %rsi
+5F28	1	pop    %rdi
+6028	NONE	(bad)
+6128	NONE	(bad)
+6228	NONE	(bad)
+6328	2	movsxd (%rax),%ebp
+6428	7	sub    %dl,%fs:-0x6f6f6f70(%rax)
+6528	7	sub    %dl,%gs:-0x6f6f6f70(%rax)
+6628	7	data16 sub %dl,-0x6f6f6f70(%rax)
+6728	7	sub    %dl,-0x6f6f6f70(%eax)
+6828	5	push   $0xffffffff90909028
+6928	6	imul   $0x90909090,(%rax),%ebp
+6A28	2	push   $0x28
+6B28	3	imul   $0xffffff90,(%rax),%ebp
+6C28	1	insb   (%dx),%es:(%rdi)
+6D28	1	insl   (%dx),%es:(%rdi)
+6E28	1	outsb  %ds:(%rsi),(%dx)
+6F28	1	outsl  %ds:(%rsi),(%dx)
+7028	2	jo     0x2a
+7128	2	jno    0x2a
+7228	2	jb     0x2a
+7328	2	jae    0x2a
+7428	2	je     0x2a
+7528	2	jne    0x2a
+7628	2	jbe    0x2a
+7728	2	ja     0x2a
+7828	2	js     0x2a
+7928	2	jns    0x2a
+7A28	2	jp     0x2a
+7B28	2	jnp    0x2a
+7C28	2	jl     0x2a
+7D28	2	jge    0x2a
+7E28	2	jle    0x2a
+7F28	2	jg     0x2a
+8028	3	subb   $0x90,(%rax)
+8128	6	subl   $0x90909090,(%rax)
+8228	NONE	(bad)
+8328	3	subl   $0xffffff90,(%rax)
+8428	2	test   %ch,(%rax)
+8528	2	test   %ebp,(%rax)
+8628	2	xchg   %ch,(%rax)
+8728	2	xchg   %ebp,(%rax)
+8828	2	mov    %ch,(%rax)
+8928	2	mov    %ebp,(%rax)
+8A28	2	mov    (%rax),%ch
+8B28	2	mov    (%rax),%ebp
+8C28	2	mov    %gs,(%rax)
+8D28	2	lea    (%rax),%ebp
+8E28	2	mov    (%rax),%gs
+8F28	NONE	(bad)
+9028	1	nop
+9128	1	xchg   %eax,%ecx
+9228	1	xchg   %eax,%edx
+9328	1	xchg   %eax,%ebx
+9428	1	xchg   %eax,%esp
+9528	1	xchg   %eax,%ebp
+9628	1	xchg   %eax,%esi
+9728	1	xchg   %eax,%edi
+9828	1	cwtl
+9928	1	cltd
+9A28	NONE	(bad)
+9B28	1	fwait
+9C28	1	pushf
+9D28	1	popf
+9E28	1	sahf
+9F28	1	lahf
+A028	9	movabs 0x9090909090909028,%al
+A128	9	movabs 0x9090909090909028,%eax
+A228	9	movabs %al,0x9090909090909028
+A328	9	movabs %eax,0x9090909090909028
+A428	1	movsb  %ds:(%rsi),%es:(%rdi)
+A528	1	movsl  %ds:(%rsi),%es:(%rdi)
+A628	1	cmpsb  %es:(%rdi),%ds:(%rsi)
+A728	1	cmpsl  %es:(%rdi),%ds:(%rsi)
+A828	2	test   $0x28,%al
+A928	5	test   $0x90909028,%eax
+AA28	1	stos   %al,%es:(%rdi)
+AB28	1	stos   %eax,%es:(%rdi)
+AC28	1	lods   %ds:(%rsi),%al
+AD28	1	lods   %ds:(%rsi),%eax
+AE28	1	scas   %es:(%rdi),%al
+AF28	1	scas   %es:(%rdi),%eax
+B028	2	mov    $0x28,%al
+B128	2	mov    $0x28,%cl
+B228	2	mov    $0x28,%dl
+B328	2	mov    $0x28,%bl
+B428	2	mov    $0x28,%ah
+B528	2	mov    $0x28,%ch
+B628	2	mov    $0x28,%dh
+B728	2	mov    $0x28,%bh
+B828	5	mov    $0x90909028,%eax
+B928	5	mov    $0x90909028,%ecx
+BA28	5	mov    $0x90909028,%edx
+BB28	5	mov    $0x90909028,%ebx
+BC28	5	mov    $0x90909028,%esp
+BD28	5	mov    $0x90909028,%ebp
+BE28	5	mov    $0x90909028,%esi
+BF28	5	mov    $0x90909028,%edi
+C028	3	shrb   $0x90,(%rax)
+C128	3	shrl   $0x90,(%rax)
+C228	3	ret    $0x9028
+C328	1	ret
+C428	NONE	(bad)
+C528	NONE	(bad)
+C628	NONE	(bad)
+C728	NONE	(bad)
+C828	4	enter  $0x9028,$0x90
+C928	1	leave
+CA28	3	lret   $0x9028
+CB28	1	lret
+CC28	1	int3
+CD28	2	int    $0x28
+CE28	NONE	(bad)
+CF28	1	iret
+D028	2	shrb   $1,(%rax)
+D128	2	shrl   $1,(%rax)
+D228	2	shrb   %cl,(%rax)
+D328	2	shrl   %cl,(%rax)
+D428	NONE	(bad)
+D528	3	{rex2 0x28} nop
+D628	NONE	(bad)
+D728	1	xlat   %ds:(%rbx)
+D828	2	fsubrs (%rax)
+D928	2	fldcw  (%rax)
+DA28	2	fisubrl (%rax)
+DB28	2	fldt   (%rax)
+DC28	2	fsubrl (%rax)
+DD28	NONE	(bad)  (%rax)
+DE28	2	fisubrs (%rax)
+DF28	2	fildll (%rax)
+E028	2	loopne 0x2a
+E128	2	loope  0x2a
+E228	2	loop   0x2a
+E328	2	jrcxz  0x2a
+E428	2	in     $0x28,%al
+E528	2	in     $0x28,%eax
+E628	2	out    %al,$0x28
+E728	2	out    %eax,$0x28
+E828	5	call   0xffffffff9090902d
+E928	5	jmp    0xffffffff9090902d
+EA28	NONE	(bad)
+EB28	2	jmp    0x2a
+EC28	1	in     (%dx),%al
+ED28	1	in     (%dx),%eax
+EE28	1	out    %al,(%dx)
+EF28	1	out    %eax,(%dx)
+F028	7	lock sub %dl,-0x6f6f6f70(%rax)
+F128	1	int1
+F228	7	repnz sub %dl,-0x6f6f6f70(%rax)
+F328	7	repz sub %dl,-0x6f6f6f70(%rax)
+F428	1	hlt
+F528	1	cmc
+F628	2	imulb  (%rax)
+F728	2	imull  (%rax)
+F828	1	clc
+F928	1	stc
+FA28	1	cli
+FB28	1	sti
+FC28	1	cld
+FD28	1	std
+FE28	NONE	(bad)
+FF28	2	ljmp   *(%rax)
+0030	2	add    %dh,(%rax)
+0130	2	add    %esi,(%rax)
+0230	2	add    (%rax),%dh
+0330	2	add    (%rax),%esi
+0430	2	add    $0x30,%al
+0530	5	add    $0x90909030,%eax
+0630	NONE	(bad)
+0730	NONE	(bad)
+0830	2	or     %dh,(%rax)
+0930	2	or     %esi,(%rax)
+0A30	2	or     (%rax),%dh
+0B30	2	or     (%rax),%esi
+0C30	2	or     $0x30,%al
+0D30	5	or     $0x90909030,%eax
+0E30	NONE	(bad)
+0F30	2	wrmsr
+1030	2	adc    %dh,(%rax)
+1130	2	adc    %esi,(%rax)
+1230	2	adc    (%rax),%dh
+1330	2	adc    (%rax),%esi
+1430	2	adc    $0x30,%al
+1530	5	adc    $0x90909030,%eax
+1630	NONE	(bad)
+1730	NONE	(bad)
+1830	2	sbb    %dh,(%rax)
+1930	2	sbb    %esi,(%rax)
+1A30	2	sbb    (%rax),%dh
+1B30	2	sbb    (%rax),%esi
+1C30	2	sbb    $0x30,%al
+1D30	5	sbb    $0x90909030,%eax
+1E30	NONE	(bad)
+1F30	NONE	(bad)
+2030	2	and    %dh,(%rax)
+2130	2	and    %esi,(%rax)
+2230	2	and    (%rax),%dh
+2330	2	and    (%rax),%esi
+2430	2	and    $0x30,%al
+2530	5	and    $0x90909030,%eax
+2630	7	es xor %dl,-0x6f6f6f70(%rax)
+2730	NONE	(bad)
+2830	2	sub    %dh,(%rax)
+2930	2	sub    %esi,(%rax)
+2A30	2	sub    (%rax),%dh
+2B30	2	sub    (%rax),%esi
+2C30	2	sub    $0x30,%al
+2D30	5	sub    $0x90909030,%eax
+2E30	7	cs xor %dl,-0x6f6f6f70(%rax)
+2F30	NONE	(bad)
+3030	2	xor    %dh,(%rax)
+3130	2	xor    %esi,(%rax)
+3230	2	xor    (%rax),%dh
+3330	2	xor    (%rax),%esi
+3430	2	xor    $0x30,%al
+3530	5	xor    $0x90909030,%eax
+3630	7	ss xor %dl,-0x6f6f6f70(%rax)
+3730	NONE	(bad)
+3830	2	cmp    %dh,(%rax)
+3930	2	cmp    %esi,(%rax)
+3A30	2	cmp    (%rax),%dh
+3B30	2	cmp    (%rax),%esi
+3C30	2	cmp    $0x30,%al
+3D30	5	cmp    $0x90909030,%eax
+3E30	7	ds xor %dl,-0x6f6f6f70(%rax)
+3F30	NONE	(bad)
+4030	7	rex xor %dl,-0x6f6f6f70(%rax)
+4130	7	xor    %dl,-0x6f6f6f70(%r8)
+4230	7	rex.X xor %dl,-0x6f6f6f70(%rax)
+4330	7	rex.XB xor %dl,-0x6f6f6f70(%r8)
+4430	7	xor    %r10b,-0x6f6f6f70(%rax)
+4530	7	xor    %r10b,-0x6f6f6f70(%r8)
+4630	7	rex.RX xor %r10b,-0x6f6f6f70(%rax)
+4730	7	rex.RXB xor %r10b,-0x6f6f6f70(%r8)
+4830	7	rex.W xor %dl,-0x6f6f6f70(%rax)
+4930	7	rex.WB xor %dl,-0x6f6f6f70(%r8)
+4A30	7	rex.WX xor %dl,-0x6f6f6f70(%rax)
+4B30	7	rex.WXB xor %dl,-0x6f6f6f70(%r8)
+4C30	7	rex.WR xor %r10b,-0x6f6f6f70(%rax)
+4D30	7	rex.WRB xor %r10b,-0x6f6f6f70(%r8)
+4E30	7	rex.WRX xor %r10b,-0x6f6f6f70(%rax)
+4F30	7	rex.WRXB xor %r10b,-0x6f6f6f70(%r8)
+5030	1	push   %rax
+5130	1	push   %rcx
+5230	1	push   %rdx
+5330	1	push   %rbx
+5430	1	push   %rsp
+5530	1	push   %rbp
+5630	1	push   %rsi
+5730	1	push   %rdi
+5830	1	pop    %rax
+5930	1	pop    %rcx
+5A30	1	pop    %rdx
+5B30	1	pop    %rbx
+5C30	1	pop    %rsp
+5D30	1	pop    %rbp
+5E30	1	pop    %rsi
+5F30	1	pop    %rdi
+6030	NONE	(bad)
+6130	NONE	(bad)
+6230	NONE	(bad)
+6330	2	movsxd (%rax),%esi
+6430	7	xor    %dl,%fs:-0x6f6f6f70(%rax)
+6530	7	xor    %dl,%gs:-0x6f6f6f70(%rax)
+6630	7	data16 xor %dl,-0x6f6f6f70(%rax)
+6730	7	xor    %dl,-0x6f6f6f70(%eax)
+6830	5	push   $0xffffffff90909030
+6930	6	imul   $0x90909090,(%rax),%esi
+6A30	2	push   $0x30
+6B30	3	imul   $0xffffff90,(%rax),%esi
+6C30	1	insb   (%dx),%es:(%rdi)
+6D30	1	insl   (%dx),%es:(%rdi)
+6E30	1	outsb  %ds:(%rsi),(%dx)
+6F30	1	outsl  %ds:(%rsi),(%dx)
+7030	2	jo     0x32
+7130	2	jno    0x32
+7230	2	jb     0x32
+7330	2	jae    0x32
+7430	2	je     0x32
+7530	2	jne    0x32
+7630	2	jbe    0x32
+7730	2	ja     0x32
+7830	2	js     0x32
+7930	2	jns    0x32
+7A30	2	jp     0x32
+7B30	2	jnp    0x32
+7C30	2	jl     0x32
+7D30	2	jge    0x32
+7E30	2	jle    0x32
+7F30	2	jg     0x32
+8030	3	xorb   $0x90,(%rax)
+8130	6	xorl   $0x90909090,(%rax)
+8230	NONE	(bad)
+8330	3	xorl   $0xffffff90,(%rax)
+8430	2	test   %dh,(%rax)
+8530	2	test   %esi,(%rax)
+8630	2	xchg   %dh,(%rax)
+8730	2	xchg   %esi,(%rax)
+8830	2	mov    %dh,(%rax)
+8930	2	mov    %esi,(%rax)
+8A30	2	mov    (%rax),%dh
+8B30	2	mov    (%rax),%esi
+8C30	2	mov    %?,(%rax)
+8D30	2	lea    (%rax),%esi
+8E30	2	mov    (%rax),%?
+8F30	NONE	(bad)
+9030	1	nop
+9130	1	xchg   %eax,%ecx
+9230	1	xchg   %eax,%edx
+9330	1	xchg   %eax,%ebx
+9430	1	xchg   %eax,%esp
+9530	1	xchg   %eax,%ebp
+9630	1	xchg   %eax,%esi
+9730	1	xchg   %eax,%edi
+9830	1	cwtl
+9930	1	cltd
+9A30	NONE	(bad)
+9B30	1	fwait
+9C30	1	pushf
+9D30	1	popf
+9E30	1	sahf
+9F30	1	lahf
+A030	9	movabs 0x9090909090909030,%al
+A130	9	movabs 0x9090909090909030,%eax
+A230	9	movabs %al,0x9090909090909030
+A330	9	movabs %eax,0x9090909090909030
+A430	1	movsb  %ds:(%rsi),%es:(%rdi)
+A530	1	movsl  %ds:(%rsi),%es:(%rdi)
+A630	1	cmpsb  %es:(%rdi),%ds:(%rsi)
+A730	1	cmpsl  %es:(%rdi),%ds:(%rsi)
+A830	2	test   $0x30,%al
+A930	5	test   $0x90909030,%eax
+AA30	1	stos   %al,%es:(%rdi)
+AB30	1	stos   %eax,%es:(%rdi)
+AC30	1	lods   %ds:(%rsi),%al
+AD30	1	lods   %ds:(%rsi),%eax
+AE30	1	scas   %es:(%rdi),%al
+AF30	1	scas   %es:(%rdi),%eax
+B030	2	mov    $0x30,%al
+B130	2	mov    $0x30,%cl
+B230	2	mov    $0x30,%dl
+B330	2	mov    $0x30,%bl
+B430	2	mov    $0x30,%ah
+B530	2	mov    $0x30,%ch
+B630	2	mov    $0x30,%dh
+B730	2	mov    $0x30,%bh
+B830	5	mov    $0x90909030,%eax
+B930	5	mov    $0x90909030,%ecx
+BA30	5	mov    $0x90909030,%edx
+BB30	5	mov    $0x90909030,%ebx
+BC30	5	mov    $0x90909030,%esp
+BD30	5	mov    $0x90909030,%ebp
+BE30	5	mov    $0x90909030,%esi
+BF30	5	mov    $0x90909030,%edi
+C030	3	shlb   $0x90,(%rax)
+C130	3	shll   $0x90,(%rax)
+C230	3	ret    $0x9030
+C330	1	ret
+C430	NONE	(bad)
+C530	NONE	(bad)
+C630	NONE	(bad)
+C730	NONE	(bad)
+C830	4	enter  $0x9030,$0x90
+C930	1	leave
+CA30	3	lret   $0x9030
+CB30	1	lret
+CC30	1	int3
+CD30	2	int    $0x30
+CE30	NONE	(bad)
+CF30	1	iret
+D030	2	shlb   $1,(%rax)
+D130	2	shll   $1,(%rax)
+D230	2	shlb   %cl,(%rax)
+D330	2	shll   %cl,(%rax)
+D430	NONE	(bad)
+D530	3	{rex2 0x30} nop
+D630	NONE	(bad)
+D730	1	xlat   %ds:(%rbx)
+D830	2	fdivs  (%rax)
+D930	2	fnstenv (%rax)
+DA30	2	fidivl (%rax)
+DB30	NONE	(bad)  (%rax)
+DC30	2	fdivl  (%rax)
+DD30	2	fnsave (%rax)
+DE30	2	fidivs (%rax)
+DF30	2	fbstp  (%rax)
+E030	2	loopne 0x32
+E130	2	loope  0x32
+E230	2	loop   0x32
+E330	2	jrcxz  0x32
+E430	2	in     $0x30,%al
+E530	2	in     $0x30,%eax
+E630	2	out    %al,$0x30
+E730	2	out    %eax,$0x30
+E830	5	call   0xffffffff90909035
+E930	5	jmp    0xffffffff90909035
+EA30	NONE	(bad)
+EB30	2	jmp    0x32
+EC30	1	in     (%dx),%al
+ED30	1	in     (%dx),%eax
+EE30	1	out    %al,(%dx)
+EF30	1	out    %eax,(%dx)
+F030	7	lock xor %dl,-0x6f6f6f70(%rax)
+F130	1	int1
+F230	7	repnz xor %dl,-0x6f6f6f70(%rax)
+F330	7	repz xor %dl,-0x6f6f6f70(%rax)
+F430	1	hlt
+F530	1	cmc
+F630	2	divb   (%rax)
+F730	2	divl   (%rax)
+F830	1	clc
+F930	1	stc
+FA30	1	cli
+FB30	1	sti
+FC30	1	cld
+FD30	1	std
+FE30	NONE	(bad)
+FF30	2	push   (%rax)
+0038	2	add    %bh,(%rax)
+0138	2	add    %edi,(%rax)
+0238	2	add    (%rax),%bh
+0338	2	add    (%rax),%edi
+0438	2	add    $0x38,%al
+0538	5	add    $0x90909038,%eax
+0638	NONE	(bad)
+0738	NONE	(bad)
+0838	2	or     %bh,(%rax)
+0938	2	or     %edi,(%rax)
+0A38	2	or     (%rax),%bh
+0B38	2	or     (%rax),%edi
+0C38	2	or     $0x38,%al
+0D38	5	or     $0x90909038,%eax
+0E38	NONE	(bad)
+0F38	NONE	(bad)
+1038	2	adc    %bh,(%rax)
+1138	2	adc    %edi,(%rax)
+1238	2	adc    (%rax),%bh
+1338	2	adc    (%rax),%edi
+1438	2	adc    $0x38,%al
+1538	5	adc    $0x90909038,%eax
+1638	NONE	(bad)
+1738	NONE	(bad)
+1838	2	sbb    %bh,(%rax)
+1938	2	sbb    %edi,(%rax)
+1A38	2	sbb    (%rax),%bh
+1B38	2	sbb    (%rax),%edi
+1C38	2	sbb    $0x38,%al
+1D38	5	sbb    $0x90909038,%eax
+1E38	NONE	(bad)
+1F38	NONE	(bad)
+2038	2	and    %bh,(%rax)
+2138	2	and    %edi,(%rax)
+2238	2	and    (%rax),%bh
+2338	2	and    (%rax),%edi
+2438	2	and    $0x38,%al
+2538	5	and    $0x90909038,%eax
+2638	7	es cmp %dl,-0x6f6f6f70(%rax)
+2738	NONE	(bad)
+2838	2	sub    %bh,(%rax)
+2938	2	sub    %edi,(%rax)
+2A38	2	sub    (%rax),%bh
+2B38	2	sub    (%rax),%edi
+2C38	2	sub    $0x38,%al
+2D38	5	sub    $0x90909038,%eax
+2E38	7	cs cmp %dl,-0x6f6f6f70(%rax)
+2F38	NONE	(bad)
+3038	2	xor    %bh,(%rax)
+3138	2	xor    %edi,(%rax)
+3238	2	xor    (%rax),%bh
+3338	2	xor    (%rax),%edi
+3438	2	xor    $0x38,%al
+3538	5	xor    $0x90909038,%eax
+3638	7	ss cmp %dl,-0x6f6f6f70(%rax)
+3738	NONE	(bad)
+3838	2	cmp    %bh,(%rax)
+3938	2	cmp    %edi,(%rax)
+3A38	2	cmp    (%rax),%bh
+3B38	2	cmp    (%rax),%edi
+3C38	2	cmp    $0x38,%al
+3D38	5	cmp    $0x90909038,%eax
+3E38	7	ds cmp %dl,-0x6f6f6f70(%rax)
+3F38	NONE	(bad)
+4038	7	rex cmp %dl,-0x6f6f6f70(%rax)
+4138	7	cmp    %dl,-0x6f6f6f70(%r8)
+4238	7	rex.X cmp %dl,-0x6f6f6f70(%rax)
+4338	7	rex.XB cmp %dl,-0x6f6f6f70(%r8)
+4438	7	cmp    %r10b,-0x6f6f6f70(%rax)
+4538	7	cmp    %r10b,-0x6f6f6f70(%r8)
+4638	7	rex.RX cmp %r10b,-0x6f6f6f70(%rax)
+4738	7	rex.RXB cmp %r10b,-0x6f6f6f70(%r8)
+4838	7	rex.W cmp %dl,-0x6f6f6f70(%rax)
+4938	7	rex.WB cmp %dl,-0x6f6f6f70(%r8)
+4A38	7	rex.WX cmp %dl,-0x6f6f6f70(%rax)
+4B38	7	rex.WXB cmp %dl,-0x6f6f6f70(%r8)
+4C38	7	rex.WR cmp %r10b,-0x6f6f6f70(%rax)
+4D38	7	rex.WRB cmp %r10b,-0x6f6f6f70(%r8)
+4E38	7	rex.WRX cmp %r10b,-0x6f6f6f70(%rax)
+4F38	7	rex.WRXB cmp %r10b,-0x6f6f6f70(%r8)
+5038	1	push   %rax
+5138	1	push   %rcx
+5238	1	push   %rdx
+5338	1	push   %rbx
+5438	1	push   %rsp
+5538	1	push   %rbp
+5638	1	push   %rsi
+5738	1	push   %rdi
+5838	1	pop    %rax
+5938	1	pop    %rcx
+5A38	1	pop    %rdx
+5B38	1	pop    %rbx
+5C38	1	pop    %rsp
+5D38	1	pop    %rbp
+5E38	1	pop    %rsi
+5F38	1	pop    %rdi
+6038	NONE	(bad)
+6138	NONE	(bad)
+6238	NONE	(bad)
+6338	2	movsxd (%rax),%edi
+6438	7	cmp    %dl,%fs:-0x6f6f6f70(%rax)
+6538	7	cmp    %dl,%gs:-0x6f6f6f70(%rax)
+6638	7	data16 cmp %dl,-0x6f6f6f70(%rax)
+6738	7	cmp    %dl,-0x6f6f6f70(%eax)
+6838	5	push   $0xffffffff90909038
+6938	6	imul   $0x90909090,(%rax),%edi
+6A38	2	push   $0x38
+6B38	3	imul   $0xffffff90,(%rax),%edi
+6C38	1	insb   (%dx),%es:(%rdi)
+6D38	1	insl   (%dx),%es:(%rdi)
+6E38	1	outsb  %ds:(%rsi),(%dx)
+6F38	1	outsl  %ds:(%rsi),(%dx)
+7038	2	jo     0x3a
+7138	2	jno    0x3a
+7238	2	jb     0x3a
+7338	2	jae    0x3a
+7438	2	je     0x3a
+7538	2	jne    0x3a
+7638	2	jbe    0x3a
+7738	2	ja     0x3a
+7838	2	js     0x3a
+7938	2	jns    0x3a
+7A38	2	jp     0x3a
+7B38	2	jnp    0x3a
+7C38	2	jl     0x3a
+7D38	2	jge    0x3a
+7E38	2	jle    0x3a
+7F38	2	jg     0x3a
+8038	3	cmpb   $0x90,(%rax)
+8138	6	cmpl   $0x90909090,(%rax)
+8238	NONE	(bad)
+8338	3	cmpl   $0xffffff90,(%rax)
+8438	2	test   %bh,(%rax)
+8538	2	test   %edi,(%rax)
+8638	2	xchg   %bh,(%rax)
+8738	2	xchg   %edi,(%rax)
+8838	2	mov    %bh,(%rax)
+8938	2	mov    %edi,(%rax)
+8A38	2	mov    (%rax),%bh
+8B38	2	mov    (%rax),%edi
+8C38	2	mov    %?,(%rax)
+8D38	2	lea    (%rax),%edi
+8E38	2	mov    (%rax),%?
+8F38	NONE	(bad)
+9038	1	nop
+9138	1	xchg   %eax,%ecx
+9238	1	xchg   %eax,%edx
+9338	1	xchg   %eax,%ebx
+9438	1	xchg   %eax,%esp
+9538	1	xchg   %eax,%ebp
+9638	1	xchg   %eax,%esi
+9738	1	xchg   %eax,%edi
+9838	1	cwtl
+9938	1	cltd
+9A38	NONE	(bad)
+9B38	1	fwait
+9C38	1	pushf
+9D38	1	popf
+9E38	1	sahf
+9F38	1	lahf
+A038	9	movabs 0x9090909090909038,%al
+A138	9	movabs 0x9090909090909038,%eax
+A238	9	movabs %al,0x9090909090909038
+A338	9	movabs %eax,0x9090909090909038
+A438	1	movsb  %ds:(%rsi),%es:(%rdi)
+A538	1	movsl  %ds:(%rsi),%es:(%rdi)
+A638	1	cmpsb  %es:(%rdi),%ds:(%rsi)
+A738	1	cmpsl  %es:(%rdi),%ds:(%rsi)
+A838	2	test   $0x38,%al
+A938	5	test   $0x90909038,%eax
+AA38	1	stos   %al,%es:(%rdi)
+AB38	1	stos   %eax,%es:(%rdi)
+AC38	1	lods   %ds:(%rsi),%al
+AD38	1	lods   %ds:(%rsi),%eax
+AE38	1	scas   %es:(%rdi),%al
+AF38	1	scas   %es:(%rdi),%eax
+B038	2	mov    $0x38,%al
+B138	2	mov    $0x38,%cl
+B238	2	mov    $0x38,%dl
+B338	2	mov    $0x38,%bl
+B438	2	mov    $0x38,%ah
+B538	2	mov    $0x38,%ch
+B638	2	mov    $0x38,%dh
+B738	2	mov    $0x38,%bh
+B838	5	mov    $0x90909038,%eax
+B938	5	mov    $0x90909038,%ecx
+BA38	5	mov    $0x90909038,%edx
+BB38	5	mov    $0x90909038,%ebx
+BC38	5	mov    $0x90909038,%esp
+BD38	5	mov    $0x90909038,%ebp
+BE38	5	mov    $0x90909038,%esi
+BF38	5	mov    $0x90909038,%edi
+C038	3	sarb   $0x90,(%rax)
+C138	3	sarl   $0x90,(%rax)
+C238	3	ret    $0x9038
+C338	1	ret
+C438	NONE	(bad)
+C538	NONE	(bad)
+C638	NONE	xabort $0x38,(bad)
+C738	NONE	xbegin 0xffffffff9090903d,(bad)
+C838	4	enter  $0x9038,$0x90
+C938	1	leave
+CA38	3	lret   $0x9038
+CB38	1	lret
+CC38	1	int3
+CD38	2	int    $0x38
+CE38	NONE	(bad)
+CF38	1	iret
+D038	2	sarb   $1,(%rax)
+D138	2	sarl   $1,(%rax)
+D238	2	sarb   %cl,(%rax)
+D338	2	sarl   %cl,(%rax)
+D438	NONE	(bad)
+D538	3	{rex2 0x38} nop
+D638	NONE	(bad)
+D738	1	xlat   %ds:(%rbx)
+D838	2	fdivrs (%rax)
+D938	2	fnstcw (%rax)
+DA38	2	fidivrl (%rax)
+DB38	2	fstpt  (%rax)
+DC38	2	fdivrl (%rax)
+DD38	2	fnstsw (%rax)
+DE38	2	fidivrs (%rax)
+DF38	2	fistpll (%rax)
+E038	2	loopne 0x3a
+E138	2	loope  0x3a
+E238	2	loop   0x3a
+E338	2	jrcxz  0x3a
+E438	2	in     $0x38,%al
+E538	2	in     $0x38,%eax
+E638	2	out    %al,$0x38
+E738	2	out    %eax,$0x38
+E838	5	call   0xffffffff9090903d
+E938	5	jmp    0xffffffff9090903d
+EA38	NONE	(bad)
+EB38	2	jmp    0x3a
+EC38	1	in     (%dx),%al
+ED38	1	in     (%dx),%eax
+EE38	1	out    %al,(%dx)
+EF38	1	out    %eax,(%dx)
+F038	7	lock cmp %dl,-0x6f6f6f70(%rax)
+F138	1	int1
+F238	7	repnz cmp %dl,-0x6f6f6f70(%rax)
+F338	7	repz cmp %dl,-0x6f6f6f70(%rax)
+F438	1	hlt
+F538	1	cmc
+F638	2	idivb  (%rax)
+F738	2	idivl  (%rax)
+F838	1	clc
+F938	1	stc
+FA38	1	cli
+FB38	1	sti
+FC38	1	cld
+FD38	1	std
+FE38	NONE	(bad)
+FF38	NONE	(bad)

@@ -688,3 +688,113 @@ under all 12 probes: `0F04 0F0A 0F0C 0F24 0F25 0F26 0F27 0F36 0F39
 0F3A 0F3B 0F3C 0F3D 0F3E 0F3F 0F71 0F72 0F73 0F7A 0F7B 0FBA 0FC7`,
 ceiling **≤ 22** (the `0x90` padding attests `0F 0F`, which the
 `0x00` padding could not).
+
+---
+
+# Step 2 as built, 2026-09-19: generator, table, sweep
+
+Commit 2 of the order. **No decoder line changes**; the table and its
+length function exist beside the decoder and are included only by the
+sweep.
+
+## Instrument: one-byte blobs and the no-flow oracle
+
+`scripts/gen_opcode_table.py blob --mode 64|32`: 16-byte slots, `0x90`
+padded, form-major. 64-bit: prefix {none, `66`, `48`, `66 48`} × ModRM
+{`00`, `80`} then digits 1-7 at mod=00 = 15 forms, 3840 slots. Legacy:
+{none, `66`} × {`00`, `80`} + digits = 11 forms, 2816 slots. Oracle runs
+`x64-one-byte-oplen-oracle-2026-09-19.log` and
+`x86-32-one-byte-oplen-oracle-2026-09-19.log` (Ghidra 12.1.2, snap rev
+47, `make ghidra-oplen`), objdump screens
+`x64-one-byte-objdump-screen-2026-09-19.log` and `x86-32-…` over the
+blobs' exact bytes; committed tables `oplen1_64_2026-09-19.tsv` and
+`oplen1_32_2026-09-19.tsv` (five columns: probe, Ghidra length,
+mnemonic, text, objdump length).
+
+**Pinned predictions (log headers) vs observed.** (1) the seventeen
+(n) lengths: all as predicted. (2) i64 set NONE in every form: as
+predicted, plus `60`/`61` which I had left off the i64 list and the
+oracle has NONE (finding (w) below). (3) `9C`/`9D` length 1: as
+predicted. (4) `D5`: Ghidra NONE, objdump models REX2 → INVALID at this
+pin with a HAND note. `66 E8`: modeled as **4** by both instruments;
+`66 48 E8` is 7 (REX.W wins). (5) `C5` with a `0x90` payload: Ghidra
+KMOVW 8, objdump NONE; ESCAPE by hand. (6) `A1` 9: as predicted. (7)
+`B8`: 5 / 3 / 10 as predicted; **`66 48 B8` observed 11, predicted 10:
+an arithmetic miss in the prediction (two prefix bytes), REX.W winning
+as predicted.** (8) **refusals predicted 0, observed 5 on the first
+fit**, every one an instrument or rule-expression defect and none a
+table fact: `E8`/`E9` under `66 48` (the fitter let `66` beat REX.W for
+Jz; oracle 7), `9A`/`EA` in 32-bit (the `Ap` kind from condition 1 was
+never coded), and `48` in 32-bit (my screen's lone-prefix rule sniffed
+bytes and called DEC EAX a prefix; the screen and the parser now take
+the prefix count from the slot's form). Second fit: 0 refusals, table
+written, `make opcode-table-check` regenerates it byte-identical.
+
+**Dispositions (every row in one class).** 64-bit, 3840 rows:
+double-attested 3307, length-disagree 2 (`66 48 9B` WAIT: Ghidra 3,
+objdump 2), Ghidra-only 64 (JMPF `EA` in 64-bit, KMOVW via `C5`,
+prefixed INC/ADC forms), objdump-only 70 (REX2 `D5` ×13, prefix-byte
+"opcodes" under `66 48`), NONE-in-both 397. Legacy, 2816 rows:
+double-attested 2726, Ghidra-only 59 (SALC `D6` ×11, prefixed INC/DEC),
+objdump-only 5, NONE-in-both 26, no length disagreements.
+
+## Table and length function
+
+`src/decoders/x86_opcode_table.h`, GENERATED (header carries generator
+sha256, both source table headers, SDM citation): per mode 256 entries
+`{status, has_modrm, imm_kind, digit[8]}`. Kinds fitted: NONE IB IW
+IW_IB IZ ID MOFFS IMM_V JZ_VD AP DIGIT; digit sub-rules came out as the
+SDM says without being told (`F6` /0 /1 IB, `F7` /0 /1 IZ, `C7` /0 IZ
+others INVALID, `8F` /0 only, `FF` /7 INVALID, x87 `D8`-`DF` all
+digits). `src/decoders/x86_opcode_len.h`, hand-written: rule → length
+under prefixes and ModRM (`0x66` shrinks Iz/Jz, REX.W overrides `0x66`
+for both, MOFFS 8/4 by mode, IMM_V 2/4/8, AP 6/4); SIB and disp8
+handled for the fix's benefit but asserted only on the generated forms.
+
+## Sweep (condition 2), first run
+
+`x64_table_consistency_sweep` and `x86_32_table_consistency_sweep` in
+`test_x86_decoder.c`, every `make test-x86`. Rows the decoder decodes
+are **checked** against `opt_length`; UNKNOWN rows are **tautological**;
+PREFIX/ESCAPE rows and `66`-prefixed Jz rows are **skipped** with the
+reason counted; a decoded row the table calls INVALID is a disagreement
+of its own class. **Assertion: the disagreeing opcode set equals the
+pre-registered set exactly**, and `checked >= floor`.
+
+| mode | checked | tautological | skipped | wrong rows | disagreeing set (pre-registered = observed) |
+|---|---|---|---|---|---|
+| 64-bit | 1312 (floor) | 480 | 256 | 54 | {60 61 68 A0 A1 A2 A3 A9 F7} |
+| legacy | 720 (floor) | 252 | 52 | 6 | {68 A9 F7} |
+
+Both PASS on the first run with the set equal to the list: (o) A0-A3,
+(r1) 68, (r2) A9, (r3) F7 /0, and (w) 60/61 (below). The `0F` skip
+means (s) does not appear, as required. Nothing else decoded disagrees
+with the table in either mode. Suite: pass=75 xfail=23 fail=0 xpass=0
+(tests=98).
+
+## Two findings from the sweep preview, minted or scheduled
+
+- **(v)** legacy mode: `67` makes ModRM mod=10 a disp16 (SDM Vol 2A
+  2.1.5, Table 2-1); the decoder reads disp32 (`67 00 80 ..`: oracle
+  5, double-attested; decoder 7). In 64-bit `67` selects 32-bit
+  addressing and the ModRM form is unchanged, so it cannot fire there.
+  Red `x86_RED_v_addr_size_prefix_disp16` minted (XFAIL). Corpus by
+  bytes: 0 `67`-prefixed instructions in the three 32-bit inputs
+  (control RET 147); predicted movement 0.
+- **(w)** `60`/`61` decode as PUSHAD/POPAD in 64-bit mode (`x86_decoder.c`
+  lines 270-271); both instruments say NONE (SDM i64). Red
+  `x64_RED_w_pushad_invalid_64` asserts INVALID and ships with the
+  INVALID batch (commit 3, the enum). Corpus by bytes: 0 `60`/`61` at
+  instruction starts in the 8 HP drivers (control RET 6310); predicted
+  movement 0. Until then the sweep carries 60/61 in its exact set.
+
+## Order restated
+
+Commit 2 done (this section). Commit 3: enum `X86_INS_INVALID`, reds
+`x64_RED_n_invalid_06_refused`, `_82_mode_split`, `_walk_continues`,
+`x64_RED_w_pushad_invalid_64`, guards `9C`/`9D` with the scratch-fail
+log. Commit 4: the fix, XPASS on the nine (n) names + (w); the sweep's
+exact set shrinks by hand to {68 A0 A1 A2 A3 A9 F7} / {68 A9 F7};
+(r1)-(r3) reds minted from the table rows `66 68`, `66 A9`, `66 F7 00`
+(4, 4, 5, double-attested) before commit 4 so they are on the list when
+it lands. Commit 5: the differential.
