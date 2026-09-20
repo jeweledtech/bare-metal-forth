@@ -429,3 +429,78 @@ above 89% and the spread has closed from 18 points to 2.3.
 Open after (a): (o), (p)×2, (r1)-(r3), (s)×7, (u), (v), (y), (z),
 (d'), (f), (g)×2. Next: (o), whose pre-registration and reader
 enumeration are already written and unchanged.
+
+---
+
+# What (a)'s closure hands to (o), 2026-09-20
+
+## The spread closed, and that buys a diagnostic
+
+The headline number is not the level but the **spread**: across the
+eight 64-bit drivers, operand agreement went from a range of 18 points
+(75.3–86.7) to **2.3** (89.4–91.7). Until today the interesting
+question was *why is storport different* — KUSER_SHARED_DATA reads, a
+52% clear rate, eight phantom ports. There is now no "different". The
+remaining defects are uniform across binaries, which means they are
+properties of the instruction set rather than of particular drivers.
+
+**Standing check from here, adopted into every later fix's
+pre-registration:** a fix's corpus movement should be roughly
+proportional across all eight. **A fix that moves one driver materially
+more than the others is mis-scoped, or has found a new
+driver-specific defect** — and that is visible in the headline row
+before anyone opens a matrix. For (o) the proportionality is
+predictable in advance, because moffs encodings are counted: ACPI 22,
+storport 28, pci 9, HP serial 2, i8042prt 1, usbxhci 1, disk 0,
+HDAudBus 0. So (o) is the one fix that **should** be disproportionate,
+and exactly where: disk and HDAudBus must not move at all. That makes
+the check sharper here, not weaker — the expected asymmetry is itself
+predicted, by a count taken from bytes.
+
+## The baseline log (o) is measured against, named before it runs
+
+`beyond_extent` created two generations of differential logs, and a
+first reading of (a)'s own differential compared against the wrong one
+and reported a failed gate. So, explicitly:
+
+> **(o) is measured against `operand-diff-fix-a-2026-09-20.log`**, the
+> sixteen-input run made with the current comparer (classes including
+> `beyond_extent` and `invalid_at_start`) on the post-(a) decoder. Not
+> `operand-diff-fix-x-2026-09-19.log` (pre-`beyond_extent`), and not
+> `operand-diff-fix-x-reclass-2026-09-19.log` (right comparer, pre-(a)
+> decoder).
+
+## (o)'s standing predictions, unchanged by (a) and restated
+
+(a) left `nostart` identical on all sixteen, so the residual and its
+apportionment are untouched: **146 owned + 34 by rule**, of which (o)
+owns **129 rows in 64 runs**. Predicted after (o): residual 180 → 51
+(= 34 parked + 17 owned), by input ACPI 36 → 1, storport 93 → 19,
+pci 14 → 1, HP serial 21 → 18, i8042prt 2 → 1, usbxhci 2 → 1,
+fixture 6 → 4; disk and HDAudBus 1 → 1 and 1 → 1.
+
+**And the phantom prediction, now sharper because (a) fixed the
+denominator:** `hardware_functions` is 47 on ACPI and 93 on storport,
+both matching (a)'s exact prediction, and both include phantom
+port-I/O functions born inside (o) desync runs — 2 and 8, each carrying
+one port operation our decode sees and objdump does not. **(o) is
+predicted to remove exactly those: ACPI 47 → 45, storport 93 → 85, and
+no other input's `hardware_functions` to move at all.** The same act
+should take finding (z)'s red green, because storport's fabricated port
+`0xFC` is one of those eight.
+
+## Three masking mechanisms, now named together
+
+(a)'s 101 `addr → reg` rows were the third masking mechanism this arc
+has found, and in all three the fix created nothing and revealed what
+was already there:
+1. **Walk desync** ((b), and again at (n)/(o)): a wrong length hides
+   every instruction behind it, and phantom instructions appear inside
+   the gap.
+2. **First-mismatch classification** (here): the comparer names a row
+   by its first differing operand, so repairing that operand surfaces a
+   second, older defect — (f) `R:DH` vs `R:SIL`, 101 times.
+3. **Vacuity** (rule 27's family): an instrument that examined nothing
+   reports the same as one that found nothing.
+
+Worth holding the next time a fix appears to make something worse.
