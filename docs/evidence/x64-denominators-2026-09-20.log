@@ -1,0 +1,49 @@
+# every denominator the x86 evidence quotes, from one computation, 2026-09-20.
+# instrument: tools/translator/scripts/denominators.py sha256 43e9af0bebdf6a77e4b6dcc3976d255fcbd54499ec925a6ffc68bd2d94dee340
+# screen: objdump (Binutils 2.42), all executable sections, 16 pinned inputs.
+# oracle side: OPSUMMARY rows of docs/evidence/operand-diff-fix-o-2026-09-20.log
+#   (post-(o) generation), row count asserted against the pinned 16.
+# WHY (owner item 3): three figures circulate -- 576,115, 512,000 and
+#   512,213.  64,115 is correct against 512,000 and wrong against 512,213,
+#   and which Ghidra population a difference is taken against was carried in
+#   prose.  The 213 between the two Ghidra figures was never accounted and
+#   cannot be now: see the closing note.
+# The first run of this instrument printed 591,696 because it counted the
+#   wrapped continuation line of every instruction of 8+ bytes (15,581 of
+#   them).  The counting rule is in the script's docstring.
+== objdump -d, all executable sections, binutils 2.42
+input                         instrs   0F esc +66/F2/F3
+fixture/x64_reds.elf              32        6        0
+hp_i3/ACPI.sys                167137    14552      299
+hp_i3/disk.sys                 13818     1311       20
+hp_i3/HDAudBus.sys             27120     2013       72
+hp_i3/i8042prt.sys             21373     1605       28
+hp_i3/pci.sys                  99309     9711      190
+hp_i3/serial.sys               16074     1260       35
+hp_i3/storport.sys            110364     9199      187
+hp_i3/usbxhci.sys             100045     7335      222
+modules/ne2k-pci.ko             1266       69        6
+modules/8139too.ko              4529      280       20
+modules/iTCO_wdt.ko              973       64        6
+modules/via-rng.ko               251       11        0
+controls/serial.sys             4276      212        0
+controls/beep.sys                467       16        0
+controls/nmap_service.exe       9081      597        6
+TOTAL (16 inputs)             576115    48241     1091
+
+== Ghidra, flow-following, harness-comparable (operand-diff-fix-o-2026-09-20.log)
+  rows=16  GHIDRA=512000  mnemonic-class=11048
+
+== the numbers the documents quote
+  objdump linear sweep          : 576115
+  Ghidra flow-following         : 512000
+  difference                    : 64115
+  two-byte (0F) instructions    : 48241
+  ... carrying 66/F2/F3         : 1091 (2.3%)
+  mnemonic-class rows           : 11048
+
+  The third figure, 512,213, was summed from the banked Ghidra
+  per-instruction files, which carry sections the harness does not
+  compare.  Those files are build output and a clean destroyed them,
+  so 512,213 CANNOT be re-derived here and no difference may be
+  taken against it.  Use the two figures above, which can.

@@ -19,7 +19,7 @@ sequences counted in the byte stream — not mnemonics):
 | | count |
 |---|---|
 | instructions examined | **576,115** |
-| two-byte (`0F xx`) instructions | **48,305** |
+| two-byte (`0F xx`) instructions | **48,241** (was 48,305; third amendment, item 7) |
 | inputs | 16 of 16, none missing |
 
 (An earlier pass of this census silently dropped four inputs and
@@ -166,7 +166,7 @@ AVX is absent from this corpus, and it is absent for a reason rather
 than by luck: these are kernel-mode Windows drivers, where using the
 vector unit requires explicit FPU-state management and is avoided. The
 earlier mnemonic screen over the banked Ghidra files agreed (0 of
-512,213 starts). **(q) stays unminted on a measured zero across every
+512,000 starts). **(q) stays unminted on a measured zero across every
 input**, and the claim is now "0 of 576,115 by bytes", not "no count
 taken". If a VEX-bearing input ever enters the corpus, (q) is minted
 the same session.
@@ -304,9 +304,10 @@ standing boundary, they are one instrument, not three.
 
 **The genuinely independent second instrument** is the mnemonic screen
 over the **banked Ghidra per-instruction files** (0 VEX/EVEX-encoded
-mnemonics of 512,213 starts, 2026-09-19). So (q)'s zero rests on
+mnemonics of 512,000 starts, 2026-09-19). So (q)'s zero rests on
 **two** instruments: objdump over 576,115 instructions in 16 of 16
-inputs, and Ghidra over 512,213 starts in 16 files. That is still a
+inputs, and Ghidra over 512,000 starts in 16 files (512,213 withdrawn;
+third amendment, item 3). That is still a
 corpus-wide measured zero.
 
 The kernel-mode FPU-state account is an **explanation, labelled as
@@ -344,9 +345,13 @@ makes the shared reader concrete rather than theoretical.
 
 `0F 70` rendering as **NOP** is not a length defect. Enumerated from
 source: the two-byte arm's `default:` (`x86_decoder.c:1290`–`1317`)
-ends `out->instruction = X86_INS_NOP;`, and **30 of 256 two-byte
-opcodes reach it**: `02 03 04 0C 24 25 26 27 36 39 3B 3C 3D 3E 3F 50
-78 79 7A 7B A6 A7 AA B8 B9 BB C4 C5 F0 FF`. An unknown opcode that
+ends `out->instruction = X86_INS_NOP;`, and ~~30~~ **59 of 256
+two-byte opcodes reach it** (corrected in the third amendment, item 2,
+by a brace-depth parse; the 30 below omitted the arm's own `no_modrm`
+list, which is not exempt from the `NOP` assignment). At runtime
+**219 of 256** render as `NOP`. The 30 first counted: `02 03 04 0C 24
+25 26 27 36 39 3B 3C 3D 3E 3F 50 78 79 7A 7B A6 A7 AA B8 B9 BB C4 C5
+F0 FF`. An unknown opcode that
 resolves to a no-op is rule 27 inside the decoder — zero-known and
 zero-doing print the same — and downstream it is worse than a wrong
 length: the analyzer reads a function it cannot decode as a function
@@ -355,8 +360,9 @@ be an honest one.
 
 ### (aa) minted: the two-byte default arm renders unhandled opcodes as NOP
 
-**Count, by bytes over 16 of 16 inputs (48,305 two-byte instructions):
-5 corpus instructions reach the default arm, and all 5 are not NOPs.**
+**Count, by bytes over 16 of 16 inputs (48,241 two-byte instructions,
+re-derived in the third amendment): 5 corpus instructions reach the
+default arm, and all 5 are not NOPs.**
 
 | instruction | input | in (s)'s scope? |
 |---|---|---|
@@ -374,10 +380,12 @@ an unhandled two-byte opcode is `X86_INS_UNKNOWN`, never `NOP`.
 
 ### (ab) minted: the two-byte arm is blind to mandatory prefixes
 
-Measured on the same pass: **1,155 of 48,305 two-byte instructions
-(2.4%) carry `66`, `F2` or `F3`** (ACPI 307, usbxhci 230, pci 198,
-storport 195, HDAudBus 80, HP serial 43, i8042prt 36, disk 28, nmap 6,
-modules 32, controls 0). The arm consults **none** of them — the grep
+Measured on the same pass: **1,091 of 48,241 two-byte instructions
+(2.3%) carry `66`, `F2` or `F3`** by objdump (ACPI 299, usbxhci 222,
+pci 190, storport 187, HDAudBus 72, HP serial 35, i8042prt 28, disk
+20, nmap 6, modules 32, controls 0). The earlier 1,155 of 48,305 came
+from the Ghidra dumps a clean destroyed and does not reconcile; see
+the third amendment, item 7. The arm consults **none** of them — the grep
 over `x86_decoder.c:1042`–`1340` for `PREFIX_OPSIZE|REP|REPNE` returns
 nothing. That is an upper bound on the affected class, not a defect
 count: carrying `66` does not prove the opcode is prefix-selected. It
@@ -474,3 +482,183 @@ harness-comparable population and is the one used here.)
 
 The flag is shared and the reds are per-opcode, so a per-opcode red
 cannot see a shared-flag regression. Only the differential can.
+
+# Third amendment: seven items, and one correction that matters more (2026-09-20)
+
+## 0. The structural item: measurement inputs are no longer build output
+
+`clean` destroyed measurement inputs three times — the four fetched
+modules, then the oracle dumps twice — and each loss surfaced only as a
+zero in a later count. Rule 27 caught all three, which is the rule
+working and is also not a cure. The cure:
+
+- `DIFFDIR` moves from `$(BUILDDIR)/differential` to
+  `measure/differential`. **A `clean` can no longer reach it.**
+- `clean` now prints what survived: `measurement inputs PRESERVED in
+  measure/: N oracle dumps, M modules`. Visible at the moment, not
+  three days later as a zero.
+- `clean-measure` is a separate target, never a dependency, and prints
+  the inventory it is about to destroy plus the sentence "every corpus
+  count is unreproducible until `make differential-all` has been
+  re-run."
+- `scripts/denominators.py` **refuses** on a missing input and names
+  the target that restores it, rather than counting 12 of 16.
+
+## 1. The (aa) red asserts the class property. Read back verbatim
+
+```c
+if (n != 3) FAIL("length: expected 3 (setup, not the defect under test)");
+if (d.instruction == X86_INS_NOP)
+    FAIL("0F A7 XSTORE renders as NOP; an unhandled opcode must not be "
+         "NOP (UNKNOWN or INVALID both pass; the class property is the assertion)");
+```
+
+The assertion is **`!= X86_INS_NOP`**, not `== XSTORE`. It closes the
+moment the default arm stops assigning `NOP`, on one line, without
+implementing a single opcode. The failure text said "must be UNKNOWN",
+which named a repair the assertion does not require; corrected above so
+the message and the assertion say the same thing. Suite after the edit:
+`pass=93 xfail=20 fail=0 xpass=0 (tests=113)`, 25 suites, `SMOKE PASS`.
+
+## 2. "30 of 256" was wrong, and the real shape is worse
+
+Remeasured two ways. **From source, by brace depth** rather than by eye:
+the two-byte switch runs `x86_decoder.c:1046`–`1319` and **59** opcodes
+fall through to its `default:`, not 30. The 29 I missed are exactly the
+arm's own `no_modrm` list — which does not exempt them, it only skips
+the ModRM fetch before assigning `NOP`. Among them: `SYSCALL`,
+`SYSRET`, `SYSENTER`, `SYSEXIT`, `RDTSC`, `WRMSR`, `RDMSR`, `UD2`,
+`PUSH FS`/`POP FS`, `PUSH GS`/`POP GS`, and all eight `BSWAP`.
+
+**At runtime the figure is larger still: 219 of 256** two-byte opcodes
+render as `X86_INS_NOP` in 64-bit mode. The probe holds **nothing**
+constant in ModRM — all 64 register cells `C0`–`FF` plus `mod=00` and
+`mod=10`, because for `0F 00/01/18/AE` the digit is opcode and for
+`0F 20`–`23` the mod bits are ignored — and the answer is
+ModRM-independent: **0** opcodes render NOP for some forms and not
+others. `X86_INS_UNKNOWN` is 0 and `X86_INS_NOP` is not, so this is
+assignment, not zero-initialisation. Of the 219, 59 arrive at the
+`default:`; the other 160 are explicitly cased and assigned `NOP` at 17
+separate sites.
+
+**And one of those sites has a green test defending it:**
+
+```c
+TEST(cmovcc_0F44);              /* 0F 44 C1 = CMOVE EAX, ECX */
+if (d.instruction != X86_INS_NOP) FAIL("should be NOP");
+```
+
+A conditional move — a data-flow instruction — is asserted to be a
+no-op by a passing test. The suite currently enforces the behaviour
+(aa) says is wrong. That test has to be inverted in the same act that
+fixes the arm, and it is named here so the fix is not surprised by it.
+
+### The 59 are three kinds and need three answers
+
+| kind | count | answer |
+|---|---|---|
+| real instructions | **39** | decode, or `UNKNOWN` — never `NOP` |
+| deliberate traps `0B` UD2, `B9` UD1, `FF` UD0 | **3** | `INVALID`; the analyzer must read "unreachable marker" |
+| genuinely undefined remainder | **17** | `INVALID` |
+
+Real: `02 03` LAR/LSL, `05 06 07` SYSCALL/CLTS/SYSRET, `08 09`
+INVD/WBINVD, `0E` FEMMS, `30`–`35` MSR and SYSENTER/SYSEXIT, `37`
+GETSEC, `50` MOVMSKPS, `77` EMMS, `78 79` VMREAD/VMWRITE, `A0 A1 A8 A9`
+PUSH/POP FS and GS, `A6 A7` PadLock, `AA` RSM, `B8` POPCNT, `BB` BTC,
+`C4 C5` PINSRW/PEXTRW, `C8`–`CF` BSWAP, `F0` LDDQU.
+Undefined: `04 0A 0C 0F 24 25 26 27 36 39 3B 3C 3D 3E 3F 7A 7B`.
+39 + 3 + 17 = 59, and the three lists are disjoint.
+
+**The traps are the worst of the three.** `UD1`/`UD2`/`UD0` are what a
+compiler emits to mark unreachable code. Read as `NOP`, an
+unreachable-code marker becomes "nothing happens", and the analyzer
+walks straight through it into data. `UNKNOWN`, `INVALID` and `NOP`
+must not print the same — rule 27, one level down, inside the decoder.
+
+## 3. The denominators, from one computation
+
+`scripts/denominators.py`, banked at
+`docs/evidence/x64-denominators-2026-09-20.log`:
+
+| figure | value |
+|---|---|
+| objdump linear sweep, all executable sections, 16 inputs | **576,115** |
+| Ghidra flow-following, harness-comparable | **512,000** |
+| difference | **64,115** |
+
+Both are computed in one run, with per-input rows, a `!= 16` refusal on
+the row count and a zero refusal per input. `64,115` is arithmetically
+right **against 512,000** and wrong against 512,213; which population a
+difference is taken against was being carried in prose, which is how
+both readings survived.
+
+**The 213 is unaccounted and cannot now be accounted.** 512,213 was
+summed from the banked Ghidra per-instruction files, which carry
+sections the harness does not compare. Those files lived in
+`$(BUILDDIR)` and a clean destroyed them, so the figure is not
+re-derivable today and **no difference may be taken against it**. It is
+withdrawn from the documents in favour of 512,000, which is. The (q)
+sentence that read "Ghidra over 512,213 starts" now reads 512,000.
+
+*The instrument's own first run printed 591,696.* `objdump` wraps any
+instruction of 8 or more bytes onto a second line that also begins with
+an address, and counting those counts long instructions twice — 15,581
+of them. The counting rule is now in the script's docstring, and the
+fixture's 32 is what proves it: 34 matching lines, 2 continuations.
+
+## 4. `0F 78` bare is single-attested, and that is stated
+
+| form | Ghidra | objdump |
+|---|---|---|
+| `0F 78` bare, all three ModRM forms | **NONE** | 3 |
+| `66 0F 78` | EXTRQ len=6 | 6 |
+| `F2 0F 78` | INSERTQ len=6 | 6 |
+| `F3 0F 78` | NONE | — |
+
+Only the `66` and `F2` rows are double-attested. By standing rule the
+bare row settles nothing, and (ab)'s deferral leans on the prefixed
+rows, which do. (aa)'s own row is clean: `0F A7` is `XSTORE len=3` in
+the **register** form, which is the form the red uses; `mod=00` and
+`mod=10` are NONE, and `F3 0F A7` is `XSTORE.REP len=4`.
+
+## 5. (aa)'s blast radius, with its denominator
+
+**5 instructions of 48,241 two-byte instructions**, over 576,115
+instructions in 16 of 16 inputs. The severity is in the *kind* of
+error, not the count: a driver instruction rendered as a no-op is a
+confident wrong answer, and the class behind the 5 is 219 opcodes wide.
+Both halves are stated so (aa) is not read later as a coverage crisis.
+
+## 6. (ab)'s trigger condition is in the open register
+
+`docs/evidence/x64-open-register-2026-09-20.md` now carries every open
+letter and, for the two deferred findings (q) and (ab), the **condition
+that mints them**. It replaces the "Open after (x)" lines scattered
+across three closing sections, which are historical records and should
+not be edited to stay current.
+
+## 7. The three that were not visible
+
+**Mandatory-prefix count for (ab) — restated, and it does not
+reconcile.** Today, by objdump over the 16 pinned inputs: **1,091 of
+48,241** two-byte instructions carry `66`, `F2` or `F3` (2.3%). The
+banked figure was 1,155 of 48,305. Both differ by exactly 64, so the
+64 rows the earlier population had were all prefix-carrying — but the
+earlier count came from the Ghidra dumps the clean destroyed, so the
+two **cannot be reconciled today** and the objdump figure is the one
+that has an instrument behind it. (ab)'s claim is unchanged either way:
+the arm consults zero of them.
+
+**`0F 20`–`23`: one arm, one witness, three opcodes with none.**
+Source shows a single arm at `x86_decoder.c:1267`–`1268`. Corpus
+witnesses by bytes over all 16 inputs: `0F 20` **218**, `0F 21` **0**,
+`0F 22` **0**, `0F 23` **0**. The fixture row `0f 20 80` witnesses
+`0F 20` alone. That the arm covers the other three is read from source
+and has **no witness in the corpus**; it is not a measured claim and is
+not presented as one.
+
+**The `mnemonic` class denominator: 11,048 rows**, summed over exactly
+16 `OPSUMMARY` rows of the post-(o) differential with the row count
+asserted against the pinned population before summing. Printed by the
+same run as the two denominators above, so the three cannot drift apart
+again.
