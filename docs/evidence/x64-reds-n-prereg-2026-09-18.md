@@ -1580,3 +1580,97 @@ classifier-vocabulary misses), and unmatched falls to the "not in
 IAT" column (2,177: ACPI 417, usbxhci 905, …), which is then the
 number the refusal path must account for, by bytes, before it is
 called noise.
+
+## The nmap zero explained, the 2,177 accounted, (a) scoped (2026-09-20)
+
+**The nmap 0-of-45 is my table's error, not a second mechanism.** The
+report carries two numbers the 09-17 record separated on purpose, and
+I quoted one under the other's name:
+
+| input | IAT edges | **slot hits** | classified | min slot | max target |
+|---|---|---|---|---|---|
+| ACPI | 3724 | **0** | 0 | 0x1C008C000 | 0xFFFFD336 |
+| HDAudBus | 713 | **0** | 0 | 0x1C001A000 | 0xFFFFF23F |
+| disk | 383 | **0** | 0 | 0x1C000A000 | 0xFFFFF141 |
+| i8042prt | 525 | **0** | 0 | 0x1C0011000 | 0xFFFFF2A5 |
+| pci | 2691 | **0** | 0 | 0x1C003A000 | 0xFFFFD6BA |
+| HP serial | 476 | **0** | 0 | 0x1C000B000 | 0xFFFFF165 |
+| storport | 2178 | **0** | 0 | 0x1C006E000 | 0xFFFFD1AF |
+| usbxhci | 2199 | **0** | 0 | 0x1C0068000 | 0xFFFFD307 |
+| ReactOS serial | 275 | **275** | 245 | 0x19100 | 0x191B4 |
+| ReactOS beep | 43 | **43** | 28 | 0x140A0 | 0x140FC |
+| nmap | 45 | **44** | 0 | 0x40E18C | 0x40E254 |
+
+The cross-reference works on **every** 32-bit input: 362 slot hits of
+363 calls. nmap's 0 is the *classifier's vocabulary*: it imports
+ADVAPI32, KERNEL32, msvcrt and libssp (user-mode Win32 and CRT), and
+the classifier's table is Windows *driver* APIs. The 09-17 record had
+already found and named this on the same control, and had corrected
+its own first revision for exactly this conflation ("counted only
+CLASSIFIED matches and read 0 on the nmap control although its targets
+lay inside its IAT range"). The fix did not travel to my reading of
+the same instrument three days later. Corrected here: **the 64-bit
+failure is at slot equality (a); the 32-bit gaps are classification
+vocabulary, a separate question that (a) does not repair and must not
+be credited with.**
+
+**The 2,177 "not in IAT", accounted by bytes.** First, the instrument:
+the IAT *data directory* is a summary field, so the slots were
+re-derived from the import descriptors themselves (every FirstThunk
+array walked to its null terminator) and targets tested for exact slot
+equality. Same answer, 11,076 of 13,253, which retires the worry that
+the directory understated the thunks. Then the remainder, read:
+
+- **2,176 are Control Flow Guard dispatch calls.** On each 64-bit
+  driver every non-slot target is *one distinct address*, and that
+  address is exactly the load-config directory's
+  `__guard_dispatch_icall_fptr` cell (offset 0x78): ACPI
+  `0x1C008C8B0` ×417, usbxhci `0x1C00684A8` ×905, HDAudBus ×322, pci
+  ×268, storport ×148, i8042prt ×68, disk ×37, HP serial ×11. The
+  cell sits immediately past the IAT directory's end, which is why it
+  reads as ".idata but not a thunk". These are not import calls and
+  not noise: they are the CFG check before every indirect call, and
+  their count is a measure of indirect-call density, not of anything
+  wrong.
+- **1 is an nmap call to `0x409054` in `.data`** (no load-config CFG
+  cell on that image). One row, named, not yet read further.
+
+So the corpus decomposes with nothing left over: **11,076 import
+calls + 2,176 CFG dispatch + 1 = 13,253.**
+
+**Consequences for (a)'s scope.** (a) repairs slot equality on 64-bit:
+resolve a RIP-relative target as instruction address + length + disp
+instead of the raw disp. Two things it must *not* do: credit itself
+with the classification gaps (30 + 15 on the ReactOS controls, 44 on
+nmap, all vocabulary), and refuse the CFG calls as unknown. The CFG
+cell is readable from the load-config directory, so the resolver can
+name that category rather than dropping it; the PE loader does not
+expose it today, so the red for it is minted in (a)'s commit with the
+plumbing (as the wide-`disp` refusal red is minted in (o)'s). The
+refusal red already on the list covers the other half: a
+memory-indirect call whose target is no import slot records no IAT
+edge.
+
+**(a) predicted movement, per class and per input, never a headline.**
+Written before the fix:
+- `summary.call_graph`, per 64-bit driver: `iat_slot_hits` 0 → the
+  "hit_exact" column measured above (ACPI 3307, usbxhci 1294, pci
+  2423, storport 2031, HP serial 465, i8042prt 457, disk 346,
+  HDAudBus 391); `iat_edges` falls by the CFG count on each image once
+  CFG is categorised (ACPI 3724 → 3307, usbxhci 2199 → 1294, …);
+  `iat_matched_classified` rises to at most the slot hits and is
+  capped by the classifier's driver-API vocabulary, so it is
+  **predicted below** the hit column on every input and is not (a)'s
+  measure.
+- The 32-bit controls: **every column identical**. They are the
+  control for (a) precisely because their slot equality already works.
+- The operand differential: `addr` is the class (a) moves, and it is
+  ≈40,856 rows corpus-wide against (o)'s 129. **The invariant is
+  under real strain here and the exemption is named in advance:**
+  repairing a RIP-relative target changes an operand *value*, so a row
+  that is `operand_ok` today only because both sides printed the same
+  wrong thing can move *out* of `operand_ok` — the `.text+0x69d4c`
+  lesson at scale. Any such row is read from bytes and named, exactly
+  as a desync-run exemption is; a row leaving `operand_ok` without a
+  named cause stops the fix. Per-input per-class predictions are
+  written when (a) is pre-registered; this paragraph fixes the form.
