@@ -265,9 +265,10 @@ iw` 3; `8B 00` 2 / `8B 80 xx xx xx xx` 6). The table is
 - `IZ` resolves through the decoder's existing `op_size`: 2 under
   `0x66`, else 4; **REX.W never widens `IZ`** (`48 69` / `48 C7` /
   `48 A9` keep imm32, sign-extended). `IMM_V` is `B8+r` only: 2 / 4 /
-  8 (REX.W). `JZ` is `E8`/`E9`/`0F 8x`: rel32, and its behaviour
-  under `0x66` in 64-bit mode is **oracle-decided** (see the sweep
-  prediction below), not assumed. `AP` (`9A`, `EA`) is 7 in legacy
+  8 (REX.W). `JZ` is `E8`/`E9`/`0F 8x`: rel32; its width under
+  `0x66` in 64-bit mode is vendor-divergent, so the entry carries the
+  oracle's modeled value labelled as such (see condition 2), never a
+  hardware claim. `AP` (`9A`, `EA`) is 7 in legacy
   32-bit mode and INVALID in 64-bit. `MOFFS` is 8 in 64-bit (4 under
   `0x67`), 4 in legacy: the (o) row. `DIGIT` marks the opcodes whose
   immediate depends on ModRM.reg (`F6`, `F7`: `/0 /1` take IB / IZ,
@@ -332,23 +333,40 @@ decoder-vs-objdump:
   immediate-read sites today (`x86_decoder.c`):
   - **(o)** `A0`-`A3`: decoder 5, table 9 (64-bit). Red exists.
   - **(r1)** `68` PUSH Iz: `read_i32` unconditional (line 287);
-    `66 68 iw` is 4 bytes, decoder reads 5. Both modes.
+    `66 68 iw` is 4 bytes, decoder reads 5. Both modes. Boundary with
+    (e), named before either is touched: (e) owns the **stack slot**
+    (`operands[0].size`, 64 / 16 under `0x66`); (r1) owns the **encoded
+    immediate width** read from the stream. Same opcode, no overlap;
+    (e)'s pre-reg already recorded "never changes an encoded immediate
+    width" (`x86_decoder.c` fix-(e) comment).
   - **(r2)** `A9` TEST eAX,Iz: unconditional (line 609). Both modes.
   - **(r3)** `F7 /0` TEST Ev,Iz: unconditional (line 907). Both modes.
-  - **(r4?)** `E8`/`E9` under `66` in 64-bit: decoder reads rel32
-    (lines 818, 828). Whether the oracle prints 4 or 5 decides if this
-    is a row on the list or a "no defect" verdict; **pre-registered as
-    unknown**, both outcomes named, neither loosens the sweep.
+  - `E8`/`E9` under `66` in 64-bit: decoder reads rel32 (lines 818,
+    828). **Not oracle-decidable, and the entry says so.** This is a
+    vendor divergence: Intel forces the near-branch operand size to 64
+    bits and ignores the prefix; AMD has honoured a 16-bit form. The
+    oracle can only report what its disassembler models, so the table
+    entry is written *"modeled as N by the oracle at pin 12.1.2; known
+    vendor-divergent"* (N read from the generator run), the sweep
+    compares the decoder to that modeled value, and no red claims a
+    hardware truth here. If the modeled value differs from the
+    decoder's 5, the row is fixed to the model and labelled as such;
+    it is never counted as a length defect of the (r) kind.
   - Every other decoded Iz site already switches on `op_size` (`05`..
     `3D` line 420, `81` line 320, `B8+r` line 634, `C7` line 700).
   (r1)-(r3) become reds the same session the generator's oracle run
   prints their expected values (objdump screen today: `pushw $0x10` 4,
   `test $0x10,%ax` 4, `test $0x10,%ax` 5 with ModRM `C0`); they are
   not (n) and are not fixed with (n).
-- Prediction for the sweep's first run on the (n)-fixed decoder: the
-  disagreeing set is exactly {(o), (r1), (r2), (r3)} ∪ ((r4) if the
-  oracle says 4); anything else is a table or decoder defect that
-  stops the fix until named.
+- Prediction for the sweep's first run (it runs on the unfixed decoder
+  first, commit 2, and again as the (n) gate): **the disagreeing set
+  is exactly {(o), (r1), (r2), (r3)}**, asserted as an exact set, never
+  "at most four": an exact set fails when a fifth appears AND when one
+  silently disappears, and a sweep introduced already-failing under a
+  loose assertion is a sweep that gets loosened. `E8`/`E9` are not on
+  the list because their table entry compares to the oracle's model,
+  not to a hardware claim (next bullet). Anything else is a table or
+  decoder defect that stops the fix until named.
 
 ## Condition 3: generate the table, don't type it
 
@@ -388,9 +406,18 @@ decoder-vs-objdump:
   marks) and **ESCAPE** (`C4 C5 62 D5` in 64-bit: a valid encoding
   whose length the one-byte table cannot give). ESCAPE is not (n):
   the decoder keeps today's behaviour on those bytes (UNKNOWN, length
-  1) and the gap is named **(q) VEX/EVEX/REX2 unmodelled**, no red
-  minted (no corpus count yet; recorded here so it is not mistaken for
-  INVALID or for a length defect).
+  1) and the gap is named **(q) VEX/EVEX/REX2 unmodelled**. No red
+  minted, on a **measured zero**, not an untaken count: over the 16
+  banked Ghidra per-instruction files (512,213 starts) there are 0
+  starts whose mnemonic is VEX/EVEX-encoded (mnemonics beginning `V`,
+  plus the BMI2/mask set ANDN BLSR BLSI BLSMSK BZHI SHLX SHRX SARX
+  MULX RORX PDEP PEXT BEXTR KMOV* KAND KOR; the only non-V hits were
+  three TZCNT on nmap, legacy `F3 0F BC`). Instrument limit: the files
+  carry mnemonics, not bytes, so this is a mnemonic screen, not a
+  first-byte count; a positive control of the same grep shape returned
+  31,404 MOV starts on pci.sys. Twenty-second rule: a (q) red would
+  have no corpus number to move today. Recorded here so (q) is not
+  mistaken for INVALID or for a length defect.
 - Walker behaviour on INVALID, decided: `x86_decode_one` returns
   length 1 with `instruction = X86_INS_INVALID` (a linear sweep can
   only step one byte past a byte that is not an instruction);
