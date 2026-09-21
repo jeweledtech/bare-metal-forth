@@ -242,3 +242,57 @@ not unblock the other two.**
 makes it _used_.** That is the missing middle of the product, it is
 what actually bounds tier 2, and it is worth knowing before three more
 decoder fixes are spent against a tier-2 claim.
+
+
+---
+
+# Closing: (ad) built and green (2026-09-20)
+
+**The third reader class, enumerated before the line was written.**
+
+- **Zero-init-and-use** — a `uir_instruction_t` zeroed and used without
+  assigning `opcode`: **none.** Every constructor assigns on every
+  path, including both lifters' `default:` arms and the ARM64 one at
+  `uir.c:1100`. Checked over every site in `src/` and `tests/` that
+  holds instruction storage.
+- **Persisted or numeric opcode** — a golden file, a serialised IR, a
+  fixture holding a literal: **none.** No test compares `-t uir`
+  output, no file under `tests/data/` carries UIR text, and no
+  assignment of a literal number to `opcode` exists.
+
+**So nothing could fire where it never did, and the artefact confirms
+it: `unset` appears 0 times in all 16 inputs.** The enumeration was
+from source; the zero is from the binary.
+
+**Built:** `UIR_UNSET = 0` and `UIR_INVALID` added to the opcode enum,
+both given name-table entries, and
+`case X86_INS_INVALID: uir->opcode = UIR_INVALID;` placed **before**
+the `default:` arm so the other seventeen identities are untouched.
+
+**Gate:** XPASS fired on **exactly one name**,
+`ad_invalid_does_not_lift_to_nop`, across all 25 suites
+(`fix-ad-xpass-gate-2026-09-20.log`). Name removed by hand afterwards;
+`test_uir` is now `24/24 passed (xfail=0 of 0 registered, xpass=0)` and
+the whole suite is green (`fix-ad-green-2026-09-20.log`, 25 suites).
+
+**Every prediction checked against the artefact:**
+
+| predicted | observed |
+|---|---|
+| no corpus figure moves | the 16 decoder dumps are **byte-identical** to the pre-fix baseline — every differential column unchanged by construction, without needing the oracle re-run |
+| exactly one XPASS | exactly one; the decoder suite held at `pass=85 xfail=30 fail=0 xpass=0` |
+| one instruction in one input changes in `-t uir` | 8139too prints **1** `invalid`, at `.text+2721` — the address predicted from (r2)'s overshoot — and the other 15 print **0** |
+| the sentinel is never produced | **0** `unset` lines across all 16 |
+| letter (af) does not move | 8139too still prints **845** `nop` lines |
+| no product figure moves | unchanged and **stated, not inferred**: nothing reads the field |
+
+**The totality guard passed before the enum changed (40 opcodes) and
+passes after (42).** It was written first for exactly that reason.
+
+**One instrument defect found while closing.** The open register's
+executable check matched any table row whose first cell merely
+*contained* a parenthesis, so the closing table's prose rows made it
+report `nop` and a module basename as missing reds. Tightened: the
+first cell must be a defect letter **and nothing else**. The guard
+caught its own looseness the first time a closing table was written
+under it, which is the cheapest place for that to happen.

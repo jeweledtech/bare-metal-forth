@@ -57,52 +57,45 @@ carries the **condition that mints it** rather than an intention.
 | (ac) | `three_byte_0F3A` | PALIGNR renders as NOP |
 | (t) | `unknown_0f_modrm_recovery` | `0F 0D C0` is #UD and is accepted |
 
-## Open, with a red, in another suite
+## (ad) CLOSED 2026-09-20
 
-The table above is `test_x86_decoder.c`'s list and is the one the
-executable check covers. Reds living in other suites are listed here in
-prose, because the check asserts one file against one list and a second
-list checked by nothing would be worse than a named exception.
+`ad_invalid_does_not_lift_to_nop` is green. The lifter carries
+`UIR_INVALID`, and `UIR_UNSET` takes the enum's zero value so a
+zero-initialised instruction no longer reads as a no-op. Closed through
+an XPASS gate that fired on **exactly one name** across all 25 suites
+(`fix-ad-xpass-gate-2026-09-20.log`).
 
-- **(ad)** `ad_invalid_does_not_lift_to_nop`, in `test_uir.c` (which
-  had no expected-failure plumbing until this red needed it). The
-  lifter's `default:` arm at `src/ir/uir.c:442` maps every unmodelled
-  x86 identity to `UIR_NOP`. **18 of the 56 identities fall through it,
-  and `X86_INS_INVALID` is one of them** — an explicit refusal lifts to
-  a no-op. Found while enumerating readers of `X86_INS_NOP` for (aa)'s
-  pre-registration. It is why **(aa) does not reach the analyzer**: the
-  decoder stops lying and the IR carries the same `UIR_NOP` either way.
-  **Scoped to the `INVALID` row alone** (pre-registered
-  2026-09-20): **1 corpus occurrence**, at `8139too.ko .text+2721`, and
-  that one is itself inside (r2)'s desync run, so it is predicted to
-  reach **0** when (r2) lands. The red is (ad)'s only durable
-  instrument.
+**Predictions, all four checked against the artefact:**
 
-## (af), minted 2026-09-20: the lifter drops seventeen modelled identities
+| predicted | observed |
+|---|---|
+| no corpus figure moves | the 16 decoder dumps are **byte-identical** to the pre-fix baseline, so every differential column is unchanged by construction |
+| exactly one XPASS | exactly one, and the decoder suite stayed `pass=85 xfail=30 fail=0 xpass=0` |
+| `-t uir` changes one instruction in one input | the module 8139too prints **1** `invalid` at `.text+2721`, the predicted address; the other 15 inputs print **0** |
+| nothing produces the sentinel | **0** `unset` lines in any of the 16 |
+| letter (af) does not move | the same module still prints **845** `nop` lines |
 
-The other seventeen identities falling through `src/ir/uir.c:442`,
-measured over the 16 decoder dumps: **SBB 481, SETcc 469, CBW 52,
-CDQ 32, LEAVE 23, ROR 14, ADC 9, ROL 9**, and **0** each for CLD, LOOP,
-POPAD, PUSHAD, STD and the four `REP_` string forms. **1,089 corpus
-rows.**
+**The third reader class, enumerated before the line was written**
+(owner's addition): sites that zero-initialise a `uir_instruction_t`
+and use it without assigning `opcode`, and anything persisting or
+comparing a *numeric* opcode. **Both are empty.** Every constructor
+assigns on every path — including both lifters' `default:` arms — and
+no golden file, serialised form or test compares `-t uir` output or a
+literal opcode number. The measured `unset=0` is that enumeration's
+confirmation from the artefact rather than from the source alone.
 
-Separated from (ad) because they are two defects: a refusal becoming a
-claim is a lie about knowledge, a known instruction being dropped is a
-gap in coverage. **(ad)'s fix must not move (af)**, which is assertable
-because (af)'s rows are counted.
+## The decoder queue's exit, ruled 2026-09-20
 
-**Minting condition for a red:** (ad) lands first and establishes the
-shape of a non-`NOP` default; (af)'s red is written against that shape
-rather than inventing a second one.
+**The queue ends at (s), whatever it surfaces.** New findings are
+lettered, counted and parked on this register; they do **not** enter
+the queue. Only a defect that makes one of the four fixes **wrong** may
+interrupt it. A defect that makes one **incomplete** is parked.
 
-**`UIR_NOP = 0` rides with (ad)**, not with (af) and not as a note:
-`include/uir.h:27` makes the no-op the zero value of the opcode enum,
-so any zero-initialised instruction already reads as "does nothing",
-which is (ad)'s own sentence at the type level. A `UIR_UNSET` sentinel
-at 0 is in (ad)'s scope, with a guard asserting `uir_opcode_name()` is
-non-NULL across `[0, UIR_OPCODE_COUNT)` — 40 of 40 entries exist today,
-and the invariant is unasserted, which is what the sentinel could
-break.
+**The exit is a number: 17 reds.** (aa) 1, (ac) 8, (ad) 1, (s) 7.
+**(ad)'s 1 is now green, so 16 remain.** When those sixteen are green
+and the remainder is parked, the decoder queue is closed and the
+identity consumer starts. A queue without an exit number ends when
+someone gets tired.
 
 ## (ag), minted 2026-09-20: the IR is write-only with respect to instruction identity
 
