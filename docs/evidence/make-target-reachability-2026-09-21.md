@@ -51,7 +51,8 @@ The whole UBT suite — 25 suites, 115 tests, everything this arc has
 built — is invisible to the project's own test entry point. It runs
 clean when invoked (`All tests passed`), so this is **owed, not dead**.
 
-**Owed — runs clean today, simply not wired:**
+**WIRED IN 2026-09-21, by owner ruling** — all three run clean and were
+invisible from `make test`:
 
 | target | result when run |
 |---|---|
@@ -78,15 +79,35 @@ an automatic suite.
 `print-embed-vocabs`, `check`, `check-kernel-size` (the last two are
 build-time assertions that run as part of the image build).
 
-**Not classified here** — `ubt-llm-validate`,
-`ubt-llm-validate-prefilter`. They shell into `tools/ubt-llm` and call
-a model; whether they belong in any automatic suite is a ruling, not a
-measurement, and it is **owed to the owner** rather than decided here.
+**Ruled 2026-09-21, and the ruling is the owner's** —
+`ubt-llm-validate`, `ubt-llm-validate-prefilter` are **advisory tools,
+not checks**, and are exempt as such. Three reasons, each one this
+project's own precedent:
+
+1. **A suite must be deterministic and offline.** Ghidra is exempt
+   because an oracle must not become a build dependency; a model is
+   that class with network and cost added.
+2. **A model's output has no stated denominator and cannot be
+   re-taken.** Every instrument here prints how many units it examined
+   and returns the same answer twice. This one does neither.
+3. **It is the thirty-second rule's family.** Where one side does not
+   decide the same way twice, agreement cannot be told apart from
+   coincidence.
+
+So it runs on demand, its output is evidence a person reads, and it
+**never gates a build**. If its output must ever gate something, the
+gate goes on a **deterministic artefact derived from it and pinned** —
+the treatment the Ghidra oracle already has.
 
 ## What the audit is worth
 
-Three targets in the project root run clean and are invisible to `make
-test`, one of them being **the entire translator suite**. One target in
-the translator tree was a phantom. The class is now enumerated rather
-than sampled, and both Makefiles carry their classification inline, so
-the fourth instance has nowhere to hide.
+Three targets in the project root ran clean and were invisible to `make
+test`, one of them being **the entire translator suite**. All three are
+now in it. One target in the translator tree was a phantom and is
+deleted. The class is enumerated rather than sampled, and **both
+Makefiles carry their classification inline**, so the fourth instance
+has nowhere to hide.
+
+**Reachable from the root `test` after the ruling: 33 targets**, up
+from 30, with every remaining target exempt for a reason written beside
+it.

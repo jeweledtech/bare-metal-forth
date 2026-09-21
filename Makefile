@@ -751,7 +751,32 @@ test-meta: $(COMBINED)
 	@echo "Metacompiler tests complete!"
 
 # Run all tests (lint first, then functional tests)
-test: lint test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-block-reload test-squote-laydown test-install test-vbr test-grub-cfg test-doc-drift test-make-wiring test-g6 test-vocabs test-gui test-integration test-file-stream test-survey
+# Reachability audit 2026-09-21 (docs/evidence/make-target-reachability-2026-09-21.md):
+# test-translator was NOT in this list.  The UBT suite -- 25 suites, 115
+# tests -- was invisible from the project's own test entry point while
+# passing whenever it was invoked by hand.  Wired in by owner ruling.
+# test-pipeline and check-sync were owed the same way and are wired with it.
+#
+# EXEMPT from this list, with reasons (same document):
+#   QEMU trips (test-network, test-arm64-boot, test-cortexm, test-meta,
+#     test-flush, test-ahci-write, test-squote-laydown-backstop0, run*) --
+#     emulator trips, and QEMU is not a truth source.  test-network is
+#     separately DEAD-PENDING-REPAIR, broken since 2026-08-30.
+#   Outward-facing or destructive (pxe-*, write-block, write-catalog, iso,
+#     combined, backstop0, blocks, free) -- these write boot media or push
+#     to a network host and must never run automatically.
+#   ubt-llm-validate, ubt-llm-validate-prefilter -- ADVISORY TOOLS, not
+#     checks (owner ruling 2026-09-21).  A suite must be deterministic and
+#     offline; a model adds network and cost to the class Ghidra was already
+#     exempted from.  Its output carries no denominator and cannot be
+#     re-taken, where every instrument here prints what it examined and
+#     returns the same answer twice.  And it is the thirty-second rule's
+#     family: where one side does not decide the same way twice, agreement
+#     cannot be told from coincidence.  It runs on demand, a person reads
+#     its output as evidence, and it never gates a build.  If it must ever
+#     gate something, the gate goes on a deterministic artefact derived from
+#     it and pinned -- the treatment the Ghidra oracle already has.
+test: lint test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-block-reload test-squote-laydown test-install test-vbr test-grub-cfg test-doc-drift test-make-wiring test-g6 test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)
