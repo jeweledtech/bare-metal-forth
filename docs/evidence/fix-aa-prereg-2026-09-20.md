@@ -606,7 +606,19 @@ fail on operand **count**.
 6. **No product figure moves** — (ag): nothing reads instruction
    identity but `UIR_CALL` and `UIR_INT`, and neither is produced here.
 
-## Expected XPASS: exactly 9 names
+## Expected XPASS: exactly 10 names
+
+**Amended before building.** The 8,192-cell check is itself red today —
+the arm renders all of them NOP, including the 2,276 the screen names —
+so it is registered as an (ac) red rather than added green afterwards,
+and the gate must fire on **ten** names, not nine. Measured on its
+first run, before any fix: **2,276 of 8,192 cells disagree**, first
+`-- 0F 18 00: screen says INSN (prefetchnta), we say NOP`. That figure
+matches the independent sweep exactly.
+
+**The tenth name:** `x64_RED_ac_nop_cells_match_the_screen`.
+
+## The other nine
 
 **Flip:** `x64_RED_aa_unhandled_two_byte_is_not_nop` (`0F A7`, in the
 59) and the eight (ac) reds — `cmovcc_0F44`, `bt_rm_r_0FA3`,
@@ -644,3 +656,75 @@ The fixture contains **no NOP byte**, and the shipped binary prints
 must print zero**, because all three opcodes are outside `0F 18`–`0F 1F`
 and none is exempt. The earlier form of this assertion — "two go, one
 stays" — was written for (aa) landing alone and is **superseded**.
+
+---
+
+# Closing: (aa)+(ac) built and green (2026-09-21)
+
+**One helper, eighteen call sites.** `two_byte_nop_or_unknown(op2,
+prefixes, modrm)` in `x86_decoder.c` returns `X86_INS_NOP` only for the
+cells the **screen** calls a no-op and `X86_INS_UNKNOWN` for everything
+else. Every one of the 18 `X86_INS_NOP` assignments inside the two-byte
+switch — the `default:` arm (59 opcodes, (aa)) and 17 explicit `case`
+groups (160 opcodes, (ac)) — now goes through it. The ModRM byte is
+**peeked once**, immediately after `op2` is eaten and before any arm
+consumes it, so the predicate reads the same byte the screen did.
+
+**The predicate is checked cell for cell, not read.**
+`x64_RED_ac_nop_cells_match_the_screen` drives the decoder over all
+**8,192** `(prefix, opcode, ModRM)` cells of `0F 18`–`0F 1F` against a
+banked per-cell table and requires the exact set. Red before the fix
+with **2,276 of 8,192 disagreeing** — matching the independent sweep
+exactly, first row `-- 0F 18 00: screen says INSN (prefetchnta), we say
+NOP`. Green after.
+
+*The banked sweep log could not serve as that oracle: it compresses
+ModRM sets to min–max ranges, so 24 `prefetchnta` cells print as
+`00-87` while actually being `00-07, 40-47, 80-87`. A test cannot be
+written against a lossy oracle, so a lossless per-cell table was
+generated and committed.*
+
+**Gate: exactly the ten predicted names**, across all 26 suites
+(`fix-aa-ac-xpass-gate-2026-09-21.log`). Removed by hand afterwards.
+
+## Every invariant held
+
+| predicted | observed |
+|---|---|
+| `operand_ok` and `score` unchanged on all 16 | **unchanged on all 16** |
+| `mnemonic + opcount + undecoded` conserved per input | **conserved on all 16** |
+| `mnemonic` falls close to zero | ACPI 3,279 → 177, storport 2,327 → 115, pci 2,189 → 42, usbxhci 1,699 → 126 |
+| `opcount` falls only by non-exempt cells | **exactly 2 on each of the eight HP drivers, 16 total** |
+| starts and lengths unchanged | `nostart`, `beyond_extent`, `invalid_at_start` unchanged on all 16 |
+| ten flip, 21 stay red | ten flipped; (t), (ab), (s)×7, (u) and the rest stayed red |
+
+**The 16 are the PREFETCHNTA rows**, two in every HP driver — the same
+block-copy routine linked eight times, the pattern found when the
+exemption was first derived. They leave the agreement class
+**correctly**: the oracle calls them NOP, which is **(ae)**, and the
+screen names them. A fix that had kept them in agreement would have
+been agreeing with a wrong oracle.
+
+**Rule 28, and it predicted the exact number.** The fixture contains no
+`0x90` byte, so a correct decoder prints **zero** `nop` lines for it.
+The shipped binary printed **three** before and prints **zero** now.
+The assertion is wired into `smoke_shipped.sh` with its own adversarial
+case, so the self-test is 6 cases and still 0 failures.
+
+**No product figure moves**, and that is stated rather than inferred:
+(ag) — nothing reads instruction identity but `UIR_CALL` and `UIR_INT`,
+and neither is produced here. Repairing 211 opcodes changes the
+differential and the disassembly text and changes **nothing** in
+`summary.call_graph`, the port attestation, or any generated output.
+
+**One finding parked, not fixed: (ai).** `compare_operands.py:208`
+tests `om == '???'`, but `dump_starts` appends the decoded LOCK flag, so
+an unknown with a `LOCK` prefix prints `???.LOCK` and lands in
+`mnemonic` instead of `undecoded` — **450 rows** corpus-wide. It breaks
+no pre-registered invariant, so it makes the fix *incomplete* rather
+than *wrong*, which is the case the queue rule parks. On the register
+with its count.
+
+**State after:** `pass=95 xfail=21 fail=0 xpass=0 (tests=116)`, 26
+suites, 0 warnings under `-Werror`, `SMOKE PASS`.
+**Queue exit: 7 reds remain, all (s).**

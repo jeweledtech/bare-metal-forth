@@ -45,17 +45,39 @@ carries the **condition that mints it** rather than an intention.
 | (u) | `x64_RED_u_0f_map_matches_oracle` | the hand-typed no-ModRM list vs the oracle |
 | (v) | `x86_RED_v_addr_size_prefix_disp16` | legacy `67` makes mod=10 a disp16 |
 | (y) | `x64_RED_y_lea_register_form_invalid` | `8D C0` LEA register form is #UD |
-| (aa) | `x64_RED_aa_unhandled_two_byte_is_not_nop` | unhandled two-byte opcodes render as NOP |
 | (ab) | `x64_RED_ab_two_byte_arm_ignores_mandatory_prefix` | the arm never reads `66`/`F2`/`F3` |
-| (ac) | `cmovcc_0F44` | CMOVcc renders as NOP |
-| (ac) | `bt_rm_r_0FA3` | BT r/m,r renders as NOP |
-| (ac) | `bt_rm_imm8_0FBA` | BT r/m,imm8 renders as NOP |
-| (ac) | `cmpxchg_0FB1` | CMPXCHG renders as NOP |
-| (ac) | `xadd_0FC1` | XADD renders as NOP |
-| (ac) | `desync_recovery_BT_then_IN` | BT renders as NOP (walk continues correctly) |
-| (ac) | `three_byte_0F38` | PSHUFB renders as NOP |
-| (ac) | `three_byte_0F3A` | PALIGNR renders as NOP |
 | (t) | `unknown_0f_modrm_recovery` | `0F 0D C0` is #UD and is accepted |
+
+## (aa) and (ac) CLOSED 2026-09-21
+
+**219 of 256 two-byte opcodes rendered as NOP.** All 18 assignment sites
+in the two-byte arm now call `two_byte_nop_or_unknown()`, which returns
+`NOP` only for the cells **the screen** calls a no-op, read per full
+`(prefix, opcode, ModRM)` byte. Closed through an XPASS gate that fired
+on **exactly the ten predicted names** across all 25 suites
+(`fix-aa-ac-xpass-gate-2026-09-21.log`).
+
+**Every pre-registered invariant held, checked against the artefact:**
+
+| predicted | observed |
+|---|---|
+| `operand_ok` and `score` unchanged on all 16 | unchanged on all 16 |
+| `mnemonic + opcount + undecoded` conserved, input for input | conserved on all 16 |
+| `mnemonic` falls close to zero | ACPI 3,279 to 177; storport 2,327 to 115; pci 2,189 to 42 |
+| `opcount` falls only by the non-exempt cells in it | falls by **exactly 2 on each of the eight HP drivers, 16 total** |
+| `nostart`, `beyond_extent`, `invalid_at_start` unchanged | unchanged on all 16 |
+| ten names flip, and no others | ten, and the 21 that must not flip did not |
+
+**The 16 are the PREFETCHNTA rows** — two in every HP driver, the same
+block-copy routine linked eight times — and they leave agreement
+*correctly*: the oracle calls them NOP, which is **(ae)**, and the
+screen names them. A fix that kept them in the agreement class would
+have been agreeing with a wrong oracle.
+
+**Verified still red on the same run**, each for its stated reason:
+(t) `unknown_0f_modrm_recovery` asserts `INVALID` and this gives
+`UNKNOWN`; (ab) is an inequality that two `UNKNOWN`s still satisfy;
+(s)×7 and (u) are length-only and no length changed.
 
 ## (ad) CLOSED 2026-09-20
 
@@ -92,8 +114,10 @@ lettered, counted and parked on this register; they do **not** enter
 the queue. Only a defect that makes one of the four fixes **wrong** may
 interrupt it. A defect that makes one **incomplete** is parked.
 
-**The exit is a number: 17 reds.** (aa) 1, (ac) 8, (ad) 1, (s) 7.
-**(ad)'s 1 is now green, so 16 remain.** When those sixteen are green
+**The exit is a number: 18 reds.** (aa) 1, (ac) 9 (the eight converted
+tests plus the 8,192-cell check, registered before building), (ad) 1,
+(s) 7. **(ad)'s 1 and (aa)+(ac)'s 10 are now green, so 7 remain — the
+(s) reds.** When those sixteen are green
 and the remainder is parked, the decoder queue is closed and the
 identity consumer starts. A queue without an exit number ends when
 someone gets tired.
@@ -168,6 +192,27 @@ beside the tier ladder in
 **Minting condition for a red:** a caller for the ARM64 lifter exists,
 at which point the bridge's layout becomes assertable the way the x86
 one now is. Until then a red would assert a feature.
+
+## (ai), parked 2026-09-21: the comparer misreads a prefixed unknown
+
+**Found by (aa)+(ac) and parked, not fixed, under the queue rule.**
+`compare_operands.py:208` tests `om == '???'` to reach `undecoded`, but
+`dump_starts` appends the decoded LOCK flag, so an unknown instruction
+with a `LOCK` prefix prints `???.LOCK` and falls through to
+`mnemonic` instead.
+
+**450 rows** across the corpus — ACPI 161, usbxhci 111, storport 94,
+HDAudBus 33, pci 31, HP serial 10, i8042prt 6, disk 2, nmap 1, ReactOS
+serial 1. Before the fix they printed `NOP.LOCK` and were `mnemonic`
+legitimately; now they are unknowns wearing a suffix.
+
+**It breaks no pre-registered invariant** — conservation holds and the
+score is unchanged either way — so it does not make (aa)+(ac) *wrong*,
+only the classification *incomplete*, which is exactly the case the
+queue rule parks. The repair is one predicate (`om.startswith('???')`)
+and is **defect-revealing, not concealing**: it moves 450 rows from
+`mnemonic` into `undecoded`, making the residual `mnemonic` class
+smaller and more honest.
 
 ## A standing note, from (ad): when a corpus witness is itself a symptom
 
