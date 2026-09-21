@@ -174,6 +174,31 @@ and the remainder is parked, the decoder queue is closed and the
 identity consumer starts. A queue without an exit number ends when
 someone gets tired.
 
+## (af) CLOSED 2026-09-21
+
+Seventeen identities the decoder names lifted to `UIR_NOP`. They now
+lift to **`UIR_UNMODELLED`**, a third state distinct from `UIR_UNSET`
+(nobody assigned) and `UIR_INVALID` (the decoder refused). **No
+semantics invented**: `ADC`/`SBB` to `ADD`/`SUB` would drop the carry
+and `ROL`/`ROR` to `SHL`/`SHR` would drop the wrap.
+
+Gate fired on **exactly one name** across 26 suites. Decoder dumps
+byte-identical on 16 of 16. `hardware_functions` **320 / 0
+instruction-derived**, before and after — this fix makes the IR honest,
+not read, which is (ag).
+
+**One prediction missed, and the miss is recorded.** The `-t uir`
+movement was predicted at 1,089 rows across 10 inputs and observed at
+**1,116 across 15**: the prediction was counted in the decoder-dump
+population while the lifter walks the translator's own function set.
+Counting the same seventeen identities in the lifter's population gives
+**1,116 against 1,116** — exact, so nothing over-maps.
+
+**Still owed and still blocked:** the shipped-artefact assertion. The
+fixture contains none of the seventeen, measured. (ad) has the
+identical debt; **one fixture edit discharges both**, appending an
+`SBB` and an `06` past the trailing `RSM` where they shift nothing.
+
 ## (af), PROMOTED to prerequisite 2026-09-21
 
 The lifter's `default:` arm at `src/ir/uir.c:442` maps seventeen
