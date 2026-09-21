@@ -676,3 +676,41 @@ source does not refresh numbers computed from an earlier one. I named
 the right baseline log and carried per-input residuals derived against
 its pre-`beyond_extent` generation. The derivation has to be redone,
 not just re-pointed.
+
+
+---
+
+# Correction to how these deltas must be read (2026-09-21)
+
+**`hardware_functions` moved on (a) and on (o) — ACPI 47 → 45,
+storport 93 → 85 — and those movements were NOT the decoder improving
+hardware classification.** Both were predicted correctly and for the
+right mechanism, and the mechanism is the point: the ten removed
+entries were **phantom port operations** born of desyncs, each located
+at an offset where Ghidra has no instruction start.
+
+**What the end state is, measured today:**
+
+| | value |
+|---|---|
+| hardware functions, 8 drivers | **320** |
+| of those, carrying any instruction-derived evidence | **0** |
+| `port_operations` in any report | **0** |
+
+So the movement removed the *only* instruction-derived entries there
+were, and every one of them was **wrong**. What remains — 45 on ACPI,
+85 on storport — rests entirely on the import table:
+`semantic.c:426`–`429` set `has_port_io`, `has_mmio`, `has_timing` and
+`has_pci` from a matched IAT import, never from an instruction.
+
+**So these deltas are function-discovery and phantom-removal, not
+hardware insight.** Repairing a desync changes which functions the
+walk finds and which fake port operations it invents; a different
+number then carries the same import-derived flag. **A number moving for
+a different reason than the one assumed is this arc's oldest hazard,
+and this number has been moving that way since (a).** Written here so
+no later reader takes 47 → 45 or 93 → 85 as the analyzer learning
+something about hardware.
+
+**The same correction applies to (o)'s closeout**, which banked the
+forward prediction and is where the 93 → 85 figure is confirmed.

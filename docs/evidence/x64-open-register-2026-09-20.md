@@ -174,6 +174,24 @@ and the remainder is parked, the decoder queue is closed and the
 identity consumer starts. A queue without an exit number ends when
 someone gets tired.
 
+## (af), PROMOTED to prerequisite 2026-09-21
+
+The lifter's `default:` arm at `src/ir/uir.c:442` maps seventeen
+modelled x86 identities to `UIR_NOP` — **1,089 corpus rows**: `SBB`
+481, `SETcc` 469, `CBW` 52, `CDQ` 32, `LEAVE` 23, `ROR` 14, `ADC` 9,
+`ROL` 9, and **zero each** for `CLD`, `LOOP`, `POPAD`, `PUSHAD`, `STD`
+and the four `REP_` string forms.
+
+**Parked on 2026-09-20, promoted today, and recorded as a promotion
+rather than slipped in.** It is a **dependency of the identity
+consumer**: a consumer that reads instruction identity must not read a
+no-op where an `SBB` was. Pre-registered separately
+(`fix-af-prereg-2026-09-21.md`) because 1,089 rows across 17 identities
+is a larger change than (ad)'s single row, and because the fix adds a
+**third state** — `UIR_UNMODELLED`, distinct from `UIR_UNSET` (nobody
+assigned) and `UIR_INVALID` (the decoder refused) — rather than
+inventing semantics for seventeen instructions.
+
 ## (ag), minted 2026-09-20: the IR is write-only with respect to instruction identity
 
 **Not a decoder defect — the missing middle of the product, and what

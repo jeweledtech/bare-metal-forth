@@ -33,9 +33,30 @@ Measured, `serial.sys`, the most port-heavy driver in the set:
 Those 31 are true **from the import table**, not from an instruction:
 `semantic.c:426` sets `has_port_io` when a matched IAT import is
 categorised `PORT_IO`. The same holds for `has_mmio`, `has_timing` and
-`has_pci` at lines 427–429. **Every one of the 8,224 "hardware
-functions" across the eight drivers is classified from imports
-alone**, and not one carries an instruction-derived hardware fact.
+`has_pci` at lines 427–429.
+
+**Corrected 2026-09-21: the figure is 320, not 8,224.** The first draft
+counted `"address"` occurrences in the JSON instead of parsing the
+array, which counts every address the report prints anywhere. Re-taken
+by parsing:
+
+| driver | hardware functions | instruction-derived |
+|---|---|---|
+| storport | 85 | **0** |
+| usbxhci | 58 | **0** |
+| serial | 48 | **0** |
+| ACPI | 45 | **0** |
+| i8042prt | 31 | **0** |
+| pci | 29 | **0** |
+| HDAudBus | 21 | **0** |
+| disk | 3 | **0** |
+| **total** | **320** | **0** |
+
+**Zero of 320.** Every hardware function across the eight drivers is
+classified from imports alone, and not one carries an
+instruction-derived hardware fact. The smaller denominator makes the
+statement stronger, not weaker: 320 is the whole claim the product
+makes about hardware, and none of it rests on an instruction.
 
 So the honest statement of today's tier 2 is narrower than it looks: it
 attributes **imports** to call sites. It reads no instruction.
@@ -108,6 +129,10 @@ which *device* the region belongs to (that needs the PCI BAR
 assignment, a separate input), and what the offsets *mean* (that needs
 a device model, which is the vocabulary work, not this).
 
+**That boundary belongs in the brief, not only here**, and is written
+into `docs/FORTHOS_MULTIARCH_DESIGN.md` beside (ah)'s as-built section,
+where a reader of the vision meets it.
+
 ## 6. What replaces delta-prediction, since there is no artefact yet
 
 Four substitutes, each borrowed from something that worked:
@@ -129,9 +154,39 @@ Four substitutes, each borrowed from something that worked:
    (`xHCI BAR0 = 0xb1210004`), so a claimed region can be checked
    against a measured one on at least one device.
 
-## 7. Order, and what waits
+## 7. The exit number, fixed before the first line
 
-**First (af)** — one arm, a dependency, and it makes identity readable.
+**The decoder queue ended at eighteen reds green, and that number is
+why it ended rather than drifting. New construction has no natural end,
+which is this arc's standing failure mode, so the number is fixed
+now.**
+
+> **The consumer is done when it produces, for ONE NAMED DRIVER, a
+> per-function statement in this specification's own form — region
+> mapped, offset, width, direction — attested by a SECOND INSTRUMENT.**
+
+The named driver is **`i8042prt.sys`**, chosen before the work and for
+reasons that are not convenience: it is the smallest hardware-classified
+driver with a real device behind it (31 hardware functions, 21,373
+instructions), its device is the one the project has already driven
+from Forth, and the HP trip recorded its behaviour independently.
+
+**Anything past that is a new phase with its own exit.** Not "the other
+seven drivers", not MMIO for the general case, not a device model.
+Those are decisions taken after there is one statement to judge.
+
+**What does NOT count as meeting it:** a statement produced for a
+function whose chain the analysis followed but whose result no second
+instrument confirms. The attestation is the exit, not the output.
+
+## 8. Order, and what waits
+
+**First (af), PROMOTED from parked to prerequisite** — recorded as a
+promotion rather than slipped in, and it gets its own
+pre-registration, because 1,089 rows across 17 identities is a larger
+change than (ad)'s one row was. A consumer of identity must not read a
+no-op where an `SBB` was.
+
 **Then the census** of §6.1, which decides whether the rest is worth
 building at the size the corpus implies.
 
