@@ -132,3 +132,70 @@ one fixture edit, which is why neither has been discharged alone.*
 **State before the fix:** `pass=102 xfail=14 fail=0 xpass=0
 (tests=116)`, `test_uir` 24/24 with an empty expected-failure list, 26
 suites, 0 warnings under `-Werror`. No line of (af) is written.
+
+---
+
+# Closing: (af) built and green (2026-09-21)
+
+**One enumerator, one `switch` arm, seventeen case labels.**
+`UIR_UNMODELLED` sits between `UIR_INVALID` and the rest — **not at
+0** — and the seventeen identities now land on it. The totality guard
+passed at **42 opcodes before and 43 after**, which is why it was
+written before (ad) touched the enum.
+
+**Gate: exactly one name**, `af_modelled_identity_does_not_lift_to_nop`,
+across all 26 suites. Removed by hand afterwards; `test_uir` is back to
+an empty expected-failure list, which is its goal state.
+
+## Predictions
+
+| predicted | observed |
+|---|---|
+| decoder dumps byte-identical, so every differential column unchanged | **16 of 16 identical** to post-(s) |
+| `hardware_functions` stays 320, instruction-derived stays 0 | **320 / 0** |
+| the call graph and port attestation identical | untouched — they test `UIR_CALL` and `UIR_INT`, neither produced here |
+| exactly one XPASS | exactly one |
+| `-t uir` text changes for **1,089** rows across **10** inputs | **1,116** rows across **15** |
+
+**The last row missed, and the reason is the thirty-first rule in
+miniature — my error, not the fix's.** The 1,089 was counted in the
+**decoder-dump** population (`dump_starts`, the sections it emits, at
+decoded starts). The lifter walks the **translator's own function
+set**. Same seventeen identities, different denominator.
+
+**Checked rather than argued:** counting those same seventeen
+identities in the population the lifter actually walks (`-t disasm`)
+gives **1,116**, against **1,116** rows printing `unmodelled`. **Exact
+agreement, so nothing over-maps** — the arm cannot fire on an
+eighteenth identity, and the measurement confirms it does not.
+
+*The pre-registration's §4 figure is therefore superseded by a figure
+with the right denominator, and the miss is recorded rather than the
+number quietly corrected.*
+
+## Rule 28, still owed and still blocked
+
+**Measured, not assumed: the fixture contains none of the seventeen.**
+So this fix cannot gain a shipped-artefact assertion either. **(ad)'s
+identical debt is still open**, and the remedy is one fixture edit that
+discharges both: append an `SBB` and an `06` after the trailing `RSM`,
+where they shift nothing. Neither has been discharged alone for that
+reason.
+
+## What it unblocks, and what it does not
+
+**(af) was promoted because it blocks the identity consumer**, and that
+block is now lifted: a pass reading instruction identity can tell *"not
+modelled"* from *"does nothing"* for 1,116 rows it previously could
+not.
+
+**It improves no product figure**, and that is stated rather than
+inferred — (ag): nothing reads the field but `UIR_CALL` and `UIR_INT`.
+`hardware_functions` is 320 before and after, instruction-derived 0
+before and after. **This fix makes the IR honest, not read.**
+
+---
+
+**State after:** `test_x86_decoder` `pass=102 xfail=14 fail=0 xpass=0`,
+`test_uir` **25/25** with an empty expected-failure list, **26 suites**,
+0 warnings under `-Werror`, exit 0 from a clean build.
