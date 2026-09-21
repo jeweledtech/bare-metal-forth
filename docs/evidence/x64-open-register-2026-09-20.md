@@ -97,13 +97,23 @@ same treatment as (q). **Minting condition:** the exemption predicate
 exists in code, at which point a red asserts that it consults the
 screen's per-cell verdict and not the oracle's opcode-level one.
 
-**The granularity lesson, stated so it stops repeating.** Probe
-granularity rose three times in this arc — opcode, opcode+mod, then
-prefix+opcode+mod — each rise one notch behind a counterexample. The
-full-ModRM sweep settles it: `PREFETCHIT0` is **ModRM `3d` alone** and
-`PREFETCHIT1` is **`35` alone**, single bytes inside a class that is
-otherwise prefetch variants, and `ENDBR32`/`ENDBR64` are `fb`/`fa`
-alone. No mod-class predicate can express those.
+**The granularity lesson, with its REASON and not only its fact.**
+Probe granularity rose three times in this arc — opcode, opcode+mod,
+then prefix+opcode+mod — each rise one notch behind a counterexample.
+The full-ModRM sweep ends that, and the reason is why it is permanent
+rather than a one-off:
+
+`PREFETCHIT0` is `0F 18 /7` and `PREFETCHIT1` is `0F 18 /6`, and **the
+only addressing either accepts is RIP-relative**. In 64-bit mode that
+is `mod=00, rm=101` — one ModRM byte per instruction and no other.
+`3d` is `mod=00 reg=111 rm=101`; `35` is `mod=00 reg=110 rm=101`.
+`ENDBR32`/`ENDBR64` are `fb`/`fa`, likewise single bytes.
+
+**A mod-class predicate cannot express a single ModRM byte**, and an
+instruction whose encoding admits exactly one is not a corner case —
+it is what happens whenever an opcode's operand form is fixed by the
+architecture. So the sweep is over the full byte from here on, and the
+exemption predicate reads the full byte.
 
 ## The control set has degraded, and the remaining one is named
 
@@ -188,7 +198,12 @@ as the pre-registered target.
   576,115 and 512,000, printed together by
   `tools/translator/scripts/denominators.py`.
 - **`0F 21`, `0F 22`, `0F 23` have zero corpus witnesses** (`0F 20` has
-  218). That one arm covers all four is read from source only.
+  218). Fixture v13 gives them one each, but those three rows sit
+  behind the fixture's desync region and the flow-following oracle
+  never reaches them, so they are **screen-only witnesses and the
+  four-opcode claim is not double-attested**. The fixture is not
+  re-edited for it now; when it next opens for (s) the rows move ahead
+  of the desync region and become double-attested for free.
 
 ## The NOP class, whole
 

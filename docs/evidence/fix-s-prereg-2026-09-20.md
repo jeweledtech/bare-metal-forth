@@ -123,14 +123,47 @@ unannounced at (o) would have reported a correct fix as a hard failure.
 
 ## 8. Rule 28: the shipped-binary assertion (s) can fail
 
-`test-shipped-binary` gains one: the fixture's `.text` is exactly
-`0x6d` bytes, and a correct linear walk over it yields **exactly 32
-instruction lines** — the 31 rows the flow-following oracle knows, plus
-the `RSM` after the `RET` that a linear walk reaches and a
-flow-follower does not. **The shipped binary emits 36 today**, because
-the walk desyncs through the (s) tail. So the assertion fails now,
-passes when (s) lands, and is derived from the pinned oracle rather
-than from a run.
+~~`test-shipped-binary` gains one: the fixture's `.text` is exactly
+`0x6d` bytes, and a correct linear walk over it yields exactly 32
+instruction lines — the 31 rows the flow-following oracle knows, plus
+the `RSM` after the `RET`. The shipped binary emits 36 today.~~
+**Superseded 2026-09-20: every figure in that sentence was v12-era and
+the fixture is v13.** Naming a refreshed source does not refresh
+figures derived from the old one — the seventeenth rule's family, and
+its **third** occurrence in this arc.
+
+**Re-derived against v13** (`b19fcb69…`), each number measured rather
+than carried:
+
+| | v12 | **v13** |
+|---|---|---|
+| fixture `.text` size | `0x6d` = 109 | **`0x76` = 118** |
+| correct linear walk (objdump) | 32 | **35** |
+| shipped binary emits | 36 | **37** |
+| flow-following oracle sees | 31 | **31** |
+
+**The assertion, restated:** the fixture's `.text` is exactly `0x76`
+bytes and a correct linear walk yields **exactly 35 instruction
+lines** — the 31 rows the flow-following oracle knows, plus the `RSM`
+after the `RET`, plus the three `0F 2x` rows v13 added. **The shipped
+binary emits 37 today**, because the walk desyncs through the (s) tail.
+Fails now, passes when (s) lands, derived from the artefact's own size
+and the pinned oracle rather than from a run.
+
+### The three `0F 2x` rows are screen-only witnesses, and the record says so
+
+The oracle still reports **31** starts for v13. The three rows sit
+**behind the fixture's desync region** in a flow-following walk, so
+Ghidra never reaches them. **The four-opcode `0F 20`–`23` claim is
+therefore witnessed but NOT double-attested** — `x64_RED_s_mov_cr_mod_
+ignored` walks all four, and its expected values come from the no-flow
+blob oracle, but the *fixture* rows for `21`/`22`/`23` are objdump-only
+witnesses. Said here before anyone reads "four opcodes witnessed" as
+the stronger thing.
+
+**Not re-edited now**: fixture offsets have cost this arc twice. **When
+the fixture next opens for (s), those three rows move ahead of the
+desync region and become double-attested for free.**
 
 ## 9. The boundary with (r1)–(r3), stated before either is written
 
@@ -446,7 +479,7 @@ is the sum). **Every other input's `mnemonic` count is unchanged** —
 including via-rng's 3, which contains the `xstore-rng` row (aa) owns
 and (s) does not.
 
-## 6. The 32 addresses, derived twice
+## 6. The 32 addresses, derived twice — a v12 result, still true of v12
 
 Independently derived from the bytes by a second instrument — objdump's
 own linear walk over the fixture's `0x6d`-byte `.text` — giving **32
@@ -454,6 +487,14 @@ starts**, identical to the oracle-plus-`RSM` construction, address for
 address. The two derivations agree, so the assertion does not inherit
 an oracle gap; and the fixture's difference of exactly one row *is* the
 `RSM`, which is the same fact hold 7 turns on.
+
+**Carried forward to v13 by re-measurement, not by assumption:** `.text`
+is `0x76` = 118 bytes and objdump's linear walk gives **35** starts —
+the same 32 plus the three `0F 2x` rows. The oracle still gives 31,
+because those three sit behind the fixture's desync region, so the
+v13 fixture rows are **screen-only witnesses**. The *derived-twice*
+property therefore holds for 32 of the 35 and not for the three new
+ones, which is stated rather than inherited.
 
 ## 7. The two denominators, accounted
 
