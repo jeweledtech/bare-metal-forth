@@ -148,6 +148,27 @@ identity other than `UIR_CALL` or `UIR_INT`. Until then a red would
 assert a feature, not a defect, and the count is the artefact: **2 of
 40**.
 
+## (ah), minted 2026-09-21: the multi-architecture statement, as built
+
+**x86-64 only. ARM64 decodes and does not lift. RISC-V has no
+decoder.** Its consequence belongs in the **brief**, not only here, so
+it is written into `docs/FORTHOS_MULTIARCH_DESIGN.md` beside the Vision
+section that promises "the same UBT pipeline — on any silicon", and
+beside the tier ladder in
+`finding-emission-and-tier1-2026-09-20.md`.
+
+| | measured |
+|---|---|
+| ARM64 lifter callers | **0** (`uir_lift_arm64_function`, 287 lines) |
+| ARM64 bridge vs its decoder struct | **128 vs 160 bytes**, `cc` at 120 vs 152 — would break on the first cast |
+| ARM64 decoder coverage | 555 lines, **48.1%** — decoding for a lifter nobody calls |
+| RISC-V decoder | **773-byte placeholder comment** |
+| floored-division codegen, 3 architectures | **780 lines compiled by nothing** |
+
+**Minting condition for a red:** a caller for the ARM64 lifter exists,
+at which point the bridge's layout becomes assertable the way the x86
+one now is. Until then a red would assert a feature.
+
 ## A standing note, from (ad): when a corpus witness is itself a symptom
 
 (ad)'s single corpus `INVALID` sits inside **(r2)'s desync run** and is
