@@ -296,3 +296,113 @@ report `nop` and a module basename as missing reds. Tightened: the
 first cell must be a defect letter **and nothing else**. The guard
 caught its own looseness the first time a closing table was written
 under it, which is the cheapest place for that to happen.
+
+
+---
+
+# Hold discharged: the build's own output was evidence (2026-09-20)
+
+## 1. Five warnings, not three, and the mirror agrees by accident
+
+The build printed **five** `-Wincompatible-pointer-types` warnings, not
+three: `test_insb_lifts_to_port_in`, `test_outsb_lifts_to_port_out`,
+`test_int10h_lifts_to_uir_int`, `test_int21h_no_hw_flag` and
+`test_mixed_int_portio`. All five handed `x86_decoded_t*` to a function
+taking `uir_x86_input_t*`, and the suite then said *All tests passed*.
+
+**Measured, because "the layouts probably agree" is not a measurement:**
+
+| | `x86_decoded_t` | `uir_x86_input_t` |
+|---|---|---|
+| `sizeof` | 160 | 160 |
+| `address` / `length` / `instruction` | 0 / 8 / 12 | 0 / 8 / 12 |
+| `operand_count` / `operands` | 16 / 24 | 16 / 24 |
+| `prefixes` / `cc` | 152 / 156 | 152 / 156 |
+
+**They agree — and they agree by accident.** `x86_decoded_t` carries a
+`rex` byte at offset **153** that the mirror does not name at all. It
+lands in padding, so `cc` still falls at 156 in both. The hold's
+reasoning was exactly right.
+
+**So the accident is now a compile-time invariant.** `src/ir/uir.c`
+carries `_Static_assert` on `sizeof` and on sixteen field offsets,
+including three inside `operands[0]` and one at `operands[3]`. Adding a
+field to either struct now fails the build at the line that says why.
+
+**Controls, both run:**
+
+- **A field added at the front of the mirror** → four static assertions
+  fire by name: *"uir_x86_input_t mirror broken at address"*, and so on.
+  Restored, build clean.
+- **A field added into the padding at 153** → **the assertion does not
+  fire**, correctly: nothing moved. That is the boundary of what this
+  invariant covers, and it is recorded rather than discovered later. A
+  padding-filling field is harmless *by definition*; the assertion
+  fires when something shifts, which is the case that matters.
+
+All five call sites now cast explicitly, so the cast is visible and
+checked rather than implicit and hoped.
+
+## 2. `-Werror`, on every target
+
+`CFLAGS` and `CFLAGS_DEBUG` both carry it. A build that printed five
+pointer-type warnings and then printed *All tests passed* is the
+twenty-seventh rule at the compiler — the instrument reporting success
+while what it measures is wrong.
+
+**The tree builds clean under it: 0 warnings, 25 suites, exit 0** from a
+`make clean` (`fix-ad-hold-green-2026-09-20.log`). Three more warnings
+were discharged on the way, each on its merits rather than silenced:
+
+- **`any_port_io` set and never read** (`translator.c:196`) — it was the
+  **old gate** for the HARDWARE dependency, superseded by the ruling in
+  the comment two lines below it (direct port I/O uses the kernel's
+  INB/OUTB and needs no vocabulary dependency). The gate moved to
+  `hw_word_count` and the computation was left behind. **Removed**, with
+  the reason recorded in place.
+- **`print_usage` and `parse_target` defined but not used** — not dead
+  code. They are used by `main`, which the test targets remove with
+  `-DTRANSLATOR_NO_MAIN`. **Moved inside the same guard.**
+- **A `snprintf` truncation** in `test_ghidra_compare.c`: `%s` of up to
+  1023 bytes into 128. **Bounded with `%.24s`** rather than widened,
+  since a port name that long is an upstream parse failure and
+  truncating the message is the right answer.
+
+## 3. The four empty files are (ag)'s strongest evidence
+
+`-Wpedantic` flagged four **empty translation units**, and they are the
+finding:
+
+| file | size | contents |
+|---|---|---|
+| `src/codegen/codegen.c` | 35 bytes | `/* Placeholder - Code generator */` |
+| `src/optimize/optimize.c` | 30 bytes | a placeholder comment |
+| `src/api/api_map.c` | 31 bytes | a placeholder comment |
+| `src/decoders/riscv_decoder.c` | 35 bytes | a placeholder comment |
+
+**(ag) said no analysis dispatches on the UIR opcode and that neither
+the code generator nor the optimizer does. This is the stronger
+statement: they do not exist.** `src/codegen/forth_codegen.c` is the
+only generator, and there is no optimizer at all — the directory
+contains a 30-byte comment that has been compiling into every build.
+Each file now says so in its own text, and is a legal translation unit
+so `-Werror` can land.
+
+## 4. The register check was repaired in the parser, and the prose came back
+
+The hold is upheld: rewording the document was backwards. **The prose
+is restored** — `(af) does not move` with `` `8139too.ko` `` in the
+second cell — and the predicate was tightened instead.
+
+**It had to be tightened twice, because the first attempt was still too
+loose.** "First cell, trimmed, starts `(` and ends `)`" is satisfied by
+a row reading `(control for the check below)`. The predicate now spells
+out the shape: **one to three characters between the brackets, each a
+lowercase letter, a digit, or the prime used by (d')**. That matches
+`(a)`, `(d')`, `(aa)`, `(r1)`, `(ac)` and nothing anyone writes as a
+sentence.
+
+**A trap row is now a permanent part of the register** — a bracketed
+first cell and a backticked second cell, deliberately shaped to break a
+loose parser — so the predicate is tested by the document it reads
+rather than protected from it.

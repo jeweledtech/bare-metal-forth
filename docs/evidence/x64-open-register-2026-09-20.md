@@ -71,9 +71,10 @@ an XPASS gate that fired on **exactly one name** across all 25 suites
 |---|---|
 | no corpus figure moves | the 16 decoder dumps are **byte-identical** to the pre-fix baseline, so every differential column is unchanged by construction |
 | exactly one XPASS | exactly one, and the decoder suite stayed `pass=85 xfail=30 fail=0 xpass=0` |
-| `-t uir` changes one instruction in one input | the module 8139too prints **1** `invalid` at `.text+2721`, the predicted address; the other 15 inputs print **0** |
+| `-t uir` changes one instruction in one input | `8139too.ko` prints **1** `invalid` at `.text+2721`, the predicted address; the other 15 inputs print **0** |
 | nothing produces the sentinel | **0** `unset` lines in any of the 16 |
-| letter (af) does not move | the same module still prints **845** `nop` lines |
+| (af) does not move | `8139too.ko` still prints **845** `nop` lines |
+| (control for the check below) | this row has a bracketed first cell and a backticked second cell, `like_this`, and the register check must ignore it |
 
 **The third reader class, enumerated before the line was written**
 (owner's addition): sites that zero-initialise a `uir_instruction_t`

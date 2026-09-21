@@ -171,6 +171,15 @@ subtract-with-borrow and condition-flag stores. That is ordinary
 integer and branch-condition code, precisely what a reader will assume
 was covered, and it is named here for that reason.
 
+**Stronger still, from the build's own warnings (2026-09-20):**
+`src/codegen/codegen.c` is a **35-byte placeholder comment** and
+`src/optimize/optimize.c` is a **30-byte** one. `src/api/api_map.c` and
+`src/decoders/riscv_decoder.c` likewise. **There is no generic code
+generator and no optimizer** — the Forth emitter is the only generator
+in the tree. (ag) was measured by grep; these four files are the
+stronger statement, and anything counting those directories as
+implemented is counting a comment.
+
 **So the correct statement of the bound is stronger than "unsound
 until the decoder is repaired".** The decoder fixes (aa), (ac), (ad)
 and (s) make the IR **true**; not one of them makes it **used**. A
