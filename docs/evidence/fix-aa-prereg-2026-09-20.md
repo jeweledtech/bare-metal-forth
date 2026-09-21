@@ -376,3 +376,90 @@ exactly the shape the twenty-seventh rule was minted on: zero-failed
 and zero-registered must not print the same, and here they do not. The
 call was restored and the suite returns to `22/23 passed (xfail=1 of 1
 registered, xpass=0)`.
+
+---
+
+# Second amendment: the exemption re-derived per cell, and it shrank (2026-09-20)
+
+## The hold was right, and both counterexamples are in the corpus
+
+**Exempting by opcode was wrong.** Re-derived per (prefix, opcode, mod)
+cell against both instruments:
+
+**`0F 18`–`0F 1F` is not a NOP range. It is a range that mostly
+contains NOPs.** Screened with objdump over all 96 cells (4 prefixes ×
+8 opcodes × 3 ModRM forms), **25 cells are named instructions**:
+`PREFETCHNTA` (`0F 18` memory forms), the whole MPX family — `BNDLDX`,
+`BNDSTX`, `BNDMOV`, `BNDCU`, `BNDCL`, `BNDCN`, `BNDMK` on `0F 1A`/`1B`
+under each of the four prefixes — and `CLDEMOTE` (`0F 1C` memory
+forms). It is `0F 0D C0`'s shape exactly: register form one thing,
+memory forms another, four items after this arc found that.
+
+**And the oracle says `NOP` to all 96.** Ghidra 12.1.2 names every one
+of the 96 cells `NOP`. That is a **systematic instrument disagreement
+across 25 cells**, recorded as a finding and folded neither way. The
+screen names them; the oracle does not model them. No assertion rests
+on those 25 cells.
+
+**`F3 0F 1E FA` ENDBR64 was never probed at all**, because the blob
+holds ModRM at `00`/`80`/`C0` and ENDBR is `FA`/`FB`. Exempting by
+(prefix, opcode, mod) would still have swallowed it. **`0F 1E` needs
+the full ModRM byte**, which makes it the first cell in the arc where
+opcode-and-mod is not fine enough.
+
+## "CET is probably absent" is exactly the phrasing rule 29 refuses, and it is false here
+
+Measured, by bytes, over the pinned inputs: **3 `ENDBR32`** in
+`nmap_service.exe` at `.text+401c70`, `+401ce0`, `+408c60`, ModRM `FB`
+every time. Not older-driver code — the modern Debian-built PE32
+control, which is in the corpus precisely so "the PE32 path works" is
+not a coincidence. **The control input is what carries the
+counterexample.**
+
+Alongside them, **16 `PREFETCHNTA`**, two in every one of the eight HP
+drivers, same operand `0x40(%rcx,%rdx,1)` each time: one block-copy
+routine, linked eight times.
+
+**19 real instructions were inside the exemption.** The 11,047 was an
+upper bound and it shrank to **11,028**.
+
+## The class, third and current statement — corpus and fixture apart
+
+| | opcodes | corpus (15) | fixture |
+|---|---|---|---|
+| (aa) the `default:` arm | 59 | **19** | 3 |
+| (ac) explicitly cased, **wrong** | 152 + the 19's cells | **10,978** | 6 |
+| **exempt — genuinely NOP, decided per cell** | — | **11,028** | 0 |
+| rendering as NOP | 219 of 256 | 22,025 | 9 |
+
+**Leaving the NOP class: 10,997 corpus rows. Staying: 11,028.** The
+exemption is now a per-cell predicate — *what the screen calls this
+exact (prefix, opcode, ModRM) encoding* — not an opcode list, and for
+`0F 1E` it reads the whole ModRM byte.
+
+## Predictions revised, including one that breaks a standing assertion
+
+- **`operand_ok` falls by 11,028 if the exemption is applied by opcode
+  instead of per cell.** That remains the blanket-fix control.
+- **`operand_ok` falls by 19 if the exemption is applied per cell but
+  the 19 are not moved out of it** — a much quieter failure than the
+  first, and the reason the per-cell derivation was worth doing.
+- **`nmap_service.exe` moves by 3.** It is a **control**, and the
+  standing assertion has been that controls do not move. That
+  assertion is **restated here before the fix**: the 32-bit controls
+  are controls for *mode* handling, not for the two-byte map, and nmap
+  carries 71 (ac) rows of which 3 are ENDBR32. A control that contains
+  the thing being fixed is an input for that fix. Saying so afterwards
+  would have been a rationalisation.
+- `beep.sys` contains **none** of the class and must not move at all.
+  It is the remaining true control.
+
+## Thirty-first rule, recorded against the desk that minted it
+
+> **A prediction about what an instrument will report is a claim about
+> that instrument's source, and is read there before it is registered.**
+
+The `mnemonic`-stays-at-11,048 prediction was unfalsifiable because
+`compare_operands.py` routes `'???'` to `undecoded` before it ever
+compares mnemonics. Rule 24 requires a fix's readers enumerated from
+source; this is the same requirement pointed forward at predictions.

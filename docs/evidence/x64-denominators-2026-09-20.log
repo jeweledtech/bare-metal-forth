@@ -1,21 +1,23 @@
 # every denominator the x86 evidence quotes, from one computation.
-# 2026-09-20, SECOND generation: corpus and fixture are now reported
-#   separately (owner item 4).  The fixture is an instrument and an input
-#   at the same time, and a fixture edit moved a corpus figure: adding
-#   three rows for v13 took the combined count 576,115 -> 576,118.  The
-#   corpus-only figure cannot be moved by an instrument change.
-# instrument: tools/translator/scripts/denominators.py sha256 b7a391276c6ee2ac1689c94a71f1db7f6db9633909a02422f4399b290a633301
-# screen: objdump (Binutils 2.42), all executable sections, 16 pinned inputs.
+# 2026-09-20, THIRD generation.
+#   gen 2: corpus and fixture reported separately (owner item 4).  The
+#     fixture is an instrument and an input at once, and a fixture edit moved
+#     a corpus figure: three v13 rows took the combined count 576,115 ->
+#     576,118.  A corpus-only figure cannot be moved by an instrument change.
+#   gen 3: the COMBINED difference is RETIRED (owner item 1).  64,114,
+#     64,115 and 64,118 were circulating; the combined one mixed a v13
+#     objdump count with a v12 oracle count and was known contaminated.
+#     Only the corpus figure is printed now.  The fixture rows are for
+#     reading, never for subtracting.
+#   gen 3 also moves this script onto scripts/objdump_screen.py, the single
+#     documented parsing contract (owner item 2).  The corpus total is
+#     UNCHANGED at 576,083 across that move, which is the control on it.
+# instrument: tools/translator/scripts/denominators.py sha256 79d1fd6a8fac9c307b07f66854cc2033ff9cd6ef432349a1e0a2660ffafff126
+# parsing contract: scripts/objdump_screen.py sha256 faacf46160fe30d000bf60decc1f59d3e126ca58e07b49e1acce1acb595f84b5
+# screen: objdump (Binutils 2.42), all executable sections.
 # oracle side: OPSUMMARY rows of docs/evidence/operand-diff-fix-o-2026-09-20.log
 #   (post-(o) generation), row count asserted against the pinned 16.
-# WHY (owner item 3, first generation): three figures circulate --
-#   576,115, 512,000 and 512,213.  Which Ghidra population a difference is
-#   taken against was carried in prose.  512,213 is withdrawn: the files it
-#   was summed from were destroyed by a clean.
-# The first run of this instrument printed 591,696 because it counted the
-#   wrapped continuation line of every instruction of 8+ bytes (15,581).
-# The first run of the SPLIT printed a corpus difference of 64,083 because
-#   it subtracted the COMBINED oracle count from the CORPUS objdump count.
+# 512,213 is withdrawn: the files it was summed from were destroyed by a clean.
 
 == objdump -d, all executable sections, binutils 2.42
 input                         instrs   0F esc +66/F2/F3
@@ -43,18 +45,19 @@ COMBINED (16)                 576118    48244     1091
   rows=16  corpus GHIDRA=511969  corpus mnemonic-class=11046
   fixture GHIDRA=31  fixture mnemonic-class=2   <-- PRE-v13: that log predates the three 0F 2x rows, so this row is stale until the differential is re-run
 
-== the numbers the documents quote (corpus and fixture SEPARATE)
+== the numbers the documents quote -- CORPUS ONLY
+  The COMBINED figure is RETIRED (owner item 1, 2026-09-20).  It
+  mixed a v13 objdump count with a v12 oracle count, and a
+  contaminated number printed beside a clean one gets quoted by
+  whoever reads only the table.  The fixture rows above are for
+  reading, not for subtracting.
+
   objdump linear sweep, corpus  : 576083
-  ... the fixture               : 35  (an instrument, not a driver)
-  ... combined, as banked       : 576118
-  CORPUS-ONLY difference        : 64114  (576083 - 511969)  <-- the clean one
-  The COMBINED difference mixes a v13 objdump count with a v12 oracle count and is contaminated until the differential is re-run.
-  -- derived from the combined figure below --
-  Ghidra flow-following         : 512000
-  difference                    : 64118
-  two-byte (0F) instructions    : 48244
+  Ghidra flow-following, corpus : 511969
+  difference                    : 64114
+  two-byte (0F) instructions    : 48235
   ... carrying 66/F2/F3         : 1091 (2.3%)
-  mnemonic-class rows           : 11048
+  mnemonic-class rows           : 11046
 
   The third figure, 512,213, was summed from the banked Ghidra
   per-instruction files, which carry sections the harness does not
