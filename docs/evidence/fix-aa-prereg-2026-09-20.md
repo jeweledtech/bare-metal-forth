@@ -463,3 +463,80 @@ The `mnemonic`-stays-at-11,048 prediction was unfalsifiable because
 `compare_operands.py` routes `'???'` to `undecoded` before it ever
 compares mnemonics. Rule 24 requires a fix's readers enumerated from
 source; this is the same requirement pointed forward at predictions.
+
+---
+
+# Third amendment: the headline split, and the rule's premise measured (2026-09-20)
+
+## The split is built, the differential re-run, and the answer is zero
+
+**Required before (aa) lands, and done before (aa) is written.**
+
+`dump_starts` now emits a fifth header token per instruction: **`D`**
+when the NOP came from the two-byte arm — which assigns NOP to 219 of
+256 opcodes without deciding anything — and **`.`** otherwise. There is
+no two-byte opcode for which this decoder *decided* NOP on evidence, so
+"NOP after an `0F` escape" is exactly the defaulted set.
+`compare_operands.py` reports `ok_defaulted`, `ok_decided` and a second
+headline `decided=` beside the old `score=`, and prints
+`DUMP_PREDATES_SPLIT=n` if handed a dump banked before today rather
+than silently scoring it as fully decided.
+
+Re-ran `differential-all` over all 16 inputs, oracle re-pinned at
+Ghidra 12.1.2 snap 47,
+`docs/evidence/operand-diff-decided-split-2026-09-20.log`:
+
+| | value |
+|---|---|
+| Ghidra starts | 512,000 |
+| `operand_ok` | **464,911** |
+| `ok_defaulted` | **0** |
+| `score` | 90.8% |
+| `decided` | **90.8%** |
+
+**`ok_defaulted = 0` on every one of the sixteen inputs.** The headline
+is not inflated by the NOP class, and the arc's number survives the
+check unchanged: the eight HP drivers still run 89.4% to 91.8%.
+
+## Why the premise did not hold — read from the comparer's own output
+
+The rule's reasoning was that Ghidra names those cells `NOP`, we render
+them NOP, and so the rows score as agreement. **They do not, and the
+comparer says why.** Ghidra decorates a multi-byte NOP with operands —
+`NOP dword ptr [RAX + RAX*0x1]` — and we print a bare `NOP`. Those rows
+fail on **operand count**, not on mnemonic, so they were never in the
+agreement class.
+
+Measured on `i8042prt` before the full run: of **787** rows our dump
+flags defaulted, **447 land in `opcount`** (the genuine multi-byte
+NOPs, where only the operands differ) and **340 in `mnemonic`** (the
+wrong ones, where Ghidra says `BT`, `MOVUPS`, and so on). **Zero in
+`ok`.**
+
+**This is the thirty-first rule applied to the thirty-second.** Rule 32
+is itself a prediction about what a comparer will report, and reading
+the comparer settles it: the split was worth building and the number it
+produces is zero.
+
+## The instrument is kept anyway, and here is what it is for
+
+A zero that was reasoned is an assurance; a zero that was measured is
+evidence, and only the second can be re-taken. The split stays wired
+into every differential run because it is also the tripwire for a
+future canonicaliser change that starts folding a bare `NOP` into a
+decorated one — which would silently move 11,028 rows into the
+agreement class and raise the headline by about two points for no
+reason at all. That is precisely the move the canonicaliser stopping
+rule exists to catch, and now an instrument catches it rather than a
+reader.
+
+## Two corrections this run settles
+
+- **The fixture's oracle row is no longer stale.** Re-run against v13
+  (`b19fcb69…`), Ghidra still reports **31** starts and the row is
+  identical: `score=45.2%`. The three new `0F 2x` rows sit behind the
+  fixture's desync region in the flow-following walk, exactly as the
+  fixture's own comment predicts, so they are instrumented by their
+  unit test at their own address and not by the differential.
+- **Corpus Ghidra stays 511,969** and the corpus difference stays
+  **64,114**.

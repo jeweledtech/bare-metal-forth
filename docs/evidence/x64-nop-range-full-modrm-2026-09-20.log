@@ -1,0 +1,56 @@
+# 0F 18-1F swept over the FULL ModRM byte, 2026-09-20 (owner item 2).
+# Probe granularity has risen three times in this arc -- opcode, then
+# opcode+mod, then prefix+opcode+mod -- and each rise was one notch
+# behind a counterexample: 0F 0D's register form, then ENDBR64's FA.
+# This stops chasing: 4 prefixes x 8 opcodes x 256 ModRM = 8192 cells,
+# every one screened.  The exemption is load-bearing on 11,028 rows.
+# STANDING CHECK, what is held constant: nothing in ModRM.  The bytes
+#   AFTER the ModRM are 0x90 padding, which cannot be a prefix and
+#   cannot change a length; SIB and disp are read from them as 0x90.
+# screen: objdump (Binutils 2.42).  parsing contract sha256 faacf46160fe30d000bf60decc1f59d3e126ca58e07b49e1acce1acb595f84b5
+# The ORACLE says NOP to all 96 cells it was asked (blob probe, modrm
+#   00/80/C0).  Where the two differ the row is a FINDING, not an
+#   assertion -- see (ae) on the open register.
+
+cells screened: 8192
+
+pfx  op     objdump         cells  ModRM values
+--   0F 18 prefetchit0         1  3d
+--   0F 18 prefetchit1         1  35
+--   0F 18 prefetchnta        24  00-87
+--   0F 18 prefetcht0         24  08-8f
+--   0F 18 prefetcht1         24  10-97
+--   0F 18 prefetcht2         24  18-9f
+--   0F 1A bndldx            192  00-bf
+--   0F 1B bndstx            192  00-bf
+--   0F 1C cldemote           24  00-87
+66   0F 18 prefetchnta        24  00-87
+66   0F 18 prefetcht0         24  08-8f
+66   0F 18 prefetcht1         24  10-97
+66   0F 18 prefetcht2         24  18-9f
+66   0F 1A bndmov            256  00-ff
+66   0F 1B bndmov            256  00-ff
+F2   0F 18 prefetchnta        24  00-87
+F2   0F 18 prefetcht0         24  08-8f
+F2   0F 18 prefetcht1         24  10-97
+F2   0F 18 prefetcht2         24  18-9f
+F2   0F 1A bndcu             256  00-ff
+F2   0F 1B bndcn             256  00-ff
+F3   0F 18 prefetchnta        24  00-87
+F3   0F 18 prefetcht0         24  08-8f
+F3   0F 18 prefetcht1         24  10-97
+F3   0F 18 prefetcht2         24  18-9f
+F3   0F 1A bndcl             256  00-ff
+F3   0F 1B bndmk             192  00-bf
+F3   0F 1E endbr32             1  fb
+F3   0F 1E endbr64             1  fa
+F3   0F 1E rdsspd              8  c8-cf
+
+cells objdump does NOT call a nop : 2276 of 8192
+cells objdump calls a nop          : 5916
+
+THE FINE-GRAINED ONES -- opcode+mod could not have caught these:
+   --  0F 18 prefetchit0  ModRM 3d (mod=0) -- a handful of BYTES, not a mod class
+   --  0F 18 prefetchit1  ModRM 35 (mod=0) -- a handful of BYTES, not a mod class
+   F3  0F 1E endbr32      ModRM fb (mod=3) -- a handful of BYTES, not a mod class
+   F3  0F 1E endbr64      ModRM fa (mod=3) -- a handful of BYTES, not a mod class

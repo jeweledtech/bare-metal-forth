@@ -73,6 +73,73 @@ list checked by nothing would be worse than a named exception.
   pre-registration. It is why **(aa) does not reach the analyzer**: the
   decoder stops lying and the IR carries the same `UIR_NOP` either way.
 
+## (ae), minted 2026-09-20: the ORACLE is confidently wrong over `0F 18`-`0F 1F`
+
+**The first case in the arc of the oracle being wrong rather than
+silent.** Ghidra 12.1.2 names **every one** of the 96 blob cells in
+`0F 18`–`0F 1F` `NOP`. Swept over the **full ModRM byte** — 4 prefixes
+× 8 opcodes × 256 = **8,192 cells**,
+`docs/evidence/x64-nop-range-full-modrm-2026-09-20.log` — objdump names
+**2,276 of them**: `PREFETCHNTA`/`T0`/`T1`/`T2`, `PREFETCHIT0` and
+`PREFETCHIT1`, the whole MPX family (`BNDLDX`, `BNDSTX`, `BNDMOV`,
+`BNDCU`, `BNDCL`, `BNDCN`, `BNDMK`), `CLDEMOTE`, `RDSSPD`, `ENDBR32`
+and `ENDBR64`.
+
+**It is lettered so that every past use of "the oracle says NOP" in
+this range is findable.** No assertion may rest on those cells: where
+the oracle and the screen differ the row is a finding, and the
+exemption in (aa)/(ac) is decided by **the screen, per full
+(prefix, opcode, ModRM) byte**, never by the oracle.
+
+**Why (ae) has no red:** the defect is in an instrument we do not own,
+and the only assertion available is on a fix that is not written. The
+same treatment as (q). **Minting condition:** the exemption predicate
+exists in code, at which point a red asserts that it consults the
+screen's per-cell verdict and not the oracle's opcode-level one.
+
+**The granularity lesson, stated so it stops repeating.** Probe
+granularity rose three times in this arc — opcode, opcode+mod, then
+prefix+opcode+mod — each rise one notch behind a counterexample. The
+full-ModRM sweep settles it: `PREFETCHIT0` is **ModRM `3d` alone** and
+`PREFETCHIT1` is **`35` alone**, single bytes inside a class that is
+otherwise prefetch variants, and `ENDBR32`/`ENDBR64` are `fb`/`fa`
+alone. No mod-class predicate can express those.
+
+## The control set has degraded, and the remaining one is named
+
+`nmap_service.exe` carries 71 rows of the (ac) class, three of them
+`ENDBR32`. **A control that contains the thing being fixed is an input
+for that fix, not a control for it.**
+
+**`beep.sys` is the only remaining true control for this class**: zero
+(aa) rows, zero (ac) rows, zero exempt rows. One control is a control
+until it isn't.
+
+**What a second would take:** a binary that (1) is 32-bit PE, so it
+exercises the same loader path, (2) contains no two-byte opcode in the
+219-opcode NOP class, which `scripts/denominators.py` can check before
+adoption, and (3) comes from a different build chain than beep.sys
+(ReactOS), so the pair is not one toolchain twice. Until then, a
+"controls unchanged" claim over this class rests on **one** input and
+must say so.
+
+## The refusal contract, stated once
+
+Four tests assert that a refused encoding has length 1: `06`, `82`,
+`60`/`61` and `8F /1`. **Neither instrument attests that length** —
+objdump prints `(bad)` over 1 or 4 bytes, the oracle prints nothing —
+so it is **this decoder's refusal policy**, registered once by
+`x64_RED_n_invalid_walk_continues`:
+
+> An encoding the decoder refuses has **length 1** and
+> `x86_decode_range` **continues** at the next byte. The length is a
+> resynchronisation choice, not a decode; a longer skip would drop
+> bytes a later start may need, and a break would drop the rest of the
+> section.
+
+Four tests agreeing with each other is not attestation. The sweep
+scores them in their own bucket for exactly that reason.
+
 ## Open, deferred, each with the condition that mints it
 
 **(q) VEX / EVEX / REX2 unmodelled.** Measured zero on two
