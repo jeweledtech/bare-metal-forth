@@ -101,6 +101,31 @@ happen. The two components stay visible instead: **65.1% over what is
 built**, and **780 lines that were in no build at all**. The single
 blended 56.6% is withdrawn as a quotable figure.
 
+**And the join is now closed for x86-64.** The semantics suite tests
+the reference in C; the emitter harness tests shape. **Nothing tested
+that an emitter implements the reference**, and the weakness was not
+generic: floored and symmetric division differ **only** in sign
+behaviour on negative operands, so an emitter producing well-formed,
+correctly-sized machine code for *symmetric* division passed every
+shape check. "Nine exercised, zero failures" meant nine functions did
+not crash.
+
+`test_exec_x64.c` emits into an `mmap`'d executable page behind a
+six-byte prologue that moves the System V arguments into the registers
+the emitter's own header names, appends a `ret`, and **runs it**
+against `floored_div64`/`floored_mod64` over 11 vectors crossing every
+sign combination. **22 executions, 0 wrong.** It carries its own
+control: a symmetric divider, emitted the same way, **disagrees with
+the reference on 5 of the 11**, so the vectors demonstrably tell the
+two apart.
+
+**Not claimed, and the harness says so in its own output:** the ARM64
+and RISC-V emitters cannot be executed here. `qemu-user` is absent and
+this host's binutils supports **0** aarch64 or riscv targets, so
+neither execution nor cross-disassembly is available. Those 560 lines
+have **shape checks only**, and the join proved for x86-64 is still
+owed for them.
+
 **Resolved the same day.** Those 780 lines were a byte-identical
 duplicate of `tools/floored-division/`, and the translator target that
 appeared to cover them compiled a file that had never existed there.
