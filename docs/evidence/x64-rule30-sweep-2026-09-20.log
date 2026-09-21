@@ -1,0 +1,36 @@
+# rule-30 sweep, 2026-09-20.  PREDICATE, stated because the first attempt
+# was a grep for X86_INS_NOP and that finds one SYMPTOM of rule 30, not its
+# class: for every PASSING test that decodes a literal byte array and
+# asserts a length, disassemble those exact bytes in the test's own mode
+# and compare.  An expectation read off the decoder disagrees with objdump;
+# one taken from the SDM or an oracle does not.
+# Reds are excluded: their expectation IS the oracle and they are meant to fail.
+
+passing tests (the denominator)   : 94
+swept by this predicate           : 78
+  asserted length == objdump      : 77
+  asserted length != objdump      : 1
+     unknown_0f_modrm_recovery            mode=32 asserted=3 objdump=1  prefetch (bad)
+NOT swept by this predicate       : 16
+     decode_range                         no single literal byte array with a length assertion
+     CLI_STI                              no single literal byte array with a length assertion
+     LEAVE                                no single literal byte array with a length assertion
+     test_x64_table_consistency_sweep     no single literal byte array with a length assertion
+     test_x86_32_table_consistency_sweep  no single literal byte array with a length assertion
+     x64_RED_n_invalid_walk_continues     no single literal byte array with a length assertion
+     x64_RED_x_fxch_register_form         no single literal byte array with a length assertion
+     x64_RED_x_fninit_register_form       no single literal byte array with a length assertion
+     x64_RED_x_fcomi_register_form        no single literal byte array with a length assertion
+     x64_GUARD_x_fadd_st0_register_form   no single literal byte array with a length assertion
+     open_register_is_exactly_the_xfail_list no single literal byte array with a length assertion
+     x64_GUARD_inc_ff0_keeps_normal_size  no single literal byte array with a length assertion
+     x64_GUARD_opsize_prefix_call_is_16   no single literal byte array with a length assertion
+     x64_GUARD_legacy_segment_push_invalid_in_64bit no single literal byte array with a length assertion
+     x64_GUARD_opcode_82_not_an_alu_op_in_64bit no single literal byte array with a length assertion
+     x64_GUARD_rex_does_not_leak_to_next_insn no single literal byte array with a length assertion
+
+REMAINDER, named rather than claimed: this predicate checks LENGTHS only.
+An operand count, a register number or an immediate copied from the
+decoder's own output is the same defect and this sweep would not see it.
+The 9 identity expectations found by the NOP grep are that class, caught
+by symptom rather than by predicate.  No instrument covers the rest today.

@@ -1,0 +1,29 @@
+Running pipeline integration test...
+Test 1: Pipeline script
+  PASS: Pipeline script exists
+  PASS: --help works
+
+Test 2: Parse survey output
+  PASS: Parse returns entries
+  PASS: Entries have expected fields
+  PASS: Known driver found (Smb_driver)
+  PASS: Driver filter works
+  PASS: No duplicates in output
+  PASS: Max count limit works
+
+Test 3: List-only mode
+  PASS: List-only exits cleanly
+  PASS: List-only shows binaries
+
+Test 4: Translator invocation
+  PASS: Translator binary exists
+  PASS: Translator produces .fth output
+  PASS: Translated output passes lint
+
+Test 5: Error handling
+  WARN: translator failed on nonexistent.sys: Error: Failed to open file
+  PASS: Non-existent file returns None
+  PASS: Empty survey returns empty list
+  PASS: No report section returns empty list
+
+Passed: 16/16

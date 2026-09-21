@@ -694,12 +694,21 @@ four Linux modules**, and every other input has delta 0:
 | via-rng.ko | 246 | 176 | 70 |
 | the other 12 | — | — | **0** |
 
-**Mechanism, confirmed on via-rng:** an ELF kernel module carries
-`.init.text`, `.exit.text` and `.altinstr_replacement` besides `.text`,
-and `dump_starts` emits `.text` only — it prints `# .text decoded=178
-covered=517 of 517 bytes`, and 517 is exactly `.text`'s `0x205`. Ghidra
-dumps starts in all four sections; the comparer can only compare the
-one both sides emit. `0x7b + 0x28 + 0x0f = 174` bytes of extra code in
+**Mechanism, confirmed on via-rng, written in the direction the numbers
+run** (dumped is the larger side): **Ghidra dumps starts in all four
+executable sections of an ELF kernel module** — `.text`, `.init.text`,
+`.exit.text`, `.altinstr_replacement` — **while `dump_starts`, the
+decoder side, emits `.text` alone.** `dump_starts` prints `# .text
+decoded=178 covered=517 of 517 bytes`, and 517 is exactly `.text`'s
+`0x205`. The comparer can only compare what both sides emit, so the
+excess is on the oracle side and the exclusion is imposed by the
+decoder side. Dumped > compared, always, and never the reverse.
+
+**The two identical 51s** (ne2k-pci and 8139too) are worth one line:
+both are PCI Ethernet drivers built from the same kernel tree, and
+their `.init.text` is the probe/remove boilerplate the module macros
+generate, so equal start counts there are plausible rather than
+suspicious. It is stated, not relied on. `0x7b + 0x28 + 0x0f = 174` bytes of extra code in
 via-rng, which is the right scale for 70 starts.
 
 So 512,000 is **a natural count minus a named, localised exclusion**:
@@ -829,3 +838,111 @@ either direction, refusing on a zero parse. It earned itself
 immediately: it failed the moment (ab) was minted and not yet listed.
 
 Suite: `pass=94 xfail=21 fail=0 xpass=0 (tests=115)`.
+
+# Fifth amendment: four items, and a letter the split forced (2026-09-20)
+
+## 1. The nine gained a correct expectation, and a new letter came with it
+
+Deleting a false assertion is not repairing it. Each of the nine keeps
+its length assertion **and now asserts the class property**, with the
+SDM mnemonic carried as the pre-registered target:
+
+| test | instruction | authority |
+|---|---|---|
+| `cmovcc_0F44` | CMOVcc | `0F 44 /r`, SDM Vol 2A |
+| `bt_rm_r_0FA3` | BT r/m,r | `0F A3 /r` |
+| `bt_rm_imm8_0FBA` | BT r/m,imm8 | `0F BA /4 ib` |
+| `cmpxchg_0FB1` | CMPXCHG | `0F B1 /r` |
+| `xadd_0FC1` | XADD | `0F C1 /r` |
+| `desync_recovery_BT_then_IN` | BT | `0F A3 /r` |
+| `three_byte_0F38` | PSHUFB | `0F 38 00 /r`, Vol 2B |
+| `three_byte_0F3A` | PALIGNR | `0F 3A 0F /r ib`, Vol 2B |
+
+**The ninth is different and the sweep is why.** `unknown_0f_modrm_
+recovery` decodes `0F 0D C0`, and that is not an unmodelled instruction
+— it is **#UD**. Pinned oracle row `0F0DC0` is NONE, objdump prints
+`prefetch (bad)`, while the memory forms are 3 and 7 in both
+instruments. The test asserted length 3, which is what the fallback
+does, for an encoding that has no length at all. It is now a **(t)**
+red asserting refusal, and it is (t)'s first double-attested witness.
+
+### (ac) minted: the explicitly-cased half of the NOP class
+
+Converting the eight forced a boundary that had not been drawn.
+**219 opcodes render as NOP. 59 reach the default arm and 160 do not —
+they are assigned NOP at 17 explicit `case` sites.** All eight of the
+converted tests are in the 160, verified as a set difference rather
+than by inspection.
+
+**So (aa) closes none of the eight.** A fix to the default arm leaves
+160 opcodes still rendering real instructions as no-ops. That is (ac),
+minted now with its count, and (aa)'s pre-registration must predict the
+eight staying red through it rather than discovering it afterwards.
+
+## 2. The sweep's predicate and denominator, stated — and it was widened
+
+**What ran first was a NOP grep, which finds one symptom of rule 30,
+not its class.** Stated plainly rather than implied.
+
+**The widened predicate**, banked at
+`docs/evidence/x64-rule30-sweep-2026-09-20.log`: for every *passing*
+test that decodes a literal byte array and asserts a length,
+disassemble those exact bytes **in the test's own mode** and compare.
+An expectation read off the decoder disagrees with objdump; one taken
+from the SDM or an oracle does not.
+
+| | count |
+|---|---|
+| passing tests (the denominator) | **94** |
+| swept by this predicate | **78** |
+| length agrees with objdump | 77 |
+| **length disagrees** | **1** — `unknown_0f_modrm_recovery` |
+| not swept (no single literal array with a length assertion) | **16** |
+
+The 16 are named individually in the log: the two table-consistency
+sweeps, the guards, the walker tests, and the register test. **The one
+disagreement is a real catch by predicate**, and it is the `0F 0D C0`
+row above — found by the widened sweep, invisible to the NOP grep.
+
+*A first attempt at this sweep mis-detected the mode on four tests and
+reported five disagreements. Three were 64-bit tests read as 32-bit and
+one was a 16-bit test. Corrected before the result was used; the mode
+now comes from which helper the test calls.*
+
+**The remainder, named rather than claimed:** this predicate checks
+**lengths only**. An operand count, a register number or an immediate
+copied from the decoder's own output is the same defect and this sweep
+would not see it. The nine identity expectations were caught by
+*symptom*, not by predicate. **No instrument covers the rest today**,
+and that is the unswept remainder.
+
+## 3. The stray one, accounted
+
+The control `C3` count did not move under the parser change at all.
+**The banked 6,457 was over the 15 corpus inputs; today's 6,458 is over
+16, and the extra one is the fixture's own RET.** Per input: ACPI 1776,
+storport 1347, pci 1265, usbxhci 1087, HDAudBus 295, serial 199,
+i8042prt 195, disk 146, nmap 136, ReactOS serial 11, four modules 0,
+beep 0, fixture 1 — and 6,458 − 1 = 6,457. Attributed by a named rule:
+the denominator changed, not the counter.
+
+## 4. Direction of the 221, fixed in place
+
+Corrected above, in item 1 of the fourth amendment: Ghidra dumps all
+four executable sections of an ELF module and `dump_starts` emits
+`.text` alone, so dumped exceeds compared and the exclusion is imposed
+by the decoder side. The two identical 51s get their line there too.
+
+## Binding on (aa)'s pre-registration, recorded here so it cannot drift
+
+The ten standing conditions apply unchanged, plus:
+
+- **Rule 29: the prediction is stated over the opcode space as well as
+  the corpus.** Both numbers, in the same sentence: occurrences out of
+  48,241, and opcodes out of 219.
+- **The expected-XPASS set names the nine converted tests
+  individually**, and the prediction for eight of them is that they
+  **do not move**, because they are (ac).
+
+Suite: `pass=85 xfail=30 fail=0 xpass=0 (tests=115)`, 25 suites,
+`SMOKE PASS`.

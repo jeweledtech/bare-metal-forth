@@ -1,0 +1,820 @@
+[36mTesting PE loader...[0m
+gcc -Wall -Wextra -Wpedantic -O2 -std=c11 -D_POSIX_C_SOURCE=200809L -Isrc -Iinclude -o build/tests/test_pe_loader \
+	tests/test_pe_loader.c \
+	src/loaders/pe_loader.c
+./build/tests/test_pe_loader
+PE Loader Tests
+===============
+  TEST: load_minimal_pe                          PASS
+  TEST: find_text_section                        PASS
+  TEST: rva_to_ptr                               PASS
+  TEST: reject_invalid_data                      PASS
+  TEST: import_parsing                           PASS
+
+Results: 5/5 passed
+[36mTesting x86 decoder...[0m
+gcc -Wall -Wextra -Wpedantic -O2 -std=c11 -D_POSIX_C_SOURCE=200809L -Isrc -Iinclude -o build/tests/test_x86_decoder \
+	tests/test_x86_decoder.c \
+	src/decoders/x86_decoder.c
+./build/tests/test_x86_decoder
+x86 Decoder Tests
+=================
+  TEST: NOP                                           PASS
+  TEST: RET                                           PASS
+  TEST: PUSH_EAX                                      PASS
+  TEST: POP_EBX                                       PASS
+  TEST: MOV_EAX_imm32                                 PASS
+  TEST: MOV_AL_imm8                                   PASS
+  TEST: IN_AL_imm8                                    PASS
+  TEST: OUT_imm8_AL                                   PASS
+  TEST: IN_EAX_DX                                     PASS
+  TEST: OUT_DX_AL                                     PASS
+  TEST: CALL_rel32                                    PASS
+  TEST: JMP_short                                     PASS
+  TEST: JMP_rel32                                     PASS
+  TEST: JE_short                                      PASS
+  TEST: MOV_mem_EAX_to_EBX                            PASS
+  TEST: MOV_EAX_from_EBP_plus_8                       PASS
+  TEST: MOV_ECX_from_EDI_plus_0x100                   PASS
+  TEST: MOVZX_EAX_byte_ptr_ECX                        PASS
+  TEST: JNE_near                                      PASS
+  TEST: ADD_EAX_imm8                                  PASS
+  TEST: CMP_EAX_imm8                                  PASS
+  TEST: decode_range                                  PASS
+  TEST: LEA_EAX_EBP_plus_8                            PASS
+  TEST: MOV_EAX_ESI_plus_EDI_x4                       PASS
+  TEST: CLI_STI                                       PASS
+  TEST: LEAVE                                         PASS
+  TEST: XOR_EAX_EAX                                   PASS
+  TEST: TEST_AL_imm8                                  PASS
+  TEST: 16bit_MOV_AX_imm16                            PASS
+  TEST: 16bit_opsize_gives_32bit                      PASS
+  TEST: 16bit_IN_OUT_ports                            PASS
+  TEST: REX_W_MOV_RBP_RSP                             PASS
+  TEST: REX_B_PUSH_R8                                 PASS
+  TEST: no_REX_in_32bit_mode                          PASS
+  TEST: INSB                                          PASS
+  TEST: INSD                                          PASS
+  TEST: OUTSB                                         PASS
+  TEST: REP_INSB                                      PASS
+  TEST: multibyte_nop_0F1F                            PASS
+  TEST: cmovcc_0F44                                   PASS
+  TEST: bt_rm_r_0FA3                                  PASS
+  TEST: bt_rm_imm8_0FBA                               PASS
+  TEST: cmpxchg_0FB1                                  PASS
+  TEST: xadd_0FC1                                     PASS
+  TEST: unknown_0f_modrm_recovery                     PASS
+  TEST: desync_recovery_BT_then_IN                    PASS
+  TEST: three_byte_0F38                               PASS
+  TEST: three_byte_0F3A                               PASS
+
+Results: 48/48 passed
+[36mTesting CIL decoder...[0m
+gcc -Wall -Wextra -Wpedantic -O2 -std=c11 -D_POSIX_C_SOURCE=200809L -Isrc -Iinclude -o build/tests/test_cil_decoder \
+	tests/test_cil_decoder.c \
+	src/decoders/cil_decoder.c \
+	src/loaders/pe_loader.c
+./build/tests/test_cil_decoder
+CIL Decoder Tests
+=================
+  TEST: decode_nop                                    PASS
+  TEST: decode_ret                                    PASS
+  TEST: decode_ldloc_0                                PASS
+  TEST: decode_ldc_i4_s                               PASS
+  TEST: decode_ldc_i4                                 PASS
+  TEST: decode_call                                   PASS
+  TEST: decode_br_s                                   PASS
+  TEST: decode_ceq_extended                           PASS
+  TEST: decode_switch                                 PASS
+  TEST: decode_unknown                                PASS
+  TEST: tiny_method_header                            PASS
+  TEST: fat_method_header                             PASS
+  TEST: opcode_names                                  PASS
+  TEST: instruction_sequence                          PASS
+
+Results: 14/14 passed
+[36mTesting CIL semantic classifier...[0m
+gcc -Wall -Wextra -Wpedantic -O2 -std=c11 -D_POSIX_C_SOURCE=200809L -Isrc -Iinclude -o build/tests/test_cil_semantic \
+	tests/test_cil_semantic.c \
+	src/ir/cil_semantic.c \
+	src/decoders/cil_decoder.c \
+	src/loaders/pe_loader.c -lm
+./build/tests/test_cil_semantic
+CIL Semantic Classifier Tests
+=============================
+  TEST: classify_security_namespace                   PASS
+  TEST: classify_payload                              PASS
+  TEST: classify_mixed_payload_ratio                  PASS
+  TEST: classify_empty_method                         PASS
+  TEST: threshold_filter                              PASS
+  TEST: ldsfld_detection                              PASS
+
+Results: 6/6 passed
+[36mTesting ARM64 decoder...[0m
+gcc -Wall -Wextra -Wpedantic -O2 -std=c11 -D_POSIX_C_SOURCE=200809L -Isrc -Iinclude -o build/tests/test_arm64_decoder \
+	tests/test_arm64_decoder.c \
+	src/decoders/arm64_decoder.c
+./build/tests/test_arm64_decoder
+ARM64 Decoder Tests
+===================
+  TEST: NOP                                           PASS
+  TEST: RET                                           PASS
+  TEST: ADD_X0_X1_42                                  PASS
+  TEST: SUB_W0_W1_10                                  PASS
+  TEST: CMP_X1_0                                      PASS
+  TEST: MOVZ_X0_0x1234                                PASS
+  TEST: MOVK_X0_0x5678_LSL16                          PASS
+  TEST: B_offset_0x100                                PASS
+  TEST: BL_offset_0x200                               PASS
+  TEST: B_EQ_target                                   PASS
+  TEST: CBZ_X0_target                                 PASS
+  TEST: LDR_X0_X1_offset8                             PASS
+  TEST: STR_W0_X1_offset4                             PASS
+  TEST: MRS_sysreg                                    PASS
+  TEST: MSR_sysreg                                    PASS
+  TEST: SVC_0                                         PASS
+  TEST: ADD_X0_X1_X2                                  PASS
+  TEST: MOV_X0_X1                                     PASS
+  TEST: DMB_ISH                                       PASS
+  TEST: decode_range_sequence                         PASS
+  TEST: sysreg_encoding                               PASS
+
+Results: 21/21 passed
+[36mTesting UIR lifter...[0m
+gcc -Wall -Wextra -Wpedantic -O2 -std=c11 -D_POSIX_C_SOURCE=200809L -Isrc -Iinclude -o build/tests/test_uir \
+	tests/test_uir.c \
+	src/ir/uir.c \
+	src/decoders/x86_decoder.c
+tests/test_uir.c: In function ‘test_insb_lifts_to_port_in’:
+tests/test_uir.c:326:46: warning: passing argument 1 of ‘uir_lift_function’ from incompatible pointer type [-Wincompatible-pointer-types]
+  326 |     uir_function_t* func = uir_lift_function(insts, count, 0x1000);
+      |                                              ^~~~~
+      |                                              |
+      |                                              x86_decoded_t *
+In file included from tests/test_uir.c:17:
+tests/../include/uir.h:203:58: note: expected ‘const uir_x86_input_t *’ but argument is of type ‘x86_decoded_t *’
+  203 | uir_function_t* uir_lift_function(const uir_x86_input_t* insts, size_t count,
+      |                                   ~~~~~~~~~~~~~~~~~~~~~~~^~~~~
+tests/test_uir.c: In function ‘test_outsb_lifts_to_port_out’:
+tests/test_uir.c:351:46: warning: passing argument 1 of ‘uir_lift_function’ from incompatible pointer type [-Wincompatible-pointer-types]
+  351 |     uir_function_t* func = uir_lift_function(insts, count, 0x1000);
+      |                                              ^~~~~
+      |                                              |
+      |                                              x86_decoded_t *
+tests/../include/uir.h:203:58: note: expected ‘const uir_x86_input_t *’ but argument is of type ‘x86_decoded_t *’
+  203 | uir_function_t* uir_lift_function(const uir_x86_input_t* insts, size_t count,
+      |                                   ~~~~~~~~~~~~~~~~~~~~~~~^~~~~
+tests/test_uir.c: In function ‘test_int10h_lifts_to_uir_int’:
+tests/test_uir.c:377:46: warning: passing argument 1 of ‘uir_lift_function’ from incompatible pointer type [-Wincompatible-pointer-types]
+  377 |     uir_function_t* func = uir_lift_function(insts, count, 0x100);
+      |                                              ^~~~~
+      |                                              |
+      |                                              x86_decoded_t *
+tests/../include/uir.h:203:58: note: expected ‘const uir_x86_input_t *’ but argument is of type ‘x86_decoded_t *’
+  203 | uir_function_t* uir_lift_function(const uir_x86_input_t* insts, size_t count,
+      |                                   ~~~~~~~~~~~~~~~~~~~~~~~^~~~~
+tests/test_uir.c: In function ‘test_int21h_no_hw_flag’:
+tests/test_uir.c:401:46: warning: passing argument 1 of ‘uir_lift_function’ from incompatible pointer type [-Wincompatible-pointer-types]
+  401 |     uir_function_t* func = uir_lift_function(insts, count, 0x100);
+      |                                              ^~~~~
+      |                                              |
+      |                                              x86_decoded_t *
+tests/../include/uir.h:203:58: note: expected ‘const uir_x86_input_t *’ but argument is of type ‘x86_decoded_t *’
+  203 | uir_function_t* uir_lift_function(const uir_x86_input_t* insts, size_t count,
+      |                                   ~~~~~~~~~~~~~~~~~~~~~~~^~~~~
+tests/test_uir.c: In function ‘test_mixed_int_portio’:
+tests/test_uir.c:424:46: warning: passing argument 1 of ‘uir_lift_function’ from incompatible pointer type [-Wincompatible-pointer-types]
+  424 |     uir_function_t* func = uir_lift_function(insts, count, 0x100);
+      |                                              ^~~~~
+      |                                              |
+      |                                              x86_decoded_t *
+tests/../include/uir.h:203:58: note: expected ‘const uir_x86_input_t *’ but argument is of type ‘x86_decoded_t *’
+  203 | uir_function_t* uir_lift_function(const uir_x86_input_t* insts, size_t count,
+      |                                   ~~~~~~~~~~~~~~~~~~~~~~~^~~~~
+./build/tests/test_uir
+UIR Lifter Tests
+================
+  TEST: port_in_immediate                                  PASS
+  TEST: port_out_immediate                                 PASS
+  TEST: port_in_dx                                         PASS
+  TEST: port_out_dx                                        PASS
+  TEST: load_from_memory                                   PASS
+  TEST: store_to_memory                                    PASS
+  TEST: call_relative                                      PASS
+  TEST: ret                                                PASS
+  TEST: add_immediate                                      PASS
+  TEST: xor_reg_reg                                        PASS
+  TEST: conditional_branch_splits_blocks                   PASS
+  TEST: cli_sti                                            PASS
+  TEST: port_summary                                       PASS
+  TEST: push_pop                                           PASS
+  TEST: mov_reg_reg                                        PASS
+  TEST: cmp                                                PASS
+  TEST: port_in_dword                                      PASS
+  TEST: insb_lifts_to_port_in                              PASS
+  TEST: outsb_lifts_to_port_out                            PASS
+  TEST: int10h_lifts_to_uir_int                            PASS
+  TEST: int21h_no_hw_flag                                  PASS
+  TEST: mixed_int_and_port_io                              PASS
+
+Results: 22/22 passed
+[36mTesting semantic analyzer...[0m
+gcc -Wall -Wextra -Wpedantic -O2 -std=c11 -D_POSIX_C_SOURCE=200809L -Isrc -Iinclude -o build/tests/test_semantic \
+	tests/test_semantic.c \
+	src/ir/semantic.c \
+	src/ir/uir.c \
+	src/decoders/x86_decoder.c
+./build/tests/test_semantic
+Semantic Analyzer Tests
+=======================
+  TEST: classify_port_io                                   PASS
+  TEST: classify_write_port                                PASS
+  TEST: classify_mmio                                      PASS
+  TEST: classify_timing                                    PASS
+  TEST: classify_irp_scaffolding                           PASS
+  TEST: classify_pnp_scaffolding                           PASS
+  TEST: classify_unknown_api                               PASS
+  TEST: category_classification_helpers                    PASS
+  TEST: classify_imports_batch                             PASS
+  TEST: analyze_hw_function                                PASS
+  TEST: classify_pci_config                                PASS
+  TEST: classify_dma                                       PASS
+  TEST: classify_sync_scaffolding                          PASS
+  TEST: iat_call_detects_hw_function                       PASS
+  TEST: iat_scaffolding_call_not_hardware                  PASS
+  TEST: drop_reason_is_category_set                        PASS
+  TEST: bios_int10h_classified_hardware                    PASS
+  TEST: dos_int21h_classified_scaffolding                  PASS
+  TEST: flabel_disc_access_positive                        PASS
+  TEST: flabel_disc_access_negative                        PASS
+  TEST: flabel_video_positive                              PASS
+  TEST: flabel_video_negative                              PASS
+  TEST: flabel_mmio_positive                               PASS
+  TEST: flabel_mmio_negative                               PASS
+  TEST: flabel_hal_wrapper_positive                        PASS
+  TEST: flabel_hal_wrapper_negative                        PASS
+  TEST: flabel_hal_wrapper_rejects_has_port_io             PASS
+  TEST: flabel_int_setup_positive                          PASS
+  TEST: flabel_int_setup_negative                          PASS
+  TEST: flabel_i8042prt_stays_port_io                      PASS
+  TEST: gate_confident_consistent_export                   PASS
+  TEST: gate_unclassified_to_func                          PASS
+  TEST: gate_absent_export_label_derived                   PASS
+  TEST: gate_conflicting_export_to_func                    PASS
+  TEST: gate_neutral_export_passes                         PASS
+  TEST: gate_no_substring_false_conflict                   PASS
+  TEST: gate_nonhw_keeps_export_name                       PASS
+
+Results: 37/37 passed
+[36mTesting call-graph propagation...[0m
+gcc -Wall -Wextra -Wpedantic -O2 -std=c11 -D_POSIX_C_SOURCE=200809L -Isrc -Iinclude -o build/tests/test_callgraph \
+	tests/test_callgraph.c \
+	src/ir/semantic.c \
+	src/ir/uir.c \
+	src/decoders/x86_decoder.c
+./build/tests/test_callgraph
+Call-Graph Propagation Tests
+============================
+  TEST: leaf_scaffolding_unchanged                         PASS
+  TEST: transitive_scaffolding                             PASS
+  TEST: unresolvable_edge_taints                           PASS
+  TEST: hardware_callee_blocks                             PASS
+  TEST: chain_propagation                                  PASS
+  TEST: cycle_stays_unclassified                           PASS
+  TEST: transitive_taint                                   PASS
+  TEST: fanout_mask_union                                  PASS
+
+Results: 8/8 passed
+[36mTesting Forth codegen...[0m
+gcc -Wall -Wextra -Wpedantic -O2 -std=c11 -D_POSIX_C_SOURCE=200809L -Isrc -Iinclude -o build/tests/test_forth_codegen \
+	tests/test_forth_codegen.c \
+	src/codegen/forth_codegen.c
+./build/tests/test_forth_codegen
+Forth Code Generator Tests
+==========================
+  TEST: minimal_vocabulary                                 PASS
+  TEST: port_constants                                     PASS
+  TEST: port_read_function                                 PASS
+  TEST: port_write_function                                PASS
+  TEST: multiple_requires                                  PASS
+  TEST: no_requires_when_null                              PASS
+  TEST: port_range_desc                                    PASS
+  TEST: dword_port_operations                              PASS
+  TEST: hal_call_read_port_parametric                      PASS
+  TEST: hal_call_write_port_parametric                     PASS
+  TEST: hal_call_multiple_in_function                      PASS
+  TEST: strip_summary                                      PASS
+  TEST: strip_summary_absent_without_data                  PASS
+
+Results: 13/13 passed
+[36mTesting end-to-end pipeline...[0m
+gcc -Wall -Wextra -Wpedantic -O2 -std=c11 -D_POSIX_C_SOURCE=200809L -Isrc -Iinclude -o build/tests/test_pipeline \
+	tests/test_pipeline.c \
+	src/loaders/pe_loader.c \
+	src/decoders/x86_decoder.c \
+	src/ir/uir.c \
+	src/ir/semantic.c \
+	src/codegen/forth_codegen.c
+./build/tests/test_pipeline
+End-to-End Pipeline Tests
+=========================
+  TEST: pe_to_x86_decode                                   PASS
+  TEST: x86_to_uir_lift                                    PASS
+  TEST: semantic_import_classification                     PASS
+  TEST: full_pipeline_pe_to_forth                          PASS
+  TEST: reject_non_pe_data                                 PASS
+
+Results: 5/5 passed
+[36mTesting synthetic 16550 driver...[0m
+gcc -Wall -Wextra -Wpedantic -O2 -std=c11 -D_POSIX_C_SOURCE=200809L -Isrc -Iinclude -DTRANSLATOR_NO_MAIN -o build/tests/test_16550_driver \
+	tests/test_16550_driver.c \
+	src/main/translator.c \
+	src/loaders/pe_loader.c \
+	src/loaders/elf_loader.c \
+	src/loaders/format_detect.c \
+	src/loaders/com_loader.c \
+	src/decoders/x86_decoder.c \
+	src/ir/uir.c \
+	src/ir/semantic.c \
+	src/codegen/forth_codegen.c
+src/main/translator.c: In function ‘generate_forth_output’:
+src/main/translator.c:196:10: warning: variable ‘any_port_io’ set but not used [-Wunused-but-set-variable]
+  196 |     bool any_port_io = false;
+      |          ^~~~~~~~~~~
+src/main/translator.c: At top level:
+src/main/translator.c:81:17: warning: ‘parse_target’ defined but not used [-Wunused-function]
+   81 | static target_t parse_target(const char* str) {
+      |                 ^~~~~~~~~~~~
+src/main/translator.c:60:13: warning: ‘print_usage’ defined but not used [-Wunused-function]
+   60 | static void print_usage(const char* program) {
+      |             ^~~~~~~~~~~
+./build/tests/test_16550_driver
+Synthetic 16550 UART Driver Tests
+==================================
+  TEST: discover_3_functions_in_16550_pe                        PASS
+  TEST: full_pipeline_multi_function_16550                      PASS
+  TEST: vocab_name_derived_from_filename                        PASS
+  TEST: per_function_port_operations                            PASS
+  TEST: export_names_used_for_functions                         PASS
+  TEST: disasm_shows_all_instructions                           PASS
+
+Results: 6/6 passed
+[36mTesting Ghidra comparison...[0m
+gcc -Wall -Wextra -Wpedantic -O2 -std=c11 -D_POSIX_C_SOURCE=200809L -Isrc -Iinclude -DTRANSLATOR_NO_MAIN -o build/tests/test_ghidra_compare \
+	tests/test_ghidra_compare.c \
+	src/main/translator.c \
+	src/loaders/pe_loader.c \
+	src/loaders/elf_loader.c \
+	src/loaders/format_detect.c \
+	src/loaders/com_loader.c \
+	src/decoders/x86_decoder.c \
+	src/ir/uir.c \
+	src/ir/semantic.c \
+	src/codegen/forth_codegen.c
+tests/test_ghidra_compare.c: In function ‘test_all_ghidra_ports_found_in_forth’:
+tests/test_ghidra_compare.c:448:28: warning: ‘%s’ directive output may be truncated writing up to 1023 bytes into a region of size 123 [-Wformat-truncation=]
+  448 |                      "port %s not found as %s",
+      |                            ^~
+In file included from /usr/include/stdio.h:980,
+                 from tests/test_ghidra_compare.c:16:
+In function ‘snprintf’,
+    inlined from ‘test_all_ghidra_ports_found_in_forth’ at tests/test_ghidra_compare.c:447:13:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:10: note: ‘__builtin___snprintf_chk’ output between 20 and 1074 bytes into a destination of size 128
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+src/main/translator.c: In function ‘generate_forth_output’:
+src/main/translator.c:196:10: warning: variable ‘any_port_io’ set but not used [-Wunused-but-set-variable]
+  196 |     bool any_port_io = false;
+      |          ^~~~~~~~~~~
+src/main/translator.c: At top level:
+src/main/translator.c:81:17: warning: ‘parse_target’ defined but not used [-Wunused-function]
+   81 | static target_t parse_target(const char* str) {
+      |                 ^~~~~~~~~~~~
+src/main/translator.c:60:13: warning: ‘print_usage’ defined but not used [-Wunused-function]
+   60 | static void print_usage(const char* program) {
+      |             ^~~~~~~~~~~
+./build/tests/test_ghidra_compare
+Ghidra Comparison Tests
+=======================
+  TEST: all_ghidra_ports_found_in_forth                    PASS
+  TEST: all_ghidra_hw_funcs_found_in_forth                 PASS
+  TEST: scaffolding_filtered_out                           PASS
+  TEST: hal_imports_generate_requires                      PASS
+
+Results: 4/4 passed
+[36mTesting i8042prt.sys Ghidra validation...[0m
+gcc -Wall -Wextra -Wpedantic -O2 -std=c11 -D_POSIX_C_SOURCE=200809L -Isrc -Iinclude -DTRANSLATOR_NO_MAIN -o build/tests/test_i8042_validation \
+	tests/test_i8042_validation.c \
+	src/main/translator.c \
+	src/loaders/pe_loader.c \
+	src/loaders/elf_loader.c \
+	src/loaders/format_detect.c \
+	src/loaders/com_loader.c \
+	src/decoders/x86_decoder.c \
+	src/ir/uir.c \
+	src/ir/semantic.c \
+	src/codegen/forth_codegen.c
+src/main/translator.c: In function ‘generate_forth_output’:
+src/main/translator.c:196:10: warning: variable ‘any_port_io’ set but not used [-Wunused-but-set-variable]
+  196 |     bool any_port_io = false;
+      |          ^~~~~~~~~~~
+src/main/translator.c: At top level:
+src/main/translator.c:81:17: warning: ‘parse_target’ defined but not used [-Wunused-function]
+   81 | static target_t parse_target(const char* str) {
+      |                 ^~~~~~~~~~~~
+src/main/translator.c:60:13: warning: ‘print_usage’ defined but not used [-Wunused-function]
+   60 | static void print_usage(const char* program) {
+      |             ^~~~~~~~~~~
+./build/tests/test_i8042_validation
+i8042prt.sys Ghidra Validation Tests
+====================================
+  TEST: ghidra_sees_no_direct_port_ops                     PASS
+  TEST: import_classification_agreement                    PASS
+  TEST: ubt_finds_hal_hardware_functions                   PASS
+  TEST: hal_word_mappings                                  PASS
+  TEST: stack_effects_present                              PASS
+  TEST: driver_entry_filtered                              PASS
+  TEST: import_coverage_threshold                          PASS  [imports: 58 total, 2 PORT_IO, 13 SCAFFOLDING]
+
+Results: 7/7 passed
+[36mTesting serial.sys ReactOS validation...[0m
+gcc -Wall -Wextra -Wpedantic -O2 -std=c11 -D_POSIX_C_SOURCE=200809L -Isrc -Iinclude -DTRANSLATOR_NO_MAIN -o build/tests/test_serial_validation \
+	tests/test_serial_validation.c \
+	src/main/translator.c \
+	src/loaders/pe_loader.c \
+	src/loaders/elf_loader.c \
+	src/loaders/format_detect.c \
+	src/loaders/com_loader.c \
+	src/decoders/x86_decoder.c \
+	src/ir/uir.c \
+	src/ir/semantic.c \
+	src/codegen/forth_codegen.c
+src/main/translator.c: In function ‘generate_forth_output’:
+src/main/translator.c:196:10: warning: variable ‘any_port_io’ set but not used [-Wunused-but-set-variable]
+  196 |     bool any_port_io = false;
+      |          ^~~~~~~~~~~
+src/main/translator.c: At top level:
+src/main/translator.c:81:17: warning: ‘parse_target’ defined but not used [-Wunused-function]
+   81 | static target_t parse_target(const char* str) {
+      |                 ^~~~~~~~~~~~
+src/main/translator.c:60:13: warning: ‘print_usage’ defined but not used [-Wunused-function]
+   60 | static void print_usage(const char* program) {
+      |             ^~~~~~~~~~~
+./build/tests/test_serial_validation
+serial.sys ReactOS Validation Tests
+====================================
+  TEST: ghidra_sees_no_direct_port_ops                     PASS
+  TEST: import_classification_agreement                    PASS
+  TEST: ubt_finds_9_hardware_functions                     PASS
+  TEST: hal_word_mappings                                  PASS
+  TEST: stack_effects_present                              PASS
+  TEST: interrupt_infrastructure                           PASS
+  TEST: driver_entry_filtered                              PASS
+  TEST: line_length_block_safe                             PASS  [118 lines, all ≤ 64 chars]
+  TEST: semantic_report_structure                          PASS
+  TEST: import_count_agreement                             PASS
+  TEST: vocabulary_structure                               PASS
+
+Results: 11/11 passed
+[36mTesting floppy.sys ReactOS validation...[0m
+gcc -Wall -Wextra -Wpedantic -O2 -std=c11 -D_POSIX_C_SOURCE=200809L -Isrc -Iinclude -DTRANSLATOR_NO_MAIN -o build/tests/test_floppy_validation \
+	tests/test_floppy_validation.c \
+	src/main/translator.c \
+	src/loaders/pe_loader.c \
+	src/loaders/elf_loader.c \
+	src/loaders/format_detect.c \
+	src/loaders/com_loader.c \
+	src/decoders/x86_decoder.c \
+	src/ir/uir.c \
+	src/ir/semantic.c \
+	src/codegen/forth_codegen.c
+src/main/translator.c: In function ‘generate_forth_output’:
+src/main/translator.c:196:10: warning: variable ‘any_port_io’ set but not used [-Wunused-but-set-variable]
+  196 |     bool any_port_io = false;
+      |          ^~~~~~~~~~~
+src/main/translator.c: At top level:
+src/main/translator.c:81:17: warning: ‘parse_target’ defined but not used [-Wunused-function]
+   81 | static target_t parse_target(const char* str) {
+      |                 ^~~~~~~~~~~~
+src/main/translator.c:60:13: warning: ‘print_usage’ defined but not used [-Wunused-function]
+   60 | static void print_usage(const char* program) {
+      |             ^~~~~~~~~~~
+./build/tests/test_floppy_validation
+floppy.sys ReactOS Validation Tests
+====================================
+  TEST: pipeline_succeeds                                  PASS
+  TEST: hardware_function_count                            PASS
+  TEST: hal_word_mappings                                  PASS
+  TEST: stack_effects_present                              PASS
+  TEST: vocabulary_structure                               PASS
+  TEST: line_length_block_safe                             PASS  [135 lines, all <= 64 chars]
+  TEST: semantic_report_counts                             PASS
+  TEST: driver_entry_filtered                              PASS
+
+Results: 8/8 passed
+[36mTesting pci.sys ReactOS validation...[0m
+gcc -Wall -Wextra -Wpedantic -O2 -std=c11 -D_POSIX_C_SOURCE=200809L -Isrc -Iinclude -DTRANSLATOR_NO_MAIN -o build/tests/test_pci_validation \
+	tests/test_pci_validation.c \
+	src/main/translator.c \
+	src/loaders/pe_loader.c \
+	src/loaders/elf_loader.c \
+	src/loaders/format_detect.c \
+	src/loaders/com_loader.c \
+	src/decoders/x86_decoder.c \
+	src/ir/uir.c \
+	src/ir/semantic.c \
+	src/codegen/forth_codegen.c
+src/main/translator.c: In function ‘generate_forth_output’:
+src/main/translator.c:196:10: warning: variable ‘any_port_io’ set but not used [-Wunused-but-set-variable]
+  196 |     bool any_port_io = false;
+      |          ^~~~~~~~~~~
+src/main/translator.c: At top level:
+src/main/translator.c:81:17: warning: ‘parse_target’ defined but not used [-Wunused-function]
+   81 | static target_t parse_target(const char* str) {
+      |                 ^~~~~~~~~~~~
+src/main/translator.c:60:13: warning: ‘print_usage’ defined but not used [-Wunused-function]
+   60 | static void print_usage(const char* program) {
+      |             ^~~~~~~~~~~
+./build/tests/test_pci_validation
+pci.sys ReactOS Validation Tests
+================================
+  TEST: pipeline_succeeds                                  PASS
+  TEST: hardware_function_count                            PASS
+  TEST: pci_config_words                                   PASS
+  TEST: no_port_io_words                                   PASS
+  TEST: vocabulary_structure                               PASS
+  TEST: line_length_block_safe                             PASS  [84 lines, all <= 64 chars]
+  TEST: driver_entry_filtered                              PASS
+
+Results: 7/7 passed
+[36mTesting beep.sys ReactOS validation...[0m
+gcc -Wall -Wextra -Wpedantic -O2 -std=c11 -D_POSIX_C_SOURCE=200809L -Isrc -Iinclude -DTRANSLATOR_NO_MAIN -o build/tests/test_beep_validation \
+	tests/test_beep_validation.c \
+	src/main/translator.c \
+	src/loaders/pe_loader.c \
+	src/loaders/elf_loader.c \
+	src/loaders/format_detect.c \
+	src/loaders/com_loader.c \
+	src/decoders/x86_decoder.c \
+	src/ir/uir.c \
+	src/ir/semantic.c \
+	src/codegen/forth_codegen.c
+src/main/translator.c: In function ‘generate_forth_output’:
+src/main/translator.c:196:10: warning: variable ‘any_port_io’ set but not used [-Wunused-but-set-variable]
+  196 |     bool any_port_io = false;
+      |          ^~~~~~~~~~~
+src/main/translator.c: At top level:
+src/main/translator.c:81:17: warning: ‘parse_target’ defined but not used [-Wunused-function]
+   81 | static target_t parse_target(const char* str) {
+      |                 ^~~~~~~~~~~~
+src/main/translator.c:60:13: warning: ‘print_usage’ defined but not used [-Wunused-function]
+   60 | static void print_usage(const char* program) {
+      |             ^~~~~~~~~~~
+./build/tests/test_beep_validation
+beep.sys ReactOS Validation Tests
+=================================
+  TEST: pipeline_succeeds                                  PASS
+  TEST: hw_function_count                                  PASS
+  TEST: beep_word_present                                  PASS
+  TEST: requires_hardware                                  PASS
+  TEST: vocabulary_structure                               PASS
+  TEST: line_length_block_safe                             PASS  [45 lines, all <= 64 chars]
+  TEST: driver_entry_filtered                              PASS
+
+Results: 7/7 passed
+[36mTesting HP real hardware drivers...[0m
+gcc -Wall -Wextra -Wpedantic -O2 -std=c11 -D_POSIX_C_SOURCE=200809L -Isrc -Iinclude -DTRANSLATOR_NO_MAIN -o build/tests/test_hp_drivers \
+	tests/test_hp_drivers.c \
+	src/main/translator.c \
+	src/loaders/pe_loader.c \
+	src/loaders/elf_loader.c \
+	src/loaders/format_detect.c \
+	src/loaders/com_loader.c \
+	src/decoders/x86_decoder.c \
+	src/ir/uir.c \
+	src/ir/semantic.c \
+	src/codegen/forth_codegen.c
+src/main/translator.c: In function ‘generate_forth_output’:
+src/main/translator.c:196:10: warning: variable ‘any_port_io’ set but not used [-Wunused-but-set-variable]
+  196 |     bool any_port_io = false;
+      |          ^~~~~~~~~~~
+src/main/translator.c: At top level:
+src/main/translator.c:81:17: warning: ‘parse_target’ defined but not used [-Wunused-function]
+   81 | static target_t parse_target(const char* str) {
+      |                 ^~~~~~~~~~~~
+src/main/translator.c:60:13: warning: ‘print_usage’ defined but not used [-Wunused-function]
+   60 | static void print_usage(const char* program) {
+      |             ^~~~~~~~~~~
+./build/tests/test_hp_drivers
+HP Real Hardware Driver Validation Tests
+=========================================
+Driver directory: ../../tests/hp_i3 (found)
+
+--- ACPI.sys ---
+  TEST: acpi_pipeline_succeeds                             PASS
+  TEST: acpi_hw_function_count                             PASS  [21 hw functions]
+--- disk.sys ---
+  TEST: disk_pipeline_succeeds                             PASS
+  TEST: disk_hw_function_count                             PASS  [1 hw functions]
+--- HDAudBus.sys ---
+  TEST: hdaudbus_pipeline_succeeds                         PASS
+  TEST: hdaudbus_hw_function_count                         PASS  [1 hw functions]
+--- i8042prt.sys ---
+  TEST: i8042prt_pipeline_succeeds                         PASS
+  TEST: i8042prt_hw_function_count                         PASS  [2 hw functions]
+--- pci.sys ---
+  TEST: pci_pipeline_succeeds                              PASS
+  TEST: pci_hw_function_count                              PASS  [2 hw functions]
+--- serial.sys ---
+  TEST: serial_pipeline_succeeds                           PASS
+  TEST: serial_hw_function_count                           PASS  [31 hw functions]
+--- storport.sys ---
+  TEST: storport_pipeline_succeeds                         PASS
+  TEST: storport_hw_function_count                         PASS  [35 hw functions]
+--- usbxhci.sys ---
+  TEST: usbxhci_pipeline_succeeds                          PASS
+  TEST: usbxhci_hw_function_count                          PASS  [12 hw functions]
+
+Results: 16/16 passed
+[36mTesting Linux ELF driver validation...[0m
+gcc -Wall -Wextra -Wpedantic -O2 -std=c11 -D_POSIX_C_SOURCE=200809L -Isrc -Iinclude -DTRANSLATOR_NO_MAIN -o build/tests/test_elf_drivers \
+	tests/test_elf_drivers.c \
+	src/main/translator.c \
+	src/loaders/pe_loader.c \
+	src/loaders/elf_loader.c \
+	src/loaders/format_detect.c \
+	src/loaders/com_loader.c \
+	src/decoders/x86_decoder.c \
+	src/ir/uir.c \
+	src/ir/semantic.c \
+	src/codegen/forth_codegen.c
+src/main/translator.c: In function ‘generate_forth_output’:
+src/main/translator.c:196:10: warning: variable ‘any_port_io’ set but not used [-Wunused-but-set-variable]
+  196 |     bool any_port_io = false;
+      |          ^~~~~~~~~~~
+src/main/translator.c: At top level:
+src/main/translator.c:81:17: warning: ‘parse_target’ defined but not used [-Wunused-function]
+   81 | static target_t parse_target(const char* str) {
+      |                 ^~~~~~~~~~~~
+src/main/translator.c:60:13: warning: ‘print_usage’ defined but not used [-Wunused-function]
+   60 | static void print_usage(const char* program) {
+      |             ^~~~~~~~~~~
+./build/tests/test_elf_drivers
+Linux ELF Driver Validation Tests
+==================================
+Kernel: 7.0.0-31-generic
+
+--- ne2k-pci.ko ---
+  TEST: ne2k_pipeline_succeeds                             PASS
+  TEST: ne2k_hw_function_count                             PASS  [16 hw functions]
+  TEST: ne2k_has_port_io                                   PASS
+--- 8139too.ko ---
+  TEST: rtl8139_pipeline_succeeds                          PASS
+  TEST: rtl8139_hw_function_count                          PASS  [2 hw functions]
+  TEST: rtl8139_named_function                             PASS
+--- iTCO_wdt.ko ---
+  TEST: itco_pipeline_succeeds                             PASS
+  TEST: itco_hw_function_count                             PASS  [11 hw functions]
+  TEST: itco_named_function                                PASS
+--- via-rng.ko ---
+  TEST: via_rng_pipeline_succeeds                          PASS
+  TEST: via_rng_zero_hw_functions                          PASS
+  TEST: via_rng_no_port_io                                 PASS
+
+Results: 12/12 passed
+[36mTesting ELF loader...[0m
+gcc -Wall -Wextra -Wpedantic -O2 -std=c11 -D_POSIX_C_SOURCE=200809L -Isrc -Iinclude -o build/tests/test_elf_loader \
+	tests/test_elf_loader.c \
+	src/loaders/elf_loader.c
+./build/tests/test_elf_loader
+ELF Loader Tests
+================
+  TEST: elf_load_null                                      PASS
+  TEST: elf_load_too_small                                 PASS
+  TEST: elf_load_bad_magic                                 PASS
+  TEST: elf_load_big_endian                                PASS
+  TEST: elf32_minimal                                      PASS
+  TEST: elf64_minimal                                      PASS
+  TEST: elf32_symbols                                      PASS
+  TEST: elf64_dynamic                                      PASS
+  TEST: elf_cleanup_idempotent                             PASS
+  TEST: elf_print_info                                     PASS
+  TEST: elf_no_section_headers                             PASS
+  TEST: elf32_port_io_code                                 PASS
+  TEST: elf_unsupported_machine                            PASS
+
+Results: 13/13 passed
+[36mTesting semantic report...[0m
+gcc -Wall -Wextra -Wpedantic -O2 -std=c11 -D_POSIX_C_SOURCE=200809L -Isrc -Iinclude -DTRANSLATOR_NO_MAIN -o build/tests/test_semantic_report \
+	tests/test_semantic_report.c \
+	src/main/translator.c \
+	src/loaders/pe_loader.c \
+	src/loaders/elf_loader.c \
+	src/loaders/format_detect.c \
+	src/loaders/com_loader.c \
+	src/decoders/x86_decoder.c \
+	src/ir/uir.c \
+	src/ir/semantic.c \
+	src/codegen/forth_codegen.c
+src/main/translator.c: In function ‘generate_forth_output’:
+src/main/translator.c:196:10: warning: variable ‘any_port_io’ set but not used [-Wunused-but-set-variable]
+  196 |     bool any_port_io = false;
+      |          ^~~~~~~~~~~
+src/main/translator.c: At top level:
+src/main/translator.c:81:17: warning: ‘parse_target’ defined but not used [-Wunused-function]
+   81 | static target_t parse_target(const char* str) {
+      |                 ^~~~~~~~~~~~
+src/main/translator.c:60:13: warning: ‘print_usage’ defined but not used [-Wunused-function]
+   60 | static void print_usage(const char* program) {
+      |             ^~~~~~~~~~~
+./build/tests/test_semantic_report
+Semantic Report Tests
+=====================
+  TEST: pe_report_valid_json                               PASS
+  TEST: pe_report_binary_info                              PASS
+  TEST: pe_report_port_ops                                 PASS
+  TEST: pe_report_hw_functions                             PASS
+  TEST: pe_report_summary                                  PASS
+  TEST: i8042_report_hw_count                              PASS
+  TEST: i8042_report_imports                               PASS
+  TEST: i8042_report_hal_calls                             PASS
+  TEST: dotnet_report                                      PASS
+  TEST: report_parseable_braces                            PASS
+
+Results: 10/10 passed
+[36mTesting format detector...[0m
+gcc -Wall -Wextra -Wpedantic -O2 -std=c11 -D_POSIX_C_SOURCE=200809L -Isrc -Iinclude -o build/tests/test_format_detect \
+	tests/test_format_detect.c \
+	src/loaders/format_detect.c
+./build/tests/test_format_detect
+Format Detector Tests
+=====================
+  TEST: detect_com                                         PASS
+  TEST: detect_com_no_extension                            PASS
+  TEST: detect_pe_sys                                      PASS
+  TEST: detect_pe_sys_by_extension                         PASS
+  TEST: detect_pe_dll                                      PASS
+  TEST: detect_pe_exe                                      PASS
+  TEST: detect_dotnet                                      PASS
+  TEST: detect_elf                                         PASS
+  TEST: detect_elf64                                       PASS
+  TEST: detect_unknown                                     PASS
+  TEST: detect_null                                        PASS
+  TEST: binfmt_name                                        PASS
+
+Results: 12/12 passed
+[36mTesting COM loader...[0m
+gcc -Wall -Wextra -Wpedantic -O2 -std=c11 -D_POSIX_C_SOURCE=200809L -Isrc -Iinclude -o build/tests/test_com_loader \
+	tests/test_com_loader.c \
+	src/loaders/com_loader.c \
+	src/decoders/x86_decoder.c
+./build/tests/test_com_loader
+COM Loader Tests
+================
+  TEST: com_load_minimal                                   PASS
+  TEST: com_load_address                                   PASS
+  TEST: com_load_null                                      PASS
+  TEST: com_load_empty                                     PASS
+  TEST: com_load_too_large                                 PASS
+  TEST: com_max_size                                       PASS
+  TEST: com_port_detection                                 PASS
+  TEST: com_port_addresses                                 PASS
+
+Results: 8/8 passed
+[36mTesting strip summary agreement...[0m
+gcc -Wall -Wextra -Wpedantic -O2 -std=c11 -D_POSIX_C_SOURCE=200809L -Isrc -Iinclude -DTRANSLATOR_NO_MAIN -o build/tests/test_strip_agreement \
+	tests/test_strip_agreement.c \
+	src/main/translator.c \
+	src/loaders/pe_loader.c \
+	src/loaders/elf_loader.c \
+	src/loaders/format_detect.c \
+	src/loaders/com_loader.c \
+	src/decoders/x86_decoder.c \
+	src/ir/uir.c \
+	src/ir/semantic.c \
+	src/codegen/forth_codegen.c
+src/main/translator.c: In function ‘generate_forth_output’:
+src/main/translator.c:196:10: warning: variable ‘any_port_io’ set but not used [-Wunused-but-set-variable]
+  196 |     bool any_port_io = false;
+      |          ^~~~~~~~~~~
+src/main/translator.c: At top level:
+src/main/translator.c:81:17: warning: ‘parse_target’ defined but not used [-Wunused-function]
+   81 | static target_t parse_target(const char* str) {
+      |                 ^~~~~~~~~~~~
+src/main/translator.c:60:13: warning: ‘print_usage’ defined but not used [-Wunused-function]
+   60 | static void print_usage(const char* program) {
+      |             ^~~~~~~~~~~
+./build/tests/test_strip_agreement
+Strip Summary Agreement Tests
+=============================
+  TEST: forth_report_counts_agree                          PASS
+  TEST: forth_lines_block_safe_64                          PASS
+  TEST: dropped_and_unclassified_blocks_present            PASS
+
+Results: 3/3 passed
+
+[32mAll tests passed[0m

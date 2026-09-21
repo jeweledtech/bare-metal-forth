@@ -47,6 +47,15 @@ carries the **condition that mints it** rather than an intention.
 | (y) | `x64_RED_y_lea_register_form_invalid` | `8D C0` LEA register form is #UD |
 | (aa) | `x64_RED_aa_unhandled_two_byte_is_not_nop` | unhandled two-byte opcodes render as NOP |
 | (ab) | `x64_RED_ab_two_byte_arm_ignores_mandatory_prefix` | the arm never reads `66`/`F2`/`F3` |
+| (ac) | `cmovcc_0F44` | CMOVcc renders as NOP |
+| (ac) | `bt_rm_r_0FA3` | BT r/m,r renders as NOP |
+| (ac) | `bt_rm_imm8_0FBA` | BT r/m,imm8 renders as NOP |
+| (ac) | `cmpxchg_0FB1` | CMPXCHG renders as NOP |
+| (ac) | `xadd_0FC1` | XADD renders as NOP |
+| (ac) | `desync_recovery_BT_then_IN` | BT renders as NOP (walk continues correctly) |
+| (ac) | `three_byte_0F38` | PSHUFB renders as NOP |
+| (ac) | `three_byte_0F3A` | PALIGNR renders as NOP |
+| (t) | `unknown_0f_modrm_recovery` | `0F 0D C0` is #UD and is accepted |
 
 ## Open, deferred, each with the condition that mints it
 
@@ -59,10 +68,12 @@ REX2 encoding. Until then a red would have no number to move
 closed, because the gap is real and the corpus is what is narrow.
 
 **(t) the two-byte map has no INVALID.** Both instruments give the same
-22 two-byte opcodes as invalid; the arm has no way to say so.
-**Minting condition:** the generator run that produces the two-byte
-table's refusal list. Banked separately from (s) so it does not leave
-with it.
+22 two-byte opcodes as invalid; the arm has no way to say so. **(t) now
+has a red** — see the table above. Its first double-attested witness is
+`0F 0D C0`, the register form of PREFETCH, which is Ghidra NONE and
+objdump `(bad)` while its memory forms are 3 and 7. The rest of (t)
+still waits on the generator run that produces the refusal list, and is
+banked separately from (s) so it does not leave with it.
 
 *(ab) was deferred here and is now minted; see the table above. The
 deferral said its only measurable instance was `0F 78`, which was true
@@ -71,11 +82,23 @@ the red is an inequality between `0F AE C0` (invalid in both
 instruments) and `F3 0F AE C0` (RDFSBASE, 4 bytes in both), so it needs
 no instruction modelled and (aa) cannot close it.*
 
-## Not a defect letter, but owed and easy to lose
+## (ac), minted 2026-09-20: the explicitly-cased half of the NOP class
 
-- **`cmovcc_0F44` asserts `X86_INS_NOP`.** A green test defends the
-  behaviour (aa) says is wrong. It must be inverted in the act that
-  fixes the default arm, or that fix will be reported as a regression.
+219 of 256 two-byte opcodes render as `X86_INS_NOP`. **59 reach the
+default arm — that is (aa). The other 160 are assigned NOP at 17
+explicit `case` sites — that is (ac), and (aa) cannot close any of
+them.** The split is the reason the two are separate letters rather
+than one: a fix to the default arm leaves 160 opcodes rendering real
+instructions as no-ops, and the eight reds above would stay red through
+it. (aa)'s pre-registration must predict exactly that.
+
+The eight reds were already in the suite as *passing* tests. Each named
+a real instruction in its comment and then asserted it was a no-op.
+They were written because someone hit those instructions, so they are
+evidence of which opcodes matter, and each now carries its SDM mnemonic
+as the pre-registered target.
+
+## Not a defect letter, but owed and easy to lose
 - **512,213 is withdrawn.** It was summed from Ghidra per-instruction
   files that lived in `$(BUILDDIR)` and a clean destroyed. No
   difference may be taken against it. The reproducible pair is
