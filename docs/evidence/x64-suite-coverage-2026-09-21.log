@@ -44,20 +44,39 @@ A. EMPTY PLACEHOLDERS -- no executable line exists, so 0% is correct and
    src/decoders/riscv_decoder.c 773 bytes
    src/optimize/optimize.c      758 bytes
 
-B. REAL CODE THAT NOTHING COMPILES -- 780 lines, and 0% here means NOT
-   MEASURED rather than not executed.  These are not in SRCS (the wildcard
-   is src/codegen/*.c, which does not descend into floored_div/) and no
-   test target compiles them:
-   src/codegen/floored_div/codegen_floored_arm64.c    260 lines
-   src/codegen/floored_div/codegen_floored_riscv64.c  300 lines
-   src/codegen/floored_div/codegen_floored_x64.c      220 lines
-   The `test-floored-div` target exists, compiles only test_floored_div.c
-   (not these three), and is NOT in `test-all` -- nothing depends on it, so
-   it has never run in any suite invocation.
+B. REAL CODE THAT NOTHING COMPILES -- 780 lines, and 0% here meant NOT
+   MEASURED rather than not executed.  RESOLVED 2026-09-21; the trail is
+   kept because the disposition matters more than the number:
 
-   So the TOTAL above (65.1% over 5,217 lines) EXCLUDES 780 lines that are
-   in the tree, are not placeholders, and are built by nothing.  Including
-   them as zero gives 56.6% over 5,997 lines.  Both figures are stated
-   rather than the flattering one chosen.
+   src/codegen/floored_div/{x64,arm64,riscv64}.c, 780 lines, were a
+   BYTE-IDENTICAL DUPLICATE of tools/floored-division/, which is the real
+   home (own Makefile, README, semantics suite, emitter harness).  The
+   translator's `test-floored-div` target compiled
+   .../floored_div/test_floored_div.c -- A FILE THAT HAS NEVER EXISTED
+   THERE -- and was not in `test-all`, so it never ran and was never seen
+   to fail.  The duplicate is DELETED and the target REMOVED, with the
+   reason in the Makefile where the target was.
+
+   At the real home the same measurement found worse, and it is fixed:
+     - test_floored_div.c passes but includes only floored_div.h: it tests
+       the REFERENCE SEMANTICS, not one emitted byte.
+     - test_codegen.c (x64 emitters) compiles and runs and NO TARGET BUILT
+       IT.
+     - `make codegen-test` built a main() out of `echo` lines whose quoting
+       does not survive a Makefile recipe, and lacked -I. as well.  It has
+       never compiled.
+     - codegen_floored_arm64.c and codegen_floored_riscv64.c -- 560 of the
+       780 lines -- were compiled by NOTHING, anywhere, ever.
+   Now: `make -C tools/floored-division` runs the semantics suite AND
+   test_codegen_all.c, which exercises all NINE emitters across the three
+   targets.  First run: 9 exercised, 0 failures.
+
+   THE BLENDED FIGURE IS AN ALARM, NOT A NUMBER TO QUOTE.  Counting the 780
+   as zero-covered printed "not measured" and "not executed" the same way,
+   which is the very thing this log says must not happen.  Keep the two
+   components visible instead:
+     - 65.1% line coverage over what the translator's suite builds;
+     - 780 lines, 13% of the tree, that were in no build at all.
+   The single blended 56.6% is withdrawn as a quotable figure.
 
 files with executable lines but ZERO executed:

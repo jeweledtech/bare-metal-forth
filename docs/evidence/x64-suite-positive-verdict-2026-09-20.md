@@ -94,15 +94,42 @@ measurement conflated them:
   test file and **is not in `test-all`**, so it has never run in any
   suite invocation.
 
-**Counting those 780 lines as zero gives 56.6% over 5,997 lines.** Both
-figures are on the record; the flattering one was not chosen quietly.
+**The blended figure is an alarm, not a number to quote.** Counting those
+780 lines as zero-covered prints *not measured* and *not executed* the
+same way, which is the thing the coverage log itself says must not
+happen. The two components stay visible instead: **65.1% over what is
+built**, and **780 lines that were in no build at all**. The single
+blended 56.6% is withdrawn as a quotable figure.
 
-**What it says for the plan.** The queue ends at (s) and the consumer
-starts, and the consumer is the back half of the pipeline. The two
-lowest covered files that matter to it are `uir.c` at 51.2% and
-`translator.c` at 43.2%, and `arm64_decoder.c` at 48.1% is decoding for
-a lifter nobody calls. Knowing what is dead before writing that half
-was worth one command.
+**Resolved the same day.** Those 780 lines were a byte-identical
+duplicate of `tools/floored-division/`, and the translator target that
+appeared to cover them compiled a file that had never existed there.
+The duplicate is deleted and the target removed with the reason in
+place. At the real home the same look found worse — the passing suite
+tests the reference semantics and not one emitted byte, the committed
+x64 harness was built by no target, `codegen-test` had never compiled,
+and the ARM64 and RISC-V emitters had been read by no compiler ever.
+`make -C tools/floored-division` now exercises **all nine emitters
+across three architectures**: 9 exercised, 0 failures, first run.
+
+**Why it was worth the detour.** Floored division is the defining
+difference between Forth-83 and FIG-Forth, and Forth-83 is the standard
+this project's brief names. Those were not leftovers from an
+experiment; they are a language-conformance feature that had been
+sitting dark.
+
+**The profile against the queue, stated rather than argued.** The
+decoder is the **best**-covered file in the tree at **92.4%**, and four
+fixes are queued against it. `uir.c` at **51.2%** and `translator.c` at
+**43.2%** are the **worst**, and they are exactly where the consumer
+work lands. `arm64_decoder.c` at 48.1% is decoding for a lifter nobody
+calls.
+
+**The order stands as ruled** — the queue ends at (s), then the
+consumer. But **the floor under the next phase is 51% and 43%**, and
+that is worth knowing at its start rather than halfway through. Knowing
+what is dead before writing the back half of the pipeline was worth one
+command.
 
 ## Why it counts as a result
 
