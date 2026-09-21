@@ -554,3 +554,93 @@ reader.
   unit test at their own address and not by the differential.
 - **Corpus Ghidra stays 511,969** and the corpus difference stays
   **64,114**.
+
+---
+
+# Fourth amendment: the predictions sharpened before a line is written (2026-09-21)
+
+**The earlier phrasing — "`operand_ok` falls by 19" — was ambiguous and
+is withdrawn.** It was reasoned, not measured. Rule 31 says a
+prediction about what an instrument will report is a claim about that
+instrument's source, so the comparer was read and the corpus measured
+first.
+
+## What the comparer does with a NOP row, measured over all 16 inputs
+
+Every row our dump flags `D` (a NOP the two-byte arm produced), by the
+class `compare_operands.py` puts it in:
+
+| class | rows |
+|---|---|
+| `ok` | **0** |
+| `mnemonic` | 10,964 |
+| `opcount` | 10,870 |
+| anything else | **0** |
+
+**Not one NOP row is in the agreement class, on any of the sixteen
+inputs.** The reason is in the comparer's own output: Ghidra decorates
+a multi-byte NOP with operands (`NOP dword ptr [RAX + RAX*0x1]`) and we
+print a bare `NOP`, so even the rows where both instruments say NOP
+fail on operand **count**.
+
+## So the predictions are these, and they are exact
+
+1. **`operand_ok` is UNCHANGED on all 16 inputs, and so is `score`.**
+   No NOP row is in it, so no NOP row can leave it. **A score that
+   moves at all means the fix changed something it was not asked to.**
+2. **`mnemonic + opcount + undecoded` is conserved, input for input.**
+   Every row that stops being NOP becomes `???` and lands in
+   `undecoded`; nothing enters `mnemonic` or `opcount`.
+3. **`mnemonic` falls close to zero.** Its 10,964 rows are exactly
+   "Ghidra named something, we said NOP". All of them are non-exempt by
+   construction, so all of them move.
+4. **`opcount` falls only by the non-exempt cells inside it** — the 19
+   real instructions the screen names in `0F 18`–`0F 1F` (16
+   `PREFETCHNTA`, 3 `ENDBR32`) plus any other cell where Ghidra says NOP
+   and the screen says otherwise. **The bulk of `opcount` stays**,
+   because those rows are the genuine multi-byte NOPs the exemption
+   keeps.
+5. **`nostart`, `beyond_extent` and `invalid_at_start` are unchanged on
+   all 16.** The fix changes an identity assignment and touches no
+   operand consumption, so no length and no start can move.
+6. **No product figure moves** — (ag): nothing reads instruction
+   identity but `UIR_CALL` and `UIR_INT`, and neither is produced here.
+
+## Expected XPASS: exactly 9 names
+
+**Flip:** `x64_RED_aa_unhandled_two_byte_is_not_nop` (`0F A7`, in the
+59) and the eight (ac) reds — `cmovcc_0F44`, `bt_rm_r_0FA3`,
+`bt_rm_imm8_0FBA`, `cmpxchg_0FB1`, `xadd_0FC1`,
+`desync_recovery_BT_then_IN`, `three_byte_0F38`, `three_byte_0F3A`.
+
+**Must NOT flip, and each for a stated reason:**
+
+- `unknown_0f_modrm_recovery` — (t). It asserts `INVALID`, and this fix
+  produces `UNKNOWN`. **If it flips, the fix has taken (t)'s work
+  without (t)'s oracle list.**
+- `x64_RED_ab_two_byte_arm_ignores_mandatory_prefix` — (ab). Its
+  assertion is an *inequality* between bare `0F AE C0` and
+  `F3 0F AE C0`; both become `UNKNOWN`, which is still equal.
+- The seven (s) reds and (u) — length only, and no length changes.
+- (d'), (f), (g)×2, (p)×2, (r1)–(r3), (v), (y) — untouched sites.
+
+## The exemption predicate, and how it will be checked
+
+The exemption is **the screen's verdict, per full (prefix, opcode,
+ModRM) byte**, for `0F 18`–`0F 1F` only. Everything else in the 219
+becomes `UNKNOWN`.
+
+**It is not asserted by reading the code.** The banked 8,192-cell sweep
+(`x64-nop-range-full-modrm-2026-09-20.log`) is the oracle for it, and a
+new test will drive the decoder over **all 8,192 cells** and require
+its NOP/not-NOP verdict to match that log **cell for cell**. A
+predicate that agrees on 8,191 is a predicate with a bug.
+
+## Rule 28: the shipped-binary assertion
+
+The fixture contains **no NOP byte**, and the shipped binary prints
+**three** `nop` lines today: `0040104d` (`0F 70`, (ac)), `00401055`
+(`0F C4`, (aa)) and `00401074` (`0F AA`, (aa)). **After this fix it
+must print zero**, because all three opcodes are outside `0F 18`–`0F 1F`
+and none is exempt. The earlier form of this assertion — "two go, one
+stays" — was written for (aa) landing alone and is **superseded**.
