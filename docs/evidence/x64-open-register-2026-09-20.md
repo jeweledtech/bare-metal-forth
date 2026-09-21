@@ -57,6 +57,22 @@ carries the **condition that mints it** rather than an intention.
 | (ac) | `three_byte_0F3A` | PALIGNR renders as NOP |
 | (t) | `unknown_0f_modrm_recovery` | `0F 0D C0` is #UD and is accepted |
 
+## Open, with a red, in another suite
+
+The table above is `test_x86_decoder.c`'s list and is the one the
+executable check covers. Reds living in other suites are listed here in
+prose, because the check asserts one file against one list and a second
+list checked by nothing would be worse than a named exception.
+
+- **(ad)** `ad_invalid_does_not_lift_to_nop`, in `test_uir.c` (which
+  had no expected-failure plumbing until this red needed it). The
+  lifter's `default:` arm at `src/ir/uir.c:442` maps every unmodelled
+  x86 identity to `UIR_NOP`. **18 of the 56 identities fall through it,
+  and `X86_INS_INVALID` is one of them** — an explicit refusal lifts to
+  a no-op. Found while enumerating readers of `X86_INS_NOP` for (aa)'s
+  pre-registration. It is why **(aa) does not reach the analyzer**: the
+  decoder stops lying and the IR carries the same `UIR_NOP` either way.
+
 ## Open, deferred, each with the condition that mints it
 
 **(q) VEX / EVEX / REX2 unmodelled.** Measured zero on two
@@ -106,6 +122,18 @@ as the pre-registered target.
   `tools/translator/scripts/denominators.py`.
 - **`0F 21`, `0F 22`, `0F 23` have zero corpus witnesses** (`0F 20` has
   218). That one arm covers all four is read from source only.
+
+## The NOP class, whole
+
+| | opcodes | corpus occurrences |
+|---|---|---|
+| (aa) the `default:` arm | **59** | **22** |
+| (ac) the 17 explicit `case` sites | **160** | **22,012** |
+| **total rendering as NOP** | **219 of 256** | **22,034 of 48,244** |
+
+Computed as a set difference, not by eye. **Forty-six per cent of every
+two-byte instruction in the corpus is currently reported as a no-op**,
+and (aa) moves 22 of them. Both numbers, always (rule 29).
 
 ## Closed, for the boundary
 
