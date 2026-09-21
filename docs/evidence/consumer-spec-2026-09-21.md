@@ -149,10 +149,9 @@ Four substitutes, each borrowed from something that worked:
 3. **A hand-checkable fixture**, as `x64_reds` is for the decoder: a
    small driver-shaped binary with a known map-then-access sequence, so
    every claim has one instance a person can verify by reading bytes.
-4. **Two instruments where possible.** The corpus has a natural second
-   opinion for MMIO: the HP hardware trip recorded real BAR addresses
-   (`xHCI BAR0 = 0xb1210004`), so a claimed region can be checked
-   against a measured one on at least one device.
+4. **Two instruments where possible**, at the level each can actually
+   reach — see §7.1, which withdraws the first draft's claim that the
+   hardware trip could attest this driver.
 
 ## 7. The exit number, fixed before the first line
 
@@ -165,11 +164,63 @@ now.**
 > per-function statement in this specification's own form — region
 > mapped, offset, width, direction — attested by a SECOND INSTRUMENT.**
 
-The named driver is **`i8042prt.sys`**, chosen before the work and for
-reasons that are not convenience: it is the smallest hardware-classified
-driver with a real device behind it (31 hardware functions, 21,373
-instructions), its device is the one the project has already driven
-from Forth, and the HP trip recorded its behaviour independently.
+The named driver is **`i8042prt.sys`** (the HP copy), chosen before the
+work: 31 hardware functions, 21,373 instructions, and — the reason that
+matters — **exactly one `MmMapIoSpaceEx` call site**, which is one
+hand-checkable instance of precisely the chain this consumer exists to
+follow.
+
+### 7.1 What the second instrument attests: the function, NOT the device
+
+**A claim in the first draft is withdrawn.** It said the HP trip
+"recorded its behaviour independently". **It did not.** The trip
+recorded xHCI (`BAR0 = 0xb1210004`); searching the banked iron logs for
+`i8042` or `keyboard` returns **nothing**. There is no device-level
+record for this driver, and the sentence was written without checking.
+
+**So the attestation is at the instruction level, and that is what the
+exit means:**
+
+| claim | second instrument | what it can reach |
+|---|---|---|
+| this function calls `MmMapIoSpaceEx` | Ghidra's own analysis; objdump plus the import table by hand | **the function** |
+| the returned pointer reaches this load/store at this offset | Ghidra's decompiler; a hand derivation from bytes | **the function** |
+| the device was actually driven | **nothing available for this driver** | — |
+
+**Worded to match what the instruments can do:** the exit is a
+per-function statement **corroborated by a second analysis of the same
+bytes**, not by a device. **A device-level record would confirm that
+*something* drove the controller, never *which function did*** — so
+even where such a record exists (xHCI), it could not discharge this
+exit. That distinction is the reason to say it now rather than to
+discover it at the exit.
+
+### 7.2 A followed chain, not a resolved port number
+
+**Finding (z), 20 September: the attested immediate-port set is EMPTY
+across all eight HP drivers** — every port instruction they really
+contain addresses its port through `DX`. Confirmed on the chosen
+driver: `i8042prt` contains exactly **two** port instructions, `in
+(%dx),%al` at `.text+263` and `out %al,(%dx)` at `.text+285`. **Both
+DX-addressed.**
+
+**So the easier bar is unavailable by measurement, not by choice, and
+the exit takes the harder one: a FOLLOWED CHAIN suffices; a resolved
+port number is NOT required.**
+
+The statement the exit demands is of the form *"the value returned by
+the call at X reaches the store at Y, offset Z, width W"* — a chain
+with a named origin and a named use. **Where the origin cannot be
+followed to a constant, the statement says so and remains a pass**,
+because "followed to a register whose source is a parameter" is a true
+statement about the function and a resolved number would be a
+fabricated one.
+
+**And for this driver the relevant chain is not a port chain at all.**
+Its hardware access is one `MmMapIoSpaceEx` region plus HAL calls
+(`KeSynchronizeExecution` 20, `KeInsertQueueDpc` 19,
+`KeStallExecutionProcessor` 12). The single mapping site is the exit's
+subject.
 
 **Anything past that is a new phase with its own exit.** Not "the other
 seven drivers", not MMIO for the general case, not a device model.
