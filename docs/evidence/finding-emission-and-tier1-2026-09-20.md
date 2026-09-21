@@ -160,11 +160,23 @@ changes what any analyzer pass reads.**
 over the whole tree: **the only UIR opcodes any analysis tests for are
 `UIR_CALL` (`semantic.c:357`) and `UIR_INT` (`semantic.c:478`)**, and
 neither `src/codegen/` nor `src/optimize/` dispatches on the opcode at
-all. **With respect to opcode, the intermediate representation is very
-nearly write-only.** Every other identity the lifter produces —
-correct, wrong or refused — is carried and never read. That is why
-(ad)'s prediction is "nothing moves", and it is a statement about the
-product's depth, not about the fix's size.
+all. **With respect to opcode, the intermediate representation is
+write-only but for two values: 2 of the 40 opcodes the lifter
+produces.** Every other identity — correct, wrong or refused — is
+carried and never read. Lettered **(ag)**.
+
+**The identities being dropped are not exotica.** The two largest
+members of (af) are **`SBB` at 481 rows and `SETcc` at 469** —
+subtract-with-borrow and condition-flag stores. That is ordinary
+integer and branch-condition code, precisely what a reader will assume
+was covered, and it is named here for that reason.
+
+**So the correct statement of the bound is stronger than "unsound
+until the decoder is repaired".** The decoder fixes (aa), (ac), (ad)
+and (s) make the IR **true**; not one of them makes it **used**. A
+tier-2 claim rests today on call edges, interrupts and operand
+patterns, and no amount of decoder repair moves it until a consumer
+reads instruction identity.
 
 **So the honest tier-2 statement, until (aa), (ac) and (ad) land:**
 attributions are sound for regions containing no two-byte instruction

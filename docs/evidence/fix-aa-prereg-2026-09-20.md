@@ -454,6 +454,20 @@ exact (prefix, opcode, ModRM) encoding* — not an opcode list, and for
 - `beep.sys` contains **none** of the class and must not move at all.
   It is the remaining true control.
 
+## No product figure moves, and that is stated rather than left to inference
+
+**(aa) and (ac) improve no product figure.** Lettered **(ag)**: the
+lifter produces 40 distinct opcodes and **2** are ever tested by any
+analysis — `UIR_CALL` and `UIR_INT` — while `src/codegen/` and
+`src/optimize/` dispatch on the opcode nowhere at all. Repairing the
+identity of 211 opcodes therefore changes the differential and the
+`-t uir` text, and changes **nothing** in `summary.call_graph`, the
+port attestation or any generated output.
+
+These two fixes make the IR **true**. They do not make it **used**.
+Said here in those words so no reader infers analyzer improvement from
+a decoder repair.
+
 ## Thirty-first rule, recorded against the desk that minted it
 
 > **A prediction about what an instrument will report is a claim about

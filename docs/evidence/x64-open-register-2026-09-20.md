@@ -95,10 +95,44 @@ because (af)'s rows are counted.
 shape of a non-`NOP` default; (af)'s red is written against that shape
 rather than inventing a second one.
 
-**Recorded alongside:** `UIR_NOP = 0` is the **zero value** of the
-opcode enum (`include/uir.h:27`), so any zero-initialised instruction
-already reads as a no-op. That is the latent form of the same defect.
-Named, not fixed by either letter.
+**`UIR_NOP = 0` rides with (ad)**, not with (af) and not as a note:
+`include/uir.h:27` makes the no-op the zero value of the opcode enum,
+so any zero-initialised instruction already reads as "does nothing",
+which is (ad)'s own sentence at the type level. A `UIR_UNSET` sentinel
+at 0 is in (ad)'s scope, with a guard asserting `uir_opcode_name()` is
+non-NULL across `[0, UIR_OPCODE_COUNT)` — 40 of 40 entries exist today,
+and the invariant is unasserted, which is what the sentinel could
+break.
+
+## (ag), minted 2026-09-20: the IR is write-only with respect to instruction identity
+
+**Not a decoder defect — the missing middle of the product, and what
+actually bounds tier 2.**
+
+`grep -rn "\.opcode\|->opcode" src/ --include=*.c`, whole tree: the
+lifter produces **40 distinct opcodes** and **2 are ever tested by any
+analysis** — `UIR_CALL` (`semantic.c:357`) and `UIR_INT`
+(`semantic.c:478`). `src/codegen/` and `src/optimize/` dispatch on the
+opcode **nowhere at all**. The analysis rests on call edges, interrupts
+and operand patterns, never on instruction identity.
+
+**(aa), (ac), (ad) and (s) together make the IR _true_. None of them
+makes it _used_.** Every pre-registration in this arc therefore says
+**"no product figure moves"** rather than leaving a reader to infer
+analyzer improvement from a decoder repair.
+
+**Minting condition for a red:** a named consumer exists that reads an
+identity other than `UIR_CALL` or `UIR_INT`. Until then a red would
+assert a feature, not a defect, and the count is the artefact: **2 of
+40**.
+
+## A standing note, from (ad): when a corpus witness is itself a symptom
+
+(ad)'s single corpus `INVALID` sits inside **(r2)'s desync run** and is
+predicted to reach **0** when (r2) lands. **Any fix whose corpus
+witness is a symptom of another open defect owes this note**, because
+without it a vanished count reads as proof the fix worked, and the red
+is the only durable instrument.
 
 ## (ae), minted 2026-09-20: the ORACLE is confidently wrong over `0F 18`-`0F 1F`
 

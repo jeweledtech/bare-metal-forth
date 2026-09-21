@@ -151,8 +151,8 @@ becomes 36 at the same moment and is restated in the same act.
 > the identities they newly produce meet a lifter that no longer
 > flattens a refusal.
 >
-> **The `UIR_NOP = 0` latency is named, not fixed here.** Changing the
-> enum's zero value is a separate, wider change.
+> **`UIR_NOP = 0` rides WITH (ad)** — see the amendment below. It is
+> (ad)'s own sentence at the type level.
 
 ---
 
@@ -160,3 +160,85 @@ becomes 36 at the same moment and is restated in the same act.
 xpass=0 (tests=115)`; `test_uir` `22/23 passed (xfail=1 of 1
 registered, xpass=0)`; 25 suites; `SMOKE PASS`. No line of (ad) is
 written.
+
+
+---
+
+# Amendment: the zero value rides with (ad), and the reader enumeration gets its own letter (2026-09-20)
+
+## 1. `UIR_NOP = 0` is (ad)'s own sentence at the type level, so it is in scope
+
+`include/uir.h:27` makes the no-op the **zero value** of the opcode
+enum. Any zero-initialised or partly-populated `uir_instruction_t`
+therefore reads as *"does nothing"* — the same claim (ad) exists to
+stop a refusal making. Recording it and fixing it elsewhere would have
+split one sentence across two letters.
+
+**In scope for (ad): a sentinel at 0.** `UIR_UNSET = 0`, with `UIR_NOP`
+moved to a real value of its own.
+
+**Blast radius, enumerated from source before the line is written:**
+
+- **`src/ir/uir.c:688` `opcode_names[]`** uses **designated
+  initialisers** (`[UIR_NOP] = "nop"`), so every existing name follows
+  its enumerator automatically and no entry shifts. **The sentinel
+  needs its own entry**, or the array is one shorter than
+  `UIR_OPCODE_COUNT`.
+- **`src/ir/uir.c:710-711`** bounds the lookup with
+  `op >= 0 && op < UIR_OPCODE_COUNT` and then indexes the array. That
+  bound is **against the enum, not the array**, so an enumerator with
+  no name entry is an out-of-bounds read of an uninitialised pointer.
+  **Measured today: 40 of 40 enumerators have an entry**, so there is
+  no hole now — but the invariant is **unasserted**, and adding a
+  sentinel is exactly the change that could open it.
+- **`src/ir/semantic.c:357, 478`** compare against `UIR_CALL` and
+  `UIR_INT` by name. Renumbering is invisible to them.
+- **No serialised form, no table indexed by a literal opcode number,
+  no persisted artefact** carries these values — `grep` for
+  `UIR_OPCODE_COUNT` and for the name table returns only the two sites
+  above.
+
+**A guard rides with it:** `uir_opcode_name()` returns non-NULL for
+every value in `[0, UIR_OPCODE_COUNT)`. It passes today, which is the
+point — it is written **before** the enum changes so that it is the
+thing that catches a missing entry rather than a later crash.
+
+## 2. Say "no product figure moves", not "nothing moves"
+
+**Correction to §4 above, which invited a wrong inference.** "Zero
+corpus figures move" is true and is not the same as "the analyzer is
+unimproved". **(ad) improves no product figure, and neither will
+(aa), (ac) or (s).** The reason is (ag) below, and every
+pre-registration in this arc from here states it in those words rather
+than letting a reader infer analyzer improvement from a decoder repair.
+
+## 3. When a corpus witness is itself a symptom, say so — as a standing note
+
+(ad)'s single corpus `INVALID` sits inside (r2)'s desync run and is
+predicted to reach **0** when (r2) lands, which is why the red is its
+only durable instrument. **The same note is owed by any future fix
+whose corpus witness is a symptom of another open defect**, because
+without it a vanished count reads as proof the fix worked. Recorded on
+the open register, not only here.
+
+## 4. (ag) minted: the IR is write-only with respect to instruction identity
+
+**The largest finding of the round, and it is not a decoder defect.**
+
+`grep -rn "\.opcode\|->opcode" src/ --include=*.c`, whole tree. The
+lifter produces **40** distinct opcodes. **Two are ever tested by any
+analysis**: `UIR_CALL` (`semantic.c:357`) and `UIR_INT`
+(`semantic.c:478`). `src/codegen/` and `src/optimize/` dispatch on the
+opcode **nowhere at all**.
+
+**The rationale for landing (ad) first was partly wrong and is
+corrected here.** The honesty (aa) and (ac) introduce is **not
+destroyed** one layer up — **it is never read**. (ad) still lands
+first, because it is cheap, correct, and its prediction is now proved
+from source rather than hoped. **That reason is its own, and it does
+not unblock the other two.**
+
+**(aa), (ac), (ad) and (s) together make the IR _true_. Not one of them
+makes it _used_.** That is the missing middle of the product, it is
+what actually bounds tier 2, and it is worth knowing before three more
+decoder fixes are spent against a tier-2 claim.
