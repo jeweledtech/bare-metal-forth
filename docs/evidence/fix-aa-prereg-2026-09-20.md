@@ -214,3 +214,165 @@ unchanged by it and no figure in this document rests on it.
 
 **State before the fix:** `pass=85 xfail=30 fail=0 xpass=0 (tests=115)`,
 25 suites, `SMOKE PASS`. No line of (aa) is written.
+
+---
+
+# Amendment: the order changes, and the fix has an exemption it did not have (2026-09-20)
+
+## The amended order: (ad) alone, then (aa) with (ac), then (s)
+
+Recorded as ruled. **(ad) first** because its prediction is *nothing
+moves*, which is a live test of the claim that the decoder almost never
+emits `INVALID` today — and a false claim is far better found before
+two larger fixes land than inside their movement. **(aa) with (ac)**
+because they are one sentence with two mechanisms: an opcode we do not
+model is not reported as doing nothing. Shipping (aa) alone repairs 22
+occurrences and leaves 22,012 standing, with nothing downstream able to
+tell which half it is reading. **(s) last**, re-baselined.
+
+Everything in §§0–10 above stands except where this amendment restates
+it. The expected-XPASS set in §7 was written for (aa) alone and is
+**superseded**: with (ac) in the same act, the eight converted tests
+are predicted to **flip**, not to stay red. The prediction that they
+stay red belongs to the (aa)-alone ordering that no longer exists.
+
+## The exemption, found while predicting the differential — 8 opcodes that must stay NOP
+
+`0F 18`–`0F 1F` are **genuine multi-byte NOPs**: the pinned oracle
+names all eight `NOP` in every ModRM form. They are inside the 219, in
+(ac)'s explicitly-cased half, and today the decoder gets them **right**.
+
+**They occur 11,047 times in the corpus** — ACPI 3,370, pci 2,480,
+storport 2,067, usbxhci 1,317, i8042prt 472, HP serial 480, HDAudBus
+406, disk 361, 8139too 64, iTCO_wdt 14, ne2k-pci 12, nmap 3, via-rng 1,
+fixture **0**.
+
+**A blanket fix that turned all 219 into `UNKNOWN` would move 11,047
+rows out of `operand_ok` and the score would fall on nine inputs.** The
+exemption is therefore part of the fix, not a detail of it, and it is
+registered before a line is written rather than discovered as a score
+regression afterwards.
+
+### The class, restated with the exemption
+
+| | opcodes | corpus occurrences |
+|---|---|---|
+| (aa) the `default:` arm | 59 | 19 corpus + 3 fixture |
+| (ac) explicitly cased, **wrong** | **152** | **10,965** |
+| (ac) explicitly cased, **genuinely NOP — exempt** | **8** | **11,047** |
+| rendering as NOP, total | **219 of 256** | 22,034 |
+
+**211 opcodes must leave the NOP class and 8 must stay.** That the
+exempt eight are *half* of all the occurrences is the reason a corpus
+count alone would have mis-sized this fix in both directions at once.
+
+## 1. The `mnemonic` prediction, decided by reading the comparer rather than guessed
+
+The proposal was to predict `mnemonic` stays at 11,048. **The source
+rules that out before the run.** `compare_operands.py` returns
+`'undecoded'` for `om == '???'` at line 208, **before** reaching the
+mnemonic comparison at line 211. NOP and UNKNOWN are already treated
+differently, by construction, and registering a prediction the source
+falsifies would waste the check.
+
+**What is registered instead is the conservation law underneath it,
+which is exact, falsifiable and free:**
+
+> **`mnemonic + undecoded` is invariant, input for input.** Every row
+> that leaves `mnemonic` enters `undecoded` and nothing enters
+> `mnemonic`. If the sum moves on any input, the comparer is doing
+> something neither of us has read.
+
+> **`operand_ok`, `nostart`, `beyond_extent`, `invalid_at_start` and
+> the score are unchanged on all 16 inputs** — *provided the eight
+> exempt opcodes keep their NOP*. **`operand_ok` falling by roughly
+> 11,047 is the signature of a blanket fix**, and that is the control
+> for the exemption above.
+
+**Magnitude:** `mnemonic` is 11,048 today and the wrong-NOP occurrences
+are 10,965. The two are close enough that most of the `mnemonic` class
+is expected to *be* NOP rows, so `mnemonic` should fall a long way —
+but the exact figure is whatever conservation gives, because only rows
+our walk reached at a Ghidra start are classified at all, and the
+per-row dumps that would settle it were destroyed by a clean.
+
+## 2. The identity predicate has now been run, and it is clean
+
+`docs/evidence/x64-rule30-identity-sweep-2026-09-20.log`. Same script,
+different field: for every passing test asserting `instruction !=
+X86_INS_X` on a literal byte array, disassemble those bytes in the
+test's own mode and compare the mnemonic.
+
+| | count |
+|---|---|
+| passing tests (denominator) | **85** |
+| swept by the identity predicate | **55** |
+| mnemonic agrees with objdump | **55** |
+| **mnemonic disagrees** | **0** |
+| not swept | 30 |
+
+*The first run reported 8 disagreements and all 8 were instrument:
+objdump prints a redundant prefix (`rex.W`, `data16`, `rep`) as its own
+pseudo-instruction and the parser read that as the mnemonic. Corrected
+before the result was used.* Six of the 30 unswept are unswept **for
+that same reason** — they probe redundant-prefix behaviour, and objdump
+refuses to join the prefix to the instruction, so the screen cannot
+adjudicate them. Those six need the blob oracle, not objdump, and that
+is named rather than counted as agreement. The alias table is hashed in
+the log, because it is a score-moving knob.
+
+## 3. The suite's first positive verdict
+
+Three weeks of this arc have measured what the suite **cannot** see.
+This is the first measurement of what it **does**.
+
+| predicate | swept | confirmed | found |
+|---|---|---|---|
+| asserted length vs objdump | 78 of 94 | **77** | 1 (`0F 0D C0`, #UD) |
+| asserted identity vs objdump | 55 of 85 | **55** | 0 |
+
+**One hundred and thirty-two expectations independently confirmed
+against a second instrument, and one real defect found.** The
+unswept remainders are named in both logs. That is a result, and it is
+said as one.
+
+## 4. Corpus and fixture are separated at the instrument
+
+`scripts/denominators.py` now reports them apart, because a fixture
+edit moved a corpus figure and the fixture is an instrument and an
+input at once.
+
+| | corpus (15) | fixture | combined |
+|---|---|---|---|
+| objdump instructions | **576,083** | 35 | 576,118 |
+| Ghidra starts | **511,969** | 31 *(pre-v13, stale)* | 512,000 |
+| difference | **64,114** | — | contaminated |
+| `mnemonic` class | **11,046** | 2 | 11,048 |
+
+**The banked 576,115 has already become 576,118**, entirely because v13
+added three rows — which is the demonstration rather than the
+objection. The corpus-only figure cannot be moved by an instrument
+change. The combined difference now mixes a v13 objdump count with a
+v12 oracle count and is marked contaminated in the log until the
+differential is re-run.
+
+*The first run of the split printed a corpus difference of 64,083: it
+subtracted the combined oracle count from the corpus objdump count.
+Corrected, and the miss is recorded in the log's header.*
+
+## 6. (ad)'s plumbing has its control, and the control fires
+
+Deleting the call to the registered test:
+
+```
+Results: 22/22 passed (xfail=0 of 1 registered, xpass=0)
+HARD FAILURE: xfail_names entry "ad_invalid_does_not_lift_to_nop" did not
+  run (test deleted or renamed; the list and the suite disagree)
+make: *** [Makefile:165: test-uir] Error 1
+```
+
+**`22/22 passed` and `xfail=0 of 1 registered` on the same line** is
+exactly the shape the twenty-seventh rule was minted on: zero-failed
+and zero-registered must not print the same, and here they do not. The
+call was restored and the suite returns to `22/23 passed (xfail=1 of 1
+registered, xpass=0)`.

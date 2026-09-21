@@ -1,0 +1,48 @@
+# rule-30 IDENTITY sweep, 2026-09-20 (owner item 2).  Same script, a
+# different field: the length predicate cannot see an expectation like
+# `instruction == X86_INS_MOV` copied from the decoder, and the nine found
+# earlier were found by a NOP grep, which finds NOP and nothing else.
+# For every PASSING test asserting `d.instruction != X86_INS_X` on a
+# literal byte array, disassemble those bytes in the test's own mode and
+# compare the mnemonic.  Reds excluded: their expectation IS the oracle.
+# alias table sha256[:12] = acdb90384768 -- a score-moving knob, hashed so a later
+# widening of it is visible rather than silent.
+# The first run of this sweep reported 8 disagreements, ALL instrument:
+# objdump prints a redundant prefix (rex.W, data16, rep) as its own
+# pseudo-instruction and the parser read that as the mnemonic.
+
+passing tests (denominator)        : 85
+swept by the identity predicate    : 55
+  mnemonic agrees with objdump     : 55
+  mnemonic DISAGREES               : 0
+not swept                          : 30
+     MOV_ECX_from_EDI_plus_0x100            no `instruction != X86_INS_*` assertion on a literal array
+     decode_range                           no `instruction != X86_INS_*` assertion on a literal array
+     x64_RED_push_rexw_redundant_64         objdump produced no instruction
+     x64_RED_push_opsize_and_rexw_is_64     objdump produced no instruction
+     x64_RED_push_imm_default_size_64       no `instruction != X86_INS_*` assertion on a literal array
+     x64_RED_n_movsxd_length                no `instruction != X86_INS_*` assertion on a literal array
+     x64_RED_n_imul_imm32_length            no `instruction != X86_INS_*` assertion on a literal array
+     x64_RED_n_imul_imm8_length             no `instruction != X86_INS_*` assertion on a literal array
+     x64_RED_n_x87_modrm_length             no `instruction != X86_INS_*` assertion on a literal array
+     x64_RED_n_enter_length                 no `instruction != X86_INS_*` assertion on a literal array
+     x64_RED_n_jrcxz_length                 no `instruction != X86_INS_*` assertion on a literal array
+     test_x64_table_consistency_sweep       no `instruction != X86_INS_*` assertion on a literal array
+     test_x86_32_table_consistency_sweep    no `instruction != X86_INS_*` assertion on a literal array
+     x64_RED_n_invalid_walk_continues       no `instruction != X86_INS_*` assertion on a literal array
+     x64_GUARD_n_pushf_stays_len1           no `instruction != X86_INS_*` assertion on a literal array
+     x64_GUARD_n_popf_stays_len1            no `instruction != X86_INS_*` assertion on a literal array
+     x64_RED_x_fxch_register_form           no `instruction != X86_INS_*` assertion on a literal array
+     x64_RED_x_fninit_register_form         no `instruction != X86_INS_*` assertion on a literal array
+     x64_RED_x_fcomi_register_form          no `instruction != X86_INS_*` assertion on a literal array
+     x64_GUARD_x_fadd_st0_register_form     no `instruction != X86_INS_*` assertion on a literal array
+     open_register_is_exactly_the_xfail_list no `instruction != X86_INS_*` assertion on a literal array
+     x64_GUARD_pop_rm_digit_nonzero_not_pop no `instruction != X86_INS_*` assertion on a literal array
+     x64_GUARD_legacy_segment_push_invalid_in_64bit no `instruction != X86_INS_*` assertion on a literal array
+     x64_GUARD_rex_r_ignored_on_group3_digit objdump produced no instruction
+     x64_GUARD_rex_wr_ignored_on_group3_digit objdump produced no instruction
+     x64_GUARD_rex_r_ignored_on_group5_digit objdump produced no instruction
+     x64_GUARD_rex_r_ignored_on_group1_digit objdump produced no instruction
+     x64_GUARD_opcode_82_not_an_alu_op_in_64bit no `instruction != X86_INS_*` assertion on a literal array
+     x64_GUARD_rex_does_not_leak_to_next_insn no `instruction != X86_INS_*` assertion on a literal array
+     REP_INSB                               objdump produced no instruction

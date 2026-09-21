@@ -121,3 +121,42 @@ attributing imports to call sites — is what (a) buys, and the STRIP
 table above is the measurement of how little exists without it.
 
 **Queue unchanged:** (a) next, then (o). Nothing here was built.
+
+---
+
+## Addendum 2026-09-20: what the two-byte NOP class bounds, against the tier ladder
+
+Recorded here and not only on the defect register, because this is a
+product-level bound and not only a decoder one.
+
+**46% of every two-byte instruction in the corpus is currently reported
+as a no-op** — 22,034 of 48,244, over 576,083 corpus instructions in 15
+inputs plus the fixture. Of those, 11,047 are genuine multi-byte NOPs
+(`0F 18`–`0F 1F`) and are correct. **The remaining 10,987 are real
+instructions reported as doing nothing**, and the class behind them is
+211 of the 256 two-byte opcodes.
+
+**With (ad) unlanded the boundary is sharper still.** The lifter's
+`default:` arm maps every unmodelled identity — including
+`X86_INS_INVALID` — to `UIR_NOP`, so a refusal and a no-op are the same
+value in the IR. Until that lands, **no amount of decoder repair
+changes what any analyzer pass reads.**
+
+**Against the ladder:**
+
+- **Tier 1 — naming what a driver *is*, from the import directory —
+  is untouched.** It never reads an instruction. Everything the tier-1
+  section above concludes stands unchanged.
+- **Tier 2 — attributing imports to call sites, which is what (a) was
+  bought for — is bounded by this.** Every function-level claim about
+  a function containing a two-byte instruction is unsound today: the
+  analyzer cannot distinguish "this function does nothing here" from
+  "we could not read this". A call-site attribution that walks past a
+  mis-rendered instruction is not wrong at that instruction only; it is
+  a claim about a region whose contents were not read.
+
+**So the honest tier-2 statement, until (aa), (ac) and (ad) land:**
+attributions are sound for regions containing no two-byte instruction
+and unverified elsewhere, and the corpus is 48,244 two-byte
+instructions deep. That is the size of the caveat, stated before anyone
+quotes a tier-2 number.
