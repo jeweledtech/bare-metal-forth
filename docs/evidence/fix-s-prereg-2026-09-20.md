@@ -987,3 +987,78 @@ The ten standing conditions apply unchanged, plus:
 
 Suite: `pass=85 xfail=30 fail=0 xpass=0 (tests=115)`, 25 suites,
 `SMOKE PASS`.
+
+---
+
+# Closing: (s) built and green, and the decoder queue is closed (2026-09-21)
+
+**Three mechanisms, derived from the oracle rather than typed.** The
+sets were read out of the pinned no-flow oracle before a line changed:
+its register-form rows **longer than 3** give the trailing-`imm8` set
+exactly (`0F 70`, `A4`, `AC`, `C2`, `C4`, `C5`, `C6`, and `0F 0F` which
+is out of scope), and its register-form rows of **length 2** give the
+no-ModRM set — in which `0F AA` RSM was the one the hand-typed list had
+missed, which is (u)'s entire point.
+
+| mechanism | fix |
+|---|---|
+| trailing `imm8` lost | `two_byte_trailing_imm8()` consulted at both sites that decode a ModRM |
+| ModRM consumed where there is none | `0F AA` added to the `no_modrm` list |
+| `mod` honoured where hardware ignores it | `0F 20`–`23` given their own arm: one ModRM byte, no disp, both operands registers |
+| length selected by a mandatory prefix | `0F 78` given its own arm: `66`/`F2` consume ModRM + **two** `imm8` |
+
+**`0F 78` is a named overlap with (ab), not a silent one.** (ab) owns
+the arm's prefix blindness in general and **stays red**, because its
+assertion is an *inequality* between two forms of `0F AE` that both
+remain `UNKNOWN`.
+
+## Every prediction held
+
+| pre-registered | observed |
+|---|---|
+| gate fires on the 7 (s) reds | **exactly 7**, across 26 suites |
+| (u) reports `wrong_opcodes=1: 0F0F` | **`checked=2065 wrong_rows=3 wrong_opcodes=1: 0F0F`** |
+| both one-byte sweeps' disagreeing sets unchanged | 4 opcodes each, unchanged |
+| 14 of 16 inputs contain none of it and must not move | **14 did not move** |
+| the corpus movement is one row, storport's `66 0F C5` | `nostart` 2 → 1, `undecoded` +1 |
+| `operand_ok`, `score`, `ghidra`, `beyond_extent` unchanged | unchanged on all 16 |
+| the fixture's `.text` walks to exactly 35 lines | **35**, from 37 |
+
+**Missed starts 18 → 12, and the residual is precisely the attribution
+written when (o) closed**: (r3) 8, one per HP driver; (r2) 4 on
+8139too. The six (s) rows are gone — storport 1, fixture 5 — and **the
+fixture now has zero missed starts**.
+
+## One instrument repaired, and what it is not hiding
+
+The shipped-binary check asserted that unknown mnemonics were a
+minority of lines. It tripped at **17 of 35**, on an honest fix: after
+(aa)+(ac) the decoder says `UNKNOWN` where it used to say `NOP`, and
+this fixture is a **reds fixture** — RSM, PadLock, CR/DR with `mod=10`,
+a 3DNow suffix. A high unknown ratio on it is now the *correct* answer,
+so the ratio had stopped measuring what it stood for.
+
+**Replaced by the exact line count**, which the pre-registration had
+already fixed at 35. It is **derived from the artefact** (`.text` is
+`0x76` = 118 bytes) rather than calibrated, it is **strictly stronger**
+(any desync changes it), and it **hides no mixed link** — that
+signature is checks 1 and 2, the first line at the entry and zero
+address-0 lines, and neither moves with a mnemonic. An adversarial case
+was added for it: the self-test is now **7 cases, 0 failures**.
+
+## The queue is closed
+
+**Eighteen reds at the start of the queue, eighteen green.** (aa) 1,
+(ac) 9, (ad) 1, (s) 7.
+
+`pass=102 xfail=14 fail=0 xpass=0 (tests=116)`, **26 suites**, 0
+warnings under `-Werror`, `SMOKE PASS`, exit 0 from a clean build.
+
+**Nothing new entered the queue while it ran.** (ai) was found by
+(aa)+(ac) and parked; (u)'s `0F 0F`, (ab), (t), (ae), (af), (ah) and
+the ARM64/RISC-V join are parked with their counts. The stopping
+condition held.
+
+**Next is the identity consumer**, which (ag) establishes is the **back
+half of the pipeline** rather than a pass: `src/codegen/codegen.c` is a
+35-byte placeholder and `src/optimize/optimize.c` a 30-byte one.

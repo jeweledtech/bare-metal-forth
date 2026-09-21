@@ -35,18 +35,56 @@ carries the **condition that mints it** rather than an intention.
 | (r1) | `x64_RED_r1_push_iz_opsize16` | `66 68` Iz read at a fixed 4 bytes |
 | (r2) | `x64_RED_r2_test_eax_iz_opsize16` | `66 A9` likewise |
 | (r3) | `x64_RED_r3_test_ev_iz_opsize16` | `66 F7 /0` likewise |
-| (s) | `x64_RED_s_pshufw_imm8_length` | two-byte arm loses a trailing imm8 |
-| (s) | `x64_RED_s_cmpps_imm8_length` | same |
-| (s) | `x64_RED_s_pinsrw_imm8_length` | same |
-| (s) | `x64_RED_s_pextrw_imm8_length` | same |
-| (s) | `x64_RED_s_pextrw_xmm_imm8_length` | the corpus encoding `66 0F C5` |
-| (s) | `x64_RED_s_mov_cr_mod_ignored` | honours a mod field hardware ignores |
-| (s) | `x64_RED_s_rsm_no_modrm_length` | consumes a ModRM that does not exist |
 | (u) | `x64_RED_u_0f_map_matches_oracle` | the hand-typed no-ModRM list vs the oracle |
 | (v) | `x86_RED_v_addr_size_prefix_disp16` | legacy `67` makes mod=10 a disp16 |
 | (y) | `x64_RED_y_lea_register_form_invalid` | `8D C0` LEA register form is #UD |
 | (ab) | `x64_RED_ab_two_byte_arm_ignores_mandatory_prefix` | the arm never reads `66`/`F2`/`F3` |
 | (t) | `unknown_0f_modrm_recovery` | `0F 0D C0` is #UD and is accepted |
+
+## (s) CLOSED 2026-09-21 — and with it the decoder queue
+
+**Three mechanisms, all derived from the pinned oracle rather than
+typed:**
+
+| mechanism | opcodes | what was wrong |
+|---|---|---|
+| a trailing `imm8` after the ModRM | `0F 70`, `C2`, `C4`, `C5` | the byte was never consumed, desynchronising the walk by one |
+| no ModRM at all | `0F AA` RSM | the arm consumed one that is not in the encoding |
+| a `mod` field the hardware **ignores** | `0F 20`–`23` | honouring `mod=10` read a `disp32` that is not in the stream, inventing four bytes |
+
+Plus **`0F 78`**, handled with its mandatory prefix — `66` is EXTRQ and
+`F2` is INSERTQ, both ModRM plus **two** `imm8`. That is a named,
+deliberate overlap with (ab), which owns prefix blindness in general and
+**stays red**, because its assertion is an inequality on a different
+opcode.
+
+**Gate: exactly the seven predicted names.** Every other prediction in
+the pre-registration held:
+
+| predicted | observed |
+|---|---|
+| (u) reports `wrong_opcodes=1: 0F0F` | **exactly that** — `checked=2065 wrong_rows=3` |
+| both one-byte sweeps' disagreeing set unchanged | 4 opcodes each, unchanged |
+| **14 of 16 inputs must not move at all** | **14 did not move** |
+| storport moves by its one PEXTRW row | `nostart` 2 → 1, `undecoded` +1 |
+| `operand_ok` and `score` unchanged | unchanged on all 16 |
+| the fixture's `.text` walks to exactly 35 lines | **35**, from 37 |
+
+**Missed starts: 18 → 12, and the residual is exactly the attribution
+written when (o) closed** — (r3) 8, one per HP driver, and (r2) 4 on
+8139too. The 6 (s) rows are gone: storport 1, fixture 5. **The fixture
+now has zero missed starts.**
+
+**One instrument repaired on the way, and it is named.** The
+shipped-binary check asserted that unknown mnemonics were a minority,
+which tripped at 17 of 35 — because after (aa)+(ac) the decoder says
+`UNKNOWN` where it used to say `NOP`, and this fixture is a *reds*
+fixture. The ratio had stopped measuring what it stood for. It is
+replaced by the **exact line count**, which is derived from the
+artefact rather than calibrated, is strictly stronger, and **hides no
+mixed link**: that signature is checks 1 and 2, which are independent
+of the mnemonic. The self-test gained a case for it and is 7 cases, 0
+failures.
 
 ## (aa) and (ac) CLOSED 2026-09-21
 
@@ -114,10 +152,24 @@ lettered, counted and parked on this register; they do **not** enter
 the queue. Only a defect that makes one of the four fixes **wrong** may
 interrupt it. A defect that makes one **incomplete** is parked.
 
-**The exit is a number: 18 reds.** (aa) 1, (ac) 9 (the eight converted
-tests plus the 8,192-cell check, registered before building), (ad) 1,
-(s) 7. **(ad)'s 1 and (aa)+(ac)'s 10 are now green, so 7 remain — the
-(s) reds.** When those sixteen are green
+**The exit was a number: 18 reds.** (aa) 1, (ac) 9, (ad) 1, (s) 7.
+**All eighteen are green. THE DECODER QUEUE IS CLOSED.**
+
+What it cost and what it bought, in one line each: nine letters minted
+((t), (ab), (aa), (ac), (ad), (ae), (af), (ag), (ah)), four rules
+(29–32), eighteen reds closed, and the two-byte map went from reporting
+219 of 256 opcodes as no-ops to reporting what it knows and refusing
+what it does not.
+
+**What starts now: the identity consumer** — which (ag) established is
+**the back half of the pipeline**, not a pass, because
+`src/codegen/codegen.c` is a 35-byte placeholder and
+`src/optimize/optimize.c` a 30-byte one.
+
+**Parked, and still parked** — they did not enter the queue and do not
+now: (ai) 450 rows, (ab), (t), (u)'s `0F 0F`, (ae), (af), (ah), the
+ARM64/RISC-V emitter join, (r1)–(r3), (p)×2, (d'), (f), (g)×2, (v),
+(y), (q). When those sixteen are green
 and the remainder is parked, the decoder queue is closed and the
 identity consumer starts. A queue without an exit number ends when
 someone gets tired.
