@@ -72,6 +72,33 @@ list checked by nothing would be worse than a named exception.
   a no-op. Found while enumerating readers of `X86_INS_NOP` for (aa)'s
   pre-registration. It is why **(aa) does not reach the analyzer**: the
   decoder stops lying and the IR carries the same `UIR_NOP` either way.
+  **Scoped to the `INVALID` row alone** (pre-registered
+  2026-09-20): **1 corpus occurrence**, at `8139too.ko .text+2721`, and
+  that one is itself inside (r2)'s desync run, so it is predicted to
+  reach **0** when (r2) lands. The red is (ad)'s only durable
+  instrument.
+
+## (af), minted 2026-09-20: the lifter drops seventeen modelled identities
+
+The other seventeen identities falling through `src/ir/uir.c:442`,
+measured over the 16 decoder dumps: **SBB 481, SETcc 469, CBW 52,
+CDQ 32, LEAVE 23, ROR 14, ADC 9, ROL 9**, and **0** each for CLD, LOOP,
+POPAD, PUSHAD, STD and the four `REP_` string forms. **1,089 corpus
+rows.**
+
+Separated from (ad) because they are two defects: a refusal becoming a
+claim is a lie about knowledge, a known instruction being dropped is a
+gap in coverage. **(ad)'s fix must not move (af)**, which is assertable
+because (af)'s rows are counted.
+
+**Minting condition for a red:** (ad) lands first and establishes the
+shape of a non-`NOP` default; (af)'s red is written against that shape
+rather than inventing a second one.
+
+**Recorded alongside:** `UIR_NOP = 0` is the **zero value** of the
+opcode enum (`include/uir.h:27`), so any zero-initialised instruction
+already reads as a no-op. That is the latent form of the same defect.
+Named, not fixed by either letter.
 
 ## (ae), minted 2026-09-20: the ORACLE is confidently wrong over `0F 18`-`0F 1F`
 

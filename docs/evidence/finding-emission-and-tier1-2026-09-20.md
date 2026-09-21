@@ -155,6 +155,17 @@ changes what any analyzer pass reads.**
   mis-rendered instruction is not wrong at that instruction only; it is
   a claim about a region whose contents were not read.
 
+**A second bound, found while enumerating the lifter's readers
+(2026-09-20).** `grep -rn "\.opcode\|->opcode" src/ --include=*.c`
+over the whole tree: **the only UIR opcodes any analysis tests for are
+`UIR_CALL` (`semantic.c:357`) and `UIR_INT` (`semantic.c:478`)**, and
+neither `src/codegen/` nor `src/optimize/` dispatches on the opcode at
+all. **With respect to opcode, the intermediate representation is very
+nearly write-only.** Every other identity the lifter produces —
+correct, wrong or refused — is carried and never read. That is why
+(ad)'s prediction is "nothing moves", and it is a statement about the
+product's depth, not about the fix's size.
+
 **So the honest tier-2 statement, until (aa), (ac) and (ad) land:**
 attributions are sound for regions containing no two-byte instruction
 and unverified elsewhere, and the corpus is 48,244 two-byte
