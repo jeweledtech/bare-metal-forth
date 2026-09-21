@@ -180,6 +180,23 @@ in the tree. (ag) was measured by grep; these four files are the
 stronger statement, and anything counting those directories as
 implemented is counting a comment.
 
+**(ah) minted 2026-09-21 — the multi-architecture statement, beside
+the tier ladder because it belongs in the brief and not only in a
+defect register.** This project's brief is cross-CPU translation, so
+the as-built sentence has to be sayable in one line:
+
+> **x86-64 only. ARM64 decodes and does not lift. RISC-V has no
+> decoder.**
+
+The ARM64 lifter (287 lines) has **no caller**; its bridge struct is
+**128 bytes against the decoder's 160** and would break on the first
+cast; `riscv_decoder.c` is a **773-byte placeholder**. A further **780
+lines** of floored-division code generation for three architectures is
+**compiled by nothing** — not in the build's wildcard, and the target
+that appears to cover it is not in `test-all`. Written into
+`docs/FORTHOS_MULTIARCH_DESIGN.md`, whose Vision section promises "the
+same UBT pipeline — on any silicon".
+
 **So the correct statement of the bound is stronger than "unsound
 until the decoder is repaired".** The decoder fixes (aa), (ac), (ad)
 and (s) make the IR **true**; not one of them makes it **used**. A

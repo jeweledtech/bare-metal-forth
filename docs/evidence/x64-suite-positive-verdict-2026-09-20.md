@@ -52,6 +52,58 @@ redundant-prefix behaviour, which objdump cannot adjudicate because it
 prints the prefix as its own pseudo-instruction, and those need the
 pinned oracle instead.
 
+## The suite's own denominator, added 2026-09-21
+
+**Rule 27 applies to the suite as much as to any instrument.** "25
+suites, 115 tests, all green" is a numerator; this is the denominator,
+and it is a **different** measurement from the 127 above — line
+coverage says which lines *ran*, not whether what ran was *asserted*.
+Both are reported because neither implies the other.
+
+`docs/evidence/x64-suite-coverage-2026-09-21.log`: whole tree rebuilt
+with `--coverage` at `-O0`, `make test-all` run, `gcov` over every
+`.gcda`, maximum per source taken (a file compiled into several test
+binaries has several `.gcda`, and the union is what the suite reaches).
+
+| | lines | executed |
+|---|---|---|
+| `x86_decoder.c` | 909 | **92.4%** |
+| `semantic.c` | 728 | 84.3% |
+| `elf_loader.c` | 282 | 83.0% |
+| `forth_codegen.c` | 230 | 81.7% |
+| `format_detect.c` | 101 | 78.2% |
+| `pe_loader.c` | 323 | 74.6% |
+| `cil_semantic.c` | 65 | 70.8% |
+| `uir.c` | 797 | **51.2%** |
+| `arm64_decoder.c` | 555 | **48.1%** |
+| `translator.c` | 709 | 43.2% |
+| `cil_decoder.c` | 472 | **27.3%** |
+| **TOTAL over the measured tree** | **5,217** | **65.1%** |
+
+**And the figure the table leaves out, stated rather than omitted.**
+The 0% rows are two different things and the first draft of this
+measurement conflated them:
+
+- **Four empty placeholders** — `api_map.c`, `codegen.c`,
+  `riscv_decoder.c`, `optimize.c` — have no executable line, so 0% is
+  correct and complete.
+- **780 lines under `src/codegen/floored_div/` are compiled by
+  nothing.** They are real code for x64, ARM64 and RISC-V floored
+  division; the build's `src/codegen/*.c` wildcard does not descend
+  into that directory, and `test-floored-div` compiles only its own
+  test file and **is not in `test-all`**, so it has never run in any
+  suite invocation.
+
+**Counting those 780 lines as zero gives 56.6% over 5,997 lines.** Both
+figures are on the record; the flattering one was not chosen quietly.
+
+**What it says for the plan.** The queue ends at (s) and the consumer
+starts, and the consumer is the back half of the pipeline. The two
+lowest covered files that matter to it are `uir.c` at 51.2% and
+`translator.c` at 43.2%, and `arm64_decoder.c` at 48.1% is decoding for
+a lifter nobody calls. Knowing what is dead before writing that half
+was worth one command.
+
 ## Why it counts as a result
 
 An expectation that agrees with a second instrument is not proof the

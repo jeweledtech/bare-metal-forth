@@ -1,0 +1,63 @@
+# The suite's own denominator, 2026-09-21 (owner item 2).
+# Rule 27 applies to the suite as much as to any instrument: "25 suites,
+# 115 tests, all green" is a numerator with no denominator printed.
+#
+# Method: whole tree rebuilt with --coverage at -O0, `make test-all` run,
+#   then gcov over EVERY .gcda.  A source compiled into several test
+#   binaries has several .gcda files; the MAXIMUM per source is taken,
+#   because the union of what any run reached is what the suite reaches.
+#   Counting only one would understate it; summing would double-count.
+# Coverage is LINE coverage.  It says which lines ran, not whether what
+#   ran was asserted -- a different and weaker claim than the 127
+#   expectations confirmed against a second instrument.
+
+file                                               lines  executed
+src/decoders/x86_decoder.c                           909     92.4%
+src/ir/uir.c                                         797     51.2%
+src/ir/semantic.c                                    728     84.3%
+src/main/translator.c                                709     43.2%
+src/decoders/arm64_decoder.c                         555     48.1%
+src/decoders/cil_decoder.c                           472     27.3%
+src/loaders/pe_loader.c                              323     74.6%
+src/loaders/elf_loader.c                             282     83.0%
+src/codegen/forth_codegen.c                          230     81.7%
+src/loaders/format_detect.c                          101     78.2%
+src/ir/cil_semantic.c                                 65     70.8%
+src/decoders/x86_opcode_len.h                         31     90.3%
+src/loaders/com_loader.c                              15    100.0%
+src/api/api_map.c                                      0      0.0%
+src/codegen/codegen.c                                  0      0.0%
+src/codegen/floored_div/codegen_floored_arm64.c        0      0.0%
+src/codegen/floored_div/codegen_floored_riscv64.c       0      0.0%
+src/codegen/floored_div/codegen_floored_x64.c          0      0.0%
+src/decoders/riscv_decoder.c                           0      0.0%
+src/optimize/optimize.c                                0      0.0%
+TOTAL over src/                                     5217     65.1%
+
+# The 0.0% rows are TWO different things and the first draft of this log
+# conflated them.  Separated, because they cost differently to fix:
+
+A. EMPTY PLACEHOLDERS -- no executable line exists, so 0% is correct and
+   complete.  Each is a comment plus the stanza added 2026-09-20.
+   src/api/api_map.c            766 bytes
+   src/codegen/codegen.c        775 bytes
+   src/decoders/riscv_decoder.c 773 bytes
+   src/optimize/optimize.c      758 bytes
+
+B. REAL CODE THAT NOTHING COMPILES -- 780 lines, and 0% here means NOT
+   MEASURED rather than not executed.  These are not in SRCS (the wildcard
+   is src/codegen/*.c, which does not descend into floored_div/) and no
+   test target compiles them:
+   src/codegen/floored_div/codegen_floored_arm64.c    260 lines
+   src/codegen/floored_div/codegen_floored_riscv64.c  300 lines
+   src/codegen/floored_div/codegen_floored_x64.c      220 lines
+   The `test-floored-div` target exists, compiles only test_floored_div.c
+   (not these three), and is NOT in `test-all` -- nothing depends on it, so
+   it has never run in any suite invocation.
+
+   So the TOTAL above (65.1% over 5,217 lines) EXCLUDES 780 lines that are
+   in the tree, are not placeholders, and are built by nothing.  Including
+   them as zero gives 56.6% over 5,997 lines.  Both figures are stated
+   rather than the flattering one chosen.
+
+files with executable lines but ZERO executed:
