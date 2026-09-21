@@ -6,10 +6,19 @@ arc is read, replacing the `Open after (n)` / `Open after (a)` /
 lines are historical records of what was open at a moment and must not
 be edited to stay current; this file is current and carries no history.
 
+**Order of work (owner ruling, 2026-09-20): (aa) lands before (s).**
+(s) repairs six forms sitting on an arm that mis-renders 219 opcodes.
+Landing (s) first turns six reds green over a floor still wrong beneath
+them and patches the two-byte map twice instead of building it once.
+(s)'s pre-registration survives — the census, the address sequence, the
+boundary sentence — but its differential figures are taken again after
+(aa).
+
 **Authority.** For anything with a red, `xfail_names[]` in
 `tools/translator/tests/test_x86_decoder.c` is the list and this file
-is a reading of it. The suite prints `pass=93 xfail=20 fail=0 xpass=0
-(tests=113)` today, and the 20 below are those 20 names. For a finding
+is a reading of it. `open_register_is_exactly_the_xfail_list` in that suite parses the
+table below and fails the build if the two disagree, so this file
+cannot drift (owner item 7). For a finding
 with no red, this file is the only record, which is why each one
 carries the **condition that mints it** rather than an intention.
 
@@ -37,6 +46,7 @@ carries the **condition that mints it** rather than an intention.
 | (v) | `x86_RED_v_addr_size_prefix_disp16` | legacy `67` makes mod=10 a disp16 |
 | (y) | `x64_RED_y_lea_register_form_invalid` | `8D C0` LEA register form is #UD |
 | (aa) | `x64_RED_aa_unhandled_two_byte_is_not_nop` | unhandled two-byte opcodes render as NOP |
+| (ab) | `x64_RED_ab_two_byte_arm_ignores_mandatory_prefix` | the arm never reads `66`/`F2`/`F3` |
 
 ## Open, deferred, each with the condition that mints it
 
@@ -54,16 +64,12 @@ closed, because the gap is real and the corpus is what is narrow.
 table's refusal list. Banked separately from (s) so it does not leave
 with it.
 
-**(ab) the two-byte arm is blind to mandatory prefixes.** 1,091 of
-48,241 two-byte instructions carry `66`, `F2` or `F3`; the arm consults
-none of them. That is an upper bound on the affected class, not a
-defect count.
-**Minting condition:** the two-byte map becomes table-driven *and* an
-instrument can separate "the arm ignored the prefix" from "this
-opcode's length is wrong". Today (ab)'s only measurable instance is
-`0F 78`, which is already inside (s)'s scope, so a red would duplicate
-an (s) red rather than distinguish the class — the mask the alias table
-taught us to avoid. Same treatment as (q).
+*(ab) was deferred here and is now minted; see the table above. The
+deferral said its only measurable instance was `0F 78`, which was true
+of the **length** half only. The identity half is 1,091 exposures, and
+the red is an inequality between `0F AE C0` (invalid in both
+instruments) and `F3 0F AE C0` (RDFSBASE, 4 bytes in both), so it needs
+no instruction modelled and (aa) cannot close it.*
 
 ## Not a defect letter, but owed and easy to lose
 

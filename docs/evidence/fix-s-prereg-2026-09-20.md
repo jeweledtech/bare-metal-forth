@@ -662,3 +662,170 @@ not presented as one.
 asserted against the pinned population before summing. Printed by the
 same run as the two denominators above, so the three cannot drift apart
 again.
+
+# Fourth amendment: the scope ruling, two rules, seven items (2026-09-20)
+
+## Scope ruling recorded: (aa) lands before (s)
+
+(s) repairs six forms sitting on an arm that mis-renders 219 opcodes.
+Landing (s) first turns six reds green over a floor still wrong beneath
+them, and patches the two-byte map twice instead of building it once.
+**(s) is re-baselined on a correct default arm and lands second.** This
+pre-registration survives entire — the census, the address sequence,
+the (s)/(r) boundary sentence — and **every differential figure in it
+is taken again after (aa)**, because (aa) moves the identity of 219
+opcodes and the `mnemonic` class cannot be assumed still to be 11,048.
+
+## 1. `512,000` is not a cap, and here is the decomposition
+
+The suspicion was right to raise: 2⁹ × 10³ exactly, from 16 irregular
+addends. It survives.
+
+**The oracle's own totals sum to 512,221**, not 512,000, taken from the
+`INSTRSTARTS total=` line each Ghidra run prints — a different field
+from the `ghidra=` the comparer reports. The 221 is **entirely in the
+four Linux modules**, and every other input has delta 0:
+
+| input | dumped | compared | delta |
+|---|---|---|---|
+| ne2k-pci.ko | 1,244 | 1,193 | 51 |
+| 8139too.ko | 4,077 | 4,026 | 51 |
+| iTCO_wdt.ko | 956 | 907 | 49 |
+| via-rng.ko | 246 | 176 | 70 |
+| the other 12 | — | — | **0** |
+
+**Mechanism, confirmed on via-rng:** an ELF kernel module carries
+`.init.text`, `.exit.text` and `.altinstr_replacement` besides `.text`,
+and `dump_starts` emits `.text` only — it prints `# .text decoded=178
+covered=517 of 517 bytes`, and 517 is exactly `.text`'s `0x205`. Ghidra
+dumps starts in all four sections; the comparer can only compare the
+one both sides emit. `0x7b + 0x28 + 0x0f = 174` bytes of extra code in
+via-rng, which is the right scale for 70 starts.
+
+So 512,000 is **a natural count minus a named, localised exclusion**:
+512,221 dumped, less 221 starts in module sections the decoder-side
+dump does not emit. No row limit, no truncation, no harness maximum
+exists in `compare_starts.py`, `compare_operands.py` or
+`InstrStarts.java`. **64,115 stands.** The roundness is a coincidence,
+and it is now a decomposed one.
+
+*This also fixes the shape of the 512,213 question: the three figures
+are 512,221 dumped, 512,000 compared, and 512,213 from files that no
+longer exist. The withdrawal stands.*
+
+## 2. (ab) is minted, and the deferral was understated
+
+The deferral said (ab)'s only measurable instance was `0F 78`. **That
+was true of the length half only.** The identity half is 1,091
+exposures — every two-byte instruction carrying `66`, `F2` or `F3`
+decodes to whatever the bare form decodes to — and it is the same
+failure as (aa): right length, wrong instruction.
+
+`x64_RED_ab_two_byte_arm_ignores_mandatory_prefix`, red today. The
+witness needs **no instruction modelled**, which is what makes it
+closable:
+
+| probe | Ghidra | objdump | ours |
+|---|---|---|---|
+| `0F AE C0` | NONE | `(bad)` | NOP, len 3 |
+| `F3 0F AE C0` | RDFSBASE len 4 | 4, `rdfsbase %eax` | NOP, len 4 |
+
+One is invalid in both instruments and one is a valid four-byte
+instruction in both, so any decoder that reads the prefix must give
+them **different** answers. The assertion is that inequality.
+**(aa) cannot close it**: making unhandled opcodes `UNKNOWN` leaves
+both arms `UNKNOWN`, which is still the same answer. Outside (s)'s six
+forms. Corpus witnesses for this exact encoding: **0** — the red is a
+unit instrument, stated rather than implied.
+
+## 3. `48,305 → 48,241` propagated, by enumeration not by assertion
+
+`grep -rn "48,305\|48305" docs/ tools/translator/` returns **three
+lines, all in this file**, and all three are already the corrected
+form: the summary table carries 48,241 with the supersession noted, and
+the two prose references name the superseded figure as superseded. No
+other document, test, script or log carries it. The same grep for
+`1,155` returns this file twice and four oracle logs where `1155` is a
+slot number. The enumeration is the evidence; the correction was
+already complete.
+
+## 4. The objdump wrap, scoped
+
+A continuation line carries **bytes and no mnemonic**. So:
+
+- **At risk: line-counting denominators.** One figure was affected and
+  it was mine, today, in the first run of `denominators.py`: 591,696
+  instead of 576,115. No banked figure used line counting — 576,115
+  itself is reproduced exactly by the mnemonic-anchored counter.
+- **Not at risk: pattern-matched counts**, including the 218 CR/DR
+  moves and (z)'s attested set, because the pattern is anchored on the
+  mnemonic field a continuation line does not have.
+- **A third class, which is the one worth naming:** a *raw byte-string
+  grep* over objdump output would be at risk, because a continuation
+  line is nothing but bytes and `66 a9` can appear inside the tail of a
+  longer instruction.
+
+So every corpus count a red depends on was re-taken with the
+mnemonic-anchored parser:
+
+| count | banked | today |
+|---|---|---|
+| (r1) `66 68` | 0 | **0** |
+| (r2) `66 A9` | 1 | **1** |
+| (r3) `66 F7 /0\|/1` | 8 | **8** |
+| (s) `0F C4` / `0F C5` / `66 0F C5` | 1 / 2 / 1 | **1 / 2 / 1** |
+| (aa) `0F A7` | 1 | **1** |
+| (q) VEX / EVEX / REX2 | 0 / 0 / 0 | **0 / 0 / 0** |
+| control `C3` RET | 6,457 | **6,458** |
+
+Every red-bearing count reproduces. The control RET differs by one and
+is **not** reconciled: it is a control, no red rests on it, and the
+honest record is that it moved by one under a counter whose rule is now
+written down while the earlier counter's rule is not.
+
+## 5. The fixture gains the three missing witnesses: v13
+
+`0F 20` had 218 corpus witnesses and `0F 21`, `0F 22`, `0F 23` had
+zero, so "one arm covers all four" was source-read and witnessed once.
+Three rows, nine bytes:
+
+```
+40105d: 0f 20 80    mov %cr0,%rax     (s6)  double-attested len 3
+401060: 0f 21 80    mov %db0,%rax     (s6b) double-attested len 3
+401063: 0f 22 80    mov %rax,%cr0     (s6c) double-attested len 3
+401066: 0f 23 80    mov %rax,%db0     (s6d) objdump 3, Ghidra NONE
+```
+
+`0F 23` at `mod=10` is **single-attested** and is named as the weaker
+row rather than folded in with the other three. The nine bytes shift
+(b) to `401069`, RET to `401073` and the RSM to `401074`, exactly as
+predicted before assembling; the new fixture is
+`b19fcb6911e66fa66bdda105ee5e047f93fe4cafae85fbddb3fe7480dbaee9b4`.
+`x64_RED_s_mov_cr_mod_ignored` now **walks all four opcodes**, so a fix
+keyed on `0F 20` alone leaves it red.
+
+## 6 and 7. The inversion, and the register made executable
+
+**The nine defect-defending tests are neutralised now, not at (aa)'s
+fix**, so no window exists in which the suite asserts both things. The
+sweep rule 30 asks for was run over all 94 passing tests in the decoder
+suite. Nine assert `X86_INS_NOP` for something that is not a NOP, and
+each **names the real instruction in its own comment before asserting
+it is a no-op**: `cmovcc_0F44` (CMOVE), `bt_rm_r_0FA3`,
+`bt_rm_imm8_0FBA`, `cmpxchg_0FB1`, `xadd_0FC1`,
+`unknown_0f_modrm_recovery` (PREFETCH), `desync_recovery_BT_then_IN`,
+`three_byte_0F38` (PSHUFB), `three_byte_0F3A` (PALIGNR).
+
+Each keeps its **length** assertion, which is the oracle-backed
+content, and loses the identity clause, which was read off the product.
+Three `X86_INS_NOP` assertions survive the sweep and all three are
+correct: `0x90`, `0F 1F` multi-byte NOP, and the `0x90` that proves the
+walk continues past an INVALID.
+
+**The register is executable.**
+`open_register_is_exactly_the_xfail_list` parses the register's red
+rows and fails the build when they differ from `xfail_names[]` in
+either direction, refusing on a zero parse. It earned itself
+immediately: it failed the moment (ab) was minted and not yet listed.
+
+Suite: `pass=94 xfail=21 fail=0 xpass=0 (tests=115)`.
