@@ -106,9 +106,37 @@ actually bounds tier 2.**
 `grep -rn "\.opcode\|->opcode" src/ --include=*.c`, whole tree: the
 lifter produces **40 distinct opcodes** and **2 are ever tested by any
 analysis** — `UIR_CALL` (`semantic.c:357`) and `UIR_INT`
-(`semantic.c:478`). `src/codegen/` and `src/optimize/` dispatch on the
-opcode **nowhere at all**. The analysis rests on call edges, interrupts
-and operand patterns, never on instruction identity.
+(`semantic.c:478`). The analysis rests on call edges, interrupts and
+operand patterns, never on instruction identity.
+
+**Upgraded 2026-09-20, and the byte counts say something stronger than
+the grep did.** "No consumer reads the opcode" and "there is no
+consumer" are different claims that cost differently to fix:
+
+| file | size | contents |
+|---|---|---|
+| `src/codegen/codegen.c` | **35 bytes** | `/* Placeholder - Code generator */` |
+| `src/optimize/optimize.c` | **30 bytes** | a placeholder comment |
+| `src/api/api_map.c` | **31 bytes** | a placeholder comment |
+| `src/decoders/riscv_decoder.c` | **35 bytes** | a placeholder comment |
+
+**Two of the four pipeline stages do not exist.** There is no generic
+code generator and no optimizer; `src/codegen/forth_codegen.c` is the
+only generator in the tree. Found because `-Wpedantic` calls an empty
+translation unit a warning, so the build had been saying it on every
+run.
+
+**And the ARM64 half is dead as well**: `uir_lift_arm64_function()` —
+287 lines — has **no caller** anywhere outside its own definition, and
+its bridge struct is **not** layout-compatible with `a64_decoded_t`
+(160 vs 128 bytes; `cc` at 152 vs 120), so it would break on the first
+cast anyone wrote.
+
+**Why this matters to the plan, now rather than in three weeks.** The
+queue is decoder → consumer → tier 1. This makes "build the consumer"
+**writing the back half of the pipeline**, not adding a pass. Same
+order, much bigger middle step, and the scope is visible before the
+queue arrives at it.
 
 **(aa), (ac), (ad) and (s) together make the IR _true_. None of them
 makes it _used_.** Every pre-registration in this arc therefore says

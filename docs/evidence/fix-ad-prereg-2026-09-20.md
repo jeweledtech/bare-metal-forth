@@ -406,3 +406,90 @@ sentence.
 first cell and a backticked second cell, deliberately shaped to break a
 loose parser — so the predicate is tested by the document it reads
 rather than protected from it.
+
+---
+
+# Second hold discharged: the mirror's reason, (ag)'s scope, and trap rows everywhere (2026-09-20)
+
+## 1. The mirror is deliberate, and the reason was in the header's own first line
+
+`uir.h` declares itself a **platform-independent IR**. Including
+`x86_decoder.h` there would make every consumer of `uir.h` —
+`semantic.c`, `translator.c`, six test suites, the ARM64 path — depend
+on the x86 decoder's header, which contradicts what the file says it
+is. **So the boundary is deliberate: one input-bridge struct per
+architecture, and the IR header depends on no decoder header.**
+
+**The obligation now lives where it is maintained**, in `uir.h` beside
+the struct: callers cast, so the mirror must match exactly; the
+enforcement is the `_Static_assert` block in `uir.c`; and the note says
+plainly that they agreed **by accident** until those asserts landed.
+The alternative — delete the mirror, include the real header — was
+rejected because it would make a platform-independent header depend on
+one architecture's decoder.
+
+### And checking the reason found the other half of the pattern is broken
+
+**The ARM64 bridge is not layout-compatible with its decoder struct.**
+Measured: `sizeof(a64_decoded_t)` is **160** and `uir_arm64_input_t` is
+**128**; `cc` sits at **152** there and **120** here. It must be
+populated field by field and must never be cast the way the x86 one is.
+No assert guards it **because there is nothing true to assert**.
+
+**And it is unreached**: `uir_lift_arm64_function()`, 287 lines, has
+**no caller** anywhere outside its own definition. Both facts are now
+recorded in `uir.h` at the struct, where the next person to write a
+cast will read them.
+
+## 2. (ag) upgraded: two of four pipeline stages do not exist
+
+"No consumer reads the opcode" and "there is no consumer" are different
+claims that cost differently to fix, and the byte counts settle which
+one is true:
+
+| file | size |
+|---|---|
+| `src/codegen/codegen.c` | **35 bytes**, `/* Placeholder - Code generator */` |
+| `src/optimize/optimize.c` | **30 bytes** |
+| `src/api/api_map.c` | **31 bytes** |
+| `src/decoders/riscv_decoder.c` | **35 bytes** |
+
+**There is no generic code generator and no optimizer.**
+`forth_codegen.c` is the only generator in the tree. **So "build the
+consumer" is writing the back half of the pipeline, not adding a
+pass** — same queue order, much bigger middle step, and it is on the
+register now rather than discovered when the queue arrives there.
+
+## 3. Trap rows generalised: every executable check now carries one
+
+The register's check was only found wrong because a closing table
+happened to break it. **A check with a deliberate adversarial case in
+its own input is tested by the thing it protects**, and that is now the
+pattern rather than one lucky instance.
+
+**`scripts/smoke_shipped.sh --self-test`** feeds the assertions four
+outputs that must be **rejected** — too few lines, first line not at
+the entry, a run of address-0 lines, the moffs address absent — and one
+well-formed output that must be **accepted**, because a check that
+rejects everything is not a check. 5 cases, 0 failures.
+
+**`scripts/denominators.py --self-test`** drives both refusals
+directly — a missing input, an input yielding zero instructions — plus
+the positive control. 3 cases, 0 failures. The refusals were asserted
+by reading the source before; now they have been seen to fire.
+
+**Both run inside `test-shipped-binary`, ahead of the check they
+guard**, with a line saying why: a pass below proves nothing unless the
+checks above can fail.
+
+**One gate-discipline defect fixed while restructuring:** the smoke
+test's missing-fixture branch printed `SMOKE SKIP` and **exited 0** — a
+skip reading like a pass. The fixture is a committed artefact and
+cannot legitimately be absent, so absence is now a failure.
+
+**Clean build, 25 suites, 0 warnings under `-Werror`, both self-tests
+at 0 failures** (`fix-ad-selftests-green-2026-09-20.log`).
+
+**Still owed:** the xfail-list equality check has its trap row; these
+two now have self-tests. Any executable check added from here carries
+one at birth.
