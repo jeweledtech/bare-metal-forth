@@ -626,15 +626,17 @@ test-make-wiring:
 	@python3 tests/test_make_wiring.py
 
 # UBT LLM validation (single-binary, requires NVIDIA_API_KEY)
+# The driver corpus is read from CORPUS_ROOT and never copied into this repo.
+CORPUS_ROOT ?= $(CURDIR)/tests
 ubt-llm-validate:
 	@echo "Running UBT LLM validation on i8042prt.sys..."
 	@cd tools/ubt-llm && python3 ubt_llm_validate.py \
-		--binary $(CURDIR)/tests/hp_i3/i8042prt.sys
+		--binary $(CORPUS_ROOT)/hp_i3/i8042prt.sys
 
 ubt-llm-validate-prefilter:
 	@echo "Running UBT LLM validation with prefilter on i8042prt.sys..."
 	@cd tools/ubt-llm && python3 ubt_llm_validate.py \
-		--binary $(CURDIR)/tests/hp_i3/i8042prt.sys --prefilter
+		--binary $(CORPUS_ROOT)/hp_i3/i8042prt.sys --prefilter
 
 test-file-stream: $(IMAGE)
 	@PORT=$$(($(TEST_PORT_BASE)+55)); \
