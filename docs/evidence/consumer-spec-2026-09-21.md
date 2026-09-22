@@ -249,3 +249,67 @@ and the fourteen standing expected failures.
 code generator or optimizer — those are two more pipeline stages, and
 whether they are ever built is a separate decision that this
 specification does not touch.
+
+---
+
+# Amendment: the second instrument, named and run once (2026-09-21)
+
+**"Attested by a second instrument" was an exit with an unnamed gate** —
+the same shape as a prediction with no named baseline, which has bitten
+this arc three times. So it is named here, and **run once before any
+pass exists that could be tuned against it**.
+
+## The instrument
+
+**Ghidra 12.1.2's own decompiler data flow**, pinned at snap revision
+47 — the same pin as every other oracle run in this arc.
+`tools/ghidra/MmioChains.java`, committed: for each call to a mapping
+API it decompiles the containing function and walks the high-level
+P-code varnode graph **forward from the call's output**, reporting
+every load or store the returned pointer reaches, with size and offset.
+
+It is a genuine second opinion rather than a re-run of our own logic:
+different disassembler, different lifter, different data-flow engine,
+and it was written and run before the pass it will judge exists.
+
+## What it CAN reach, and what it CANNOT — measured, not asserted
+
+**First run, `i8042prt.sys` (HP), the whole file:**
+
+```
+MMIOCHAIN  1c0012a70  1c0012b58  MmMapIoSpaceEx  1c0012b70  STORE  8  0x0
+MMIOSUMMARY  calls=1  followed=1  unfollowed=0
+```
+
+One mapping call, and the chain is followed. **And the chain's end is
+the instrument's limit, which is the point of running it early.** The
+bytes:
+
+```
+1c0012b58:  call *-0x1aef(%rip)        # MmMapIoSpaceEx
+1c0012b64:  mov  %rax,%rcx
+1c0012b70:  mov  %rcx,0xd0(%rax,%rbx,8)
+```
+
+**The mapped pointer is stored into a global table** at `0x1c000f100`,
+offset `0xd0`, indexed by `rbx`. The forward walk correctly stops
+there, because continuing requires reasoning about that structure and
+its later reloads elsewhere in the driver.
+
+| | |
+|---|---|
+| **CAN reach** | the call site; the returned pointer; every use in the same function, up to and including the store that parks it |
+| **CANNOT reach** | any use *after* the pointer is stored into a global or a struct field and reloaded in another function — which is **exactly what this driver does** |
+| **CANNOT reach, restated** | the device. Confirmed separately: the HP trip recorded xHCI `BAR0`; the iron logs return nothing for `i8042` or `keyboard` |
+
+**So the exit's bar is now concrete.** For this driver the attestable
+statement is *"the function at `1c0012a70` maps a region at
+`1c0012b58` and parks the pointer at `1c0012b70`, offset `0xd0` of a
+global table"* — not *"and then writes four bytes at offset `0x10`"*,
+because neither instrument can follow the reload without a store/load
+model neither has.
+
+**That is a narrower exit than §7 first implied, and it is narrowed
+now rather than at the exit.** If the consumer is to make the fuller
+statement, a memory-parking model is a **named prerequisite** and its
+absence is not something to discover when the exit is claimed.
