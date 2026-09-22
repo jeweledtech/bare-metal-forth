@@ -807,3 +807,73 @@ on its own driver.
 function, and none of them rests on an assumption about two device
 extensions being the same object. **Against "0 of 320", thirteen proven
 instruction-derived accesses is the first positive entry of any size.**
+
+---
+
+# The base register checked, and my checker was wrong twice (2026-09-21)
+
+## 1. Same register name is not same value — measured, and it holds
+
+**The claim "one register lineage" was an ABI assumption dressed as an
+observation.** `%rdi` is callee-saved on Win64, which makes it likely,
+not proven. Checked directly:
+
+| | |
+|---|---|
+| reloads of `0x58(%rdi)` in the park function | **13** |
+| **bare writes to the `rdi` family** (`%rdi`/`%edi`/`%di`/`%dil`) between the park and the last reload | **0** |
+| calls in that span | 27 |
+| **reloads whose base is proven unwritten since the park** | **13 of 13** |
+
+**Two independent grounds, and they are different in kind.** The *code*
+claim is measured: this function never writes the register. The *ABI*
+claim covers the 27 intervening calls and is a **cited convention**
+(`%rdi` is non-volatile on Win64), not a measurement. Both are stated;
+neither is presented as the other.
+
+## And my checker was wrong twice, the same way
+
+**First:** it matched writes with `,%rdi$` — **only the 64-bit name**.
+Writing `%edi` zeroes the upper half and therefore writes `%rdi`, so
+the first check could not have seen a whole class of writes.
+
+**Second, after widening to the family:** it reported **2 writes**,
+`xchg %eax,0x100(%rdi)` and `xchg %eax,0x104(%rdi)`. **Neither writes
+`%rdi`** — in both, `%rdi` is a **memory base**, and the exchange is
+between `%eax` and memory. My rule was `'di' in ops`, a **text match
+where a value was meant**, which is the identical error to the
+`,%reg$`-against-a-comment bug that withdrew the last correction.
+
+**That is the fifth instance, and it was in the checking script rather
+than the instrument.** Fixed by splitting operands on commas *outside
+parentheses* and requiring a **bare** register in a writing position.
+The corrected count is 0 writes, and the 13 stand.
+
+## 2. The exit says one park, one function, one driver
+
+**Reworded, because "13 proven" read alone overstates the
+independent-sample count, which is one:**
+
+> **Stage 2 is done when it produces 13 accesses through 1 park in 1
+> function of 1 driver** — `HDAudBus.sys` function `1c0022510`, park
+> `1c002267d` at `0x58` — as per-access statements *"reads N bytes at
+> offset X"*, attested by `MmioChains.java` and `FuncRanges.java`, with
+> at least one hand-checked against bytes.
+
+**Never "13 proven" standing alone.** A reader six months out would
+take that as thirteen confirmations, and it is thirteen dereferences of
+one pointer in one place. It is still the first positive entry against
+0 of 320, and it does not need inflating to be that.
+
+## 3. The offset-0 access here is genuine, and that is noted deliberately
+
+`1c00226e2: movzwl (%rax),%r8d` reads **two bytes at offset 0x0**, and
+it sits beside `movzbl 0x3(%rax)` and `movzbl 0x2(%rax)`.
+
+**"Every one at offset zero" was the tell of an earlier instrument
+defect** — the chain walker's offset extraction handled only a simple
+constant add and printed `0x0` for everything. **This is not that.**
+Offset 0 appears here alongside 0x2 and 0x3 in the same register
+window, from bytes a person can read, and a mapped region's first word
+is an ordinary thing to read. Recorded so a later reader does not
+mistake a real zero for the old artefact.
