@@ -1,0 +1,27 @@
+# test-corpus-absent, 2026-09-22.  Each suite that reads the driver corpus is run
+# with CORPUS_ROOT pointed at an EMPTY directory and must exit nonzero.
+# Inputs: private 4dae1e7 + working tree;
+#   sha256 c3d758ea74966b46c84d7f9dd5b5895ac57212437ac00a9e6d9617adf727fb7e  tests/test_port_attestation.c (after fix)
+#   sha256 a44523385649f5e3c22cc3046c0e9ef1ca05de83fee4f92b6dfa9e36caddc13e  tests/test_hp_drivers.c (after fix)
+#   sha256 eb648000f818b71dfdd728ffc776337f22ca3be4943f05bdf14963915090cfad  tests/test_mmio_consumer.c (unchanged; already refused)
+#   sha256 f1e0919e6ce81e7540d04c5592e60aa85d49568759078c204f1e753e223ccfad  Makefile (after fix)
+
+## RED, before the fix (suites unchanged, gate added):
+Corpus-absent refusal: each corpus suite must fail on an empty root...
+  refused: test-mmio-consumer -- FAIL: cannot read /tmp/tmp.P2MmdKyK3y/hp_i3/i8042prt.sys
+  RED: test-port-attestation exited 0 with CORPUS_ROOT=/tmp/tmp.P2MmdKyK3y (empty): a pass without its inputs
+  RED: test-hp-drivers exited 0 with CORPUS_ROOT=/tmp/tmp.P2MmdKyK3y (empty): a pass without its inputs
+  3 suites checked, 1 refused, 2 passed without inputs
+make: *** [Makefile:657: test-corpus-absent] Error 1
+gate exit=2
+
+## GREEN, after the fix:
+Corpus-absent refusal: each corpus suite must fail on an empty root...
+  refused: test-mmio-consumer -- FAIL: cannot read /tmp/tmp.CcNu0DMf7k/hp_i3/i8042prt.sys
+  refused: test-port-attestation -- FAIL: corpus input missing: 8 of 8 drivers absent under /tmp/tmp.CcNu0DMf7k/hp_i3
+  refused: test-hp-drivers -- FAIL: corpus input missing: /tmp/tmp.CcNu0DMf7k/hp_i3/ACPI.sys
+  3 suites checked, 3 refused, 0 passed without inputs
+
+## with the corpus present, the census is unchanged:
+  test totals: 381 across 27 suites (baseline 381)
+  register: 14 reds across 27 suites, union matches
