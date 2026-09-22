@@ -22,7 +22,52 @@ cannot drift (owner item 7). For a finding
 with no red, this file is the only record, which is why each one
 carries the **condition that mints it** rather than an intention.
 
-## Open, with a red (15)
+## (aj) CLOSED 2026-09-22 — stage 1 of the identity consumer
+
+**The report now carries its first instruction-derived field.** Every
+other per-function field — the classification, `has_port_io`,
+`has_mmio`, the HAL calls — is set from a matched entry in the import
+table, which is 320 hardware functions across eight drivers and **zero**
+resting on an instruction. This one is read out of the code:
+
+```json
+"mapped_regions_analysed": true,
+"mapped_regions": [
+  { "api": "MmMapIoSpaceEx",
+    "call_site": "0x1C0012B58",
+    "park_site": "0x1C0012B70",
+    "park_indexed_displacement": "0xD0" }
+]
+```
+
+**Every value matches the census and the hand-check byte for byte**, and
+**the key name carries the claim**: that park is
+`mov %rcx,0xd0(%rax,%rbx,8)`, a scaled-indexed array element, so
+`park_offset` would overstate it and only
+`park_indexed_displacement` is true. The test asserts the **key**, not
+just the value, which is what stops the weaker statement passing as the
+stronger one.
+
+**The statement is a negative about the device, and that is the
+result.** This driver maps a region, parks the base, and the only
+identity-checked load of that slot reaches `MmUnmapIoSpace`; it drives
+a **port-mapped** device. Against *0 of 320*, a proven negative is the
+first entry of any kind.
+
+**Two things the first implementation got wrong, both found by running
+it:**
+
+- It looked for a store whose source is the return register. The return
+  is **copied first** (`mov %rax,%rcx`), so it reported *"not stored"*,
+  which is **false** — it is stored, through one copy. Now a small
+  def-use set follows the value.
+- It stopped at the end of the call's basic block. The park sits past
+  that boundary, so the walk now continues in program order.
+
+**Gate: exactly one name.** `test_mmio_consumer` is back to an empty
+expected-failure list.
+
+## Open, with a red (14)
 
 **The table is the whole list, across every suite.** Until 2026-09-21
 the executable check compared it against `test_x86_decoder.c`'s
@@ -39,7 +84,6 @@ asserted so a renamed suite cannot shrink the union silently. The
 
 | letter | red | suite | what is wrong |
 |---|---|---|---|
-| (aj) | `aj_report_names_the_mapped_region_and_its_park` | mmio-consumer | no mapped-region record exists, so the statement cannot be made |
 | (d') | `x64_RED_rex_b_push_r12` | decoder | REX.B not applied to an opcode-embedded register |
 | (f) | `x64_RED_byte_reg_sil_under_rex` | decoder | reg 4-7 at size 1 under REX is SPL/BPL/SIL/DIL |
 | (g) | `x64_RED_truncated_imm32_refused` | decoder | immediate read past the code buffer |

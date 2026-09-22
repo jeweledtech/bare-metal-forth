@@ -1036,3 +1036,83 @@ and the C-source contract (6). **Each built from the defects that
 produced its module.**
 
 **27 suites, 0 warnings, exit 0 from a clean build.**
+
+---
+
+# Stage 1 built and green, and the rebaseline bypass closed (2026-09-22)
+
+## The census cannot be laundered
+
+**`--update` refuses a decrease.** Rebaselining is the tempting
+resolution the moment the check fires, and it is the same shape as
+loosening a threshold, which rule 33 refused: it makes the instrument
+agree with the defect instead of reporting it.
+
+> **A census drop is never resolved by rebaselining; only a rise is.**
+
+**Controlled:** a scripted deletion of one test gives
+
+```
+REFUSED: test_uir.c would drop 26 -> 25
+A census drop is never resolved by rebaselining.  Tests were lost:
+explain or restore them.  If the loss is deliberate, re-run with
+--allow-loss, which records it in the baseline so the path taken is
+visible.
+```
+
+**`--allow-loss` writes the override into the baseline file** —
+`# LOSS ALLOWED 2026-09-22: test_uir.c 26 -> 25` — so the laundering
+path is visible in the diff whenever it is taken, and it clears on the
+next honest update.
+
+## Stage 1 is green, and the report has its first instruction-derived field
+
+```json
+"mapped_regions_analysed": true,
+"mapped_regions": [
+  { "api": "MmMapIoSpaceEx",
+    "call_site": "0x1C0012B58",
+    "park_site": "0x1C0012B70",
+    "park_indexed_displacement": "0xD0" }
+]
+```
+
+**Every value matches the census and the hand-check byte for byte.**
+The test asserts the **key name** as well as the value, because this
+park is `mov %rcx,0xd0(%rax,%rbx,8)` — a scaled-indexed array element —
+so `park_offset` would overstate it. Asserting the key is what stops
+the weaker statement passing as the stronger one.
+
+**It is asserted end to end through the shipped path**, on the report a
+reader actually sees, not on an internal struct.
+
+**Two defects in the first implementation, both found by running it:**
+
+| the pass did | why it was wrong |
+|---|---|
+| looked for a store whose source is the **return register** | the return is **copied first** (`mov %rax,%rcx`), so it reported *"not stored"* — **false**, it is stored through one copy |
+| stopped at the end of the call's **basic block** | the park sits **past** that boundary |
+
+Both are now handled: a small def-use set follows the value through
+register copies, and the walk continues in program order.
+
+**Gate: exactly one name**, `test_mmio_consumer` back to an empty
+expected-failure list. **27 suites, 0 warnings, exit 0 from a clean
+build**, census 381 across 27, register union matching at 14 reds.
+
+## House style, named because it arrived by accumulation
+
+**Every instrument carries a regression suite made of its own
+history.** Four now run inside the suite, each built from the defects
+that produced its module:
+
+| self-test | cases | built from |
+|---|---|---|
+| shipped-binary checks | 7 | a mixed link, a skip that read as a pass, a stale ratio |
+| denominator refusals | 3 | a missing input, an input yielding zero |
+| operand roles | 10 | six instances of matching text where a value was meant |
+| C-source contract | 6 | quoted prose in a comment, a one-line initialiser, a non-identifier literal |
+
+**It arrived by accumulation rather than decree**, which is why it
+stuck: each was written the hour its module's defect was found, not
+from a policy.
