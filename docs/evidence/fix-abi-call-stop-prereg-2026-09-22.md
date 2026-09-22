@@ -74,3 +74,84 @@ case sits inside it too, and that case is separated out.
 ## Outcome
 
 *(below this line, from the artefact only)*
+
+**Inputs hashed:** `bin/translator` `4852c9c516ec295c` (the pre-stop run was
+`9dcde79bec4b3f75`). The census scripts were unchanged against
+`SHA256SUMS`. The diagnostic build is in scratch only; its outcomes match
+the census site for site on all four machines (0 mismatches).
+
+**(ap):** exactly one XPASS; `pw_GUARD_volatile_register_dies_at_call` stayed
+PASS. 390 tests across 27 suites, 14 reds, the union matching.
+
+| # | predicted | observed |
+|---|---|---|
+| C1 | HP byte-identical; one walk freed and ending `none` | **byte-identical, 12 of 12 lines.** The freed storport walk ended at `ret`, as read from the bytes |
+| C2 | `none` falls by at most 28 / 30 / 28 | fell by **15 / 17 / 15**. The walks freed were **exactly 28 / 30 / 28** |
+| C3 | only `none` sites move; site sets unchanged | **held.** Site sets identical; every move started from `none` |
+| C4 | couldn't-tell can rise | **rose 13 / 14 / 13** |
+| C5 | *guess:* 10–30 parks, a third or more `none` again | parks **7** (2 / 3 / 2), **below the guessed range**; `none` again 13 / 13 / 13 (46%, 43%, 46%), inside |
+| C6 | every new park checked against the bytes | **all 7 read, all 7 real.** See below |
+
+**The seven parks this repair created, each read against the bytes:**
+
+- `fvevol.sys`, one per machine (`0x280` / `0x270` / `0x278`): the base
+  goes to RSI, a helper is called, `js` jumps to the error path, and the
+  fallthrough stores RSI at `0x2xx(%rdi)`. **Straight-line, and real**: RSI
+  is callee-saved.
+- `scsiport.sys`, one per machine (`0x8`): the base goes to RDI, an
+  allocation is called, then `jne` goes to `mov %rdi,0x8(%rax)`, which files
+  the base into the new object. **Real, but reached by the wrong route.** The
+  walk fell through the failure block and its `jmp`, and agrees only
+  because nothing on that stretch touches RDI.
+- `Netwtw08.sys` (older ASUS, frame `0x70`): a join block reached by eleven
+  `je`/`jb` from the success-side body. R12 is written once, by the mapping
+  call's `mov %rax,%r12`, so every path holds the base. **Real frame
+  spill**, again reached in address order and not by path.
+
+**None is false. Four of the seven are right by address order and not
+verified by path**, which is the branch-following limit, and it is now
+producing correct answers it cannot vouch for.
+
+**The ABI limit, measured where it could be:** the walks crossed 96 / 121 /
+96 calls with the base live. Of those, 34 / 36 / 38 were imports, all kernel
+APIs, **none of them noreturn**; the rest are calls internal to the driver.
+Hand-written callees remain unmeasured. **A hazard found:** 66 of the
+crossings are `MmUnmapIoSpace`. The walk carries the base past the call that
+releases it. None of the seven parks is a store after an unmap *on its real
+path*, but the three `scsiport` parks cross one on their address-order
+route.
+
+**What stopped the new couldn't-tell (40):** `mov %cr8,%rbx` 12 (all in
+`mlx4_bus.sys`, an inlined IRQL read the decoder does not name, writing
+RBX), `lfence` 8, `cmovcc` 9, `sete` 3, `movsd` 2, `bt`-family 4, `int3` 2,
+`rep` and `cqto` 1 each.
+
+**The byproduct: the residual.** 13 freed walks per machine still end as
+`none`:
+
+| machine | ended at RET, base kept, nothing stored | ended at a later CALL with the base only in argument registers |
+|---|---|---|
+| Dell | **8** | 5 |
+| ASUS (older) | **7** | 6 |
+| ASUS (newer) | **8** | 5 |
+
+The right column is class A met again at a later call, so it is
+interprocedural and not a branch problem. **The left column, 8 / 7 / 8, is
+the upper bound on the branch-following share** of what class B held. Those
+walks kept the base across every call and reached a return without storing
+it, which is what a linear walk down the wrong side of a branch looks like.
+It is also what a function that returns the base looks like, so it is an
+upper bound and not a measurement. **That is the size of the deferred job,
+as far as this census can see it.**
+
+**The census, both ways, after the stop:**
+
+| machine | structure / all sites | structure / resolved | none | couldn't tell |
+|---|---|---|---|---|
+| HP | 6/12 = 50% | 6/9 = 67% | 1 (8%) | 2 |
+| Dell | 90/172 = 52% | 90/115 = 78% | 33 (19%) | 24 |
+| ASUS (older) | 80/171 = 47% | 80/109 = 73% | 37 (22%) | 25 |
+| ASUS (newer) | 95/184 = 52% | 95/121 = 79% | 41 (22%) | 22 |
+
+The `none` gap narrows from 28–32% to 19–22% against HP's 8%, and most of
+what left `none` went to couldn't-tell, not to parks.
