@@ -341,7 +341,10 @@ the second instrument:
 | **total** | **12** | **10** | **2** | **0** | **12** |
 
 > **Zero of twelve mapping calls have a chain reaching an access to the
-> mapped region. All twelve park the pointer into memory instead.**
+> mapped region.** ~~All twelve park the pointer into memory instead.~~
+> **Corrected 2026-09-21: TEN park the pointer.** Two of the twelve
+> stores are one byte from a byte register and cannot be an eight-byte
+> base — see the classification below.
 
 **So the consumer as specified would produce zero statements on this
 corpus.** Not few — none. The statement §4 promises — *"maps a region
@@ -509,3 +512,110 @@ finding until it is applied.
 
 **Stage 2 is scoped, not started.** Its own exit and its own red come
 before its code, as stage 1's did.
+
+---
+
+# The identity check run early, the window retired, and the count corrected (2026-09-21)
+
+## 1. The named exit driver passes stage 1 and yields nothing at stage 2
+
+**Run now rather than at stage 2's gate, and the risk was real.**
+
+The park is `mov %rcx,0xd0(%rax,%rbx,8)`, and `%rax` comes from
+`mov -0x3a70(%rip),%rax` — **the global at `0x1c000f100`**. So the join
+key is that global, scaled by `%rbx*8`, displacement `0xd0`.
+
+Of the **9** loads at displacement `0xd0` in this driver, **8 fail the
+identity check**: they are `0xd0(%rcx)` or `0xd0(%rax)`, unscaled, and
+their bases trace back to `0xd8(%rcx)` and `0x40(%rcx)` chains — **a
+different structure that merely shares the number**.
+
+**Exactly one passes**, at `1c0013a2b`:
+
+```
+1c0013a1c:  mov  -0x4923(%rip),%r8      # 0x1c000f100   <- the SAME global
+1c0013a23:  xor  %ebx,%ebx
+1c0013a25:  cmp  %ebx,0x40(%r8)                          <- loop bound
+1c0013a2b:  mov  0xd0(%r8,%rbx,8),%rcx                    <- the reload
+1c0013a3c:  call *-0x2923(%rip)         # 0x1c0011120
+```
+
+**Same global, same scale, same displacement — a true reload.** And
+what it reaches is a **call**, with the base as the first argument.
+That slot has **exactly one call site in the whole driver**, and the
+function containing it (`0x1c00139d0`) is the one the report says calls
+**`MmUnmapIoSpace`** — the driver's only other `Mm*` import.
+
+> **`i8042prt` maps a region, parks the base in a global table, and the
+> only correctly-joined reload passes it straight to `MmUnmapIoSpace`.
+> It never dereferences the mapped region at all.**
+
+**So the named exit driver passes stage 1 and yields nothing at stage
+2 — and not because the analysis is too weak. Because the driver does
+not do it.** That is the second-instrument catch's shape exactly, and
+the census discipline surfaced it before the work rather than at the
+gate.
+
+**This is a ruling the owner owns**, and the options are stated rather
+than chosen:
+
+- **Keep `i8042prt` for stage 1 and name a different driver for stage
+  2.** Stage 1's exit is about parking and this driver parks; stage 2
+  needs a driver that dereferences. The census says which do.
+- **Move both stages to one driver that does both.** `serial`
+  (`0xe8`, 122 candidate derefs) and `HDAudBus` (`0x58`, 108) are the
+  strongest candidates, and both park at a **plain** displacement,
+  which loses the hard-path property that made `i8042prt` a good
+  stage-1 subject.
+- **Keep `i8042prt` for both and accept that stage 2's exit is "no
+  accesses, and here is why"** — a true statement, attested, and a
+  weaker deliverable.
+
+## 2. The window was an undeclared knob. It is retired, not tuned
+
+**Provenance, stated plainly: there is none.** I picked 8, then 24, to
+see whether the answer moved. **A knob with no provenance moving a
+finding is exactly what the alias table is hashed to prevent**, and
+this one was worse than unhashed — it was invented mid-measurement.
+
+**Replaced by liveness**, which is a property of the program rather
+than a number I chose: the scan stops when the destination register is
+**overwritten**, or when a **call** clobbers it. Both are facts about
+the code.
+
+| bound | dereferences found |
+|---|---|
+| window 8 | 900 |
+| window 24 | 925 |
+| window 48 | 933 |
+| window 128 | 935 |
+| **liveness** | **935** |
+
+**The answer is window-independent once liveness bounds it** — 935 is
+the asymptote, reached by 128 and equalled exactly by liveness.
+
+**And the earlier figure was inflated.** The 1,174 reported last round
+did **not** stop at overwrites or calls, so it counted dereferences of
+registers whose value had already been destroyed. **The honest figure
+is 935, which is 239 lower.** The larger number is withdrawn.
+
+**On the named driver, liveness settles it in three instructions**: the
+reload at `1c0013a2b` is consumed by the call at `1c0013a3c`, and a
+call clobbers `%rcx`. No window of any size changes that.
+
+## 3. The count is ten, not twelve
+
+**Corrected wherever it was carried**, by the seventeenth rule — a
+corrected source does not refresh the figures derived from it:
+
+- **12 mapping calls** — unchanged, that figure was always right.
+- **~~12 parks~~ → 10 parks.** Two of the twelve store one byte from a
+  byte register and cannot be an eight-byte base.
+- **9 plain + 1 scaled-indexed + 0 unjoinable**, summing to 10.
+
+**Still a ceiling, and the reason is now measured.** 935 is a
+**displacement-only** join. On the one driver where the identity check
+has been applied it removed **8 of 9** candidates. Until that check is
+applied corpus-wide, **935 is an upper bound with a measured
+false-positive rate of ~89% on its single tested site**, and it is not
+quotable as a finding.
