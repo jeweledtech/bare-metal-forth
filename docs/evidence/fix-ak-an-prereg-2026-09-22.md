@@ -64,3 +64,36 @@ lifter repair above.
 ## Outcome
 
 *(below this line, from the artefact only)*
+
+**Inputs hashed:** `bin/translator` `9a46c0e921bc5b8b`, `semantic.c`
+`dc0093d94a023c52`, `uir.c` `e9eea32293c74944`, `uir.h` `4a1f720ece8cec84`,
+`semantic.h` `bda7327582c0e915`. Pre-fix binary `5628af0744ae4087`.
+
+| # | predicted | observed |
+|---|---|---|
+| P1 | four XPASS, guard PASS | **exactly four**, the four names, guard PASS (`fix-ak-an-xpass-gate-2026-09-22.log`) |
+| P2 | ten sites unchanged, serial's two undetermined at `0x1C000C710` / `0x1C000C7F6` | **exactly that.** 10 of 12 byte-identical report lines; serial's two read `"park_undetermined_at": "0x1C000C710"` and `"0x1C000C7F6"` |
+| P3 | `-t uir`: line counts identical, only `nop`→`unknown` and `mov`→`xchg` change | **line counts identical on all 12 inputs; 0 lines changed any other way** (whitespace-normalised; the printer pads the mnemonic, which my first diff did not allow for and reported as 75,912 "other" lines, a checker error, not a product one) |
+| P4 | census unchanged, register 18 → 14 | 386 → **387** (one test added below), register **14**, union matches |
+| P5 | stage 1 and port attestation unchanged | both PASS; port attestation 8 drivers analysed |
+| P6 | an undecided opcode fails the build naming `uir_writes` | `error: enumeration value 'UIR_GUARD_PROBE' not handled in switch [-Werror=switch]` in `uir_writes` |
+
+**`-t uir` movement, per input** (`nop`→`unknown` / `mov`→`xchg`): ACPI
+22,435 / 34, disk 1,812 / 1, HDAudBus 3,494 / 9, i8042prt 2,338 / 10, pci
+14,947 / 12, serial 2,521 / 10, storport 14,820 / 48, usbxhci 13,023 / 29;
+controls: nmap_service 336 / 4, beep 4 / 2, ReactOS serial 6 / 0; fixture
+17 / 0. **On the eight HP drivers, 75,390 instructions the decoder cannot
+name had been printing as `nop`.**
+
+**One change not pre-registered, found during P3 and given its own red.**
+The beep control's dump shows `xchg [r3+56], r0`. An exchange with memory
+*stores* the register, so if that register holds the base the exchange
+is the park, and the walk as first written would have cleared it and
+printed "none" for a park that exists. The walk now stops there as
+undetermined. `pw_xchg_with_memory_is_not_a_silent_none` failed with the stop
+removed and passes with it; P2 is byte-identical either way.
+
+**P2's cost, now paid:** serial.sys reports **0 parks and 2 undetermined**,
+where it reported two real parks. The repair that recovers them, which is
+the lifter carrying the decoder's operand for the unmodelled identities,
+is named and not taken.

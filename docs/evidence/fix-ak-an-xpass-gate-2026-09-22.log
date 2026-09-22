@@ -1,0 +1,9 @@
+# (ak)-(an) XPASS gate, 2026-09-22: test-semantic against the fixed walk, before the four
+# names were removed from xfail_names.  Expected: exactly four XPASS, guard PASS.
+  TEST: pw_GUARD_plain_park_is_found                       PASS
+  TEST: sem_RED_ak_read_only_dest_keeps_the_base           XPASS: expected failure PASSED - stop; correct the register, then remove from xfail_names
+  TEST: sem_RED_al_invisible_write_is_not_a_park           XPASS: expected failure PASSED - stop; correct the register, then remove from xfail_names
+  TEST: sem_RED_am_xchg_records_both_writes                XPASS: expected failure PASSED - stop; correct the register, then remove from xfail_names
+  TEST: sem_RED_an_unseeable_write_stops_the_walk          XPASS: expected failure PASSED - stop; correct the register, then remove from xfail_names
+Results: 39/43 passed (xfail=0 of 4 registered, xpass=4)
+HARD FAILURE: 4 expected failure(s) passed (XPASS).
