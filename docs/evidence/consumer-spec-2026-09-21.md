@@ -313,3 +313,92 @@ model neither has.
 now rather than at the exit.** If the consumer is to make the fuller
 statement, a memory-parking model is a **named prerequisite** and its
 absence is not something to discover when the exit is claimed.
+
+---
+
+# The census, taken before any pass exists — and it stops the build (2026-09-21)
+
+**§6.1 said the census "decides whether the rest is worth building at
+the size the corpus implies". It has decided, and the answer is no at
+that size.** This is what a census before a pass is for, and it cost
+one afternoon instead of one phase.
+
+## The figure
+
+`docs/evidence/mmio-chain-census-2026-09-21.log`, all eight HP drivers,
+the second instrument:
+
+| driver | mapping calls | chain followed | unfollowed | **reaches a real access** | pointer parked |
+|---|---|---|---|---|---|
+| ACPI | 3 | 3 | 0 | **0** | 3 |
+| serial | 2 | 2 | 0 | **0** | 4 |
+| HDAudBus | 2 | 2 | 0 | **0** | 2 |
+| pci | 2 | 1 | 1 | **0** | 1 |
+| i8042prt | 1 | 1 | 0 | **0** | 1 |
+| storport | 1 | 0 | 1 | **0** | 0 |
+| usbxhci | 1 | 1 | 0 | **0** | 1 |
+| disk | 0 | — | — | — | — |
+| **total** | **12** | **10** | **2** | **0** | **12** |
+
+> **Zero of twelve mapping calls have a chain reaching an access to the
+> mapped region. All twelve park the pointer into memory instead.**
+
+**So the consumer as specified would produce zero statements on this
+corpus.** Not few — none. The statement §4 promises — *"maps a region
+and writes four bytes at offset `0x10`"* — has **no instance** in the
+eight drivers, because no driver dereferences a mapped pointer in the
+function that maps it.
+
+## The instrument was corrected before the census was banked
+
+**The first run reported 12 "accesses" and would have been wrong.** It
+counted any load or store the returned pointer *reached*, which
+conflates two different facts:
+
+| the pointer is… | means |
+|---|---|
+| the **address** of a load/store | **the device is touched here** |
+| the **value** being stored | it is **filed into memory**; the device is not touched |
+
+On `i8042prt` the chain ends at `mov %rcx,0xd0(%rax,%rbx,8)` — the
+mapped pointer is the **value**, parked into a global table at
+`0x1c000f100`. Reporting that as an access would have been a fabricated
+claim that a device was driven. The verdicts are now separate
+(`MMIOACCESS` / `MMIOPARKED`), and **the corrected count is 0 accesses
+and 12 parkings**.
+
+*Caught because the first result — 12 accesses, every one a `STORE`,
+every one at offset `0x0` — was too uniform to be real. A number that
+tidy is a signature of the instrument, not the data.*
+
+## What this changes
+
+**The prerequisite is no longer optional and is no longer at the end.**
+A store/reload model across functions is **the** thing standing between
+this corpus and any statement of the specified form. §7.1 named it as a
+"named prerequisite" for the fuller statement; the census promotes it
+to **the whole of the work**.
+
+**Three options, and the choice is the owner's:**
+
+1. **Build the parking model** — follow a pointer from a mapping call
+   into a global or struct slot, then find the reloads of that slot and
+   the accesses through them. This is real interprocedural work, and
+   the census says it is the *only* path to the specified statement.
+2. **Change the exit to what the corpus supports.** A statement of the
+   form *"the function at X maps a region and parks it at slot Y"* is
+   attestable **today**, for 10 of 12 sites, by the instrument already
+   built and run. It is a weaker claim than §4's and an honest one.
+3. **Stop here.** The census is itself a product finding: **these
+   drivers do not touch hardware where they map it.** That is worth
+   knowing and is now measured.
+
+**What I am not doing: writing the pass.** §6.1 made this census the
+gate, and the gate says the specified pass has no instances to find.
+Building it anyway would produce an empty output and a green test,
+which is the exact shape this arc has spent three weeks removing.
+
+**Also measured, and it sharpens the choice:** the two unfollowed sites
+(pci `1c0068c44`, storport `1c00381b0`) are refusals the instrument
+printed itself — *"return reaches no load or store"* — so even the
+weaker statement of option 2 is unavailable for 2 of the 12.

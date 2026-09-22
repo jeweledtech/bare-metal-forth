@@ -1,0 +1,68 @@
+# MMIO chain census, 2026-09-21 -- taken BEFORE any pass exists, so it
+# cannot be tuned to what a pass happens to find (consumer spec 6.1).
+#
+# instrument: tools/ghidra/MmioChains.java (private tree), Ghidra 12.1.2
+#   PUBLIC, snap revision 47 -- the same pin as every oracle run in this arc.
+#   It decompiles each function containing a mapping call and walks the
+#   high-level P-code varnode graph FORWARD from the call's output.
+#
+# CORRECTED before banking: the first version reported any load or store
+#   the returned pointer REACHED, which conflates the pointer used as an
+#   ADDRESS (the device is touched) with the pointer used as a VALUE (it
+#   is filed into memory).  On i8042prt the single chain ends at
+#   `mov %rcx,0xd0(%rax,%rbx,8)`, where the pointer is the VALUE -- and the
+#   first run reported that as an access, which would have been a
+#   fabricated claim that a device was touched.  The two are now separate
+#   verdicts, MMIOACCESS and MMIOPARKED, and the corrected run is below.
+#
+# population: the 8 HP drivers.  Denominator printed per driver.
+
+=== ACPI.sys
+MMIOSUMMARY	calls=3	followed=3	unfollowed=0
+=== disk.sys
+MMIOSUMMARY	calls=0	followed=0	unfollowed=0
+=== HDAudBus.sys
+MMIOSUMMARY	calls=2	followed=2	unfollowed=0
+=== i8042prt.sys
+MMIOSUMMARY	calls=1	followed=1	unfollowed=0
+=== pci.sys
+MMIOSUMMARY	calls=2	followed=1	unfollowed=1
+=== serial.sys
+MMIOSUMMARY	calls=2	followed=2	unfollowed=0
+=== storport.sys
+MMIOSUMMARY	calls=1	followed=0	unfollowed=1
+=== usbxhci.sys
+MMIOSUMMARY	calls=1	followed=1	unfollowed=0
+CENSUS DONE
+
+# ---- per-driver detail ----
+## ACPI.sys
+MMIOPARKED	1c0029e14	1c0029e7e	PTR_MmMapIoSpaceEx_1c008c490	1c0029e8f	STORE	8	offset-unknown
+MMIOPARKED	1c00b0844	1c00b08dd	PTR_MmMapIoSpaceEx_1c008c490	1c00b08e9	STORE	8	offset-unknown
+MMIOPARKED	1c00b0844	1c00b0934	PTR_MmMapIoSpaceEx_1c008c490	1c00b0950	STORE	8	offset-unknown
+MMIOSUMMARY	calls=3	followed=3	unfollowed=0
+## disk.sys
+MMIOSUMMARY	calls=0	followed=0	unfollowed=0
+## HDAudBus.sys
+MMIOPARKED	1c0022510	1c0022671	PTR_MmMapIoSpaceEx_1c001a1f8	1c002267d	STORE	8	offset-unknown
+MMIOPARKED	1c0022510	1c0022697	PTR_MmMapIoSpaceEx_1c001a1f8	1c00226a7	STORE	8	offset-unknown
+MMIOSUMMARY	calls=2	followed=2	unfollowed=0
+## i8042prt.sys
+MMIOPARKED	1c0012a70	1c0012b58	PTR_MmMapIoSpaceEx_1c0011070	1c0012b70	STORE	8	offset-unknown
+MMIOSUMMARY	calls=1	followed=1	unfollowed=0
+## pci.sys
+MMIOPARKED	1c0040940	1c0040bf9	PTR_MmMapIoSpaceEx_1c003a5d8	1c0040c05	STORE	8	offset-unknown
+MMIONOCHAIN	1c0068c44	1c0068dcb	PTR_MmMapIoSpaceEx_1c003a5d8	return reaches no load or store
+MMIOSUMMARY	calls=2	followed=1	unfollowed=1
+## serial.sys
+MMIOPARKED	1c000c38c	1c000c701	PTR_MmMapIoSpaceEx_1c000b0d0	1c000c71a	STORE	1	offset-unknown
+MMIOPARKED	1c000c38c	1c000c701	PTR_MmMapIoSpaceEx_1c000b0d0	1c000c720	STORE	8	offset-unknown
+MMIOPARKED	1c000c38c	1c000c7e7	PTR_MmMapIoSpaceEx_1c000b0d0	1c000c800	STORE	1	offset-unknown
+MMIOPARKED	1c000c38c	1c000c7e7	PTR_MmMapIoSpaceEx_1c000b0d0	1c000c806	STORE	8	offset-unknown
+MMIOSUMMARY	calls=2	followed=2	unfollowed=0
+## storport.sys
+MMIONOCHAIN	1c00381b0	1c0038269	PTR_MmMapIoSpaceEx_1c006e518	return reaches no load or store
+MMIOSUMMARY	calls=1	followed=0	unfollowed=1
+## usbxhci.sys
+MMIOPARKED	1c006f850	1c006f95b	PTR_MmMapIoSpaceEx_1c0068230	1c006f967	STORE	8	offset-unknown
+MMIOSUMMARY	calls=1	followed=1	unfollowed=0
