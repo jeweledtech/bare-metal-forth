@@ -727,3 +727,83 @@ The gate the ruling set — *"if no driver survives with real accesses,
 stage 2 is dead"* — **does not fire**. Six of the ten slots survive
 with at least one identity-checked dereference, and the top one has 83
 that a person can read.
+
+---
+
+# The 259 split, and stage 2's exit bounded to the proven class (2026-09-21)
+
+## The split, and my hand-checked example was in the weak class
+
+**Function boundaries from the pinned oracle** (`FuncRanges.java`,
+Ghidra 12.1.2), joined against the identity-checked dereferences:
+
+| driver | slot | dereferences | **same-function (proven)** | cross-function |
+|---|---|---|---|---|
+| **HDAudBus** | `0x58` | 83 | **13** | 70 |
+| ACPI | `0x28` | 78 | 0 | 78 |
+| serial | `0xe8` | 53 | 0 | 53 |
+| pci | `0x10` | 23 | 0 | 23 |
+| usbxhci | `0x18` | 17 | 0 | 17 |
+| ACPI | `0x0` | 5 | 0 | 5 |
+| **total** | | **259** | **13** | **246** |
+
+> **13 proven, 246 joined by displacement plus a parameter-provenance
+> type hint.**
+
+**And the instance I hand-checked last round was one of the 246.** The
+park is in function `1c0022510`; my example at `1c00027dd` is in
+`1c0002760` — **a different function**. It reads
+`0x58(%rsi)` where the park wrote `0x58(%rdi)`, and "both bases are an
+incoming parameter" is satisfied by two different device extensions
+passed to two different functions. **The owner's item 1 was exactly
+right, and the example was in the weak class.**
+
+## The proven class exists, and it is a better subject
+
+**All 13 are in `HDAudBus`, and all are in the same function as the
+park** — `1c0022510`, which both maps and accesses:
+
+```
+1c002267d:  mov    %rax,0x58(%rdi)      <- the park
+1c00226de:  mov    0x58(%rdi),%rax      <- reload, SAME function, SAME register
+1c00226e2:  movzwl (%rax),%r8d          <- reads TWO bytes at offset 0x0
+1c002284a:  mov    0x58(%rdi),%rax
+1c0022865:  movzbl 0x3(%rax),%edx       <- reads ONE byte at offset 0x3
+1c0022869:  mov    0x58(%rdi),%rax
+1c002286d:  movzbl 0x2(%rax),%eax       <- reads ONE byte at offset 0x2
+```
+
+**Park and access in one function, one register lineage, both visible.**
+No interprocedural assumption is needed, which is what makes these 13
+proven where the 246 are not.
+
+## Stage 2's exit, bounded
+
+> **Stage 2 is done when it produces, for `HDAudBus.sys` function
+> `1c0022510`, per-access statements of the form *"reads N bytes at
+> offset X of the region mapped at `1c0022671` and parked at `0x58`"*,
+> for the SAME-FUNCTION class only, attested by `MmioChains.java` and
+> `FuncRanges.java`, with at least one instance hand-checked against
+> bytes.**
+>
+> **Cross-function candidates are reported with
+> `provenance: not proven`** — same displacement, same parameter class,
+> different function — **and still pass**, exactly as the DX-addressed
+> ruling allowed a followed chain without a resolved number.
+>
+> **The count 83 is not claimed. 13 is.**
+
+**This is the same presence-versus-identity distinction (z) forced on
+the port signal**, one layer up: a port operation had to be attested by
+both instruments before it could be emitted, and a dereference has to
+be attested to the same object before it can be claimed.
+
+## What the split costs and what it buys
+
+**Costs:** stage 2's headline drops from 259 to 13, and from 83 to 13
+on its own driver.
+
+**Buys:** every one of the 13 is checkable by a person reading one
+function, and none of them rests on an assumption about two device
+extensions being the same object. **Against "0 of 320", thirteen proven
+instruction-derived accesses is the first positive entry of any size.**
