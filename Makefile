@@ -627,7 +627,7 @@ test-make-wiring:
 
 # UBT LLM validation (single-binary, requires NVIDIA_API_KEY)
 # The driver corpus is read from CORPUS_ROOT and never copied into this repo.
-CORPUS_ROOT ?= $(CURDIR)/tests
+CORPUS_ROOT ?= $(HOME)/corpus
 ubt-llm-validate:
 	@echo "Running UBT LLM validation on i8042prt.sys..."
 	@cd tools/ubt-llm && python3 ubt_llm_validate.py \

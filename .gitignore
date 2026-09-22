@@ -157,3 +157,16 @@ docs/plans/
 
 # Claude Code session state + working memory -- internal, never publish
 .claude/
+
+# Driver corpus: Microsoft- and Apple-copyrighted binaries.  The corpus lives in
+# ~/corpus, OUTSIDE every repository, and that is what keeps it out.  These
+# rules are the second line, for a copy that strays back in.  Tracked files
+# are unaffected by them.
+/corpus/
+/tests/hp_i3/
+/tests/Dell/
+/tests/*ASUS*/
+/tests/Mac/
+/extracted/
+*.sys
+*.dll
