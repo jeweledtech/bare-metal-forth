@@ -977,3 +977,62 @@ a failure of that remedy. They are the same error class in a different
 medium, which is worth recording rather than glossing.*
 
 **27 suites, 0 warnings, exit 0 from a clean build.**
+
+---
+
+# Two assertions the suite could not make about itself (2026-09-21)
+
+## 1. The test total is now asserted, and it caught the deliberate removal
+
+**Nothing asserted the pass side.** The arc fixed the *xfail* side long
+ago — a registered name with no test behind it used to print `38/38`
+silently — but **deleting a passing test still printed "All tests
+passed"**. A scripted edit removed two tests today and a person caught
+it from the compiler's errors, not a check. Scripted source edits are
+routine here, so the risk was live.
+
+**`scripts/suite_census.py`**, first in `test-all`, against a committed
+baseline (`tests/suite_census.tsv`): **381 tests across 27 suites**. A
+count that **falls** fails and names the suite; a count that **rises**
+updates with `make suite-census-update` and the rise is visible in the
+diff.
+
+**Control, run before anything was rebaselined:** deleting one test by
+a scripted edit gives
+
+```
+TESTS LOST: test_uir.c 26 -> 25
+test totals: 381 across 27 suites (baseline 382)
+```
+
+**And it immediately caught a real one** — moving the register check
+out of the decoder suite dropped that suite 112 → 111, reported by
+name, and the baseline was updated deliberately rather than drifting.
+
+## 2. One C-source contract, after eight instances
+
+**Three consumers, three hand-rolled parsers**: the register union
+check, the rule-30 sweep, and the `xfail_names[]` reader. That is the
+same argument that produced `objdump_screen.py` after **two**
+instances. This was **eight**.
+
+**`scripts/c_source.py`** is the contract: `strip_comments` (leaving
+string literals and line numbers intact), `initialiser_body`
+(brace-counted, so a one-line array and a nested one both work),
+`string_literals`, `identifiers`, `registered_xfails`,
+`test_macro_names`. **It carries a self-test built from the three
+defects that produced it** — 6 cases, 0 failures — and its hash is
+printed by every consumer.
+
+**All three consumers now use it.** The register check moved out of
+`test_x86_decoder.c` entirely, so there is no longer a C parser reading
+C source; `rule30_sweep.py` uses `registered_xfails` in place of its own
+`split('xfail_names[] = {')`, which would have taken quoted prose from
+a comment as a registered name exactly as the register check did.
+
+**Four self-tests now run inside the suite**: the shipped-binary
+checks (7 cases), the denominator refusals (3), the operand roles (10),
+and the C-source contract (6). **Each built from the defects that
+produced its module.**
+
+**27 suites, 0 warnings, exit 0 from a clean build.**
