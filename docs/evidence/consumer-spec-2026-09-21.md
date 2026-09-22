@@ -619,3 +619,111 @@ has been applied it removed **8 of 9** candidates. Until that check is
 applied corpus-wide, **935 is an upper bound with a measured
 false-positive rate of ~89% on its single tested site**, and it is not
 quotable as a finding.
+
+---
+
+# The identity check applied corpus-wide — and it withdraws my own correction (2026-09-21)
+
+## First: the "8 of 9 false positives" claim is WITHDRAWN. It was my bug
+
+**Last round I reported that eight of the nine loads at `i8042prt`'s
+`0xd0` failed the identity check, reading "a different structure that
+merely shares the number", and quoted an ~89% false-positive rate. That
+was wrong, and the cause was a defect in my own tracer.**
+
+`objdump` appends a comment to a RIP-relative operand:
+
+```
+mov 0xa625(%rip),%rcx        # 0x1c000f100
+```
+
+My backward trace matched the setter with `,%r[a-z0-9]+$` **against the
+whole operand string including the comment**, so it never matched a
+RIP-relative load. It skipped past every one of them and reported the
+next-older setter instead — which is where `0xd8(%rcx)` and
+`0x40(%rcx)` came from. Those instructions are real; they are simply
+**not** the setters.
+
+**Corrected: all nine loads at `0xd0` read the same global,
+`0x1c000f100`.** The identity check keeps **9 of 9**, not 1 of 9.
+
+**This is the fourth appeal-to-the-bytes instance, and the first
+against a correction rather than an original claim.** The tell was the
+same as before: my first corpus-wide run classified **all ten** parks
+as `PARAM`, which is too uniform to be real when one of them was
+already known to be a global.
+
+## The i8042prt conclusion stands, and is now stronger
+
+With the identity check keeping all nine loads, **none of the nine
+reaches a dereference before its register dies**. Eight read the array's
+first element unscaled (`0xd0(%rcx)`), one reads element `%rbx`
+(`0xd0(%r8,%rbx,8)`), and the one that is followed goes to the unmapper.
+
+> **`i8042prt` maps a region, parks the base, and no identity-checked
+> load of that slot ever dereferences it.** Nine loads, not one —
+> a stronger negative than last round's, and reached by a fixed
+> instrument.
+
+**And the ruling's explanation is confirmed by the bytes.** This driver
+drives a port-mapped device; finding (z) measured its real traffic as
+DX-addressed port instructions. The mapping call is a resource claimed
+and released. **The driver was chosen against a mapping-call criterion
+while its device access is port-based** — good reasons, wrong axis.
+
+## Part 3: the identity check corpus-wide. 935 loses the word "ceiling"
+
+| driver | slot | base class | loads | identity-checked | dereference |
+|---|---|---|---|---|---|
+| HDAudBus | `0x58` | param | 213 | 172 | **83** |
+| ACPI | `0x28` | param | 581 | 215 | **78** |
+| serial | `0xe8` | param | 155 | 116 | **53** |
+| pci | `0x10` | param | 260 | 114 | **23** |
+| usbxhci | `0x18` | param | 514 | 186 | **17** |
+| ACPI | `0x0` | stack | 1,305 | 9 | **5** |
+| HDAudBus | `0x60` | param | 61 | 46 | 0 |
+| serial | `0xf0` | param | 5 | 4 | 0 |
+| ACPI | `0x5c` | stack | 5 | 2 | 0 |
+| i8042prt | `0xd0` | **global** | 9 | 9 | 0 |
+| **total** | | | **3,108** | **873** | **259** |
+
+**The identity check removes 72% of the loads (3,108 → 873) and 72% of
+the dereferences (935 → 259).** The false positives were real and
+large; only my single-site *rate* was wrong.
+
+> **259 is a number, not a ceiling.** Every load counted has been
+> traced to a base with the same provenance as its park's base.
+
+**What it still is not:** for the seven `param` slots, "same
+provenance" means *both bases are an incoming parameter of their own
+function* — it does **not** prove the same object. That is the residual
+interprocedural gap, named rather than hidden. Only `i8042prt`'s global
+slot is proven to the same storage, and it is the one with no accesses.
+
+## Part 2: stage 2's driver, selected by measurement
+
+**`HDAudBus.sys`, slot `0x58` — 83 identity-checked dereferences**,
+the most of any slot, and hand-checked:
+
+```
+1c00027dd:  mov    0x58(%rsi),%rax        <- reload of the parked base
+1c00027e1:  movzbl 0x3(%rax),%ecx         <- reads ONE byte at offset 0x3
+1c00027e5:  mov    0x58(%rsi),%rax
+1c00027e9:  movzbl 0x2(%rax),%eax         <- reads ONE byte at offset 0x2
+1c0002803:  mov    0x58(%rsi),%rax
+1c0002807:  mov    0x24(%rax),%eax        <- reads FOUR bytes at offset 0x24
+```
+
+**That is the specification's own sentence, in bytes:** *"reads one
+byte at offset `0x3`, one at `0x2`, four at `0x24`."* Stage 2 has a
+subject.
+
+**Runner-up, and worth keeping as the control:** ACPI `0x28`, 78
+dereferences, a different driver and a different structure.
+
+## And stage 2 is not dead corpus-wide
+
+The gate the ruling set — *"if no driver survives with real accesses,
+stage 2 is dead"* — **does not fire**. Six of the ten slots survive
+with at least one identity-checked dereference, and the top one has 83
+that a person can read.
