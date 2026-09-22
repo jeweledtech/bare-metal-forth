@@ -877,3 +877,61 @@ Offset 0 appears here alongside 0x2 and 0x3 in the same register
 window, from bytes a person can read, and a mapped region's first word
 is an ordinary thing to read. Recorded so a later reader does not
 mistake a real zero for the old artefact.
+
+---
+
+# Stage 1's red, written before its code (2026-09-21)
+
+**`tests/test_mmio_consumer.c`, wired into `test-all` as
+`test-mmio-consumer`. 27 suites, 0 warnings, exit 0.**
+
+**The red is on the TYPE, and that is deliberate.** `sem_function_t`
+has no mapped-region record — `grep` for `mmio_region`,
+`mapped_region`, `park` over `include/semantic.h` returns nothing — so
+the failure message is:
+
+> *"`sem_function_t` carries no mapped-region record: the analysis has
+> nowhere to say which region a function maps or where it parks the
+> base, so it cannot make the statement stage 1 requires."*
+
+**A statement the record cannot hold is a statement the analysis cannot
+make.** Putting the red there means it cannot pass by accident, and the
+pass state behind `#ifdef SEM_HAS_MAPPED_REGION` names every field the
+exit requires: call site, park site, displacement, and **whether the
+park is indexed** — because reporting `i8042prt`'s as a plain offset
+would overstate it.
+
+**The expected values are held as constants, from the census and
+hand-checked against bytes:** function `1c0012a70`, call `1c0012b58`,
+park `1c0012b70`, displacement `0xd0`, indexed. The test names what it
+wants rather than asking whether some field is non-empty.
+
+## And the parsing contract absorbed the sixth defect
+
+**The role parser now lives in `scripts/objdump_screen.py`**, not in
+the next ad-hoc script. `writes_register`, `reads_register_as_memory_
+base`, `split_operands`, `canonical_register` — answering the *role*
+question that six substring tests stood in for.
+
+**It carries a self-test built from the six defects themselves**, so
+the contract is tested by the errors that produced it: `xchg
+%eax,0x100(%rdi)` must not write `%rdi`, a write to `%edi` must write
+`%rdi`, a RIP-relative load with an objdump comment must still be seen
+to write its destination. **10 cases, 0 failures**, run inside
+`test-shipped-binary` beside the other two self-tests.
+
+*The contract hash changed to `41e0da34717c`, which is the point of
+hashing it.*
+
+## On the six, since the count reads badly alone
+
+**Six artefacts in one afternoon is a high defect rate for throwaway
+analysis scripts.** All six were caught, **none shipped**, and every
+one was caught the same two ways: by going to the bytes, or by a
+uniformity tell. The rate is a fact about writing one-off scripts under
+time pressure. The catch rate is a fact about the method, and it is the
+one that decides whether the output can be trusted.
+
+**And the sixth is now structurally harder to repeat**, because the
+seventh would have to be written against a contract that already
+answers the question correctly.
