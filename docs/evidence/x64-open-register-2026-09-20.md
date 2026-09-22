@@ -22,6 +22,21 @@ cannot drift (owner item 7). For a finding
 with no red, this file is the only record, which is why each one
 carries the **condition that mints it** rather than an intention.
 
+## Open, with a red, in another suite
+
+- **(aj)** `aj_report_names_the_mapped_region_and_its_park`, in
+  `tests/test_mmio_consumer.c` — **stage 1 of the identity consumer,
+  red before its code.** `sem_function_t` has no mapped-region record
+  at all, so the analysis has nowhere to say which region a function
+  maps or where it parks the base. **The red is on the type**, which is
+  the honest place for it: a statement the record cannot hold is a
+  statement the analysis cannot make. Pass state: the per-function
+  record names the mapping call site and the parked slot — including
+  whether the slot is **indexed** — or says `offset-unknown`.
+
+  *Not in the table below, which is `test_x86_decoder.c`'s list and the
+  one the executable check covers.*
+
 ## Open, with a red (20)
 
 | letter | red | what is wrong |
