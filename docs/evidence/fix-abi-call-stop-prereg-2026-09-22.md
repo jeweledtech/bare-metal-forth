@@ -119,12 +119,14 @@ Hand-written callees remain unmeasured. **A hazard found:** 66 of the
 crossings are `MmUnmapIoSpace`. The walk carries the base past the call that
 releases it. None of the seven parks is a store after an unmap *on its real
 path*, but the three `scsiport` parks cross one on their address-order
-route.
+route (the IAT slot at the failure block's call resolves to `MmUnmapIoSpace` on
+all three machines, read from the import table).
 
 **What stopped the new couldn't-tell (40):** `mov %cr8,%rbx` 12 (all in
 `mlx4_bus.sys`, an inlined IRQL read the decoder does not name, writing
-RBX), `lfence` 8, `cmovcc` 9, `sete` 3, `movsd` 2, `bt`-family 4, `int3` 2,
-`rep` and `cqto` 1 each.
+RBX), `lfence` 8, `cmovcc` 8, `sete` 3, `bt`-family 3, `movsd` 2, `int3` 2,
+`rep` and `cqto` 1 each. (Recounted from the per-machine lines: 40. A first
+draft of this line said `cmovcc` 9 and `bt` 4 while still summing to 40.)
 
 **The byproduct: the residual.** 13 freed walks per machine still end as
 `none`:
