@@ -402,3 +402,110 @@ which is the exact shape this arc has spent three weeks removing.
 (pci `1c0068c44`, storport `1c00381b0`) are refusals the instrument
 printed itself — *"return reaches no load or store"* — so even the
 weaker statement of option 2 is unavailable for 2 of the 12.
+
+---
+
+# Staged, per the ruling — and the classification changes both stages (2026-09-21)
+
+## Stage 1's revised exit, worded before any code
+
+> For **`i8042prt.sys`**, a per-function statement of the form
+> ***"function F at address A maps a region and parks the returned base
+> at device-extension slot S"***, attested by `MmioChains.java`, with
+> the single call site hand-checked against bytes. **A slot that cannot
+> be named prints `offset-unknown` rather than being omitted.**
+
+**And the named driver's only park is in the awkward class, which the
+exit must not paper over.** Its site is
+`mov %rcx,0xd0(%rax,%rbx,8)` — a **scaled-indexed slot, an array
+element, not a fixed field**. The honest statement is *"parked at
+displacement `0xd0` of an indexed slot"*; *"parked at offset `0xd0`"*
+would overstate it. The driver stays — one call site, hand-checkable,
+chosen before the work — and **stage 1 therefore tests the hard path
+immediately** instead of earning false confidence on an easy one.
+
+## The twelve parks, classified
+
+Re-read from the banked log and **disassembled**, because the
+instrument prints `offset-unknown` for every park: it computes an
+offset only for the address role, which is the correct conservatism and
+is why the classification had to come from bytes.
+
+| driver | park instruction | class |
+|---|---|---|
+| ACPI `1c0029e8f` | `mov %rax,(%r14)` | plain, offset `0x0` |
+| ACPI `1c00b08e9` | `mov %rax,0x5c(%rsi)` | plain |
+| ACPI `1c00b0950` | `mov %rax,0x28(%rsi)` | plain |
+| HDAudBus `1c002267d` | `mov %rax,0x58(%rdi)` | plain |
+| HDAudBus `1c00226a7` | `mov %rax,0x60(%rdi)` | plain |
+| pci `1c0040c05` | `mov %rax,0x10(%rbp)` | plain |
+| serial `1c000c720` | `mov %rax,0xe8(%rdi)` | plain |
+| serial `1c000c806` | `mov %rax,0xf0(%rdi)` | plain |
+| usbxhci `1c006f967` | `mov %rax,0x18(%rbx)` | plain |
+| **i8042prt `1c0012b70`** | `mov %rcx,0xd0(%rax,%rbx,8)` | **scaled-indexed** |
+| serial `1c000c71a` | `mov %cl,0x262(%rdi)` | **not a park** |
+| serial `1c000c800` | `mov %cl,0x263(%rdi)` | **not a park** |
+
+**Two of the twelve are not parks at all.** They store **one byte**
+from `%cl`, and a mapped base is eight. They are a derived value — a
+success flag, by their placement — that the forward walk reached
+through a truncation. So **the real count is 10 parks: 9 plain, 1
+scaled-indexed, 0 unjoinable.**
+
+**That is a much better result for stage 2 than the ruling assumed:**
+nine of ten join on a constant displacement directly, and the awkward
+one is the named driver's. *And it is a third instrument artefact
+caught by reading bytes — the first was the address/value conflation,
+the second the tidy `offset 0x0`, this the size-1 stores.*
+
+## Stage 2's census, taken before stage 2's code
+
+**By the rule that just paid for itself.** Join: for each park
+displacement, count loads from that displacement, and of those, how
+many feed a memory dereference within a short window. Padding `nop`s
+and `lea` are excluded — `lea` computes an address without touching
+memory, and a padding `nop` with a memory operand is not an access.
+
+| driver | slot | loads | reach a dereference |
+|---|---|---|---|
+| ACPI | `0x0` | 1,305 | 604 |
+| ACPI | `0x28` | 581 | 212 |
+| usbxhci | `0x18` | 514 | 55 |
+| pci | `0x10` | 260 | 70 |
+| HDAudBus | `0x58` | 213 | 108 |
+| serial | `0xe8` | 155 | 122 |
+| HDAudBus | `0x60` | 61 | 1 |
+| **i8042prt** | **`0xd0`** | **9** | **0** |
+| ACPI | `0x5c` | 5 | 0 |
+| serial | `0xf0` | 5 | 2 |
+| **total** | | **3,108** | **1,174** |
+
+**Stage 2 does not die: 1,174 is not zero.** But **the figure is a
+ceiling with a measured false-positive class**, and the measurement is
+on the named driver.
+
+**`i8042prt`'s `0xd0` is loaded nine times. Eight are
+`mov 0xd0(%rcx),%rcx` — plain, a DIFFERENT structure that merely shares
+the displacement.** Only one, `mov 0xd0(%r8,%rbx,8),%rcx` at
+`1c0013a2b`, matches the park's actual scaled-indexed form, and it
+reaches no dereference within 24 instructions. So on this driver the
+displacement-only join is **8 false positives and 1 true candidate that
+goes nowhere**.
+
+**That is exactly the weakness the ruling predicted for the
+scaled-indexed class**, and it is now measured rather than anticipated.
+For the nine plain slots the join is on a constant against a constant
+and is far stronger; for the indexed one it is displacement-only and
+demonstrably noisy.
+
+## What stage 2 needs, stated now
+
+**A base-register identity check**, not a wider window: the join must
+know that the register holding the loaded value came from the *device
+extension*, not from any structure sharing an offset. That is a
+smaller thing than general store-and-reload modelling — the ruling was
+right — but it is **not free**, and the 1,174 must not be quoted as a
+finding until it is applied.
+
+**Stage 2 is scoped, not started.** Its own exit and its own red come
+before its code, as stage 1's did.
