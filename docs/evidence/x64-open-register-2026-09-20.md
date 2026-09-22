@@ -98,6 +98,10 @@ asserted so a renamed suite cannot shrink the union silently. The
 | (y) | `x64_RED_y_lea_register_form_invalid` | decoder | `8D C0` LEA register form is #UD |
 | (ab) | `x64_RED_ab_two_byte_arm_ignores_mandatory_prefix` | decoder | the arm never reads `66`/`F2`/`F3` |
 | (t) | `unknown_0f_modrm_recovery` | decoder | `0F 0D C0` is #UD and is accepted |
+| (ak) | `sem_RED_ak_read_only_dest_keeps_the_base` | semantic | MUL/DIV/IDIV/one-op IMUL/OUT put a read-only source in `dest`; the park walk clears it |
+| (al) | `sem_RED_al_invisible_write_is_not_a_park` | semantic | 19 writers lift with no visible write; the walk reports a park that is not the base |
+| (am) | `sem_RED_am_xchg_records_both_writes` | semantic | `87` XCHG lifts to a MOV and records one of its two writes |
+| (an) | `sem_RED_an_unseeable_write_stops_the_walk` | semantic | a write the walk cannot see yields a park, not a named stop |
 
 ## (s) CLOSED 2026-09-21 — and with it the decoder queue
 
