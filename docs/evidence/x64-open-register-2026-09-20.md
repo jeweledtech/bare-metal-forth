@@ -22,39 +22,38 @@ cannot drift (owner item 7). For a finding
 with no red, this file is the only record, which is why each one
 carries the **condition that mints it** rather than an intention.
 
-## Open, with a red, in another suite
+## Open, with a red (15)
 
-- **(aj)** `aj_report_names_the_mapped_region_and_its_park`, in
-  `tests/test_mmio_consumer.c` — **stage 1 of the identity consumer,
-  red before its code.** `sem_function_t` has no mapped-region record
-  at all, so the analysis has nowhere to say which region a function
-  maps or where it parks the base. **The red is on the type**, which is
-  the honest place for it: a statement the record cannot hold is a
-  statement the analysis cannot make. Pass state: the per-function
-  record names the mapping call site and the parked slot — including
-  whether the slot is **indexed** — or says `offset-unknown`.
+**The table is the whole list, across every suite.** Until 2026-09-21
+the executable check compared it against `test_x86_decoder.c`'s
+`xfail_names[]` alone, so a red registered anywhere else lived outside
+the check and was carried in prose as "not in the table below". **Two
+such reds appeared within a day**, which is a pattern rather than an
+exception, and it is exactly the condition the trap-row work exists to
+prevent: a list checked by nothing.
 
-  *Not in the table below, which is `test_x86_decoder.c`'s list and the
-  one the executable check covers.*
+**The check now asserts the UNION** of `xfail_names[]` across all five
+suites that carry one, parsed from their sources, with the suite count
+asserted so a renamed suite cannot shrink the union silently. The
+`suite` column says where each red lives.
 
-## Open, with a red (20)
-
-| letter | red | what is wrong |
-|---|---|---|
-| (d') | `x64_RED_rex_b_push_r12` | REX.B not applied to an opcode-embedded register |
-| (f) | `x64_RED_byte_reg_sil_under_rex` | reg 4-7 at size 1 under REX is SPL/BPL/SIL/DIL |
-| (g) | `x64_RED_truncated_imm32_refused` | immediate read past the code buffer |
-| (g) | `x64_RED_truncated_disp32_refused` | displacement read past the code buffer |
-| (p) | `x64_RED_p_movsxd_decoded` | `63` recognised, not just length-consumed |
-| (p) | `x64_RED_p_imul_imm_decoded` | `69`/`6B` recognised |
-| (r1) | `x64_RED_r1_push_iz_opsize16` | `66 68` Iz read at a fixed 4 bytes |
-| (r2) | `x64_RED_r2_test_eax_iz_opsize16` | `66 A9` likewise |
-| (r3) | `x64_RED_r3_test_ev_iz_opsize16` | `66 F7 /0` likewise |
-| (u) | `x64_RED_u_0f_map_matches_oracle` | the hand-typed no-ModRM list vs the oracle |
-| (v) | `x86_RED_v_addr_size_prefix_disp16` | legacy `67` makes mod=10 a disp16 |
-| (y) | `x64_RED_y_lea_register_form_invalid` | `8D C0` LEA register form is #UD |
-| (ab) | `x64_RED_ab_two_byte_arm_ignores_mandatory_prefix` | the arm never reads `66`/`F2`/`F3` |
-| (t) | `unknown_0f_modrm_recovery` | `0F 0D C0` is #UD and is accepted |
+| letter | red | suite | what is wrong |
+|---|---|---|---|
+| (aj) | `aj_report_names_the_mapped_region_and_its_park` | mmio-consumer | no mapped-region record exists, so the statement cannot be made |
+| (d') | `x64_RED_rex_b_push_r12` | decoder | REX.B not applied to an opcode-embedded register |
+| (f) | `x64_RED_byte_reg_sil_under_rex` | decoder | reg 4-7 at size 1 under REX is SPL/BPL/SIL/DIL |
+| (g) | `x64_RED_truncated_imm32_refused` | decoder | immediate read past the code buffer |
+| (g) | `x64_RED_truncated_disp32_refused` | decoder | displacement read past the code buffer |
+| (p) | `x64_RED_p_movsxd_decoded` | decoder | `63` recognised, not just length-consumed |
+| (p) | `x64_RED_p_imul_imm_decoded` | decoder | `69`/`6B` recognised |
+| (r1) | `x64_RED_r1_push_iz_opsize16` | decoder | `66 68` Iz read at a fixed 4 bytes |
+| (r2) | `x64_RED_r2_test_eax_iz_opsize16` | decoder | `66 A9` likewise |
+| (r3) | `x64_RED_r3_test_ev_iz_opsize16` | decoder | `66 F7 /0` likewise |
+| (u) | `x64_RED_u_0f_map_matches_oracle` | decoder | the hand-typed no-ModRM list vs the oracle |
+| (v) | `x86_RED_v_addr_size_prefix_disp16` | decoder | legacy `67` makes mod=10 a disp16 |
+| (y) | `x64_RED_y_lea_register_form_invalid` | decoder | `8D C0` LEA register form is #UD |
+| (ab) | `x64_RED_ab_two_byte_arm_ignores_mandatory_prefix` | decoder | the arm never reads `66`/`F2`/`F3` |
+| (t) | `unknown_0f_modrm_recovery` | decoder | `0F 0D C0` is #UD and is accepted |
 
 ## (s) CLOSED 2026-09-21 — and with it the decoder queue
 

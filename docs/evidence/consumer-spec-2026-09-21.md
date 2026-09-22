@@ -935,3 +935,45 @@ one that decides whether the output can be trusted.
 **And the sixth is now structurally harder to repeat**, because the
 seventh would have to be written against a contract that already
 answers the question correctly.
+
+---
+
+# The register check widened to the union (2026-09-21)
+
+**Two reds outside the check within a day is a pattern, not an
+exception**, and it is exactly the condition the trap-row work exists
+to prevent: a list checked by nothing.
+
+**Fixed with the machinery that exists.** The check now parses
+`xfail_names[]` out of **every** `tests/test_*.c` that carries one and
+asserts the register against the **union**. It reports
+`(15 reds across 5 suites)` and the suite count is asserted, so a
+renamed or deleted suite cannot shrink the union silently. The register
+table gained a `suite` column and **no red is carried in prose any
+more**.
+
+**Control run:** unregistering `(aj)` in `test_mmio_consumer.c` makes
+the decoder suite fail with *"register lists
+`aj_report_names_the_mapped_region_and_its_park`, which no suite
+registers"*. **The check now sees across files**, which it could not
+before. Restored, green.
+
+## Three parser defects on the way, all the same shape
+
+| the parser did | the bug |
+|---|---|
+| took every quoted string in the block | comments quote things; it reported a missing red named `(s)`, which is a **defect letter in a comment** |
+| assumed the array spans several lines | `xfail_names[] = { NULL };` **opens and closes on one line**; skipping the rest of that line ran the parser into the file body, where it collected `rb` from an `fopen` mode string |
+| — | fixed by requiring a **C identifier** and by scanning from just after the opening brace |
+
+**Seventh and eighth instances of matching text where a value is
+meant**, both caught by the check's own output naming the nonsense it
+had collected — `"(s)"` and `"rb"` are not test names, and a parser
+that reports them is telling you what it actually matched.
+
+*The role parser added to the contract earlier today does not cover
+this case — it parses **operands**, not C source — so these two are not
+a failure of that remedy. They are the same error class in a different
+medium, which is worth recording rather than glossing.*
+
+**27 suites, 0 warnings, exit 0 from a clean build.**
