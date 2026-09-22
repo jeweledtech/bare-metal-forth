@@ -1116,3 +1116,95 @@ that produced its module:
 **It arrived by accumulation rather than decree**, which is why it
 stuck: each was written the hour its module's defect was found, not
 from a policy.
+
+---
+
+# The two park-finders compared, and both were wrong (2026-09-22)
+
+**Rule 28 one layer over: a census that finds parks differently from the
+way the product finds them.** The product's pass had been validated
+against **one** driver, whose park needed a one-deep copy chain and a
+walk past one boundary. Nothing said the other nine were reachable
+under the same limits — and `HDAudBus`, which stage 2 runs on, parks
+straight from the return register, so it would have passed without
+exercising either repair.
+
+**Run over all eight: 5 of 12 disagreed.**
+
+## The product was wrong on four, and the cause is the same error class
+
+| driver | park missed |
+|---|---|
+| ACPI | `1C0029E8F` |
+| ACPI | `1C00B0950` |
+| serial | `1C000C720` |
+| serial | `1C000C806` |
+
+**`CMP` and `TEST` put their first operand in `dest` and write
+nothing** — they set flags. The pass treated that as a write and
+cleared the very register holding the base:
+
+```
+1c0029e7e:  call *0x6260b(%rip)     # MmMapIoSpaceEx -> RAX
+1c0029e8a:  test %rax,%rax                 <- cleared RAX in the walk
+1c0029e8f:  mov  %rax,(%r14)               <- the park, now unreachable
+```
+
+**That is the operand-role error the `objdump_screen.py` contract was
+built for, in C, where that contract does not reach.** Nine instances
+now, and the first in product code rather than an analysis script.
+Fixed; all four parks appear.
+
+## The CENSUS was wrong on one, and the product is right
+
+**pci `1C0068DCB`**: the census reported *"return reaches no load or
+store"*. The bytes disagree —
+
+```
+1c0068dd7:  mov %rax,%r12
+1c0068e03:  mov %r12,-0x20(%rbp)
+```
+
+— the base is copied to `%r12` and parked. **The product follows it and
+the census's decompiler walk did not.** The direction is inverted from
+the usual one, and it is worth saying plainly: the product is now more
+capable than the instrument that was checking it, on that one chain.
+
+## And the comparison found a classification error in my own earlier work
+
+**pci's other park, `1C0040C05`, is `mov %rax,0x10(%rbp)` — a FRAME
+slot, not a device extension.** I had counted it among the "9 plain
+constant displacement" parks on the strength of its base being an
+incoming parameter. `%rbp` is the frame pointer.
+
+**Corrected classification of the 12:**
+
+| kind | count |
+|---|---|
+| structure slot (`park_offset`) | **8** |
+| **frame spill** (`park_frame_offset`) | **2** — pci, both |
+| indexed array element | 1 — i8042prt |
+| no park | 1 — storport |
+
+**The report now names which**, because the difference decides stage 2:
+**a structure slot is a join key across functions; a stack slot is
+not** — it dies with the frame, and any load at the same frame offset
+elsewhere is a different frame.
+
+## So stage 2's figures are corrected
+
+**pci's `0x10` slot contributed 23 dereferences, all cross-function.**
+It is a frame slot, so parameter-provenance "identity" was never
+meaningful there and all 23 are withdrawn.
+
+| | was | now |
+|---|---|---|
+| identity-checked dereferences | 259 | **236** |
+| of those, same-function proven | 13 | **13** |
+
+**The 13 are unaffected** — `HDAudBus` parks at `0x58(%rdi)`, a
+parameter, not the frame — and no other park's base is `%rbp` or
+`%rsp`. **Stage 2's subject and exit are unchanged.**
+
+**27 suites, 0 warnings, exit 0.** Stage 1 still passes, now on a
+finder validated against all eight drivers rather than one.
