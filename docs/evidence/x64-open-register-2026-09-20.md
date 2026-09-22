@@ -98,6 +98,7 @@ asserted so a renamed suite cannot shrink the union silently. The
 | (y) | `x64_RED_y_lea_register_form_invalid` | decoder | `8D C0` LEA register form is #UD |
 | (ab) | `x64_RED_ab_two_byte_arm_ignores_mandatory_prefix` | decoder | the arm never reads `66`/`F2`/`F3` |
 | (t) | `unknown_0f_modrm_recovery` | decoder | `0F 0D C0` is #UD and is accepted |
+| (ap) | `sem_RED_ap_callee_saved_survives_call` | semantic | the park walk ends at every CALL, discarding a base the ABI preserves in RBX/RBP/RDI/RSI/R12-R15 |
 
 ## (s) CLOSED 2026-09-21 — and with it the decoder queue
 
