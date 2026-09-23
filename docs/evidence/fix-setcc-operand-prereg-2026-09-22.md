@@ -50,3 +50,31 @@ sites.
 ## Outcome
 
 *(below this line, from the artefact only)*
+
+**Inputs hashed:** `bin/translator` `d6df45353907fda4` (the pre-change run was
+`baad7b886c867d3a`). The census scripts are v2, unchanged against
+`SHA256SUMS`.
+
+| # | predicted | observed |
+|---|---|---|
+| S1 | HP serial's two sites become `address_order` parks at `0xE8` / `0xF0`; nothing else on HP moves | **exactly that** |
+| S2 | only the 12 listed sites change | **held**: 0 changes outside them; 9 of the 12 moved |
+| S3 | *reasoned:* serial's two sites become `address_order` parks at `0xE8` / `0xF0` on all three other machines | **five of six.** ASUS (newer) `1C000D5BC` parks at **`0x0`**: that build stores the base through a pointer, `mov %rax,(%r15)`, where the others store `0xf0(%rdi)` (read from the bytes). "The same driver" was wrong for that build |
+| S4 | `fdc`, `pmem`: reported as observed | `fdc` (Dell) → `none`. The three `pmem` walks get past their `sete` and **now stop at `sbb %eax,%eax`**: another unmodelled identity whose single operand is its whole write set, so the same contract would cover it. **Named, not taken**, because this repair is scoped to the flag-set |
+| S5 | `-t uir`: only `unmodelled` lines gain an operand | **held**: line counts identical on all 12 inputs; 460 changed lines, 0 any other way |
+| S6 | one XPASS, tests +1, 14 reds | **held**: 394 tests, 14 reds |
+
+**The census, both ways** (Wilson intervals as before, recomputable from
+the counts):
+
+| machine | structure / resolved | path-verified structure / resolved | none | couldn't tell | after release |
+|---|---|---|---|---|---|
+| HP | 8/11 = 73% | 6/11 = 55% | 1 | 0 | 0 |
+| Dell | 91/116 = 78% | 85/116 = 73% | 34 | 21 | 1 |
+| ASUS (older) | 81/110 = 74% | 76/110 = 69% | 37 | 23 | 1 |
+| ASUS (newer) | 96/122 = 79% | 89/122 = 73% | 41 | 20 | 1 |
+
+**HP now has no couldn't-tell at all.** Its path-verified share *fell*
+(6/9 to 6/11), because both serial parks came back as address order. The
+repair recovered two real parks, and the walk cannot vouch for the route
+to either.

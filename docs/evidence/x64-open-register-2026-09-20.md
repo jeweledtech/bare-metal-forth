@@ -98,7 +98,6 @@ asserted so a renamed suite cannot shrink the union silently. The
 | (y) | `x64_RED_y_lea_register_form_invalid` | decoder | `8D C0` LEA register form is #UD |
 | (ab) | `x64_RED_ab_two_byte_arm_ignores_mandatory_prefix` | decoder | the arm never reads `66`/`F2`/`F3` |
 | (t) | `unknown_0f_modrm_recovery` | decoder | `0F 0D C0` is #UD and is accepted |
-| (as) | `sem_RED_as_setcc_writes_only_its_operand` | lifter | SETcc lifts with no operand, so a flag-set that writes CL stops a walk holding the base in RAX |
 
 ## (s) CLOSED 2026-09-21 — and with it the decoder queue
 
