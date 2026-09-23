@@ -70,7 +70,7 @@ The census scripts are v2, unchanged against `SHA256SUMS`.
 | M3 | HP byte-identical | **held** |
 | M4 | `-t uir`: only unmodelled lines gain an operand | **held**: line counts identical; 221 changed lines, 0 any other way |
 | M5 | differential unchanged | the decoder is unchanged (the `x86_decoder.c` hash equals `(av)`'s) |
-| M6 | suites green; tests +1; 14 reds | **held**: 399 tests across 27 suites (the red and its guard), 14 reds |
+| M6 | suites green; tests +1; 14 reds | suites green, 14 reds, **but tests rose by 2, not 1** (397 → 399): the red came with a guard, and the prediction counted only the red |
 
 **Why the 12 become `none`, read from the bytes** at `mlx4_bus`
 `140013F29` (Dell): the base goes to R15, then `test %rax,%rax` /
