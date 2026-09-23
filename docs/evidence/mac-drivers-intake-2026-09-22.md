@@ -352,3 +352,94 @@ to a ruling.
 **`ml_io_map` is the one site with the Windows shape:** it returns a
 `vm_offset_t`, the address itself (machine_routines.h:185). There is one
 site, in IOPCIFamily.
+
+---
+
+# (d): the 104 `createMappingInTask` sites, read by hand (2026-09-22)
+
+**Owner ruling: build nothing; read the sites.** Every call site of
+`IOMemoryDescriptor::createMappingInTask` was traced from the call onward in
+address order, within its function (bounded by the member's own symbols),
+using System V volatility. The trace follows the returned `IOMemoryMap *`
+and, after a slot-`0x118` call on it, the address. Every trace was read, and
+three were checked against the bytes. **The count reconciles with the census:
+104** (101 calls, plus 3 tail jumps that hand the map straight back to the
+caller).
+
+**Classes, fixed before classifying:** *stored*, meaning the map is written
+to a field reached through a register before any `0x118` call (a frame spill
+counts as local); *immediate*, meaning the `0x118` call comes first; *neither*,
+everything else, each case named. A store to offset `0x0` of a pointer
+followed by the function returning is **not** counted as *stored*: that is
+writing through a caller's out-parameter.
+
+| class | sites |
+|---|---|
+| **stored**, with the fetch in the same function | **38** |
+| **stored**, with no fetch in this function | **24** |
+| **immediate** | **15** |
+| neither: out-parameter (`*out = map`) | 8 |
+| neither: map passed to another function | 7 |
+| neither: released (slot `0x28`) before any fetch | 5 |
+| neither: nothing followed before the trace stopped | 4 |
+| neither: tail jump, map returned to caller | 3 |
+
+**Stored dominates: 62 of 104.** Duplicated code, stated so it is not read as
+breadth: **11 of the 62 are one function copied across the AMD `HWLibs`
+kexts** (`X5000`–`X6810`), and the three AMD out-parameter sites are likewise
+one function. Collapsing each copied family to one gives **52 distinct
+*stored* sites.**
+
+**The ends:** `IOAcceleratorFamily2` (11 stored, 0 immediate),
+`AppleBCMWLANCoreMac` (6 / 0), `IOAVBStreamingPlugin` (5 / 0) against
+`IOSkywalkFamily` (2 / 4), `AppleUSBUserHCI` (1 / 3), `IOUSBHostFamily`
+(0 / 2) and `IONVMeFamily` (0 / 1).
+
+**Where the address goes after the slot-`0x118` call** (the IOKit analogue of
+the Windows base; 53 sites fetch in the traced function):
+
+| after the fetch | from *stored* sites | from *immediate* sites |
+|---|---|---|
+| **address stored to a field** | **28** | 4 |
+| address passed to a call | 5 | 6 |
+| address stored to the frame | 0 | 1 |
+| address returned | 1 | 0 |
+| not followed (the trace stopped) | 4 | 4 |
+
+**The address itself is filed into an object field at 32 of the 53 fetching
+sites.** That, not the map object, is what a macOS park would mean.
+
+**Fetch and store in the same function:** of the 62 *stored* sites, **38
+fetch the address in the same function** and 24 do not. On Windows the
+reload was usually elsewhere, which is why the join was needed. **Here the
+majority fetch locally**, so a macOS walk over those 38 needs no
+cross-function join.
+
+**Checked against the bytes:**
+- `AppleBCMWLANCoreMac` `…6d6f7c`: map to `0x90(%rcx)` (a field of
+  `this->0x10`), `mov (%rax),%rcx` / `call *0x118(%rcx)`, address to
+  `(%r14)`. Stored, same function.
+- `IOSkywalkFamily` `…98d93f`: map held in R12, an unrelated vcall on
+  another object, then `mov (%r12),%rax` for the fetch. Immediate.
+- `AMDRadeonX4000` `0x32473d`: `mov %rax,(%rbx)` then `setne %al` and
+  return. An out-parameter. **The trace had labelled it "map returned",
+  which is wrong:** the function returns a success flag, and the tracer did
+  not see `setne %al` replace RAX, the same byte-write blindness the lifter
+  had before `(as)`. The class stands; the label is corrected here, and it
+  applies to all eight out-parameter sites.
+
+**Limits:** the trace is linear in address order (the branch-following
+limit), and 8 fetching sites were not followed to a destination.
+
+**Decision (owner's rule): *stored* dominates, so (b) is justified, and it
+would count** a map object filed into a field and then its
+`getVirtualAddress()` result filed into a field, 38 of the 62 in the same
+function.
+
+**A pre-registration constraint for (b), written now while it is
+hypothetical (owner ruling):** slot `0x118` is a fact about **Darwin 24.6.0**,
+not about IOKit; vtable layouts move between builds. An instrument keyed on a
+slot number is single-build **by construction**. **If (b) is built, the
+slots (`getVirtualAddress`, `release`, `taggedRelease`, `free`, `unmap`) are
+resolved from each collection's own `__ZTV11IOMemoryMap` at analysis time,
+never compiled in**, the way this doc resolved them.
