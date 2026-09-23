@@ -81,3 +81,32 @@ length changes**: every length is already asserted by `(s)`/`(u)`.
 ## Outcome
 
 *(below this line, from the artefact only)*
+
+**Inputs hashed:** `x86_decoder.c` `c6cb4cbae0d601d7` (before: `838d1581c9b4b109`),
+`uir.c` `7f6b8fa6f6d0c471`, `dump_starts` `f0044f3d1ce312a0` (before:
+`516fc583b77aebec`), `bin/translator` `9a70409c87694568`. The differential
+was taken against the banked, pinned oracle in `measure/differential/`
+before and after, so the change is isolated to the decoder.
+
+| # | predicted | observed |
+|---|---|---|
+| F1 | one XPASS; no other test moves | **exactly one**, `x64_RED_au_system_family_named`; the decoder suite went from pass 101 / xfail 15 to pass 102 / xfail 14 |
+| F2 | the 224 rows leave `undecoded`; 4 CPUID → `ok`; 220 MOV CR/DR → operand mismatch; nothing else changes class | **exactly that.** 224 rows changed class and no others: **220 `undecoded` → `reg`** (Ghidra `MOV RAX, CR8` against ours `MOV RAX, RAX`: the control register read as general register 0) and **4 → `ok`** (CPUID). The per-input split equals the bound row for row |
+| F3 | every listed form goes to 0% UNKNOWN; forms outside the list stay UNKNOWN | **held.** Two-byte family rows (linear, same offsets in both runs): HP 195 → 0 UNKNOWN; Dell 5,392 → 17; ASUS older 5,985 → 17; ASUS newer 7,072 → 39; macOS kexts+kernel 1,170 → 0. **Every residual is an encoding outside the list**: `0F 01 D9`/`CC`/`CF`/`DC`/`FE`/`FF`, group 6 /6–/7 |
+| F4 | `-t uir`: only `unknown` → `unmodelled` at family rows | **held**: line counts identical on all 12 inputs; 226 changed lines, 0 any other way |
+| F5 | park outcomes byte-identical on all four machines | **held**: 0 outcome changes; site sets 12 / 172 / 171 / 184 unchanged |
+| F6 | suites green; 14 reds | **held**: 396 tests across 27 suites, 14 reds, the union matching |
+
+**rule-30 sweep:** its output is identical to the pre-change baseline apart
+from the new test entering the denominator, where it is listed *not swept*.
+The sweep reads one literal byte array per test, and `(au)` is
+table-driven. **So the sweep cannot vouch for `(au)`'s 57 rows.** They were
+checked against objdump (length 57 of 57; mnemonic 57 of 57, allowing for
+AT&T's `sysretl`/`sysexitl` suffixes) before the red was written.
+
+**For the next item (operands),** which is the measure of whether it is
+worth taking: **220 differential rows** now read as `reg` mismatches, because
+the CR/DR operand is carried as a general register without REX.R, and `0F 22`
+takes `0F 20`'s operand order. The corpus's 12 `mov %cr8` park stops are
+unchanged by this item, as predicted: an unmodelled instruction with no
+`dest` is exactly as unseen as an unknown one.
