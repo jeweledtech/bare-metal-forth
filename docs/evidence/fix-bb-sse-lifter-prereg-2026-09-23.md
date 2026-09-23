@@ -112,6 +112,6 @@ reaches it too. The newer build's stop (`0x1C000AEA1`) sits in the same
 **For stage 2 (a consequence, not a reason):** the named target now lifts
 as seen. `movups (%rbx),%xmm0` writes XMM0 only, and `movups
 %xmm0,0x28(%rdi)` writes memory only. So the product's walk passes the pair
-that blocked all 14 banked rows. The `imm` at `1c0022cc1` was cleared by
+that blocked all 14 banked rows. The `imul` at `1c0022cc1` was cleared by
 (p). **Stage 2's blockers are all now named and seen.** Whether its 14 rows
 come out exactly as banked is stage 2's own measurement, when it is built.
