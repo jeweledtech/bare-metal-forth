@@ -78,3 +78,40 @@ consumer of that, and stage 2 (not yet built) is the next.
 ## Outcome
 
 *(below this line, from the artefact only)*
+
+**Inputs hashed:** `uir.c` `65fdaaa8dae2759c`, `bin/translator`
+`629096321b3d3a53`. The UIR baseline is the post-(ba) binary's dump, and the
+census is v3, unchanged against `SHA256SUMS`.
+
+| # | predicted | observed |
+|---|---|---|
+| L1 | the red XPASSes on the target's bytes; the guard green before and after; nothing else moves | **held**: exactly one XPASS, `sem_RED_bb_sse_dest_seen`, and `pw_GUARD_bb_sse_contract` PASS before the fix and after it (`movq %xmm0,%rax` kills the base; `ucomiss` still stops the walk) |
+| L2 | 7,315 SSE lines gain an operand; 0 other changes; the target lines as named | **held**: line counts identical on all 12 inputs, **7,315** lines gain an operand, 0 others. `1c00226bd: unmodelled r72` and `1c00226c0: unmodelled [r7+40]` (the printer's form of `[rdi+0x28]`, displacement in decimal) |
+| L3 | only the 2 `IPMIDrv` sites can change; HP and Dell identical | **held**: exactly those 2 changed, **both couldn't-tell → `none`, address order**; 0 changes elsewhere, and the site sets 12 / 172 / 171 / 184 are unchanged |
+| L4 | differential unchanged | by construction: the decoder is untouched, and `dump_starts` does not link the lifter |
+| L5 | suites green; tests +2; 13 reds then 12 | **held**: 405 tests across 27 suites (403 + the red + the guard), 12 reds once the red closed |
+
+**Why the two `IPMIDrv` sites are `none`, read from the bytes** at ASUS
+older `0x1C0009560`, with IAT slots resolved by name (`0x15250`
+`MmMapIoSpaceEx`, `0x15248` `MmUnmapIoSpace`):
+
+1. The mapped base goes to RSI, and RDI scans it for the `_SM_` signature
+   (`cmpl $0x5f4d535f,(%rdi)`, stepping 0x10): an SMBIOS entry-point search.
+2. At the hit, `movsd 0x10(%rdi),%xmm1` reads 8 bytes of the entry point
+   (the walk's old stop), `movsd %xmm1,0x70(%rsp)` spills them, and a
+   second `MmMapIoSpaceEx` maps the table they describe.
+3. `mov %rsi,%rcx` / `MmUnmapIoSpace` then releases the first mapping.
+
+The first base is used only as a scan address and released in the same
+function; it is **never stored**. So `none` is the right answer. The route
+is address order because the walk reaches the `movsd` past the loop's
+back-edge `jmp` at `1c000964c`. The real path (the `je 0x1c0009651` hit)
+reaches it too. The newer build's stop (`0x1C000AEA1`) sits in the same
+`_SM_` loop and the same `movsd`. These are one driver on two builds.
+
+**For stage 2 (a consequence, not a reason):** the named target now lifts
+as seen. `movups (%rbx),%xmm0` writes XMM0 only, and `movups
+%xmm0,0x28(%rdi)` writes memory only. So the product's walk passes the pair
+that blocked all 14 banked rows. The `imm` at `1c0022cc1` was cleared by
+(p). **Stage 2's blockers are all now named and seen.** Whether its 14 rows
+come out exactly as banked is stage 2's own measurement, when it is built.
