@@ -67,7 +67,7 @@ it:**
 **Gate: exactly one name.** `test_mmio_consumer` is back to an empty
 expected-failure list.
 
-## Open, with a red (12)
+## Open, with a red (14)
 
 **The table is the whole list, across every suite.** Until 2026-09-21
 the executable check compared it against `test_x86_decoder.c`'s
@@ -96,6 +96,8 @@ asserted so a renamed suite cannot shrink the union silently. The
 | (y) | `x64_RED_y_lea_register_form_invalid` | decoder | `8D C0` LEA register form is #UD |
 | (ab) | `x64_RED_ab_two_byte_arm_ignores_mandatory_prefix` | decoder | the arm never reads `66`/`F2`/`F3` |
 | (t) | `unknown_0f_modrm_recovery` | decoder | `0F 0D C0` is #UD and is accepted |
+| (ba) | `x64_RED_ba_sse_family_named` | decoder | the SSE family (270 SDM keys) decodes with no identity |
+| (ba) | `x64_RED_ba_sse_operands` | decoder | SSE operands: XMM has no representation (72-87, from the CR/DR template) |
 
 ## Open, without a red (3)
 
