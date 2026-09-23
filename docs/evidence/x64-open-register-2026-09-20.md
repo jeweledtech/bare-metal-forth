@@ -98,6 +98,8 @@ asserted so a renamed suite cannot shrink the union silently. The
 | (y) | `x64_RED_y_lea_register_form_invalid` | decoder | `8D C0` LEA register form is #UD |
 | (ab) | `x64_RED_ab_two_byte_arm_ignores_mandatory_prefix` | decoder | the arm never reads `66`/`F2`/`F3` |
 | (t) | `unknown_0f_modrm_recovery` | decoder | `0F 0D C0` is #UD and is accepted |
+| (aq) | `sem_RED_aq_store_after_release_is_named` | semantic | a base outlives `MmUnmapIoSpace`, and its later store reports as a park |
+| (ar) | `sem_RED_ar_park_route_is_reported` | semantic | a park reached only in address order shares a column with a path-verified one |
 
 ## (s) CLOSED 2026-09-21 — and with it the decoder queue
 
