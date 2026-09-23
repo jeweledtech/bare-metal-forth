@@ -260,3 +260,16 @@ scale, and it is shown twice:**
 chain still live in a callee-saved register, was 18 walks on ASUS (older),
 the *same build* as HP, where it was 0. HP's zero reflects its eight-driver
 sample, not its build.
+
+## Standing caution: a count across machines that share a driver is not a count of independent sites
+
+The 12 `mov %cr8` park stops that bounded `(aw)` were **one driver
+(`mlx4_bus.sys`), four sites, three builds**: byte-different copies at the
+same four addresses on Dell, ASUS (older) and ASUS (newer). The item's
+independent reach was 4, not 12. The same exposure produced the 165 drivers
+of the CR-move spread (`system-family-census` §2), and the owner's
+481-occurrence pricing of SBB, which moved 3 sites. **Every per-machine
+bound taken from this corpus is summed over drivers that recur across
+machines, so every such bound states its distinct count as well**:
+distinct binaries by sha256, and distinct code by site address where the
+builds differ.
