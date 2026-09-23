@@ -59,3 +59,31 @@ independent sites. No stop in the corpus is at a CR/DR write.
 ## Outcome
 
 *(below this line, from the artefact only)*
+
+**Inputs hashed:** `uir.c` `fa6f2d16204a7b9b`, `bin/translator` `7fcb5a58bdfc4dab`.
+The census scripts are v2, unchanged against `SHA256SUMS`.
+
+| # | predicted | observed |
+|---|---|---|
+| M1 | the reds pass together; the guard stays green | **held**: one XPASS, `sem_RED_aw_movcr_write_set` (CR read into RBX, CR write, DR write); `pw_GUARD_cr_read_into_base_kills_it` PASS |
+| M2 | only the 12 sites change; outcomes as observed | **only the 12**, 0 outside them; **all 12 → `none`** (4 per machine) |
+| M3 | HP byte-identical | **held** |
+| M4 | `-t uir`: only unmodelled lines gain an operand | **held**: line counts identical; 221 changed lines, 0 any other way |
+| M5 | differential unchanged | the decoder is unchanged (the `x86_decoder.c` hash equals `(av)`'s) |
+| M6 | suites green; tests +1; 14 reds | **held**: 399 tests across 27 suites (the red and its guard), 14 reds |
+
+**Why the 12 become `none`, read from the bytes** at `mlx4_bus`
+`140013F29` (Dell): the base goes to R15, then `test %rax,%rax` /
+`jne 0x140013f7e`. The linear walk falls through the **failure** path (base
+NULL), and the `mov %cr8,%rbx` it used to stop at is an IRQL read for a log
+message about `0x270` bytes down that path. On the **success** path the base
+is used at once as an address (`lea 0xc(%r15),%rbx`), with no store of R15
+seen in the span read. **So `none` is plausibly the right answer for this
+site, but it was reached by the wrong route**, through the branch-following
+limit. It is not a missing park.
+
+**The owner's aliasing case, now tested as well as argued:** a CR write
+(`mov %rax,%cr8`) and a DR write (`mov %rax,%dr7`) leave a base in RAX
+tracked, and a CR read into RAX kills it. The type argument (`reg_bits()`
+maps 40–71 to no bits; `holds[]` is indexed only through operands
+`MOV_CR` does not produce) predicted exactly that.
