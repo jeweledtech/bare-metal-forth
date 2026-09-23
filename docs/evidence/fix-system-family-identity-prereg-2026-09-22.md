@@ -118,3 +118,5 @@ not know what this is"; now it is a located, wrong answer (`MOV RAX, CR8`
 against ours `MOV RAX, RAX`). **An unknown is not a smaller error than a
 wrong answer; it is an unmeasured one.** That is the argument for naming
 things even when the naming makes the numbers look worse.
+
+> **Correction, 2026-09-23 (`sdm-banking-2026-09-23.md`):** the SDM is now banked (325462-092). This family was not drawn from the system-instruction chapter alone: its VMX, SYSCALL/SYSENTER, MSR, CPUID, MONITOR/MWAIT, CLAC/STAC, GETSEC and RDRAND/RDSEED entries come from other chapters. Checked against Table 2-3 (Vol. 3A §2.8), three encodings the family names are **misnamed** (`F3 0F 09` WBNOINVD prints `wbinvd`; `F2`/`F3 0F 01 CA` ERETS/ERETU print `clac`), which is red `(bd)`, and four Table 2-3 instructions are unnamed, which is `(be)`.

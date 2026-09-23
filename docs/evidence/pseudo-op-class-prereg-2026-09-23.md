@@ -105,3 +105,5 @@ exactly one. What it buys is the next time: 1,360 corpus rows (763 compares
 on macOS, 597 PCLMULQDQ, 409 of them on Windows) would each have read as a
 defect the day an oracle input carries them. Now each will read as
 `pseudo_op` if it matches the SDM table, and as `UNLISTED` if it does not.
+
+> **Confirmed, 2026-09-23 (`sdm-banking-2026-09-23.md`):** the 36 pairs are identical to SDM 325462-092 Tables 3-9, 3-11, 3-13, 3-15 and 4-15.

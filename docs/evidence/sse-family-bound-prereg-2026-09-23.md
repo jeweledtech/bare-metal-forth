@@ -247,3 +247,5 @@ any Windows set.
 `1c00226c0` now decode with operands (`MOVUPS XMM0, [RBX]` and
 `[RDI+0x28], XMM0`). Stage 2's rows move only when the lifter carries
 operand 0 (step 2 of section 6), which is the next item.
+
+> **Correction, 2026-09-23 (`sdm-banking-2026-09-23.md`):** the SDM is now banked (325462-092) and the provenance gap above is closed. All 270 keys are attested by the instruction pages. But the definition drawn from Tables A-3/A-4/A-5 is narrower than "legacy encodings with an XMM operand" by 7 encodings that the maps omit: GFNI `66 0F38 CF`, `66 0F3A CE/CF`, and Key Locker `F3 0F38 DC-DF`. They have 0 corpus rows, a measured zero, and are recorded as `(be)`.

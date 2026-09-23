@@ -132,3 +132,5 @@ system encoding (`0F 20 C3`, with a ModRM that names a real control
 register) rarely assembles itself from data, and it did not here. This is
 reasoned from the control, not proven for every Windows hit: the one-byte
 counts are withdrawn, and the two-byte counts stand on the control's zero.
+
+> **Correction, 2026-09-23 (`sdm-banking-2026-09-23.md`):** the SDM is now banked (325462-092). This family was not drawn from the system-instruction chapter alone: its VMX, SYSCALL/SYSENTER, MSR, CPUID, MONITOR/MWAIT, CLAC/STAC, GETSEC and RDRAND/RDSEED entries come from other chapters. Checked against Table 2-3 (Vol. 3A §2.8), three encodings the family names are **misnamed** (`F3 0F 09` WBNOINVD prints `wbinvd`; `F2`/`F3 0F 01 CA` ERETS/ERETU print `clac`), which is red `(bd)`, and four Table 2-3 instructions are unnamed, which is `(be)`.
