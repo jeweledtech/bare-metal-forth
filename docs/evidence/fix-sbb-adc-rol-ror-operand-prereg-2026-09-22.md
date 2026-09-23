@@ -34,3 +34,19 @@ by corpus occurrence.
 ## Outcome
 
 *(below this line, from the artefact only)*
+
+**Inputs hashed:** `bin/translator` `9c2fca115795cece` (the pre-change run was
+`d6df45353907fda4`). The census scripts are v2, unchanged against
+`SHA256SUMS`.
+
+| # | predicted | observed |
+|---|---|---|
+| T1 | HP byte-identical | **held** |
+| T2 | only the three `pmem` sites change | **held**: exactly those three, and nothing else on any machine |
+| T3 | `pmem`: reported as observed | all three become **`none`**. The walk now passes the SBB and reaches no store of the base |
+| T4 | `-t uir`: only `unmodelled` lines gain an operand | **held**: 505 changed lines, 0 any other way, line counts identical |
+| T5 | one XPASS, `(al)`'s SBB/ROL cases green, tests +1, 14 reds | **held**: 395 tests, 14 reds |
+
+**The couldn't-tell column falls by 1 / 1 / 1 and `none` rises by the
+same.** No park is created or lost. The repair is correct by its tests and
+moves no park number.
