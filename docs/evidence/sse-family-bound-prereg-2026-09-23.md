@@ -166,6 +166,27 @@ against source now:
 | S5 | park census: **outcomes identical on all four machines**. Step 1 carries no `dest`, so the 2 `IPMIDrv` stops stay |
 | S6 | suites green; the tests rise by the two reds; the register stays at 12 once they close |
 
+## 8. Ruling on staging (owner, 2026-09-23), and the intermediate measurement
+
+**One item, one gate, and one mandatory intermediate measurement inside
+it.** After identity lands and before operands, the differential is run
+once and what the 7,301 rows become is recorded here. There is no commit
+in between. The measurement tests the **family**, not the fix: a row that
+reaches `ok` on naming alone has no XMM operand at all, which would mean
+the 270-key definition admitted something that does not belong to it.
+
+| # | prediction (the intermediate measurement, identity only) |
+|---|---|
+| S0 | **all 7,301 rows read `opcount`** (named, no operands printed); **none reaches `ok`**; no row changes class in any other way (no `mnemonic`, and nothing outside the 7,301 moves) |
+
+S0 carries one caveat, stated so it cannot be read as an excuse
+afterwards. A row whose identity spelling differs from Ghidra's would read
+`mnemonic`, not `opcount`. Examples are compare predicates (`CMPPS` imm8
+against Ghidra's spelling) and `MOVD`/`MOVQ` under REX.W. **If any row
+reads `mnemonic`, S0 is missed**, and each such row is listed with its
+spelling pair. That is a naming defect found before operands, which is what
+the measurement is for.
+
 ---
 
 ## Outcome

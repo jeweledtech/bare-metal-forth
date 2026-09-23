@@ -505,6 +505,15 @@ evidence of which opcodes matter, and each now carries its SDM mnemonic
 as the pre-registered target.
 
 ## Not a defect letter, but owed and easy to lose
+- **Bank the SDM** (owner, 2026-09-23). Two instruction families, the
+  system family and the SSE family, were fixed from the manual's
+  structure with no copy on disk. Every other oracle in this apparatus is
+  pinned: Ghidra by snap revision, xnu by tag, the corpus by sha256. Owed:
+  download the volumes, hash them, record the table numbers each family
+  was drawn from (Vol. 2 Appendix A, Tables A-3/A-4/A-5 for SSE; the
+  system-instruction chapter for the system family), and cite them as the
+  Ghidra snap is cited. Not blocking: the objdump cross-check covers
+  1.26M SSE hits and every system-family row.
 - **512,213 is withdrawn.** It was summed from Ghidra per-instruction
   files that lived in `$(BUILDDIR)` and a clean destroyed. No
   difference may be taken against it. The reproducible pair is
