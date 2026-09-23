@@ -85,3 +85,23 @@ absorbing it.
 ## Outcome
 
 *(below this line, from the artefact only)*
+
+**Inputs hashed:** `compare_operands.py` `5ec8fc7bf8493de6`; pseudo-op
+table `pseudo_sha256` `6ceb47ffeefb` (36 pairs), printed on every `OPD`
+header line. The "before" is the committed comparer on the same post-(ba)
+dumps, so only the comparer differs.
+
+| # | predicted | observed |
+|---|---|---|
+| C1 | exactly 1 row `mnemonic` → `pseudo_op`, on the fixture | **held**: `x64_reds.elf` `mnemonic` 1 → 0, `pseudo_op_excluded=1`, and the `EXCLUDED … pseudo_op rows=1` line prints; 0 on the other 15 inputs |
+| C2 | `pseudo_op_unlisted=0` on all 16 | **held** |
+| C3 | every other count identical; alias hash unchanged | **held after one correction made before commit.** The first build moved `mnem_ok` 22 → 23 on the fixture: the pseudo-op check ran before the `mnem_ok` count, so an excluded row whose two spellings differ was counted as a mnemonic agreement. That is a figure the prediction said would not move. `pseudo_op` is now kept out of `mnem_ok`, and the re-run moves only `mnemonic` 1 → 0, `denominator` 31 → 30 and the scores that follow from it (64.5% → 66.7% on the 31-row fixture). The alias hash is `02101788edd2` before and after |
+| C4 | the four controls | **held, row for row**: (a) `pseudo_op`; (b) `mnemonic` plus a `PSEUDO-OP UNLISTED` line; (c) `mnemonic`, a register disagreement not absorbed; (d) `pseudo_op`. `OPSUMMARY` reads `mnemonic=2 pseudo_op_excluded=2 pseudo_op_unlisted=1`. The control inputs are banked with the translator, in `measure/pseudo-op-controls/`, with the expected rows in a README, so the check can be re-run rather than recalled |
+| C5 | `make test` unchanged | **held**: 403 tests across 27 suites, 12 reds |
+
+**The corpus-wide figure is unchanged by construction.** The class only
+re-labels a row the comparer already called `mnemonic`, and the oracle has
+exactly one. What it buys is the next time: 1,360 corpus rows (763 compares
+on macOS, 597 PCLMULQDQ, 409 of them on Windows) would each have read as a
+defect the day an oracle input carries them. Now each will read as
+`pseudo_op` if it matches the SDM table, and as `UNLISTED` if it does not.
