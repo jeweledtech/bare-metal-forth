@@ -213,3 +213,50 @@ stop. **So HP is the least representative machine in the corpus in the
 sense that matters: it is too small to exercise the walk's defects**, and
 the walk looked better there than it is. Every further walk repair is
 validated against all four machines, never against HP alone.
+
+---
+
+# Build as an explicit axis (2026-09-22)
+
+The four machines are **three Windows builds** (read from file-version
+resources; `system-family-census-2026-09-22.md` §2): 19041 = HP and ASUS
+(older); 22621 = ASUS (newer); 26100 = Dell. So vendor and build are
+confounded. Below, the current census (binary `d6df45353907fda4`) is
+regrouped without a new run. Intervals are Wilson 95%; *p* is a
+two-proportion test.
+
+| grouping | structure / resolved | 95% CI | none |
+|---|---|---|---|
+| **19041**: HP + ASUS (older) | 89/121 = 73.6% | 65.1–80.6 | 38/183 = 20.8% |
+| **22621**: ASUS (newer) | 96/122 = 78.7% | 70.6–85.0 | 41/184 = 22.3% |
+| **26100**: Dell | 91/116 = 78.4% | 70.1–85.0 | 34/172 = 19.8% |
+| by machine: HP | 8/11 = 72.7% | **43.4–90.3** | 1/12 |
+| by machine: ASUS (older) | 81/110 = 73.6% | 64.7–81.0 | 37/171 |
+
+**Every pairwise gap is within noise** (largest: HP against ASUS (newer),
+6.0 points, *p* = 0.65; the two ASUS machines 5.1 points, *p* = 0.37;
+Windows 10 against Windows 11 is 73.6% against 78.6%, *p* = 0.29).
+
+## What "the pattern holds across vendors" rests on
+
+**The only vendor comparison with build held constant is one pair: HP
+against ASUS (older).** Their resolved shares agree to 0.9 points (*p* =
+0.95), which reads as "vendor barely matters". **The interval swallows
+it.** HP's is 47 points wide at 11 parks, so the pair cannot detect a
+vendor effect smaller than roughly 25 points. **The honest statement is
+that this corpus cannot separate vendor from build on any park rate:** the
+controlled pair is too small, and every other contrast is confounded.
+
+**Build is shown to matter, but at instruction scale, not at park-rate
+scale, and it is shown twice:**
+- on the Windows 10 build the IRQL read compiles inline as `mov %cr8`, in
+  165 same-named drivers whose Windows 11 namesakes import a routine instead;
+- serial.sys on 22621 files its base through `mov %rax,(%r15)` where the
+  19041 and 26100 builds use `0xf0(%rdi)`, which is why S3 missed.
+
+**The same driver name is not the same code across builds.**
+
+**And one mechanism is not build-shaped:** class B, the walk quitting on a
+chain still live in a callee-saved register, was 18 walks on ASUS (older),
+the *same build* as HP, where it was 0. HP's zero reflects its eight-driver
+sample, not its build.
