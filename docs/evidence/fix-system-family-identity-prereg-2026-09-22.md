@@ -110,3 +110,11 @@ the CR/DR operand is carried as a general register without REX.R, and `0F 22`
 takes `0F 20`'s operand order. The corpus's 12 `mov %cr8` park stops are
 unchanged by this item, as predicted: an unmodelled instruction with no
 `dest` is exactly as unseen as an unknown one.
+
+**The direction of F2 is the finding (owner, 2026-09-22).** 220 rows moved
+from *undecoded* to *operand mismatch*. That reads like a regression and is
+the opposite: before, the disagreement with Ghidra was hidden behind "we do
+not know what this is"; now it is a located, wrong answer (`MOV RAX, CR8`
+against ours `MOV RAX, RAX`). **An unknown is not a smaller error than a
+wrong answer; it is an unmeasured one.** That is the argument for naming
+things even when the naming makes the numbers look worse.
