@@ -97,6 +97,19 @@ asserted so a renamed suite cannot shrink the union silently. The
 | (ab) | `x64_RED_ab_two_byte_arm_ignores_mandatory_prefix` | decoder | the arm never reads `66`/`F2`/`F3` |
 | (t) | `unknown_0f_modrm_recovery` | decoder | `0F 0D C0` is #UD and is accepted |
 
+## Open, without a red (3)
+
+**Defect letters that are open and have no red yet**, counted so they
+are not carried only in prose. A red is written when the item is taken.
+The second cell is deliberately **not** a backticked test name: the
+register check reads that shape as a red.
+
+| letter | what | suite it would live in | what is wrong |
+|---|---|---|---|
+| (q) | VEX / EVEX / REX2 unmodelled | decoder | measured zero in the corpus; see *Open, deferred* for its minting condition |
+| (ai) | comparer misreads a prefixed unknown | differential | `???.LOCK` falls through to `mnemonic` (450 rows); parked, see its section |
+| (az) | DX-port scan ignores MOVSXD | lifter | `uir.c`'s backward scan for the register feeding `in`/`out` via DX matches only MOV / MOVZX / MOVSX into EDX. (p) made MOVSXD (and three-operand IMUL) visible to this reader, which never saw them while they were unknown, so it is a gap **created by (p)** (rule 24). Minted 2026-09-23 |
+
 ## (s) CLOSED 2026-09-21 — and with it the decoder queue
 
 **Three mechanisms, all derived from the pinned oracle rather than
