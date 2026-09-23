@@ -51,3 +51,26 @@ offered as the cause.
 14. **Changing an exit's number is the owner's ruling**, so no stage-2
 code is written until it is made. The independent-sample count is
 unchanged: **one pointer, one park, one function, one driver.**
+
+## Ruling (owner, 2026-09-23), and what the product can reach of it
+
+**The exit now reads 14 accesses through 1 park, stated as an exact set,
+and never without "independent sample count 1".** This is a correction,
+not a rebaseline, **because it raises what the work commits to** (13 → 14).
+Rule 33 refused loosening a threshold so a check would pass; this goes the
+other way, and the direction is the test.
+
+**Checked before any code: can the product reach all 14 under its own
+discipline?** The product's function `func_1C0022510` matches `.pdata`,
+contains every reload and access, and a lifted memory operand carries the
+access size (`movzwl` 2, `movzbl` 1, `mov` 4). **But between row 1's reload
+(`1c00226a3`) and its access (`1c00226d2`) are two instructions the decoder
+cannot name**: `1c00226bd movups (%rbx),%xmm0` and `1c00226c0 movups
+%xmm0,0x28(%rdi)`, both lifted `unknown`. The other 13 rows have nothing
+unseen between reload and access. **Under the walk's rule (where an
+instruction's writes cannot be seen, stop and say so), the product would
+state 13 accesses and report row 1's access as undetermined.** It is
+correct by the hand read: `movups` writes XMM0 and memory, not RCX. But the
+product cannot see that without naming the SSE moves. Treating an unknown
+instruction as writing nothing, so that row 1 comes through, is the
+loosening rule 33 forbids, and is **not** an option.
