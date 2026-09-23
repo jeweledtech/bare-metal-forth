@@ -40,3 +40,32 @@ same code at the same addresses.
 ## Outcome
 
 *(below this line, from the artefact only)*
+
+**Inputs hashed:** `semantic.c` `60d5a740272cead1`, `bin/translator`
+`6af3b08c536c0ec5`. Census scripts **v3** (`park_census_v3.py` `69bd60e6`,
+`park_agg_v3.py` `76ab964f`); v2 is kept. v2 would print every `none`
+without its route, which would hide exactly the split this item adds. v3
+adds the `/ao` suffix to `none` and nothing else.
+
+| # | predicted | observed |
+|---|---|---|
+| N1 | the red passes | **one XPASS**, `sem_RED_ax_none_carries_a_route` |
+| N2 | no outcome changes, no class moves; only the route appears on `none` | **held**: 0 class changes on every machine once the route is set aside |
+| N3 | HP storport `none` → `address_order` (the corrected reading) | **`address_order`**. The first draft's `path` would have been wrong |
+| N4 | the 12 `mlx4_bus` `none`s → `address_order` | **all 12**, 4 per machine |
+| N5 | the `none` split: observed only | see below |
+| N6 | suites green, tests +1, 14 reds | **held**: 400 tests across 27 suites, 14 reds. The lifter and decoder are untouched, so `-t uir` and the differential are unchanged by construction |
+
+**`none` by route** (binary `6af3b08c`):
+
+| machine | `none`, path | `none`, address order | `none` total |
+|---|---|---|---|
+| HP | 0 | 1 | 1 |
+| Dell | 19 | 20 | 39 |
+| ASUS (older) | 23 | 19 | 42 |
+| ASUS (newer) | 24 | 22 | 46 |
+
+**About half of the census's weakest column was reached past an
+unconditional jump**, where the walk cannot vouch for the route. The
+`path` half is not vouched for either, as the limit above states: a real
+path, not necessarily the one on which the base is valid.
