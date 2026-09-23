@@ -167,3 +167,49 @@ Mac-vs-Windows gap to kernel against userland. The measured cause was
 **Noted, not acted on:** 623 of the 624 Mach-O files carry an arm64e slice,
 listed in `~/corpus/Mac/MANIFEST.arm64e`. These are the first real ARM64
 inputs this project has held, and `uir_lift_arm64_function()` has no caller.
+
+---
+
+# The census after the ABI stop, the release kill and park provenance (2026-09-22)
+
+Binary `baad7b886c867d3a`, census scripts v2 (see
+`fix-release-kill-provenance-prereg-2026-09-22.md`). **Reported both ways,
+with `none` beside them, and parks split by route.** Intervals are Wilson
+95%.
+
+| machine | sites | none | none 95% CI | structure / resolved | 95% CI | **path-verified** structure / resolved | address-order parks | after release |
+|---|---|---|---|---|---|---|---|---|
+| HP | 12 | 1 (8.3%) | 1.5–35.4 | 6/9 = 66.7% | 35.4–87.9 | 6/9 = 66.7% | 1 | 0 |
+| Dell | 172 | 33 (19.2%) | 14.0–25.7 | 89/114 = 78.1% | 69.6–84.7 | 85/114 = **74.6%** | 5 | 1 |
+| ASUS (older) | 171 | 37 (21.6%) | 16.1–28.4 | 79/108 = 73.1% | 64.1–80.6 | 76/108 = **70.4%** | 5 | 1 |
+| ASUS (newer) | 184 | 41 (22.3%) | 16.9–28.8 | 94/120 = 78.3% | 70.1–84.8 | 89/120 = **74.2%** | 6 | 1 |
+
+"Resolved" means a park of any route; after-release, `none` and
+couldn't-tell are excluded. **The path-verified column is the number that
+can be defended**: its parks were reached on a real execution path. The
+all-routes column adds the address-order parks, which are right only if
+nothing on the jumped-over stretch lied.
+
+## The finding: the walk was tuned on the least representative machine, and the evidence for that is the mechanism, not the rates
+
+**Two rates point the same way.** HP has the lowest `none` (8% against
+19–22%) and the lowest resolved structure share (67% against 73–78%). The
+walk was developed against HP. A walk tuned on a machine gives up least
+on it, and a machine whose parks are less often structure slots is not
+where the pattern is typical.
+
+**Neither rate difference is established by HP's own numbers.** HP has 12
+sites and 9 resolved parks, so one site moves a share by 8–11 points. Both
+of HP's intervals contain the other three machines' values: `none` is
+1.5–35.4%, resolved share 35.4–87.9%. A reader who takes "HP 67% against 78%"
+as a measured gap is taking noise as signal.
+
+**What is established, with a named mechanism, is class B.** In 27–33% of
+`none` walks on the other three machines (49 walks), the walk quit at a call
+with the base still live in a callee-saved register. **On HP that class was
+0 of 1.** That is a defect of the walk that HP's twelve sites did not
+exercise and four machines did, found by bytes and repaired by the ABI
+stop. **So HP is the least representative machine in the corpus in the
+sense that matters: it is too small to exercise the walk's defects**, and
+the walk looked better there than it is. Every further walk repair is
+validated against all four machines, never against HP alone.

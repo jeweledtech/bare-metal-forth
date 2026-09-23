@@ -73,3 +73,40 @@ in the ABI stop's census).
 ## Outcome
 
 *(below this line, from the artefact only)*
+
+**Inputs hashed:** `bin/translator` `baad7b886c867d3a` (the pre-fix run was
+`4852c9c516ec295c`). The census scripts are **v2**: `park_census_v2.py`
+`ceff89c7`, `park_agg_v2.py` `6de292c5`. v1 would have filed
+`park_after_release_at` as `none` without saying so, because its classifier
+knows no such key. v2 adds that category and the route suffix and nothing else.
+**Control:** with the route and after-release labels collapsed back to v1's
+categories, v2 reproduces the pre-fix run site for site, except the three
+sites below.
+
+**(aq)/(ar):** exactly two XPASS, the two names. All three guards held:
+plain park, volatile dies at a call, release of another region kills
+nothing. 393 tests across 27 suites, 14 reds, the union matching.
+
+| # | predicted | observed |
+|---|---|---|
+| K1 | HP outcomes unchanged | **byte-identical** once the new `park_route` key is stripped |
+| K2 | exactly 1 / 1 / 1 parks lost, `scsiport`, as after-release by address order | **exactly those three**: `scsiport` `0x140003172` / `0x1C00030D8` / `0x1C0003192`, now `after_release`, route `address_order` |
+| K3 | after-release: at least 1, at most 19 / 21 / 22 | **1 / 1 / 1.** The other 18 / 20 / 21 walks that reach an unmap of this region never store the base afterwards |
+| K4 | nothing else becomes or stops being a park | **held**: 0 other outcome changes on any machine |
+| P1 | HP: 8 `path`, 1 `address_order` (pci `1C0068DCB`) | **exactly that** |
+| P2 | `fvevol` ×3 `path`; `scsiport` ×3 and `Netwtw08` `address_order` | **held** |
+| P3 | *guess:* 10–25% of parks off HP are `address_order` | **wrong: 5 / 5 / 6 of 114 / 108 / 120, about 5%**. HP's 1 of 9 (11%) is the *highest* |
+
+**Every address-order outcome, named** (the list is short enough to print
+whole): Dell has `UcmUcsiAcpiClient`, `acpi`, `netvsc`, `winhvr`
+(structure), `pci` (frame) and `scsiport` (after release). ASUS older has
+`UcmUcsiAcpiClient`, `netvsc`, `vpci` (structure), `Netwtw08` and `pci`
+(frame), and `scsiport`. ASUS newer has `UcmUcsiAcpiClient`, `acpi`,
+`netvsc`, `tpm`, `vpci` (structure), `pci` (frame) and `scsiport`. None of
+these has been read against the bytes, apart from the four read last round.
+
+**A caution this fix puts in the report:** `scsiport`'s after-release
+statement is **address order**, and the bytes show its real path doesn't
+unmap. So the dangling-pointer reading is false for all three. The route
+field is what keeps that from being published as a finding, and it is why
+the two items landed together.
