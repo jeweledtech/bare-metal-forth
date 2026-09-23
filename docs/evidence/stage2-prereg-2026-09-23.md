@@ -1,0 +1,85 @@
+# Stage 2 of the identity consumer: pre-registration (2026-09-23)
+
+**Written before stage 2's code.** Outcomes go BELOW the line.
+
+**What this run tests, per the owner's ruling.** The 14 targets in
+`stage2-row-targets-prereg-2026-09-23.md` were read from the bytes by hand
+while the product could vouch for none of them, and banked before (p),
+(ba) and (bb) existed. Nothing could have shaped them to what the
+instrument now produces. So this is **a test of the hand read as a method**,
+not only of the rows:
+- **Agreement** establishes hand reading as a reliable source of targets
+  the product cannot yet produce.
+- **Disagreement is the more valuable case and is not smoothed.** If a row
+  differs, one of the two is wrong. The bytes are read again before
+  either is touched. **No banked target is adjusted to match the product,
+  and the product is not assumed right because it is now capable.**
+
+## The exit (ruled 2026-09-23)
+
+> **14 accesses through 1 park**, stated as an **exact set**, and never
+> without **independent sample count 1**: one pointer, one park, one
+> function, one driver. `HDAudBus.sys` (sha256 `9966d998035daae0…`),
+> function `1c0022510`, region mapped at `1c0022671`, parked at `1c002267d`
+> `mov %rax,0x58(%rdi)`. Each access is a per-access statement, *"reads N
+> bytes at offset X of the region mapped at `0x1C0022671` and parked at
+> `0x58`"*.
+
+**Attestation, stated exactly:**
+- The pinned oracle's `MmioChains.java` attests the **region and its
+  park** (`mmio-chain-census-2026-09-21.log`:
+  `MMIOPARKED 1c0022510 1c0022671 … 1c002267d`). Its forward flow ends
+  where the pointer is filed, so it attests **no access**.
+- `FuncRanges.java` and `.pdata` attest the function boundary.
+- **The 14 accesses rest on the hand read alone**, which is what this run
+  tests.
+
+## What stage 2 does (the rules the bound fixed before any code)
+
+For a region parked in a **plain structure slot**, meaning not indexed and
+not a frame slot, with base register P and displacement D:
+
+1. **Continue the walk after the park**, in address order to the end of the
+   product's function.
+   - P stays live while nothing writes it. That is read from
+     `uir_writes()`, as the park walk reads it.
+   - A CALL leaves P live when P is non-volatile under the Win64 ABI.
+     This is a cited convention, not a measurement, as recorded in the
+     consumer spec.
+   - **An instruction whose writes the UIR does not show stops the walk**.
+     Every later reload is then undetermined, and the report says where
+     (`accesses_undetermined_at`).
+2. **A reload** is a load `mov D(P),R` (no index) while P is live.
+3. **Its access** is the first instruction after the reload that uses R as
+   a memory base. The search stops if R is written first, if a CALL, JMP
+   or RET intervenes, or at the function end.
+   - An unseen instruction in that span makes the access undetermined,
+     reported per reload.
+   - `lea` is not an access. It computes an address and touches nothing.
+4. **Size and offset** come from the memory operand. **Route** is
+   `address_order` if a JMP or RET was crossed between the park and the
+   access, and `path` otherwise.
+
+**Report, per region:** `accesses_analysed: true` (zero-measured must not
+print as zero-found), and `accesses: [{reload, reg, access, kind, size,
+offset, route, statement}]`. The regions of all drivers get these fields.
+Stage 2's exit is about the one region above.
+
+## Predictions
+
+| # | prediction |
+|---|---|
+| T1 | the red `stage2_RED_hdaudbus_14_accesses` XPASSes. The `0x58` region's `accesses` list is **exactly** the 14 banked rows, matched on (reload, reg, access, size, offset) and in the same order, and there is **no** `accesses_undetermined_at` for it. All 14 are reads |
+| T2 | **nothing else moves** in any existing test or measurement: park outcomes identical on all four machines (stage 2 adds fields and changes no park); `-t uir` and the differential byte-identical (lifter and decoder untouched); suites green with **tests +1**, and 13 reds → 12 |
+| T3 | the second region in the same function (mapped at `1c0022697`, parked at `1c00226a7`) is **reported as observed, with no prediction**. It is not part of the exit |
+| T4 | the route of each of the 14 is reported as observed, with no prediction. The hand read went in address order, and a `path` label is not claimed in advance |
+
+**If T1 fails on any row, the row is listed with both versions, and the
+bytes are read again before anything else is done.** The outcome is stated
+as an exact set either way, with independent sample count 1.
+
+---
+
+## Outcome
+
+*(below this line, from the artefact only)*
