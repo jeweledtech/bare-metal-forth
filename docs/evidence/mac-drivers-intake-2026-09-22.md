@@ -276,3 +276,26 @@ like-for-like count.
 make at least 105 mapping calls a walk could start from. That is enough to
 say there is a pattern to find, and not enough to size it until the virtual
 half is counted.
+
+## Provenance, licensing and scope (owner ruling 2026-09-22)
+
+- **The pinned source:** `xnu-11417.140.69`, read from the kernel binary's
+  own version string (`Darwin Kernel Version 24.6.0 … xnu-11417.140.69.712.69~10/RELEASE_X86_64`)
+  and matched to the tag of the same name on `apple-oss-distributions/xnu`.
+  It is kept here the way the Ghidra snap revision is kept for the oracle.
+- **The licensing boundary:** xnu source is Apple's. The five headers
+  fetched live in scratch only; `find` confirms that neither repository
+  contains or tracks any of them. The **derived symbol list** above is a
+  list of published API names, facts about an interface and not Apple's
+  code, so it publishes, with the tag beside it, like sha256 and per-file
+  measurements. Apple's binaries never leave `~/corpus/`
+  (`/home/bbrown/corpus/`).
+- **Every macOS figure here is single-build: Darwin 24.6.0, one machine
+  (`apple_macbookpro15-1`), one OS version.** The Windows corpus needed four
+  machines to discover that vendor and build were confounded
+  (`park-census-cross-vendor-2026-09-22.md`, *Build as an explicit
+  axis*). These figures cannot distinguish "how macOS does this" from "how
+  this build does this". That applies to the per-kext boundaries, the
+  11-of-399 register-access count, the 2.31% / 0.81% decode rate, the
+  `__BRANCH_STUBS` binding, and the 105-site lower bound. **No macOS number
+  is to be read as a property of macOS until a second build is measured.**
