@@ -103,3 +103,34 @@ Every existing reader skips `#` lines, so no reader changes meaning.
 ## Outcome
 
 *(below this line, from the artefact only)*
+
+**Inputs hashed:** `dump_starts.c` `288951172d78b3e1`, `dump_starts`
+`03742a836536649d`, `compare_operands.py` `82b4c993bcf8a56a`. The "before"
+is the committed comparer on the post-(p) dumps; the "after" is the new
+comparer on fresh dumps, whose non-`#` lines are identical to the
+post-(p) dumps on all 16 inputs, so only the comparer and the `#R` lines
+differ. Per-row classes were computed with both comparers imported side
+by side.
+
+| # | predicted | observed |
+|---|---|---|
+| Q1 | 12 linked inputs: every existing count identical; new fields at 0 | **held**: 12 of 12 `OPSUMMARY` lines identical up to the appended `denominator= reloc_excluded=0 unloaded=0` |
+| Q2 | `#R` equals readelf, nonzero | **held**: 790 / 103 / 132 / 20, equal to `readelf -rW`'s `.rela.text` on each module |
+| Q3 | 856 → `reloc` (607 / 103 / 126 / 20) | **held**: addr 664 + imm 168 + mem 24 → `reloc`, per module exactly as predicted |
+| Q4 | 533 → `ok`; no `ok` row changes class | **held**: exactly 533 `addr` → `ok`; **0** rows were `ok` before and not after |
+| Q5 | `unloaded` 221 (51 / 49 / 51 / 70) | **held**, as `EXCLUDED … unloaded` lines per section and `unloaded=` on `OPSUMMARY` |
+| Q6 | the 410 keep their classes | **held**: no transition outside Q3/Q4. Modules now read reg 345, undecoded 30, opcount 24, mnemonic 7, nostart 4, and `addr=0` |
+| Q7 | alias hash unchanged; `make test` unchanged | **held**: `02101788edd2` before and after; 401 tests across 27 suites, 12 reds, union matching |
+
+**The corpus figure, before → after:** `ghidra=512000` (unchanged, still
+Ghidra rows in the sections we load), `operand_ok` 465,709 → **466,242**
+(+533), and **`denominator` 512,000 → 511,144** (`reloc_excluded=856`).
+`unloaded=221` is now printed where it was silent. The pinned 512,000
+remains what it was, the Ghidra rows the comparer enters, and the headline
+denominator is now printed beside it as its own field.
+
+**What this retires:** the next fix that touches a relocatable module will
+see its relocation and placement rows as `reloc` (printed, excluded) and
+`ok` (rebased). It will not need to rediscover them as `addr`/`imm`/`mem`.
+**What it does not:** the 24 relocated `mem` rows are where a wrong
+base/index register on a relocated operand could hide, as stated above.
