@@ -67,7 +67,7 @@ it:**
 **Gate: exactly one name.** `test_mmio_consumer` is back to an empty
 expected-failure list.
 
-## Open, with a red (14)
+## Open, with a red (12)
 
 **The table is the whole list, across every suite.** Until 2026-09-21
 the executable check compared it against `test_x86_decoder.c`'s
@@ -88,8 +88,6 @@ asserted so a renamed suite cannot shrink the union silently. The
 | (f) | `x64_RED_byte_reg_sil_under_rex` | decoder | reg 4-7 at size 1 under REX is SPL/BPL/SIL/DIL |
 | (g) | `x64_RED_truncated_imm32_refused` | decoder | immediate read past the code buffer |
 | (g) | `x64_RED_truncated_disp32_refused` | decoder | displacement read past the code buffer |
-| (p) | `x64_RED_p_movsxd_decoded` | decoder | `63` recognised, not just length-consumed |
-| (p) | `x64_RED_p_imul_imm_decoded` | decoder | `69`/`6B` recognised |
 | (r1) | `x64_RED_r1_push_iz_opsize16` | decoder | `66 68` Iz read at a fixed 4 bytes |
 | (r2) | `x64_RED_r2_test_eax_iz_opsize16` | decoder | `66 A9` likewise |
 | (r3) | `x64_RED_r3_test_ev_iz_opsize16` | decoder | `66 F7 /0` likewise |
@@ -98,7 +96,6 @@ asserted so a renamed suite cannot shrink the union silently. The
 | (y) | `x64_RED_y_lea_register_form_invalid` | decoder | `8D C0` LEA register form is #UD |
 | (ab) | `x64_RED_ab_two_byte_arm_ignores_mandatory_prefix` | decoder | the arm never reads `66`/`F2`/`F3` |
 | (t) | `unknown_0f_modrm_recovery` | decoder | `0F 0D C0` is #UD and is accepted |
-| (ay) | `sem_RED_ay_movsxd_imul3_write_only_dest` | lifter | MOVSXD / three-operand IMUL are unknown, so the walk stops at them though they write only their destination |
 
 ## (s) CLOSED 2026-09-21 — and with it the decoder queue
 

@@ -59,3 +59,57 @@ direction.
 ## Outcome
 
 *(below this line, from the artefact only)*
+
+**Inputs hashed:** `x86_decoder.c` `42e4574409a15768`, `uir.c`
+`015a8a96f76407b8`, `bin/translator` `a314e173a7ea818b`, `dump_starts`
+`197a807d4d340953`. The differential was taken against the same banked,
+pinned oracle before (`dump_starts` of the pre-fix tree) and after. Census
+scripts are **v3**, unchanged against `SHA256SUMS`.
+
+| # | predicted | observed |
+|---|---|---|
+| P1 | the two (p) reds and `(ay)` XPASS; nothing else moves | **held**: the gate fired on exactly `x64_RED_p_movsxd_decoded`, `x64_RED_p_imul_imm_decoded` and `sem_RED_ay_movsxd_imul3_write_only_dest`, and on nothing else. `(ay)` was red before the fix (both cases stopped the walk) |
+| P2 | the 577 leave `undecoded`; not all need reach `ok`; no row outside changes class | **held.** 577 of 577 left `undecoded`: **574 → `ok`** (IMUL 315, MOVSXD 259) and **3 → `addr`**. **0 rows outside the 577 changed class** |
+| P3 | only the 2 `RTKVHD64` sites can change; HP byte-identical | **held**: exactly those 2 changed, both **couldn't-tell → `none` (path)**. HP identical; site sets 12 / 172 / 171 / 184 unchanged |
+| P4 | `-t uir` line counts identical; changed lines `unknown` → `movsx`/`imul` | **held**: line counts identical on all 12 inputs; **552 changed lines**, all of that kind, and 0 others. 552 is the 577 less the 25 rows in the four `.ko` modules, which are not UIR inputs. Per input, the counts equal the differential's row for row |
+| P5 | suites green; **14** reds | suites green (401 tests across 27 suites), **but 12 reds, not 14.** The prediction was arithmetic, and wrong: 14 before (p), plus `(ay)` makes 15, and three closed. The register check (union across suites) prints 12 |
+
+**The 3 `addr` rows are a class that already existed, not a MOVSXD
+defect.** All three are in `8139too.ko`, a relocatable module. There,
+`movslq 0x0(%rip),%rcx` carries `R_X86_64_PC32 .data+0x87c` on a zero
+displacement (objdump `-r` at `0x2a38`). Ghidra applies the relocation,
+and we print the unrelocated target, which is the next instruction's
+address (`0x2a38 + 7 = 0x2a3f`). The pre-fix baseline has 813 `addr` rows
+in that module; 475 of them have this signature, including 33 MOV and 4
+MOVZX. This is the relocation residual that fixes (b) and (c) already
+recorded. The three MOVSXD rows join it because they are now decoded.
+
+**Why the two `RTKVHD64` sites become `none`, read from the bytes** at
+ASUS older `0x496E12`, with IAT slots resolved by name:
+
+1. `MmMapIoSpace` maps `0x10000` bytes, and the base goes to RBP.
+2. `je` skips on NULL. The walk falls through, which is the non-NULL path.
+3. A loop runs `movslq %esi,%rcx` / `add %rbp,%rcx` / `RtlCompareMemory`
+   over the mapping, looking for a 0x18-byte signature, and reads a word
+   through `0x18(%rdi,%rbp,1)`.
+4. `mov %rbp,%rcx` / `MmUnmapIoSpace` releases the mapping, and the
+   function returns.
+
+The base is used as an address and released in the same function; it is
+**never stored**. So `none` is the right answer here, and unlike the
+`mlx4_bus` sites it was reached on the right side of the NULL check. The
+`movslq` it used to stop at is the loop index. ASUS newer `0x3B7C2A` has
+the same shape (`MmMapIoSpace` / `RtlCompareMemory` / `MmUnmapIoSpace`,
+resolved at its own IAT slots). These are one driver on two builds.
+
+**Readers of the identity field (rule 24):**
+- The lifter's `MOVSX` case now also takes `MOVSXD`.
+- `dump_starts` prints the name.
+- The DX-port backward scan (`uir.c`, `MOV`/`MOVZX`/`MOVSX` into EDX) was
+  **left unchanged**. It never matched these rows while they were
+  `UNKNOWN`, so adding `MOVSXD` there would be a new port-attribution
+  behaviour, not this fix. It is named here so it is not lost.
+
+**Consequence for stage 2 (not a reason for this item):** the `imul` at
+`1c0022cc1`, one of row 14's two blockers, now decodes. Row 14 still waits
+on the SSE item.
