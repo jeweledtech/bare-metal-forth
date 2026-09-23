@@ -98,7 +98,6 @@ asserted so a renamed suite cannot shrink the union silently. The
 | (y) | `x64_RED_y_lea_register_form_invalid` | decoder | `8D C0` LEA register form is #UD |
 | (ab) | `x64_RED_ab_two_byte_arm_ignores_mandatory_prefix` | decoder | the arm never reads `66`/`F2`/`F3` |
 | (t) | `unknown_0f_modrm_recovery` | decoder | `0F 0D C0` is #UD and is accepted |
-| (av) | `x64_RED_av_crdr_operands` | decoder | CR/DR typed as a GPR, REX.R ignored (CR8 reads as 0), `0F 22`/`23` in `0F 20`'s operand order, size fixed at 8 |
 
 ## (s) CLOSED 2026-09-21 — and with it the decoder queue
 

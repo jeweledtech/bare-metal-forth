@@ -75,3 +75,27 @@ types them (`R:CR8`). **The pinned register map**
 ## Outcome
 
 *(below this line, from the artefact only)*
+
+**Inputs hashed:** `x86_decoder.c` `11b0919dce82680b` (before: `c6cb4cbae0d601d7`),
+`dump_starts.c` `530dc7806ad05c1c`, `dump_starts` `a0b2c054139d65b6`,
+`bin/translator` `2ee664f29db10b42`. The differential was taken against the
+same banked, pinned oracle as `(au)`.
+
+| # | predicted | observed |
+|---|---|---|
+| O1 | one XPASS | **exactly one**, `x64_RED_av_crdr_operands`: eight encodings, both directions, CR and DR, REX.R, REX.B and a 32-bit form |
+| O2 | all 220 `reg` → `ok`; no other row changes class | **exactly that**: 220 rows `reg` → `ok` (Ghidra `MOV RAX, CR8` and ours `MOV RAX, CR8`), 0 other changes |
+| O3 | `-t uir` byte-identical | **held**, 0 of 12 inputs differ |
+| O4 | park outcomes byte-identical; the 12 `mov %cr8` stops stay | **held**: 0 changes on all four machines |
+| O5 | suites green; tests +1; 14 reds | **held**: 397 tests across 27 suites, 14 reds; decoder pass 103 |
+
+**What the 220 contained, now that each is resolved:** the typing defect
+was in all of them. REX.R accounts for 217; the operand order and the
+32-bit size are asserted by the red (1 fixture row, and 0 rows,
+respectively). The order defect's corpus witnesses (the CR writes in the
+census) lie outside the oracle's inputs and stay unscored.
+
+**`(au)` and `(av)` together:** 224 differential rows went from *undecoded*
+to *ok*: the whole system family present on the 16 oracle inputs. The next
+item's bound is unchanged at 12: the lifter carrying the operand of an
+unmodelled `MOV_CR`, which is the only way the `mov %cr8` park stops move.
