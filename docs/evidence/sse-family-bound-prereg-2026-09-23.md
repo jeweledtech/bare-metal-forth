@@ -192,3 +192,58 @@ the measurement is for.
 ## Outcome
 
 *(below this line, from the artefact only)*
+
+**Inputs hashed:** `x86_decoder.c` `f6b917c604e7ee82` (identity only, at
+S0: `6d058a153a83caf7`), `x86_sse_table.h` `8e72e0cc849a7458`,
+`x86_sse_ins.h` `b46ae0c4ae5449db` (both generated from `sse_table.py`
+`bcedd3f2c3bba9d0`), `uir.c` `2037703ba5b01099`, `dump_starts.c`
+`bcc53736581c6161`, `dump_starts` `6b18807c2f0e6007`, `bin/translator`
+`077258fa52f94796`.
+- The repository table's 270 keys were checked equal to the bound's
+  measurement copy (`sse_family.py` `46797032`) before any code, and it
+  yields 258 distinct names.
+- The identity red's 283 encodings (one per name variant) were checked
+  against objdump before being written: 283 of 283 agree in length and
+  mnemonic. imm8 is `0x08` in every one, so objdump prints no predicate
+  alias.
+- The differential was taken against the same banked, pinned oracle; the
+  "before" is the post-(p), post-relocation dumps.
+
+### The intermediate measurement (identity only, before operands)
+
+| # | predicted | observed |
+|---|---|---|
+| S0 | all 7,301 → `opcount`; none → `ok`; nothing else moves | **missed by one row, the way the caveat named.** 7,300 → `opcount`, **1 → `mnemonic`**, **0 → `ok`**, and **0 rows outside the family changed class**. The `mnemonic` row is the fixture's `0F C2 C0 00`: Ghidra spells it `CMPEQPS` (the SDM's assembler pseudo-op for predicate 0), and we spell it `CMPPS` (the instruction, with its imm8) |
+
+**What S0 established about the family:** no row reached `ok` on naming
+alone, so none of the 31 keys the oracle covers lacks an XMM operand. The
+definition admitted nothing that does not belong to it, as far as the
+oracle can see.
+
+### The item
+
+| # | predicted | observed |
+|---|---|---|
+| S1 | the two reds XPASS, and nothing else moves | **held**: identity XPASSed alone at S0, operands XPASSed with it at the end. The gate named exactly `x64_RED_ba_sse_family_named` and `x64_RED_ba_sse_operands` |
+| S2 | the 7,301 leave `undecoded`; nothing outside them changes class; not all need reach `ok` | **held**: **7,300 → `ok`**, **1 → `mnemonic`** (the same `CMPEQPS`/`CMPPS` row), and **0 rows outside the family changed class** |
+| S3 | corpus: 100% `UNKNOWN` → 0%; lengths still equal objdump's; the 43 unconfirmed unchanged | **held**: 1,260,854 confirmed rows, **0 `UNKNOWN`** (was 1,260,854), 0 length disagreements, 43 unconfirmed exactly as before, on all seven sets |
+| S4 | `-t uir`: line counts identical; changed lines `unknown` → `unmodelled` | **held**: line counts identical on all 12 inputs, **7,315** changed lines, all of that kind, and 0 others. Per input the counts equal the differential's row for row, except `i8042prt` (239 against 225). The 14 extra are at addresses where the oracle has no start (`1c0012403`–`1c0012504`, code the flow-following oracle never reached), which are outside the differential by construction |
+| S5 | park census outcomes identical; the 2 `IPMIDrv` stops stay | **held**: 0 changes, site sets 12 / 172 / 171 / 184 |
+| S6 | suites green; +2 tests; 12 reds once closed | **held**: 403 tests across 27 suites, 12 reds, union matching |
+
+**The one open disagreement is a spelling, and it is scoped.** `0F C2` (the
+CMPPS/PD/SS/SD family) has **1 oracle row**. In the corpus it has **763
+rows, all macOS** (userland 380 in 28 binaries, KC 383 in 28), and none in
+any Windows set.
+- The SDM names the instruction `CMPPS` with an imm8 predicate. The
+  predicate forms (`CMPEQPS`, `CMPLTPS` …) are assembler pseudo-ops, and
+  both Ghidra and objdump print those for imm8 0–7.
+- **Nothing was changed for it.** An alias in the comparer is a
+  score-moving knob, and renaming the decoder's identity by predicate is a
+  product decision. Neither is taken without a ruling. The row stays
+  `mnemonic`, and it is named here.
+
+**Consequence for stage 2, not a reason:** the `movups` at `1c00226bd` and
+`1c00226c0` now decode with operands (`MOVUPS XMM0, [RBX]` and
+`[RDI+0x28], XMM0`). Stage 2's rows move only when the lifter carries
+operand 0 (step 2 of section 6), which is the next item.
