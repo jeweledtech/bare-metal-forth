@@ -170,3 +170,12 @@ docs/plans/
 /extracted/
 *.sys
 *.dll
+
+# Archives and kernel collections carrying copyrighted binaries (2026-09-22:
+# mac-kernel.tgz landed at the repo root, untracked and NOT ignored).
+# Second line only: the corpus lives in ~/corpus, outside every repository.
+*.tgz
+*.tar
+*.tar.gz
+*.kc
+*.elides
