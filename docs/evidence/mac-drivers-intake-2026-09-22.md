@@ -76,3 +76,91 @@ carries no direct register access to read. In a
 dext, the driver's device protocol lives in the arguments to DriverKit
 calls, as it does in the HAL imports of a Windows driver. The kernel
 collections will say whether kexts differ.
+
+---
+
+# The kernel collections (2026-09-22, second archive)
+
+**Intake.** `mac-kernel.tgz` (sha256
+`bdc8a5975bb5553235c01a922aae2861f0415b81686b5a31775534e2079636b5`) holds
+`/System/Library/KernelCollections` and `/System/Library/Kernels/kernel` from
+`apple_macbookpro15-1`. **It arrived at the public repo's root, untracked
+and NOT ignored** (`git check-ignore` exited 1), one `git add -A` from
+publication, and it had never been committed. It was moved by rename, hash
+identical, to `~/corpus/apple_macbookpro15-1/kernel/` (rev-parse exits
+128). Ignore rules for `*.tgz`, `*.tar`, `*.tar.gz`, `*.kc` and `*.elides`
+were added to both repos as a second line and proven with `check-ignore -v`
+(public `97608f9`, private `7e6616f`). The listing was checked before
+extraction: 6 entries, no absolute path, no `..`, no links. Extracted files: 5, 457,590,284
+bytes, equal to the listing; manifest hash `da784792…`, and it verifies.
+Both repos were clean afterwards.
+
+## Q1. Can individual kext boundaries be recovered? **Yes**, from the bytes
+
+| file | filetype | per-member structure |
+|---|---|---|
+| `BootKernelExtensions.kc` | `MH_FILESET` (12), x86_64 | **211 `LC_FILESET_ENTRY`**: `com.apple.kernel` (`MH_EXECUTE`) and 210 kexts (`MH_KEXT_BUNDLE`) |
+| `SystemKernelExtensions.kc` | `MH_FILESET`, x86_64 | **189 `LC_FILESET_ENTRY`**, all `MH_KEXT_BUNDLE` |
+| `kernel` | `MH_EXECUTE`, x86_64 | not a collection |
+
+Every entry names its bundle ID and points at a valid x86_64 Mach-O header,
+with its own segments. The code of each is `__TEXT,__text` (on this Intel
+build there is no `__TEXT_EXEC` segment), and each kext carries its own
+`__DATA,__got`. **399 kexts are individually addressable, so per-driver
+figures have a macOS counterpart.** The collection itself carries
+`LC_DYLD_CHAINED_FIXUPS`. *Reasoned, not traced:* a kext reaches kernel
+symbols through its GOT, bound by the collection's chained fixups. Tracing
+one binding from the bytes is owed before a loader is designed around it.
+
+## Q2. Do kexts carry direct register access? **Yes, and rarely**
+
+The two-byte family is counted exactly as in
+`system-family-census-2026-09-22.md`: same list, fixed beforehand, and every
+hit confirmed by objdump at the same offset (4 unconfirmed hits dropped).
+One-byte forms are excluded, since the control failure applies to kernel
+code too.
+
+| | two-byte system instructions | UNKNOWN | distinct forms | members containing one | with a CR/DR move |
+|---|---|---|---|---|---|
+| **399 kexts** | 356 | **356 (100%)** | 37 | **11 of 399** | 1 |
+| **kernel** | 810 | **810 (100%)** | 46 | — | — |
+
+- **The kernel:** RDMSR 201, WRMSR 152, RDTSC 70, CR0/CR3/CR4 moves 223 in
+  total, CPUID 36, CLTS 16, WBINVD 12, descriptor tables 24, SWAPGS 7, VMX 12.
+- **The kexts:** 297 of the 356 are one kext, `com.apple.driver.AppleHV`,
+  the hypervisor: VMWRITE 95, VMREAD 81, CR/DR moves 40 and RDMSR 35. The
+  rest is MSR, CPUID and RDRAND in `AppleIntelMCEReporter` (21),
+  `AppleFIVRDriver` (11), `AppleIntelKBLGraphics` (8),
+  `AppleIntelICLGraphics` (7), `OSvKernDSPLib` (4), `pmtelemetry` (3),
+  `corecrypto` (2) and `ACPI_SMC_PlatformPlugin` (1).
+- **Two hits are suspect:** one `SLDT` each in `AppleHDA` and `AppleGFXHDA`.
+  A descriptor-table instruction in an audio driver is what the shared
+  linear-sweep failure mode would produce, and no third source was run.
+  They are flagged, not counted as confirmed.
+
+**Against Windows:** there, a CR move sits in most drivers of a Windows 10
+build, because the IRQL read is inlined. On macOS, register access
+concentrates in the kernel and in a handful of platform kexts; **388 of
+399 kexts carry none**. The decoder names none of it on either platform.
+
+## Q3. The decode rate, on the same definitions
+
+| set | files | instructions | `int3` | UNKNOWN excl. padding | pooled | median |
+|---|---|---|---|---|---|---|
+| **macOS kexts** | 399 | 19,709,772 | 515 | 454,486 | **2.31%** | **0.81%** |
+| **macOS kernel** | 1 | 2,190,960 | 30 | 58,218 | **2.66%** | — |
+| dexts | 17 | 759,907 | 3 | 13,343 | 1.76% | 1.00% |
+| Mac userland | 621 | 21,231,893 | 219 | 732,798 | 3.45% | 2.56% |
+| Windows HP (19041) | 8 | 381,739 | 45,032 | 7,041 | 2.09% | 2.03% |
+| Windows Dell (26100) | 446 | 14,606,833 | 1,803,194 | 372,742 | 2.91% | 3.30% |
+| Windows ASUS older (19041) | 455 | 14,742,938 | 1,521,635 | 387,525 | 2.93% | 2.90% |
+| Windows ASUS newer (22621) | 505 | 18,628,796 | 2,043,687 | 481,101 | 2.90% | 3.40% |
+
+**The decoder's pooled gap on macOS kernel code is in the Windows range; the
+median is lower.** As with every row here, a pooled and a median figure
+that disagree are both kept.
+
+**No Mach-O loader is started on the strength of this.** The measurements
+say one is buildable (per-kext boundaries exist) and that the park walk
+would have little to read in most kexts (388 of 399 carry no register
+access). Whether to build it is a separate ruling.
