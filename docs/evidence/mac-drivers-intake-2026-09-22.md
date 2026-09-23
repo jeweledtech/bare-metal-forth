@@ -299,3 +299,56 @@ half is counted.
   11-of-399 register-access count, the 2.31% / 0.81% decode rate, the
   `__BRANCH_STUBS` binding, and the 105-site lower bound. **No macOS number
   is to be read as a property of macOS until a second build is measured.**
+
+## The negative control, as its own item
+
+**A census needs a probe whose answer cannot be zero, so that a zero
+indicts the instrument.** Here that probe was `OSObject::release`,
+virtual and called by essentially every kext, and it read **0**. That
+proved the method blind to virtual dispatch, not that virtual dispatch is
+absent. The one-byte system-family census lacked such a probe, and would
+have caught its failure a step earlier with one (`system-family-census`
+§3). The positive controls (`IOLog` 28,312 sites) are the other half: a
+count that must be large.
+
+## Before the walk: what the source says the walk would measure (2026-09-22)
+
+The owner's ruling was to run the existing walk on the 105 visible sites.
+Four things were read first, from the pinned headers and the bytes:
+
+1. **The return convention.** `createMappingInTask` is declared
+   `OSPtr<IOMemoryMap>` (IOMemoryDescriptor.h:763). `OSPtr<T>` is `T *`
+   unless the translation unit defines `IOKIT_ENABLE_SHARED_PTR`
+   (`OSPtr.h` `bf990938`, lines 69–107), which is a per-file compile
+   choice. **The bytes decide:** at the IOSurface and IONVMeFamily sites,
+   RDI carries the descriptor and **RAX returns the `IOMemoryMap *`** (no
+   hidden return pointer).
+2. **The return is the map object, not the device address.** Every site
+   read continues `mov (%rax),%rcx` / `call *0x118(%rcx)`. **Slot `0x118`
+   of `__ZTV11IOMemoryMap` is `IOMemoryMap::getVirtualAddress()`**, read
+   from the kernel's own vtable. **IOKit maps in two steps:** the mapping
+   call yields an object, and the base comes out of a *virtual* call on it.
+   The walk as it stands, seeded at the mapping call's RAX, would follow
+   the object and would treat the second call as clobbering RAX. It would
+   report where the *map object* is filed, not where the device base is
+   parked. That is a different claim, and it is not the Windows pattern.
+3. **The release analogue.** No non-virtual release exists for either
+   path. The pinned x86 headers declare no `ml_io_unmap`. The map is
+   released through its own vtable at fixed slots: `release()` `+0x28`,
+   `taggedRelease` `+0x50`, `free()` `+0x90`, `unmap()` `+0x148` (read from
+   the vtable). **So a release kill is keyable, but only by a walk that
+   follows the map object**, the same capability item 2 needs.
+4. **The ABI.** System V AMD64 psABI, register-usage table (fetched from
+   the `x86-psABIs` master branch, sha256 `2d42f2ab`; there is no release tag to
+   pin): **preserved RBX, RSP, RBP, R12–R15; not preserved RAX, RCX, RDX,
+   RSI, RDI, R8–R11.** Unlike Windows x64, RSI and RDI are volatile.
+
+**And the plumbing:** the existing walk runs only from the PE pipeline and
+starts only at a call through an import slot. Kext calls are direct
+(Boot) or through branch stubs (System). **The walk cannot be pointed at
+these sites without new plumbing**, which is loader-adjacent and reserved
+to a ruling.
+
+**`ml_io_map` is the one site with the Windows shape:** it returns a
+`vm_offset_t`, the address itself (machine_routines.h:185). There is one
+site, in IOPCIFamily.
