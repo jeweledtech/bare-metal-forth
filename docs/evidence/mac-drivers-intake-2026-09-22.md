@@ -164,3 +164,115 @@ that disagree are both kept.
 say one is buildable (per-kext boundaries exist) and that the park walk
 would have little to read in most kexts (388 of 399 carry no register
 access). Whether to build it is a separate ruling.
+
+---
+
+# The IOKit mapping-call census (2026-09-22)
+
+**The owner's correction, recorded first:** the system-instruction census
+(Q2) and the park walk measure different things. The park pattern is a
+mapping call returning a pointer, the pointer filed in a structure slot,
+and ordinary `mov` dereferences later. No privileged instruction is
+involved. So Q2's "388 of 399 carry no system instruction" says nothing
+about MMIO, and neither did the earlier "dexts have nothing to read". The
+measurement that decides the loader is a count of mapping calls.
+
+## The list, fixed before counting
+
+It comes from the headers of the **exact kernel build**: the kernel's
+version string reads `xnu-11417.140.69`, and the headers were fetched at that
+tag from `apple-oss-distributions/xnu` (`IOMemoryDescriptor.h` `501df452`,
+`IOService.h` `6e9a7915`, `machine_routines.h` `ba832723`).
+
+| entry point | kind | declared at |
+|---|---|---|
+| `IOService::mapDeviceMemoryWithIndex` | **virtual** | IOService.h:1350 |
+| `IOMemoryDescriptor::map` | **virtual** | IOMemoryDescriptor.h:771, 785 |
+| `IOMemoryDescriptor::createMappingInTask` | non-virtual | IOMemoryDescriptor.h:763 |
+| `IOMemoryDescriptor::setMapping` | **virtual** | IOMemoryDescriptor.h:796 |
+| `IOMemoryDescriptor::makeMapping` | **virtual** | IOMemoryDescriptor.h:835 |
+| `ml_io_map`, `ml_io_map_wcomb`, `ml_io_map_unmappable` | C | machine_routines.h:185–193 |
+| `IOMemoryMap::getVirtualAddress`, `getAddress` (where the address comes out) | **virtual** | IOMemoryDescriptor.h:913, 1010 |
+
+## How a kext refers to a kernel function, read from the bytes
+
+- **Not by name at binding time.** Both collections' chained-fixup headers
+  have `imports_count = 0`. Each member does carry its own symbol table,
+  whose undefined externals name what it references. But for a *virtual*
+  method that name comes from subclassing: **351 of 399** members name
+  `mapDeviceMemoryWithIndex`, which is roughly every `IOService`
+  subclass. **Name presence counts subclassing, not calls**, and is not
+  used as the count.
+- **Boot collection:** code calls kernel functions **directly**. The
+  kernel member's 23,429 symbols all lie inside its own segments in
+  collection address space (same UUID as the standalone `kernel`, loaded
+  `0xe8000` higher). GOT slots hold chained pointers whose low 30 bits are
+  an offset from the collection base, with **level 0 = Boot**: 5,466 of
+  5,466 resolve to a defined symbol.
+- **System collection:** code cannot reach the kernel with a rel32 call.
+  It calls into **`__BRANCH_STUBS`**, where each stub is `jmp *slot(%rip)`
+  into **`__BRANCH_GOTS`**, and each slot is a level-0 chained pointer:
+  1,678 of 1,678 stubs resolve to a kernel symbol. Level-1 pointers (into
+  System itself) do not land on symbol starts from either candidate base.
+  They stay unresolved, and no fixed entry point is defined in System.
+
+## Three detector defects, each caught by a control before any number was read
+
+1. **`c++filt -_` strips the leading underscore only from names it
+   demangles**, so every C symbol (`_IOLog`, `_ml_io_map`) kept it and
+   matched nothing. The control (`IOLog`, `IODelay` absent from the kernel
+   definitions) exposed it. Fixed by stripping exactly one underscore
+   before demangling.
+2. **`objdump --adjust-vma` prints 16-digit addresses with no leading
+   space**, and the line pattern required one, so no line parsed, and
+   "zero sites" meant zero lines read. The control (`IOLog` 0 sites)
+   exposed it.
+3. **The System collection was blind** until its branch stubs were
+   resolved. The control per collection (`IOLog` in Boot kexts only)
+   exposed it.
+
+Defects 1 and 2 are the tenth and eleventh instances in this arc of
+matching text where a value was meant.
+
+## The result
+
+**Controls first** (the same detector, common non-virtual kernel functions):
+`IOLog` 28,312 sites in 245 members (128 Boot, 117 System); `IOSleep`
+1,725 in 149; `IODelay` 636 in 69. Resolved: 20,035 direct and 12,522
+through branch stubs. **And a negative control: `OSObject::release`**,
+virtual and called by essentially every kext, reads **0**.
+
+| entry point | code sites | members with ≥1 |
+|---|---|---|
+| `IOMemoryDescriptor::createMappingInTask` | **104** | **38** |
+| `ml_io_map` | **1** | 1 (`IOPCIFamily`) |
+| `ml_io_map_wcomb`, `ml_io_map_unmappable` | 0 | 0 |
+| `mapDeviceMemoryWithIndex`, `map`, `setMapping`, `makeMapping`, `getVirtualAddress`, `getAddress` | **not measurable** (virtual) | — |
+| **total visible** | **105** | **39 of 399** (Boot 15, System 24) |
+
+**The limit, stated at the weight of the number:** 105 is a **lower
+bound**, and **it omits the primary MMIO call.** The closest analogue of
+`MmMapIoSpaceEx`, `IOService::mapDeviceMemoryWithIndex`, is virtual. A
+kext calls it through the provider object's vtable (`call *OFF(%reg)`),
+which carries no name and no fixed address, as the `OSObject::release` zero
+shows. Counting it needs a vtable-slot census: the slot offset is fixed by
+the kext ABI, but a bare offset matches any class's method at that slot.
+That is a new instrument, **named and not built**.
+
+The 39 members are largely graphics (`IOAcceleratorFamily2`, `IOGPUFamily`,
+Intel KBL/ICL, 15 AMD Radeon kexts), networking (`AppleBCMWLANCoreMac`,
+`IOSkywalkFamily`, `IO80211Family`, `AppleEthernetAquantiaAqtion`), storage
+(`IONVMeFamily`, `AppleDiskImages2`), USB and `AppleHV`.
+`createMappingInTask` maps a memory descriptor, which may be device memory
+or ordinary RAM. **Which of the 104 are MMIO is not known without a walk.**
+
+**Comparability with Windows:** the Windows figure (12 HP; 172 / 171 / 184
+on the other machines) counts direct calls to the one mapping API. This
+figure counts the non-virtual half of IOKit's mapping surface. **They are
+not the same measurement**, and 105 / 39 is not to be set beside 172 as a
+like-for-like count.
+
+**So the loader decision rests on a lower bound:** at least 39 of 399 kexts
+make at least 105 mapping calls a walk could start from. That is enough to
+say there is a pattern to find, and not enough to size it until the virtual
+half is counted.
