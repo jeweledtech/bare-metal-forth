@@ -33,6 +33,12 @@ translate-and-run is not a stub returning nothing and not a design
 document — it is a working emitter of vocabulary *skeletons*, and the
 instruction-level leg does not exist.
 
+> **Withdrawn 2026-09-23.** The "scaffolding recognised is 0 on every
+> 64-bit driver" reading below, and its STRIP table, were taken before (a)
+> landed. Today the HP eight read 46–1,015 scaffolding and 3–85 hardware
+> functions; see `import-sort-exit-2026-09-23.md` §1. The table is kept as the
+> record of that date.
+
 **And the emitter is gated by (a) today.** `STRIP` lines, measured:
 
 | input | total | kept | scaffolding | unclassified |
