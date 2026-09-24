@@ -95,3 +95,25 @@ The 1,122 measured drivers with no missing entry should not move at all.
 ## Reds now
 
 14 across 27 suites (418 tests): the 12 decoder reds, `(bk)`, `(bm)`.
+
+## Amended 2026-09-24: the reach was measured on the wrong range
+
+`bm_extent.py` v1 counted direct-call targets inside **`.text` only**. The
+translator's discovery range is `.text` **widened to span every executable
+section** (`translator.c:989–995`). v2 (`bm_extent_v2.py`) uses that range:
+
+| | v1 (`.text`) | **v2 (the translator's range)** |
+|---|---|---|
+| drivers with ≥ 1 missing entry | 199 | **225** |
+| direct-call targets | 347,707 | 483,053 |
+| not an entry | 17,820 | **19,329** |
+| per-driver fraction missing | median 0, p90 11.8%, max 57.9% | median 0, p90 12.2%, max 55.2% |
+
+**26 drivers miss entries only outside `.text`**, and every v1 driver is in
+v2. So "199" and "1,122 unaffected" above were statements about the
+instrument's range, and are superseded by **225** and **1,097**. The HP eight
+remain at 0 missing under v2.
+
+**The park census is affected** (owner question, 2026-09-24). HP 0 of 12
+sites; Dell 65 of 172; older ASUS 78 of 171; newer ASUS 83 of 184. That
+census is marked provisional in its own document.

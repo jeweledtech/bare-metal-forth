@@ -1,0 +1,85 @@
+# (bm) discovery takes a direct call's target as decoded: pre-registration (2026-09-24)
+
+**Written before the fix.** Owner ruling, 2026-09-24: (bm) then (bk).
+(bm) is **a defect in the denominator of most of this arc's measurements**:
+every figure whose unit is *a function* was computed on its boundaries. The
+candidate list of those figures is written down **here, before the fix
+lands**, so that afterwards the result is a comparison and not a
+re-derivation. Which of them move is measured, not deduced. Outcomes go BELOW
+the line.
+
+## The change, and only this
+
+`sem_discover_functions()` step 2: for an `X86_OP_REL` operand, the target
+is **`imm`**, which the decoder already made absolute (`x86_decoder.c`
+`E8`/`E9`/`EB`: `imm = base_address + offset + rel`). Today it is
+`address + length + imm`. **One line.** The `X86_OP_IMM` branch is
+unchanged.
+
+**Not in this change** (owner ruling 3): collecting `jmp` targets as entries.
+That is a behaviour change, since a `jmp` target may be a tail call or an
+intra-function branch, and it gets its own letter, red and justification.
+The 31 class-library thunks reached only by a direct `jmp` stay absorbed.
+
+**Other readers of a REL operand's `imm`, checked.** The lifter
+(`uir.c`, `X86_OP_REL` → `UIR_OPERAND_ADDR`, `imm` copied as-is) and the
+semantic analyzer's direct-call edges (`edge->target_addr = dest.imm`)
+already treat it as absolute. Discovery step 2 was the one reader that
+re-offset it.
+
+## Reach, measured before the fix (the population the change should touch)
+
+`bm_extent_v2.py` counts objdump's direct-call targets inside the
+translator's own discovery range (`.text` widened to every executable
+section, `translator.c:989–995`) that are not function entries today:
+- **225 of the 1,322** kernel drivers; **19,329 of 483,053** targets;
+- the HP eight: **0**;
+- among the snapshot inputs: ReactOS `serial.sys` **2**, `nmap_service.exe`
+  **93**; `beep.sys` and the ELF fixture **0**.
+
+The differential's `dump_starts` does not call discovery.
+
+## Candidate figures whose unit is the function (written before the fix)
+
+1. per-driver **total functions** and the three buckets;
+2. the **park census** outcomes (`park-census-cross-vendor-2026-09-22.md`,
+   marked provisional today): 65 / 78 / 83 Dell / older ASUS / newer ASUS
+   sites sit in affected drivers, and HP 0;
+3. **stage 2** and the **320 hardware functions**: HP-only, and HP is clean,
+   so **candidates that should not move**;
+4. `(bk)`'s thunk ownership (239 absorbed of 291);
+5. X1, X2 and X3: import-only, so **should not move** in value, though the
+   report bytes carrying them will on the affected drivers.
+
+## Predictions
+
+**Must not move**
+
+| # | prediction |
+|---|---|
+| N1 | the **1,097** kernel drivers with 0 missing entries: report bytes **identical, 1,097 of 1,097** (sha256 of the full report, before `343e89fa…` against after) |
+| N2 | UIR: **10 of the 12** snapshot inputs identical (the HP eight, `beep.sys`, the ELF fixture). The differential's **16 dumps identical** |
+| N3 | X1 **0** hex on all 1,322; X2 `import_family` unchanged on **1,322 of 1,322**; each driver's four-DLL (DLL, name, category, source) set unchanged on **1,322 of 1,322** |
+| N4 | the park census: **HP row identical**; site counts **12 / 172 / 171 / 184 unchanged** (a site is an instruction, whatever function holds it) |
+| N5 | the gate fires on **exactly** `sem_RED_bm_call_target_is_entry`; `(bk)` **stays red**; 418 tests; reds 14 → 13 |
+
+**Should move** (direction and size, the owner's point 2)
+
+| # | prediction |
+|---|---|
+| S1 | **all 225** affected drivers' report bytes change, and `total_functions` **rises on each of the 225** |
+| S2 | total functions over the 225 rise by **18,800** (range **17,000–19,600**). The bound is the 19,329 missing targets. It can fall short where objdump's instruction boundary and ours differ, since a target that is not one of our instruction starts maps to the next, which may already be an entry. It can exceed it slightly where our decode sees a call objdump does not |
+| S3 | bucket direction over the 225: **unclassified rises and carries most of the increase (> 50% of ΔTotal)**. **Hardware does not fall in total.** Splitting a function can only separate hardware evidence from code that has none. It cannot remove the evidence |
+| S4 | the park census: **≥ 1 outcome changes, and every changed outcome sits in an affected driver**. Direction: toward **`none`**, because a park walk ends at its function's end and functions get shorter. Size **not predicted** |
+| S5 | snapshot UIR: `serial.sys` **+2** functions (36 → 38); `nmap_service.exe` **15 → between 90 and 108** |
+| S6 | `(bk)`'s thunks: of the 239 absorbed, the **199 with a direct `call`** become functions of their own, **exactly 199**. The 31 reached only by `jmp`, and the 9 with no direct reference, stay absorbed. Measured with the 664-0 instrument (`m664.py` v2) |
+
+**Independent checks:**
+- report-hash comparison over the 1,322 (N1, S1–S3, one run);
+- the park census harness (N4, S4);
+- the UIR and dump snapshot (N2, S5);
+- the suites (N5);
+- thunk ownership with objdump and UIR (S6).
+
+**Five.** A fix that lands inside N1–N5 but misses S1–S6 is the more
+interesting outcome, and will be read that way.

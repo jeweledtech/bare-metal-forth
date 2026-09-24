@@ -1,5 +1,18 @@
 # Cross-vendor park census, and the Mac decode rate (2026-09-22)
 
+> **PROVISIONAL since 2026-09-24: the Dell and ASUS rows rest on function
+> boundaries that `(bm)` shows are wrong on some of their drivers.** The unit
+> here is the function, and `(bm)` (discovery drops direct-call targets as
+> entries) affects **225 of the 1,322** kernel drivers. Intersected with this
+> census (`bk-bm-thunks-and-discovery-2026-09-24.md`, amended):
+> - **HP: 0 of 12** sites in an affected driver. The HP row is unaffected, and
+>   so is the eight-driver work built on it (the 320 hardware functions, stage 2).
+> - **Dell: 65 of 172** sites (25 drivers). **Older ASUS: 78 of 171** (27).
+>   **Newer ASUS: 83 of 184** (27).
+>
+> Which figures move is to be **measured** when `(bm)` lands, against the
+> candidate list in its pre-registration. It is not deduced here.
+
 **Instrument:** the shipped translator's own report (`-t report -S`), which is not a
 new instrument, run over every x86-64 PE file in each machine's set. Run
 after the corpus-absent repair (`80225ab`) and the park-walk fix
