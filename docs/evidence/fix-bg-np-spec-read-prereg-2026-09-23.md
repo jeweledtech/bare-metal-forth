@@ -72,3 +72,21 @@ following the (bd) and (bf) precedent.
 ## Outcome
 
 *(below this line, from the artefact only)*
+
+**Inputs hashed:** `x86_decoder.c` `fe0580db1ef2035e`, `bin/translator` `11f51761d4ad5d7a`.
+
+| # | predicted | observed |
+|---|---|---|
+| G1 | the widened red XPASSes; nothing else moves | **held**: the gate fired on exactly `x64_RED_bg_np_prefix_objdump_accepts` (15 of 15 pairs now name nothing) |
+| G2 | exactly 228 names change in the sweep, at these five; 0 lengths | **held exactly**: 228 (GETSEC 216 = 72 × 3; STAC, XGETBV, XSETBV and VMFUNC 3 each), 0 lengths |
+| G3 | corpus sweep byte-identical | **held**, all seven sets |
+| G4 | differential, `-t uir`, park census byte-identical | **held**: 0 of 16, 0 of 12, 0 of 539 |
+| G5 | suites green; tests unchanged; reds 13 → 12 | **held**: 410 tests, 12 reds |
+
+**What this closes.** These 228 cells were invisible to the differential
+that found (bd): objdump and our decoder agreed on every one. They were
+found only by reading the specification over every named row. This is the
+first defect class in the project that is **bounded entirely by the pinned
+specification**, with the two instruments serving only as the things being
+checked. The spec-read also confirmed (bd) from the other side, since none
+of its cells reappeared.
