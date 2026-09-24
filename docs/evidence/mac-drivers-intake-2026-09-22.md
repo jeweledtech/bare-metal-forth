@@ -443,3 +443,27 @@ slot number is single-build **by construction**. **If (b) is built, the
 slots (`getVirtualAddress`, `release`, `taggedRelease`, `free`, `unmap`) are
 resolved from each collection's own `__ZTV11IOMemoryMap` at analysis time,
 never compiled in**, the way this doc resolved them.
+
+## Standing procedure: an incoming archive is located by search, never by its stated path (owner, 2026-09-23)
+
+**The ignore rules cannot cover this case, and it happened.**
+`dell-system32.zip` (about 1 GB of Microsoft binaries) was said to be in
+`/home/bbrown/corpus/`. It was actually in
+`~/projects/RuView/firmware/esp32-csi-node/test/corpus/`, **inside a
+third-party repository (`ruvnet/RuView`)**. It was untracked and not
+ignored, because our ignore rules do not reach another project's tree, so
+one `git add .` there would have published it in someone else's project.
+It was the third archive this week to land somewhere other than where it
+was asked to go. It was caught only because the file was located by a
+filesystem search instead of the stated path being trusted.
+
+**The procedure, from now on:**
+1. **Any incoming archive is located by a filesystem search before it is
+   read**, and **the search result is what gets used**, never the path it
+   was said to be at:
+   `find /home/bbrown -name '<archive-name>' -o -name '*.tgz' -newermt '-1 hour' 2>/dev/null`
+2. If it is found anywhere other than `/home/bbrown/corpus/`, run
+   `git rev-parse` there and `git status` for the file. **Move it with a
+   sha256 check across the move**, then show that tree clean.
+3. Only then does intake begin: the listing is checked before
+   extraction, and the manifest and count come before anything reads it.

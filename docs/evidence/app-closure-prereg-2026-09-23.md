@@ -195,6 +195,46 @@ pre-registration defined it, `ntdll` has **488**.
    import**. `ntdll`'s own `Rtl*` and loader code reaches syscalls by
    direct call, which no import shows. The kernel figure is a floor.
 
+### The finding is the decomposition, not the totals
+
+**Over half of the 4,800 bindings sit in three modules every Win32
+application loads** (kernelbase 1,333, ntdll 1,060, win32u 1,027). **And
+1,022 of the 1,281 syscalls are `win32u`, bound by user32/gdi32 rather than
+chosen by the application.** Both are measured, not inferred. Rooted by
+itself with the same instrument:
+- **The console base.** `kernel32.dll` reaches **2 DLLs (KernelBase,
+  ntdll), 1,740 functions and 215 syscalls, all `ntdll`, 0 `win32u`**.
+- **The GUI libraries.** `user32.dll` or `gdi32.dll` alone reaches 9 DLLs,
+  3,264 functions and **1,242 syscalls, of which 1,022 are `win32u`**.
+- **The path by which the installer acquired the GUI surface**, read from
+  the import tables:
+  - none of kernelbase, kernel32, ntdll, advapi32, sechost, rpcrt4,
+    ucrtbase or combase imports `win32u`, `user32` or `gdi32`;
+  - **`shell32` imports user32 and gdi32**;
+  - so the chain is `dbInstaller.exe → shell32 → user32/gdi32 → win32u`.
+    The installer never imports user32 or gdi32 itself.
+
+**That splits the vocabulary question in two, and it bears on what
+ForthOS should target first:**
+- **A console or service application** reaches the ntdll + kernelbase
+  base: a couple of hundred syscalls and a couple of thousand definitions,
+  paid once and shared by every such application. **A finite job, with a
+  measured size.**
+- **A GUI application** adds a display server's kernel surface **as one
+  block**: about 1,000 `win32u` entry points arrive the moment user32 or
+  gdi32 loads, whatever the application does with them. For that class,
+  the graphics surface *is* the problem, and the per-application
+  vocabulary is small beside it.
+
+That is a product decision. The numbers now support it instead of a
+guess. (One binary and its roots, one build: n = 1.)
+
+**A3, kept prominent.** Predicting 100–500 syscalls and measuring 1,281
+is the most informative result in the run, **because the miss has a named
+cause**: `win32u` bound wholesale by the GUI libraries that shell32 pulls
+in. A prediction that misses for a reason that can be stated is worth
+more than one that holds.
+
 ### What the number is, for the vocabulary question
 
 **The answer to "dozens or thousands" is thousands.** One small installer

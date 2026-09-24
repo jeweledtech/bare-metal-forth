@@ -148,3 +148,12 @@ doing.
 **Two of the four came back clean. Two came back with findings, and one
 of those is a wrong answer the recalled structure had hidden.** That is
 the reason to pin a source.
+
+**Where both instruments agree, only the specification adjudicates.**
+Within a day, banking produced the third recorded case of two instruments
+agreeing wrongly. objdump and our decoder both accept `66 0F 01 CB` as STAC,
+which the SDM marks `NP` (`(bg)`). The first two were the Mac one-byte
+system forms (two linear sweeps misreading the same data) and the
+`0F 18`–`1F` defaulted NOPs (Ghidra and we both wrong on at least 19 rows).
+No differential can see an error both sides share. A pinned specification
+can, and that is what this document added.

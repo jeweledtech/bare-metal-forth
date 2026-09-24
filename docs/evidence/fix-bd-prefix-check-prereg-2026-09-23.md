@@ -141,3 +141,35 @@ named row, not a differential, and is owed when `(bg)` is taken.
 **Also recorded, not taken:** TESTUI (`F3 0F 01 ED`) and UIRET (`F3 0F 01
 EC`) are UINTR instructions we leave unknown, which is not a wrong answer.
 They join `(be-0)`.
+
+### A lesson about scoping (owner, 2026-09-23)
+
+**An item scoped by mechanism reaches defects that an item scoped by
+instance cannot.** The red asked for three instructions, WBNOINVD, ERETS
+and ERETU. The ruling restated the defect as its mechanism: *the mandatory
+prefix is not consulted where it decides the instruction*. The bound was
+then that set, and it found **six**. CLUI, STUI and SENDUIPI were being
+printed as `rdpkru`, `wrpkru` and `rdrand`, and nobody had asked about
+them. Five further (prefix, opcode) pairs were being named despite the
+SDM's `NP`/`NFx`. An instance-scoped fix would have closed its three
+names and left the check missing at every other cell.
+
+### Where both instruments agree, only the specification adjudicates
+
+`(bg)` is the **third** recorded case of two instruments agreeing, and the
+agreement being wrong:
+1. **The Mac one-byte system forms** (`system-family-census-2026-09-22.md`).
+   objdump and our decoder "confirmed" `STI`/`CLI`/`HLT` in ring-3
+   userland, because both linear sweeps misread the same data bytes the
+   same way.
+2. **The `0F 18`–`1F` defaulted NOPs** (the thirty-second rule, recorded
+   in `compare_operands.py`). Ghidra and we agreed on NOP, and at least 19
+   of those rows are wrong in **both** (PREFETCHNTA ×16, ENDBR32 ×3).
+3. **`data16 stac`.** objdump and we both accept `66 0F 01 CB`; the SDM
+   says STAC is `NP`.
+
+**A differential cannot see a shared error.** The only thing that can
+adjudicate is a source neither instrument derives from. That is why
+`(bg)`'s bound must come from **the SDM's NP/NFx column read over every
+named row**, and not from another differential. It is the clearest return
+the banking has produced, and it arrived the same day.
