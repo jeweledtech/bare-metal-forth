@@ -1,0 +1,10 @@
+# v1 (m664.v1.py 7bdc0e3f, VOIDED)
+P4 control: moved drivers showing a moved site: 8 of 179 (lacking: 171)
+site forms over the 392: {'other:rex.W': 2274, 'other:mov': 624, 'call': 1688, 'jmp': 230}
+
+# v2 (m664.py ddfa0a55, used)
+P4 control: moved drivers showing a moved site: 179 of 179 (lacking: 0)
+site forms over the 392: {'call': 3901, 'other:mov': 624, 'jmp': 291}
+
+# v1 read objdump's "rex.W" prefix token as the mnemonic; every 48 FF 15 call became class D.
+# Without P4, v1 would have read as "the 213 are reached only by non-call forms" -- a parsing bug.

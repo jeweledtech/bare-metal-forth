@@ -197,6 +197,12 @@ URL. The index listed it, and the listed URL redirects (301) there. That is a
 concrete case of the probe's failure mode, the one the X3 negative was
 narrowed for.
 
+> **Withdrawn 2026-09-24** (`vocabulary-definitions-read-2026-09-24.md` §3).
+> Read against the vocabulary's own glosses, examples and group rationale,
+> **none of the four contradicts its category: M = 0.** The table below
+> compared what each call *does* with what its category says it is *for*. It is
+> kept as the record of that reading, not as a finding.
+
 **The four disagreements** (the page's own words against the typed category):
 
 | name | vocabulary | page | drivers importing |
