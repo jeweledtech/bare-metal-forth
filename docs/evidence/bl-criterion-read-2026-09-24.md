@@ -33,8 +33,8 @@ buckets). Binary `5e99e7af…`, run over the 1,322 with 0 empty outputs:
 | scaffolding / unclassified | +4,732 / −734 |
 | **drivers emptied of every hardware function** | **133** |
 
-**Included: the HP eight's `disk.sys` (hardware 3 → 0).** So the HP "320
-hardware functions" figure would become 317.
+**Included: the HP eight's `disk.sys` (hardware 3 → 0).** ~~So the HP "320
+hardware functions" figure would become 317.~~ **Corrected 2026-09-24:** that counted disk.sys alone. HP `storport.sys` and `usbxhci.sys` import all three MDL routines too, and the dry run gives storport 85 → 59 and usbxhci 58 → 33, so **HP 320 → 266** (`fix-bl-buffer-setup-prereg-2026-09-24.md`, R4).
 
 ## The 133, read
 
@@ -91,3 +91,10 @@ blindness would not hide a *referenced* import from it. It found none.
    emptied, as the prediction the real edit must reproduce. Because it would
    be copied from a run of the same edit, it is **a replication check, not
    an independent prediction**, and it will be scored that way.
+
+## Owner ruling, 2026-09-24: confirmed at 133
+
+The edit is confirmed. The criterion is **tightened by the owner** after seeing
+that the first wording ("*a structure the device itself reads*") could pull
+MDLs back in. The tightened text, which decides, is in
+`fix-bl-buffer-setup-prereg-2026-09-24.md`.

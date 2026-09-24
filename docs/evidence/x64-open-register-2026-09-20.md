@@ -67,7 +67,7 @@ it:**
 **Gate: exactly one name.** `test_mmio_consumer` is back to an empty
 expected-failure list.
 
-## Open, with a red (13)
+## Open, with a red (14)
 
 **The table is the whole list, across every suite.** Until 2026-09-21
 the executable check compared it against `test_x86_decoder.c`'s
@@ -96,6 +96,7 @@ asserted so a renamed suite cannot shrink the union silently. The
 | (y) | `x64_RED_y_lea_register_form_invalid` | decoder | `8D C0` LEA register form is #UD |
 | (ab) | `x64_RED_ab_two_byte_arm_ignores_mandatory_prefix` | decoder | the arm never reads `66`/`F2`/`F3` |
 | (t) | `unknown_0f_modrm_recovery` | decoder | `0F 0D C0` is #UD and is accepted |
+| (bl) | `sem_RED_bl_mdl_routines_are_buffer_setup` | classifier | the hardware criterion (created 2026-09-24): the MDL routines are OS bookkeeping, `BUFFER_SETUP`, not hardware (`fix-bl-buffer-setup-prereg-2026-09-24.md`) |
 | (bk) | `sem_RED_bk_import_thunk_jmp_resolved` | classifier | an import thunk (`jmp [IAT]`) is not resolved as a call to its import: the thunk and its callers stay unclassified. Found by 664-0: **66** WDF drivers reach WDFLDR only through such thunks, and 75 of the 392 class-DLL importers have them (`measure-bi0-664-0-prereg-2026-09-24.md`). Harness control: the same fixture with `call` passes (`fix-bk-harness-control-2026-09-24.log`). Minted 2026-09-24; **not fixed**, since build order is the owner's |
 
 ## Open, without a red (5)
