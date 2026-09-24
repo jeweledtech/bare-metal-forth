@@ -51,7 +51,7 @@ established as four mislabels.**
 gloss admits MDL bookkeeping. The hardware block's gloss is a purpose ("THESE
 ARE WHAT WE WANT"), not a criterion. So whether MDL construction is *hardware
 access* is exactly what no written definition decides. The post-hoc
-counterfactual (290 hardware functions on 114 drivers, 3 drivers emptied)
+counterfactual (~~290 hardware functions on 114 drivers~~ **288 on 113** when recomputed on the fixed discovery, 3 drivers emptied)
 **prices that question**; it is not evidence that DMA is wrong. It stays
 labelled post hoc and is never quoted as confirmation.
 

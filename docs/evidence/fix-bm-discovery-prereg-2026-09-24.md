@@ -137,7 +137,7 @@ have read as clean. This is the owner's point 2, observed.
 
 **So earlier function-unit figures are inflated on those 20 drivers** by
 88,095 fabricated functions, 1,745 of them hardware, and 8,867 scaffolding.
-That includes the (bi)-0 counterfactual's denominator ("16,400 hardware
+*(Superseded 2026-09-24 by recomputation, not by flagging: `rerun-on-fixed-discovery-2026-09-24.md`. The fabricated set is **24** drivers, not 20, confirmed exactly as a set; the 20 below are those that fell on net.)* That includes the (bi)-0 counterfactual's denominator ("16,400 hardware
 functions on 921 drivers") and (bj)'s bucket totals, to the extent those
 drivers are in them. **They are not re-derived here.** They are named, so a
 reader of those documents knows which drivers carried fabricated functions.

@@ -157,7 +157,7 @@ result is kept, labelled voided.
 - Across the 392, **75** drivers have thunks.
 
 **The second number for the 1,135.** Of the 392 drivers a class DLL *names*,
-**179 (46%)** had any function change bucket when the names got categories.
+~~**179 (46%)**~~ **178 (45%)** had any function change bucket when the names got categories (**recomputed on the fixed discovery** (`rerun-on-fixed-discovery-2026-09-24.md`); the classes below were also recomputed: A on 148, all-A 3, D on 211, B/C/E 0, thunk-only 66, which is the same shape).
 The rest are 147 whose direct calls sit in already-classified functions and
 66 whose only use goes through thunks the analysis does not follow. How many
 of the 66 a `(bk)` fix would move is **not predicted here**.
@@ -230,12 +230,12 @@ was measured.
 - A first counterfactual run produced **1,322 NOJSON**, from stale objects in
   the copied `build/`. It was caught by the empty-output check, rebuilt clean
   and re-run. **The first run's "0 changes" was not read as a result.**
-- **Result:** **114 drivers change buckets.** **290 hardware functions** go
-  (1.8% of the 16,400 on the 921 drivers with any), +327 scaffolding, −37
+- **Result:** ~~**114 drivers change buckets.** **290 hardware functions** go
+  (1.8% of the 16,400 on the 921 drivers with any)~~ **Recomputed on the fixed discovery** (`rerun-on-fixed-discovery-2026-09-24.md`): **113 drivers, 288 hardware functions** (1.95% of **14,738**), +325 scaffolding, −37. The struck line follows: +327 scaffolding, −37
   unclassified (conserved), and **3 drivers lose every hardware function
   they had**.
 
-**One uncited category on one name holds up 290 hardware functions.** That
+**One uncited category on one name holds up ~~290~~ 288 hardware functions** (recomputed). That
 is the answer to "which of the 146 would a citation move". **This number was
 not pre-registered.** It was measured after M was known, to price M. It is
 labelled that way, and no prediction is scored on it.
@@ -243,7 +243,7 @@ labelled that way, and no prediction is scored on it.
 **Stopping rule:** Y = 25 ≥ 15, so the rule does not say stop. **What the
 sample says instead:** yield is high (25 of 30), and the price is
 concentrated. 4 of 30 sampled entries are unsupported by their page, all four
-heavily imported, and one moves 290 hardware functions. A sample of 30 gives
+heavily imported, and one moves ~~290~~ 288 hardware functions (recomputed). A sample of 30 gives
 4/30 ≈ 13% as a point estimate. That is too few to state a population count,
 and none is stated.
 
