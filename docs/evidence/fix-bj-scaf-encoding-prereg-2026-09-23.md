@@ -98,3 +98,26 @@ the product.
 **If any of C1–C3 moves, the encoding did something only the values change
 was meant to do.** That is the catch the split exists for: stop, and read the
 moved report from its bytes.
+
+---
+
+## Outcome
+
+*(below this line, from the artefact only)*
+
+**Inputs hashed:** `bin/translator` before `03c1e890068a86f7`, after
+`f8e18de77b58bfa7`, built from private `0175461`, mirror identical.
+`dump_starts` `f4cee936de91769a`. Report hash lists
+`~/corpus/tools-2026-09-23/bj1-reports-{pre,post}.tsv`.
+
+| # | predicted | observed |
+|---|---|---|
+| C1 | 0 of 1,322 reports change | **held**: **0 of 1,322**. Every full report was sha256'd before and after; the two hash lists are **byte-identical files** (both `eef4d0f954aa…`). **0** of the before-outputs were empty, so this is not two empty runs agreeing |
+| C2 | 0 of 12 UIR, 0 of 16 dumps | **held**: **0 of 12** UIR, **0 of 16** dumps, and 0 of 12 snapshot reports differ from the post-`(bh)` snapshot |
+| C3 | X2 stays 1,322 of 1,322 | **held**, as a consequence of C1: the reports are byte-identical, so `import_family` is unchanged on every driver |
+| C4 | 413 tests, 12 reds, two tests rewritten | **held**: 413 across 27 suites, 12 reds, register union matches; the guard prints `[accepted=10]` |
+| C5 | a nameless row fails the guard; a 17th row fails the build | **held**. (a) `X(OBJECT)` appended: the guard fails with "an accepted category has no name of its own". (b) Seven rows appended (17 in all): the build stops at `static assertion failed: "scaf_cat_mask is uint16_t"`. The header was restored and diffed identical to the private repo, and the rebuilt binary hash is again `f8e18de7…` |
+
+**Nothing moved, as the split required.** `(bj)` has no red yet; its first
+red is change 2's. The deviation from the ruling (no red for change 1, and
+why) is stated above the line and stands for review.
