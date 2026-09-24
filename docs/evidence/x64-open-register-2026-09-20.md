@@ -545,17 +545,74 @@ and (aa) moves 22 of them. Both numbers, always (rule 29).
 
 ## Closed, for the boundary
 
-(b), (c), (d), (d-k), (e), (h), (i), (k), (m), (n), (o), (w), (x), (z),
-(a). Each closed through an XPASS gate whose log names the exact set of
-names that moved.
+**Rebuilt 2026-09-23 from the gate logs, not from memory** (owner ruling).
+Each closure is listed with the names its XPASS gate fired on, read from
+the `XPASS` lines of the cited log. The previous list stopped at (a) and
+duplicated (d)/(d-k). Where no log survives, the closure is listed as
+**closed, no log**, and its only record is the `FIXED <date>` comment
+written into the suite's `xfail_names[]` when the name was retired.
+
+**With a banked gate log** (30 letters, 62 names; logs in `docs/evidence/`):
+
+| closed | letter(s) | gate log | names on its XPASS lines |
+|---|---|---|---|
+| 2026-09-18 | (b) | `fix-b-imm64-xpass-gate-2026-09-18.log` | 1 |
+| 2026-09-18 | (c), (h), (i) | `fix-c-rexb-xpass-gate-2026-09-18.log` | 3 (REX.B base; REX.X SIB index ×2) |
+| 2026-09-18 | (d), (k) | `fix-dk-xpass-gate-2026-09-18.log` | 2 |
+| 2026-09-18 | (e) | `fix-e-xpass-gate-2026-09-18.log` | 6 |
+| 2026-09-18 | (m) | `fix-m-xpass-gate-2026-09-18.log` | 1 |
+| 2026-09-19 | (n), (w) | `fix-n-xpass-gate-2026-09-19.log` | 10 |
+| 2026-09-19 | (x) | `fix-x-xpass-gate-2026-09-19.log` | 3 |
+| 2026-09-20 | (a) | `fix-a-xpass-gate-2026-09-20.log` | 2 (decoder + IAT resolver) |
+| 2026-09-20 | (ad) | `fix-ad-xpass-gate-2026-09-20.log` | 1 |
+| 2026-09-20 | (o), (z) | `fix-o-xpass-gate-2026-09-20.log` | 2 |
+| 2026-09-21 | (aa), (ac) | `fix-aa-ac-xpass-gate-2026-09-21.log` | 10 |
+| 2026-09-21 | (af) | `fix-af-xpass-gate-2026-09-21.log` | 1 |
+| 2026-09-21 | (s) | `fix-s-xpass-gate-2026-09-21.log` | 7 |
+| 2026-09-22 | (aj) | `stage1-xpass-gate-2026-09-22.log` | 1 |
+| 2026-09-22 | (ak), (al), (am), (an) | `fix-ak-an-xpass-gate-2026-09-22.log` | 4 |
+| 2026-09-22 | (ao) | `fix-ao-xpass-gate-2026-09-22.log` † | 1 |
+| 2026-09-23 | (ba) | `fix-ba-xpass-gate-2026-09-23.log` † | 2 |
+| 2026-09-23 | (bb) | `fix-bb-xpass-gate-2026-09-23.log` † | 1 |
+| 2026-09-23 | (bc) | `stage2-xpass-gate-2026-09-23.log` † | 1 |
+| 2026-09-23 | (bd) | `fix-bd-xpass-gate-2026-09-23.log` † | 2 |
+| 2026-09-23 | (bf) | `fix-bf-xpass-gate-2026-09-23.log` † | 1 |
+
+† **Banked 2026-09-23 from the session's scratch directory**, where the
+gate run had written it. Each is the verbatim gate output, copied
+unedited. `fix-ao-…` is a 3-line extract of the XPASS lines, not a full
+run.
+
+**Closed, no log** (12 letters). The gate output was overwritten, or
+never written to a file. The record is the retirement comment in
+`xfail_names[]` plus the outcome doc, which states the observed gate
+by name:
+
+| closed | letter(s) | retirement comment | outcome doc |
+|---|---|---|---|
+| 2026-09-22 | (ap) | `test_semantic.c` | `fix-abi-call-stop-prereg-*` |
+| 2026-09-22 | (aq), (ar) | `test_semantic.c` | `fix-release-kill-provenance-prereg-*` |
+| 2026-09-22 | (as) | `test_semantic.c` | `fix-setcc-*` |
+| 2026-09-22 | (at) | `test_semantic.c` | `fix-sbb-adc-rol-ror-*` |
+| 2026-09-22 | (au) | `test_x86_decoder.c` | `fix-system-family-identity-prereg-*` |
+| 2026-09-22 | (av) | `test_x86_decoder.c` | `fix-crdr-operands-prereg-*` |
+| 2026-09-22 | (aw) | `test_semantic.c` | `fix-movcr-operand-prereg-*` |
+| 2026-09-22 | (ax) | `test_semantic.c` | `fix-none-route-prereg-*` |
+| 2026-09-23 | (ay), (p) | `test_semantic.c`, `test_x86_decoder.c` | `fix-p-movsxd-imul-prereg-*` |
+| 2026-09-23 | (bg) | `test_x86_decoder.c` | `fix-bg-np-spec-read-prereg-*` |
+
+**Closed without a red** (a comparer defect; its red was a banked control
+pair): (ai), 2026-09-23, controls in the translator's
+`measure/comparer-controls/`.
+
+**Total closed: 43 letters** (30 + 12 + (ai)), counted from the rows above. The lesson from the "no log" rows is the
+fourth lineage rule's corollary again: *keep every gate log.* Six of this
+week's logs survived only because the scratch directory had not been
+cleared.
 
 **(ai), closed 2026-09-23** (`fix-ai-comparer-lock-suffix-prereg-2026-09-23.md`):
 the comparer routes `???.LOCK` as the unknown it is. The published `mnemonic`
 class fell 534 → 84, `undecoded` rose by exactly 450, and nothing else moved.
-
-**Stale, stated rather than repaired from memory:** this list stops at (a).
-Items closed since then are recorded in their own sections and outcome
-docs, and are not enumerated here.
 
 **(bg), closed 2026-09-23, is the first defect class in this project
 bounded entirely by the specification.** objdump and our decoder agreed on

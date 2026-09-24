@@ -1,0 +1,3 @@
+  TEST: sem_RED_ao_ret_ends_the_walk                       XPASS: expected failure PASSED - stop; correct the register, then remove from xfail_names
+Results: 44/45 passed (xfail=0 of 1 registered, xpass=1)
+HARD FAILURE: 1 expected failure(s) passed (XPASS).
