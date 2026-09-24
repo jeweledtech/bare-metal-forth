@@ -67,7 +67,7 @@ it:**
 **Gate: exactly one name.** `test_mmio_consumer` is back to an empty
 expected-failure list.
 
-## Open, with a red (15)
+## Open, with a red (13)
 
 **The table is the whole list, across every suite.** Until 2026-09-21
 the executable check compared it against `test_x86_decoder.c`'s
@@ -96,8 +96,6 @@ asserted so a renamed suite cannot shrink the union silently. The
 | (y) | `x64_RED_y_lea_register_form_invalid` | decoder | `8D C0` LEA register form is #UD |
 | (ab) | `x64_RED_ab_two_byte_arm_ignores_mandatory_prefix` | decoder | the arm never reads `66`/`F2`/`F3` |
 | (t) | `unknown_0f_modrm_recovery` | decoder | `0F 0D C0` is #UD and is accepted |
-| (bd) | `x64_RED_bd_system_prefix_not_misnamed` | decoder | `F3 0F 09` prints `wbinvd` and `F2`/`F3 0F 01 CA` print `clac`: WBNOINVD, ERETS and ERETU get another instruction's name (SDM Table 2-3) |
-| (bd) | `x64_RED_bd_mandatory_prefix_consulted` | decoder | the mandatory prefix is not consulted where it decides the instruction: 6 SDM instructions misnamed (84 cells), 5 NP/NFx-forbidden (prefix, opcode) pairs named (166 cells); 0 corpus rows, measured |
 | (bf) | `x64_RED_bf_sse_mod_validity` | decoder | (ba)'s SSE table names register-only (U) rows in memory form and memory-only (M) rows in register form; 24 cells seen by (bd)'s prefixed sweep, the full bound owed when taken |
 
 ## Open, without a red (4)
@@ -111,7 +109,7 @@ register check reads that shape as a red.
 |---|---|---|---|
 | (q) | VEX / EVEX / REX2 unmodelled | decoder | measured zero in the corpus; see *Open, deferred* for its minting condition |
 | (ai) | comparer misreads a prefixed unknown | differential | `???.LOCK` falls through to `mnemonic` (450 rows); parked, see its section |
-| (be) | families narrower than the SDM | decoder | found by banking the SDM; unknowns, not wrong answers. Minted 2026-09-23, **split so the nonzero part is justified on its own terms** (owner): **(be-0), measured zero:** 7 legacy XMM encodings on the instruction pages but not in Tables A-4/A-5 (GFNI `66 0F38 CF`, `66 0F3A CE/CF`; Key Locker `F3 0F38 DC-DF`) and LKGS (`F2 0F 00 /6`), 0 corpus rows, with a control. **(be-n), nonzero:** LAR/LSL (`0F 02`/`03`) 3 rows in 2 binaries, INVPCID (`66 0F 38 82`) 14 rows in 1 KC binary |
+| (be) | families narrower than the SDM | decoder | found by banking the SDM; unknowns, not wrong answers. Minted 2026-09-23, **split so the nonzero part is justified on its own terms** (owner): **(be-0), measured zero:** 7 legacy XMM encodings on the instruction pages but not in Tables A-4/A-5 (GFNI `66 0F38 CF`, `66 0F3A CE/CF`; Key Locker `F3 0F38 DC-DF`) and LKGS (`F2 0F 00 /6`), 0 corpus rows, with a control; and TESTUI/UIRET (`F3 0F 01 ED/EC`), left unknown by `(bd)`. **(be-n), nonzero:** LAR/LSL (`0F 02`/`03`) 3 rows in 2 binaries, INVPCID (`66 0F 38 82`) 14 rows in 1 KC binary |
 | (az) | DX-port scan ignores MOVSXD | lifter | `uir.c`'s backward scan for the register feeding `in`/`out` via DX matches only MOV / MOVZX / MOVSX into EDX. (p) made MOVSXD (and three-operand IMUL) visible to this reader, which never saw them while they were unknown, so it is a gap **created by (p)** (rule 24). Minted 2026-09-23 |
 
 ## (s) CLOSED 2026-09-21 — and with it the decoder queue

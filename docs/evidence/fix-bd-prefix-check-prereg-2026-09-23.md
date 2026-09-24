@@ -115,3 +115,28 @@ VMPTRLD 10, RDSEED 4, CLAC 3) and found none prefixed.
 ## Outcome
 
 *(below this line, from the artefact only)*
+
+**Inputs hashed:** `x86_decoder.c` `1581528af3b2d75a`, `x86_decoder.h`
+`769c8c14c2772444`, `uir.c` `dad1e86551a44df6`, `bin/translator`
+`0026f7588b9290cb`. The sweep is the same 73,152-slot blob and the same
+objdump output, re-decoded by the new build.
+
+| # | predicted | observed |
+|---|---|---|
+| D1 | both `(bd)` reds XPASS together; `(au)` green; allowed prefixed forms keep their names | **held**: the gate fired on exactly `x64_RED_bd_system_prefix_not_misnamed` and `x64_RED_bd_mandatory_prefix_consulted`; `(au)` PASS; RDRAND r16 (`66`), VMCLEAR, VMXON and RDPID are asserted inside the item's red and pass. `(bf)` stays red |
+| D2 | sets 1 and 2 → 0; sets 3 and 4 unchanged | **held exactly**: wrong names **84 → 0**, NP/NFx-forbidden named **166 → 0**, SDM-silent `66`/`F2 0F 09` **144 → 144**, mod-validity **24 → 24**. Across all 73,152 slots, **250 names changed (= 84 + 166) and 0 lengths** |
+| D3 | no corpus identity changes | **held**: the corpus sweep is byte-identical on all seven sets |
+| D4 | differential, `-t uir`, park census byte-identical | **held**: 0 of 16 dumps, 0 of 12 UIR files, and 0 outcome changes over 539 park sites |
+| D5 | tests +2; reds 13 → 15 → 13 | **held**: 409 tests across 27 suites, 13 reds (`(bf)` open) |
+
+**The limit of the sweep, stated so it is not read as completeness.** It
+flags a cell only where **objdump disagrees** with us under a prefix.
+Where the SDM marks a row `NP` but objdump *also* accepts the prefixed form
+as the same instruction (STAC `66 0F 01 CB` is one candidate), both
+instruments agree, and the sweep cannot see it. Closing that needs the
+SDM's NP/NFx column read for every named row, not a differential. It is
+not claimed here.
+
+**Also recorded, not taken:** TESTUI (`F3 0F 01 ED`) and UIRET (`F3 0F 01
+EC`) are UINTR instructions we leave unknown, which is not a wrong answer.
+They join `(be-0)`.
