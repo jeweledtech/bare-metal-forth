@@ -220,3 +220,67 @@ is spread. Each one sits in **four of the five buckets**, so on its own it
 says nothing about which family a driver belongs to. WppRecorder is a tracing
 library and WMILIB a WMI helper. Those two descriptions are readings of the
 DLL names, not measurements, and are given only as context.
+
+## 6. X3, before any category is chosen (owner ruling 2026-09-23, items 0 and 2)
+
+**The 85, decomposed. 64 + 17 = 81, and the other four are named here.** X3's
+85 is the distinct (DLL, name) pairs the 1,322 import from the four DLLs:
+CLASSPNP 41 + portcls 15 + WDFLDR 8 + HAL **21** = 85. The "17" in the
+proposal was HAL's **uncovered** names. The other four HAL names are
+**already in the frozen vocabulary** (`b48923e8…`, re-read from `semantic.c`):
+
+| name | vocabulary line | category |
+|---|---|---|
+| HalGetBusDataByOffset | 91 | PCI_CONFIG |
+| HalSetBusDataByOffset | 93 | PCI_CONFIG |
+| KeQueryPerformanceCounter | 65 | TIMING |
+| KeStallExecutionProcessor | 63 | TIMING |
+
+So **85 was produced to answer the question X3 asks** ("names from the four
+DLLs"), and the exit's "covers 4 of 85" already counted these four. The
+proposal's 64 + 17 dropped them because it priced only the uncovered names.
+**But the four have no pinned source.** They were hand-assigned when the
+vocabulary was built. Under item 6's three-way split (import directory /
+pinned page / none) they are a fourth case, *vocabulary, uncited*. That goes
+to the owner. It is not folded silently into "pinned page".
+
+**The 0x89 collision, read from source (rule 31): it holds.**
+- Field: `sem_function_t.scaf_cat_mask`, `uint16_t` (`semantic.h:215`),
+  documented as "bit N = SEM_CAT_IRP + N seen; bit 9 = DOS_API".
+- Values: `SEM_CAT_IRP = 0x80`, `SEM_CAT_DIAGNOSTIC = 0x88`,
+  `SEM_CAT_DOS_API = 0x90` (`semantic.h`).
+- Writer (`semantic.c:788–792`): DOS_API → `1u << 9`; every other
+  scaffolding category → `1u << (cat - SEM_CAT_IRP)`. A category at 0x89 would
+  therefore set bit 9, which is DOS_API's.
+- Reader (`semantic.c:1731–1734`): bit 9 → DOS_API, bits 0–8 →
+  `SEM_CAT_IRP + bit`. A 0x89 import would render as `DOS-API`.
+- **A second hazard in the same encoding:** the reader loops bits 0–9 only.
+  A category at 0x8A–0x8F would be written to bits 10–15 and never rendered,
+  dropped without a word.
+
+**Is it a bitmask, or an enum stored in one?** A bitmask: it holds a set.
+Bits are OR-ed at every scaffolding call site and OR-inherited from callees,
+and the reader renders every set bit. **No value is mis-mapped today**,
+because every scaffolding category that exists (0x80–0x88 and 0x90) has its
+own bit. So the collision is **not a defect in place today**. It is a closed
+encoding: bit index = enum offset, plus one hard-coded exception. **Any** new
+scaffolding category collides or is dropped unless the encoding changes.
+Recorded as that; no red, because no present input moves.
+
+**Exact census of `scaf_cat_mask`, rule 24** (`grep` over `src/ include/
+tests/` and `scripts/`, which has none):
+
+| role | site |
+|---|---|
+| writer | `semantic.c:789` (DOS_API bit), `semantic.c:791–792` (offset bit), `semantic.c:992–993` (OR-inherit from callees; also reads callee masks) |
+| reader | `semantic.c:1725` (zero test), `semantic.c:1731–1734` (render loop), `test_callgraph.c:191`, `test_semantic.c:491` |
+| comments only | `semantic.h:210`, `:256`, `:429` |
+
+**Also on the path of any new scaffolding category, though not this
+field:** `sem_is_scaffolding()` (`semantic.h:339–341`) is a range test,
+`IRP..DIAGNOSTIC || DOS_API`. A value outside it is *not scaffolding at all*,
+and the import-site writer above never runs for it. The enum readers
+(`sem_is_hardware`, `sem_is_scaffolding`, `sem_category_filter_name`,
+`sem_category_name`) are a separate census, owed before a value is chosen.
+
+**No category value is chosen in this section.**
