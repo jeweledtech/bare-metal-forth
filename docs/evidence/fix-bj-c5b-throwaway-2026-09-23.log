@@ -1,0 +1,22 @@
+# (bj) change 1, C5(b), re-run 2026-09-23 for banking (the first run's output was not kept)
+# throwaway: seven rows appended, 17 entries, against the uint16_t mask
+361:    X(SYNC) X(STRING) X(DIAGNOSTIC) X(DOS_API) X(OBJECT) X(IO_MGR) X(UNKNOWN) X(PORT_IO) X(MMIO) X(DMA) X(TIMING)
+[36mTesting call-graph propagation...[0m
+gcc -Wall -Wextra -Wpedantic -Werror -O2 -std=c11 -D_POSIX_C_SOURCE=200809L -Isrc -Iinclude -o build/tests/test_callgraph \
+	tests/test_callgraph.c \
+	src/ir/semantic.c \
+	src/ir/uir.c \
+	src/decoders/x86_decoder.c
+In file included from tests/test_callgraph.c:22:
+tests/../include/semantic.h:369:1: error: static assertion failed: "scaf_cat_mask is uint16_t"
+  369 | _Static_assert(SEM_SCAF_COUNT <= 16, "scaf_cat_mask is uint16_t");
+      | ^~~~~~~~~~~~~~
+In file included from src/ir/semantic.c:19:
+include/semantic.h:369:1: error: static assertion failed: "scaf_cat_mask is uint16_t"
+  369 | _Static_assert(SEM_SCAF_COUNT <= 16, "scaf_cat_mask is uint16_t");
+      | ^~~~~~~~~~~~~~
+make: *** [Makefile:205: test-callgraph] Error 1
+# restore check
+restored header identical to private repo
+  TEST: callgraph_scaf_domain_renders_as_itself            [accepted=10] PASS
+Results: 9/9 passed

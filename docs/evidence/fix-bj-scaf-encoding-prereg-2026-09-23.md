@@ -121,3 +121,49 @@ moved report from its bytes.
 **Nothing moved, as the split required.** `(bj)` has no red yet; its first
 red is change 2's. The deviation from the ruling (no red for change 1, and
 why) is stated above the line and stands for review.
+
+### Amended after owner review, 2026-09-23
+
+**Three independent checks, not five.** C3 is *entailed* by C1: identical
+report bytes cannot carry a different `import_family`. C1 and C2 are **one
+instrument**, byte comparison of outputs, pointed at two file sets. So the
+independent checks are **three**: output invariance (C1/C2/C3), suite state
+(C4) and discrimination (C5). *A count of predictions that includes entailed
+ones is a number answering a different question.* The commit message of
+`1b39e4a` says "five of five" and cannot be amended without a rewrite; this
+paragraph supersedes it.
+
+**No red, on three conditions.** "A behaviour-preserving change has no red"
+holds here only because all three are met:
+1. the must-not-move figures were pre-registered and are byte-exact;
+2. discrimination was re-demonstrated at the new structure;
+3. the property the change buys is named, as something no test can express:
+   *before, the range and the bit layout were separate arithmetic that
+   happened to agree; now they are one list and cannot disagree.*
+
+**The C5 throwaways are banked.** The first runs' output was not kept, so both
+were **re-run** for banking: `fix-bj-c5a-throwaway-2026-09-23.log` (a
+nameless row fails the guard) and `fix-bj-c5b-throwaway-2026-09-23.log` (a
+17th row stops the build at the static assertion; then the restore check,
+header identical and guard green).
+
+**A mask value on disk: none as bits, but the order is frozen.**
+- **Bits.** No output site prints `scaf_cat_mask`, no struct is written
+  whole, and the translator's only file write is its own output. A search of
+  both repositories, `~/corpus/tools-*`, `~/references` and the session
+  scratch finds the field name only in source copies and in these evidence
+  documents.
+- **Order.** The mask renders as **names in list order**, and that order is
+  on disk:
+  - `test_semantic.c:575` asserts `"IRP+DIAGNOSTIC"`. The reader census
+    missed it, because it reads the rendered string, not the mask.
+  - The i8042 demo script (private) prints a hard-coded
+    `IRP+PNP+MEMORY+SYNC+DIAGNOSTIC`.
+  - The committed `demo-i8042-transcript.txt` and `demo-i8042-copy.md`
+    quote it.
+  - `ARCHITECTURE-TRANSLATOR.md` quotes `via:IRP+DIAGNOSTIC`.
+  - The banked `bj1-reports-*.tsv` hash report bytes that contain it.
+
+  **The order is therefore frozen, append only**, and the header comment on
+  `SEM_SCAF_LIST` now says so and names these. A fourth category goes at the
+  end, where it moves no existing reason.

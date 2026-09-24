@@ -1,0 +1,24 @@
+# (bj) change 1, C5(a), re-run 2026-09-23 for banking (the first run's output was not kept)
+# throwaway: X(OBJECT) appended to SEM_SCAF_LIST in a copy of include/semantic.h
+361:    X(SYNC) X(STRING) X(DIAGNOSTIC) X(DOS_API) X(OBJECT)
+[36mTesting call-graph propagation...[0m
+gcc -Wall -Wextra -Wpedantic -Werror -O2 -std=c11 -D_POSIX_C_SOURCE=200809L -Isrc -Iinclude -o build/tests/test_callgraph \
+	tests/test_callgraph.c \
+	src/ir/semantic.c \
+	src/ir/uir.c \
+	src/decoders/x86_decoder.c
+./build/tests/test_callgraph
+Call-Graph Propagation Tests
+============================
+  TEST: leaf_scaffolding_unchanged                         PASS
+  TEST: transitive_scaffolding                             PASS
+  TEST: callgraph_scaf_domain_renders_as_itself            FAIL: an accepted category has no name of its own
+  TEST: unresolvable_edge_taints                           PASS
+  TEST: hardware_callee_blocks                             PASS
+  TEST: chain_propagation                                  PASS
+  TEST: cycle_stays_unclassified                           PASS
+  TEST: transitive_taint                                   PASS
+  TEST: fanout_mask_union                                  PASS
+
+Results: 8/9 passed
+make: *** [Makefile:206: test-callgraph] Error 1
