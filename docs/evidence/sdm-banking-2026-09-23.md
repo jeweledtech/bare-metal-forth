@@ -136,6 +136,14 @@ wrong name*; whether to name them or leave them unknown is a ruling.
 | SSE family | A.2.1; Tables A-3/A-4/A-5 | all 270 attested; **7 legacy XMM encodings missing from the maps and the family** (0 corpus rows) → `(be)` |
 | system family | Table 2-3 (and other chapters) | **3 misnamed encodings** → red `(bd)`; 4 unnamed (17 corpus rows) → `(be)` |
 
+**The plainest finding is the error class itself.** The system family was
+assembled from several chapters (Table 2-3, the VMX instruction reference,
+and the pages for SYSCALL, the MSRs, CPUID and MONITOR) and was described in
+its own census as drawn from one table. That is exactly the error that
+banking the source was meant to close, and it surfaced on the first
+check. It is the strongest argument that pinning the manual was worth
+doing.
+
 **Two of the four came back clean. Two came back with findings, and one
 of those is a wrong answer the recalled structure had hidden.** That is
 the reason to pin a source.
