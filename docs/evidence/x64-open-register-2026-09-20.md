@@ -67,7 +67,7 @@ it:**
 **Gate: exactly one name.** `test_mmio_consumer` is back to an empty
 expected-failure list.
 
-## Open, with a red (13)
+## Open, with a red (15)
 
 **The table is the whole list, across every suite.** Until 2026-09-21
 the executable check compared it against `test_x86_decoder.c`'s
@@ -97,6 +97,8 @@ asserted so a renamed suite cannot shrink the union silently. The
 | (ab) | `x64_RED_ab_two_byte_arm_ignores_mandatory_prefix` | decoder | the arm never reads `66`/`F2`/`F3` |
 | (t) | `unknown_0f_modrm_recovery` | decoder | `0F 0D C0` is #UD and is accepted |
 | (bd) | `x64_RED_bd_system_prefix_not_misnamed` | decoder | `F3 0F 09` prints `wbinvd` and `F2`/`F3 0F 01 CA` print `clac`: WBNOINVD, ERETS and ERETU get another instruction's name (SDM Table 2-3) |
+| (bd) | `x64_RED_bd_mandatory_prefix_consulted` | decoder | the mandatory prefix is not consulted where it decides the instruction: 6 SDM instructions misnamed (84 cells), 5 NP/NFx-forbidden (prefix, opcode) pairs named (166 cells); 0 corpus rows, measured |
+| (bf) | `x64_RED_bf_sse_mod_validity` | decoder | (ba)'s SSE table names register-only (U) rows in memory form and memory-only (M) rows in register form; 24 cells seen by (bd)'s prefixed sweep, the full bound owed when taken |
 
 ## Open, without a red (4)
 
