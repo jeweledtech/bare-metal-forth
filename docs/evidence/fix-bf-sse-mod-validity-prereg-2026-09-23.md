@@ -62,3 +62,27 @@ not INVALID with its length-1 resync. Rows whose names split by form
 ## Outcome
 
 *(below this line, from the artefact only)*
+
+**Inputs hashed:** `x86_decoder.c` `da3a09442a369802`, `x86_sse_table.h`
+`461ac782f5460c52` (10 rows `mod=1`, 11 rows `mod=2`, as bounded), and
+`bin/translator` `eed8448c1415d42b`.
+
+| # | predicted | observed |
+|---|---|---|
+| F1 | the widened red XPASSes; nothing else moves | **held**: the gate fired on exactly `x64_RED_bf_sse_mod_validity` (28 of 28 excluded forms now name nothing); `(ba)` stays green |
+| F2 | across the 73,152-slot sweep, exactly the 24 mod-validity cells (bd) saw change name; 0 lengths | **missed on the count, held on lengths.** **706 names changed** and 0 lengths. Every changed cell is an excluded form of a bound key, and the count decomposes exactly: **640** (the 10 memory-only keys the sweep samples × their 64 register-form cells; MOVNTDQA is `0F 38`, outside the sweep) + **56** (the 7 register-only keys × 8 memory digits) + **10** (the shift groups' valid digits in memory form) |
+| F3 | corpus sweep byte-identical | **held**, all seven sets |
+| F4 | differential, `-t uir`, park census byte-identical | **held**: 0 of 16, 0 of 12, 0 of 539 |
+| F5 | suites green; tests unchanged; reds 14 → 13 | **held**: 410 tests, 13 reds |
+
+**Why F2 missed, and what it says.** The 24 cells were not the
+population; they were **what one detector could see**. (bd)'s sweep
+counted a cell only where objdump printed a bare `(bad)` under a prefix,
+against an unprefixed baseline. Two kinds of cell fell outside it: objdump
+naming the instruction with a `(bad)` operand (`movlps %xmm0,(bad)`), and
+every excluded form with no prefix at all. **The prediction took a
+detector's view for the population.** The SDM-derived bound (28 forms) was
+right. What the prediction got wrong was how many *sweep cells* those forms
+occupy. It is the same lesson the ruling drew for (bd): the class is
+defined by its mechanism, and the view any one instrument has of it is a
+sample.

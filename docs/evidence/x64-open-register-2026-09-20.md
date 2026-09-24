@@ -67,7 +67,7 @@ it:**
 **Gate: exactly one name.** `test_mmio_consumer` is back to an empty
 expected-failure list.
 
-## Open, with a red (14)
+## Open, with a red (13)
 
 **The table is the whole list, across every suite.** Until 2026-09-21
 the executable check compared it against `test_x86_decoder.c`'s
@@ -96,7 +96,6 @@ asserted so a renamed suite cannot shrink the union silently. The
 | (y) | `x64_RED_y_lea_register_form_invalid` | decoder | `8D C0` LEA register form is #UD |
 | (ab) | `x64_RED_ab_two_byte_arm_ignores_mandatory_prefix` | decoder | the arm never reads `66`/`F2`/`F3` |
 | (t) | `unknown_0f_modrm_recovery` | decoder | `0F 0D C0` is #UD and is accepted |
-| (bf) | `x64_RED_bf_sse_mod_validity` | decoder | (ba)'s SSE table names register-only (U) rows in memory form and memory-only (M) rows in register form; bound read from the SDM operand column: **28 excluded forms** (10 U keys / 17 names, 11 M keys), all named today, all refused by objdump, 0 corpus rows (measured) |
 | (bg) | `x64_RED_bg_np_prefix_objdump_accepts` | decoder | (bd)'s sweep is blind where objdump also accepts an SDM-`NP` form: `66 0F 01 CB` prints `stac` (objdump `data16 stac`); bound owed = the SDM NP/NFx column over every named row |
 
 ## Open, without a red (4)
