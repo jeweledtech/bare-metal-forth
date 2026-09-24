@@ -139,7 +139,8 @@ wrong name*; whether to name them or leave them unknown is a ruling.
 **The plainest finding is the error class itself.** The system family was
 assembled from several chapters (Table 2-3, the VMX instruction reference,
 and the pages for SYSCALL, the MSRs, CPUID and MONITOR) and was described in
-its own census as drawn from one table. That is exactly the error that
+its own census as drawn from one chapter ("the SDM's system-instruction
+chapter"). That is exactly the error that
 banking the source was meant to close, and it surfaced on the first
 check. It is the strongest argument that pinning the manual was worth
 doing.
