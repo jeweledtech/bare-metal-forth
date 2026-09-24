@@ -114,12 +114,14 @@ on the raw reading and about 1 point off on the plausible one. It cannot be
 settled until the port facts are attested by an instrument that does not
 share the linear sweep's failure.
 
-**The product finding, which stands whichever bound is true:**
-`ports_accessed` is printed as an instruction-derived fact, and on protected
-or data-bearing code it is fabricated at scale. **The one instruction-derived
-signal the product has besides stage 2 is, corpus-wide, mostly noise from
-one licensing driver.** The trustworthy instruction-derived count is **11**
-(stage 2), against 10,751 hardware functions.
+**The product finding, which does not depend on which bound holds:**
+`ports_accessed` is printed as an instruction-derived fact **with no check
+that the bytes it came from are code**. On today's corpus, **56% of the
+port-fact functions (520 of 932) sit in one licensing driver**, whose value
+spread (218–236 distinct ports per copy) makes fabrication the likely reading.
+"Likely" is reasoned from the spread; it is not established per instruction.
+**The instruction-derived count that rests on a walk rather than a sweep is
+11** (stage 2), against 10,751 hardware functions.
 
 **The model that missed**, recorded as one: the four predictions assumed
 the corpus looks like the HP eight (clean Microsoft inbox drivers). It
