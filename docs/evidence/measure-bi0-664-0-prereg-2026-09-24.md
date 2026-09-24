@@ -182,8 +182,14 @@ index plus 22 header indexes: **1,818** distinct routine names.
 | # | predicted | observed |
 |---|---|---|
 | Y | 27 of 30 pinnable (22–30) | **25 of 30**. The point prediction missed; the result is inside the range. Not found: CreateFileW and ReadFile (Win32, documented outside `/ddi/`, which the method excludes), memmove, ExfInterlockedInsertTailList and IofCompleteRequest |
-| M | 1 disagreement (0–3) | **missed: 4 of 25**, above the range (below) |
+| M | 1 disagreement (0–3) | **missed: 4 of 25**, above the range (the four are in the table below) |
 | U | 120 of 142 imported by ≥ 1 driver (100–142) | **missed: 95 of 142**, below the range. The 47 unused include Win32 names, inline macros (IoCompleteRequest, IoGetCurrentIrpStackLocation, IoMarkIrpPending) and the x86 HAL port and register routines (`READ_PORT_*` / `WRITE_PORT_*` / `*_REGISTER_*`). That grouping is a reading of the names. The count is over the 1,322 x64 drivers only; the PE32 controls do import `READ_PORT_UCHAR` |
+
+**A deviation from the registered method.** The probes were run as
+`nf-<h>-<name>` only. The `ns-`/`nc-` forms registered for variables and
+structures were **not run**. All 30 sampled names are routines, so the
+omission cannot have hidden a routine's page. It is still a departure from
+what was written, and it is recorded as one.
 
 **The widened method paid once.** `KeQuerySystemTime`'s page lives at
 `…/nf-wdm-kequerysystemtime-r1`. The `nf-<h>-<name>` probe cannot guess that
