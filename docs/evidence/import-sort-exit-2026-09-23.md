@@ -298,3 +298,5 @@ X3's count was met as amended in §6 and in `(bj)`'s pre-registration: the
 vocabulary hash is unchanged, not re-pinned. The next items are the 664
 unsorted drivers, with their own exit and the ceiling of 1,135 (§5), and
 `(bi)`.
+
+> **Vocabulary hash, 2026-09-24:** frozen at `b48923e8…` until 2026-09-24; superseded by `cd4278db…` (`(bl)`, `fix-bl-buffer-setup-prereg-2026-09-24.md`: three MDL routines DMA → BUFFER_SETUP). Every figure and citation above that names `b48923e8…` was measured against that table, and is left as written.

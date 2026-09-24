@@ -67,7 +67,7 @@ it:**
 **Gate: exactly one name.** `test_mmio_consumer` is back to an empty
 expected-failure list.
 
-## Open, with a red (14)
+## Open, with a red (13)
 
 **The table is the whole list, across every suite.** Until 2026-09-21
 the executable check compared it against `test_x86_decoder.c`'s
@@ -96,10 +96,9 @@ asserted so a renamed suite cannot shrink the union silently. The
 | (y) | `x64_RED_y_lea_register_form_invalid` | decoder | `8D C0` LEA register form is #UD |
 | (ab) | `x64_RED_ab_two_byte_arm_ignores_mandatory_prefix` | decoder | the arm never reads `66`/`F2`/`F3` |
 | (t) | `unknown_0f_modrm_recovery` | decoder | `0F 0D C0` is #UD and is accepted |
-| (bl) | `sem_RED_bl_mdl_routines_are_buffer_setup` | classifier | the hardware criterion (created 2026-09-24): the MDL routines are OS bookkeeping, `BUFFER_SETUP`, not hardware (`fix-bl-buffer-setup-prereg-2026-09-24.md`) |
 | (bk) | `sem_RED_bk_import_thunk_jmp_resolved` | classifier | an import thunk (`jmp [IAT]`) is not resolved as a call to its import: the thunk and its callers stay unclassified. Found by 664-0: **66** WDF drivers reach WDFLDR only through such thunks, and 75 of the 392 class-DLL importers have them (`measure-bi0-664-0-prereg-2026-09-24.md`). Harness control: the same fixture with `call` passes (`fix-bk-harness-control-2026-09-24.log`). Minted 2026-09-24; **not fixed**, since build order is the owner's |
 
-## Open, without a red (5)
+## Open, without a red (4)
 
 **Defect letters that are open and have no red yet**, counted so they
 are not carried only in prose. A red is written when the item is taken.
@@ -108,7 +107,6 @@ register check reads that shape as a red.
 
 | letter | what | suite it would live in | what is wrong |
 |---|---|---|---|
-| (bl) | the categories have glosses and examples, not inclusion criteria | classifier | **Restated 2026-09-24** (`vocabulary-definitions-read-2026-09-24.md`). Minted as "four categories their page does not support"; **withdrawn as that**: read against the vocabulary's own glosses (`driver_extract.h`, which the translator's enum dropped), examples (ARCHITECTURE-TRANSLATOR.md) and group rationale, all four survive, **M = 0**. What remains: no category has an inclusion criterion, so a citation can be judged only loosely, and whether MDL bookkeeping is *hardware access* (DMA) is undecided. Priced post hoc at ~~290 on 114~~ **288 hardware functions on 113 drivers** (recomputed on the fixed discovery). **First step: write a criterion for the hardware block, starting with DMA.** No red until a criterion exists. Gates `(bi)`, now rescoped to 18 hardware-typed, imported names |
 | (bi) | the classifier vocabulary is uncited | classifier | **146 of 146** frozen vocabulary entries (`b48923e8…`) cite no pinned source (`x3-sourcing-prereg-2026-09-23.md` §A). X3's pin checked 4, all agreeing (M = 0), and 142 were never checked. Owner ruling 2026-09-23: own letter and own exit. **The first step is not a pinning campaign.** It is a yield measurement on a drawn sample, with the widened method (probe patterns beyond four, and not a control drawn from found pages), because the pass's two yields differ: 4 of 21 for uncovered HAL names against 4 of 4 for already-categorised ones, and the second is the suspicious one. Minted 2026-09-23 |
 | (q) | VEX / EVEX / REX2 unmodelled | decoder | measured zero in the corpus; see *Open, deferred* for its minting condition |
 | (be) | families narrower than the SDM | decoder | found by banking the SDM; unknowns, not wrong answers. Minted 2026-09-23, **split so the nonzero part is justified on its own terms** (owner): **(be-0), measured zero:** 7 legacy XMM encodings on the instruction pages but not in Tables A-4/A-5 (GFNI `66 0F38 CF`, `66 0F3A CE/CF`; Key Locker `F3 0F38 DC-DF`) and LKGS (`F2 0F 00 /6`), 0 corpus rows, with a control; and TESTUI/UIRET (`F3 0F 01 ED/EC`), left unknown by `(bd)`. **(be-n), nonzero:** LAR/LSL (`0F 02`/`03`) 3 rows in 2 binaries, INVPCID (`66 0F 38 82`) 14 rows in 1 KC binary |
@@ -556,7 +554,7 @@ duplicated (d)/(d-k). Where no log survives, the closure is listed as
 **closed, no log**, and its only record is the `FIXED <date>` comment
 written into the suite's `xfail_names[]` when the name was retired.
 
-**With a banked gate log** (33 letters, 68 names; logs in `docs/evidence/`):
+**With a banked gate log** (34 letters, 69 names; logs in `docs/evidence/`):
 
 | closed | letter(s) | gate log | names on its XPASS lines |
 |---|---|---|---|
@@ -584,6 +582,7 @@ written into the suite's `xfail_names[]` when the name was retired.
 | 2026-09-23 | (bh) | `fix-bh-xpass-gate-2026-09-23.log` | 2 (the import sort, X1 and X2) |
 | 2026-09-23 | (bj) | `fix-bj-xpass-gate-2026-09-23.log` | 3 (X3's values; change 1, the one-list encoding, had no red: its property and three independent checks are in `fix-bj-scaf-encoding-prereg-2026-09-23.md`) |
 | 2026-09-24 | (bm) | `fix-bm-xpass-gate-2026-09-24.log` | 1 (discovery took a REL target re-offset; two-sided: entries missed on 225 drivers, fabricated on the 20 at image base 0x10000) |
+| 2026-09-24 | (bl) | `fix-bl-xpass-gate-2026-09-24.log` | 1 (the hardware criterion, created 2026-09-24; the three MDL routines → BUFFER_SETUP; 133 drivers emptied of hardware functions, all read first) |
 
 † **Banked 2026-09-23 from the session's scratch directory**, where the
 gate run had written it. Each is the verbatim gate output, copied
@@ -612,7 +611,7 @@ by name:
 pair): (ai), 2026-09-23, controls in the translator's
 `measure/comparer-controls/`.
 
-**Total closed: 46 letters** (33 + 12 + (ai)), counted from the rows above. The lesson from the "no log" rows is the
+**Total closed: 47 letters** (34 + 12 + (ai)), counted from the rows above. The lesson from the "no log" rows is the
 fourth lineage rule's corollary again: *keep every gate log.* Six of this
 week's logs survived only because the scratch directory had not been
 cleared.
@@ -628,3 +627,5 @@ the SDM marks `NP`), so no differential could ever have found them. They
 were found by reading SDM 325462-092's NP/NFx column over every named row
 (`fix-bg-np-spec-read-prereg-2026-09-23.md`). That is the return on banking
 the manual.
+
+> **Vocabulary hash, 2026-09-24:** frozen at `b48923e8…` until 2026-09-24; superseded by `cd4278db…` (`(bl)`, `fix-bl-buffer-setup-prereg-2026-09-24.md`: three MDL routines DMA → BUFFER_SETUP). Every figure and citation above that names `b48923e8…` was measured against that table, and is left as written.

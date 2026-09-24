@@ -77,7 +77,7 @@ blindness would not hide a *referenced* import from it. It found none.
 1. **The owner ruled on 3 and the change empties 133,** including an HP-eight
    driver. The principle does not depend on the count. But a change that
    moves 27% of the hardware block and edits a figure from the HP work
-   (320 → 317) is not what was priced. It comes back for confirmation.
+   (320 → ~~317~~ 266, corrected) is not what was priced. It comes back for confirmation.
 2. **The vocabulary hash `b48923e8…` changes.** Assertions of it, per rule
    24: **0** in tests and scripts. One header comment
    (`semantic.h`, the precedence note) and **6** evidence documents cite it

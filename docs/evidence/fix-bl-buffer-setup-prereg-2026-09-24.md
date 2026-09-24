@@ -76,3 +76,58 @@ replication, not as predictions**: the real edit must reproduce them.
   instrument.
 - The census harness.
 - The snapshot, with P5 extracted from its reports.
+
+---
+
+## Outcome
+
+*(below this line, from the artefact only)*
+
+**Inputs hashed:** `bin/translator` before `60df7c753af56625`, after
+`3fc5a848860d4d25`, built from private `dfffb8c` (red `a3d0dfb`), mirror
+identical. **Vocabulary extraction sha256 `cd4278dbe28353ec472e73f7cfb22a6fa6ad805c61dbca8b5737c5a191955453`**
+(was `b48923e8…`). Readings are `bl-reports-post.tsv`,
+`bl-park-census-post.json` and `bl-importers3.txt` in
+`~/corpus/tools-2026-09-24/SHA256SUMS`. 0 empty outputs.
+
+**Replication: exact.** The real edit's buckets equal the dry run's on
+**1,322 of 1,322** drivers.
+
+| # | dry run | real edit |
+|---|---|---|
+| R1 | 433 drivers change buckets | **433** |
+| R2 | hw −3,998, scaf +4,732, uncl −734 | **−3,998, +4,732, −734** |
+| R3 | 133 emptied | **133** |
+| R4 | HP 320 → 266 | **320 → 266** |
+
+**Predictions the dry run never measured: seven of seven held.**
+
+| # | predicted | observed |
+|---|---|---|
+| P1 | bytes change on exactly the 441 importers; 881 identical | **held as an exact set**: the changed set **equals** the 441 importers; 0 non-importers changed |
+| P2 | 0 hex; X2 and X3 unchanged | **0**; `import_family` **1,322 of 1,322**; four-DLL sets **1,322 of 1,322** |
+| P3 | the three stay `vocabulary-uncited` | **held**: `BUFFER_SETUP`, `vocabulary-uncited`, `is_hardware` false (read on HP disk.sys) |
+| P4 | census sites unchanged; 0 of 539 outcomes change | **held**: 12 / 172 / 171 / 184; 0 appear or vanish; **0** outcomes changed |
+| P5 | HP `mapped_regions` byte-identical | **held**: **8 of 8** |
+| P6 | UIR 0 of 12; dumps 0 of 16; reports change on exactly HP disk, storport, usbxhci | **held**: 0; 0; exactly those three |
+| P7 | the gate fires on exactly the (bl) red; `[accepted=14]`; (bk) red; 419 tests; 13 reds | **held** (`fix-bl-xpass-gate-2026-09-24.log`) |
+
+**The hash's readers, handled per the owner's condition.**
+- The header's precedence note now names both hashes.
+- The **five** evidence documents citing `b48923e8…` keep it and gain *frozen
+  until 2026-09-24; superseded by `cd4278db…`*: `vocab-freeze-tier1-prereg`,
+  `import-sort-exit`, `fix-bj-values-prereg`, `x3-sourcing-prereg`, and the
+  register.
+- **The sixth reader is a log**, `vocab-widen-sibling-2026-09-20.log`: a
+  verbatim gate output, **left untouched by design**. A banked log records
+  what was run.
+- "6 evidence documents" in `bl-criterion-read` was that directory count,
+  5 documents and 1 log.
+
+**Independent checks: four**, as pre-registered. The replication is reported
+separately and is not counted as a prediction.
+
+**What (bl) leaves open.** The criterion now exists. `(bi)`'s 18
+hardware-typed, imported names can be adjudicated against it, and 3 of the 18
+(the MDL routines) are done by this edit. The HP-eight "320 hardware
+functions" is now **266**. Stage 2's figures are unchanged (P5).

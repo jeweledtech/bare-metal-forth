@@ -202,3 +202,5 @@ decision turns on, this is the page to re-read first.**
 
 **The larger finding goes to its own letter.** 146 of 146 uncited is **`(bi)`**,
 opened in the register. It is not worked inside X3.
+
+> **Vocabulary hash, 2026-09-24:** frozen at `b48923e8…` until 2026-09-24; superseded by `cd4278db…` (`(bl)`, `fix-bl-buffer-setup-prereg-2026-09-24.md`: three MDL routines DMA → BUFFER_SETUP). Every figure and citation above that names `b48923e8…` was measured against that table, and is left as written.

@@ -127,3 +127,5 @@ the UIR and dump comparison (V6); and discrimination.
   4 pinned page); 17 print `NO_PUBLIC_REFERENCE`.
 
 X3's result is the three-way split printed per import in `category_source`.
+
+> **Vocabulary hash, 2026-09-24:** frozen at `b48923e8…` until 2026-09-24; superseded by `cd4278db…` (`(bl)`, `fix-bl-buffer-setup-prereg-2026-09-24.md`: three MDL routines DMA → BUFFER_SETUP). Every figure and citation above that names `b48923e8…` was measured against that table, and is left as written.
