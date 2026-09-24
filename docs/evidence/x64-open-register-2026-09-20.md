@@ -97,7 +97,7 @@ asserted so a renamed suite cannot shrink the union silently. The
 | (ab) | `x64_RED_ab_two_byte_arm_ignores_mandatory_prefix` | decoder | the arm never reads `66`/`F2`/`F3` |
 | (t) | `unknown_0f_modrm_recovery` | decoder | `0F 0D C0` is #UD and is accepted |
 
-## Open, without a red (3)
+## Open, without a red (4)
 
 **Defect letters that are open and have no red yet**, counted so they
 are not carried only in prose. A red is written when the item is taken.
@@ -106,6 +106,7 @@ register check reads that shape as a red.
 
 | letter | what | suite it would live in | what is wrong |
 |---|---|---|---|
+| (bi) | the classifier vocabulary is uncited | classifier | **146 of 146** frozen vocabulary entries (`b48923e8…`) cite no pinned source (`x3-sourcing-prereg-2026-09-23.md` §A). X3's pin checked 4, all agreeing (M = 0), and 142 were never checked. Owner ruling 2026-09-23: own letter and own exit. **The first step is not a pinning campaign.** It is a yield measurement on a drawn sample, with the widened method (probe patterns beyond four, and not a control drawn from found pages), because the pass's two yields differ: 4 of 21 for uncovered HAL names against 4 of 4 for already-categorised ones, and the second is the suspicious one. Minted 2026-09-23 |
 | (q) | VEX / EVEX / REX2 unmodelled | decoder | measured zero in the corpus; see *Open, deferred* for its minting condition |
 | (be) | families narrower than the SDM | decoder | found by banking the SDM; unknowns, not wrong answers. Minted 2026-09-23, **split so the nonzero part is justified on its own terms** (owner): **(be-0), measured zero:** 7 legacy XMM encodings on the instruction pages but not in Tables A-4/A-5 (GFNI `66 0F38 CF`, `66 0F3A CE/CF`; Key Locker `F3 0F38 DC-DF`) and LKGS (`F2 0F 00 /6`), 0 corpus rows, with a control; and TESTUI/UIRET (`F3 0F 01 ED/EC`), left unknown by `(bd)`. **(be-n), nonzero:** LAR/LSL (`0F 02`/`03`) 3 rows in 2 binaries, INVPCID (`66 0F 38 82`) 14 rows in 1 KC binary |
 | (az) | DX-port scan ignores MOVSXD | lifter | `uir.c`'s backward scan for the register feeding `in`/`out` via DX matches only MOV / MOVZX / MOVSX into EDX. (p) made MOVSXD (and three-operand IMUL) visible to this reader, which never saw them while they were unknown, so it is a gap **created by (p)** (rule 24). Minted 2026-09-23 |

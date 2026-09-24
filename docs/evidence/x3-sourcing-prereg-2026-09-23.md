@@ -175,3 +175,30 @@ pin, the four were **4 of 146** vocabulary-uncited entries, and **146 of 146**
 are uncited. The pin moved 4 and checked them: 4 agree, 0 contradict. **142
 remain uncited**, never checked against any published source. That is the
 bound on how much of the classifier rests on typed categories.
+
+### Amended after owner review, 2026-09-23
+
+**The negative on the 17, stated at its true width.** What was measured is
+**no page at the four probed `nf-<header>-<name>` patterns** (wdm, ntddk,
+ntifs, ntosp), plus search results that were **empty or index-only**. That is
+not "no page". A routine documented under another header, on a legacy path,
+or only inside a routines index is invisible to both instruments. **The
+probe's control does not show coverage.** Its 200s came from pages search had
+already found, which are known to follow the pattern. It shows only that the
+probe works. **Two instruments that share a failure mode are one
+instrument.** `no-public-reference` means exactly this: *no page at the four
+probed patterns, and search returned nothing or index-only*. It does not mean
+the routine is undocumented. The claim is not chased further.
+
+**The HalTranslateBusAddress miss, named for what it was.** I predicted a
+page because I remembered one. **A memory is not a source.** The prediction
+was right to be made and is right to be recorded as a miss.
+
+**HalSetBusDataByOffset is flagged here, not in the printed field.** Its
+agreement with PCI_CONFIG is weaker than the other three ("can be
+PCIConfiguration", not "the only supported"). The printed source record gets
+no gradation for one name. **If PCI_CONFIG on this name is ever what a
+decision turns on, this is the page to re-read first.**
+
+**The larger finding goes to its own letter.** 146 of 146 uncited is **`(bi)`**,
+opened in the register. It is not worked inside X3.
