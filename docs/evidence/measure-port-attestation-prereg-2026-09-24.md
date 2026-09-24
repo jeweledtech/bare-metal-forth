@@ -120,8 +120,8 @@ ntoskrnl), which may well be genuine port I/O. That is not established here.
   the 712 are reached by linear fall-through, the residual (bn) already
   names.
 - **The product statement.** Across 10,751 hardware functions on the 1,322
-  kernel drivers, **231–242 carry an instruction-derived fact the oracle
-  confirms** (11 stage-2, plus 220 attested ports, or 93 without ClipSp).
+  kernel drivers, **104–231 carry an instruction-derived fact the oracle
+  confirms**: 11 stage-2, plus either 220 attested ports or, without ClipSp, 93. (A first draft of this line said "231–242", an arithmetic slip, corrected before the owner read it.)
   **Everything else the product calls hardware rests on which DLL a driver
   imports.**
 

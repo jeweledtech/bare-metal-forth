@@ -170,3 +170,9 @@ sweep-derived value as instruction-derived evidence.
 **Next, per ruling 4:** the Ghidra attestation of reachability, with
 positives first (serial.sys, i8042prt.sys: their known `in`/`out` must be
 reached) before any zero is read.
+
+> **Narrowed 2026-09-24** (`measure-port-attestation-prereg-2026-09-24.md`):
+> with port facts attested by Ghidra reachability, the corpus zero-fact rate
+> is **97.85%–99.03%**. The two ends are ClipSp's 127 Ghidra-reached sites
+> counted or not. HP (99.62%) is representative on this measure. The raw
+> 91.23% and the 91.2–99.9% bound above are superseded.
