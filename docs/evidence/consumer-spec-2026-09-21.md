@@ -1208,3 +1208,17 @@ parameter, not the frame — and no other park's base is `%rbp` or
 
 **27 suites, 0 warnings, exit 0.** Stage 1 still passes, now on a
 finder validated against all eight drivers rather than one.
+
+> **2026-09-24, the "0 of 320" re-read on today's build** (the snapshot
+> reports; instruction-derived = `ports_accessed` non-empty or a mapped region
+> with stage-2 accesses, as §1 defines it):
+> - Since stage 2 (2026-09-23), **one** HDAudBus hardware function carries
+>   instruction-derived facts (the park with 14 accesses). So the zero-fact set
+>   was **319 of 320**, not 320, before `(bl)`. Citations of "320 functions
+>   with zero instruction-derived facts" after 2026-09-23 should read 319.
+> - After `(bl)` (the hardware criterion; the MDL routines are
+>   `BUFFER_SETUP`): hardware **266**, instruction-derived **1**, zero-fact
+>   **265**.
+> - **The zero-fact set fell by 54** (disk 3 → 0, storport 85 → 59, usbxhci
+>   58 → 33). Every one of the 54 was hardware only through an MDL import.
+>   The "0 of 320" above stays true of its date and is not rewritten.

@@ -131,3 +131,27 @@ separately and is not counted as a prediction.
 hardware-typed, imported names can be adjudicated against it, and 3 of the 18
 (the MDL routines) are done by this edit. The HP-eight "320 hardware
 functions" is now **266**. Stage 2's figures are unchanged (P5).
+
+### The product result, found after the outcome (owner question, 2026-09-24)
+
+**The HP "320 hardware functions" and "the 320 functions classified with no
+instruction-derived fact" (`consumer-spec-2026-09-21.md` §1) are the same
+set**: the spec's per-driver table equals today's per-driver hardware counts.
+Re-read on the snapshot reports, with instruction-derived defined as
+`ports_accessed` non-empty or stage-2 accesses:
+
+| | hardware | instruction-derived | **zero-fact** |
+|---|---|---|---|
+| before (bl) | 320 | 1 (HDAudBus, stage 2) | **319** |
+| after (bl) | 266 | 1 | **265** |
+
+**So the product's best-known weakness fell by 54 on the only machine it was
+ever measured on.** That weakness is functions it calls hardware on import
+evidence alone. The 54 were hardware only because they called an MDL
+routine; none carried an instruction-derived fact. This is the edit's real
+result: a product improvement, not a relabelling. It was found by asking
+whether two figures on one integer were one figure, and was not predicted.
+
+**A stale citation, found on the way.** Since stage 2 (2026-09-23),
+"320 with zero instruction-derived facts" has been **319**. It is recorded
+where the figure was defined, and not rewritten there.
