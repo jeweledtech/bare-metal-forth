@@ -119,3 +119,59 @@ any page.**
 ## Outcome
 
 *(below this line, from the artefact only)*
+
+**B. The domain assertion.** The guard `callgraph_scaf_domain_renders_as_itself`
+is private `fd51ecc`; the suite reads 413 tests, 12 reds.
+
+| # | predicted | observed |
+|---|---|---|
+| G1 | exactly 10 accepted | **held**: the guard prints `[accepted=10]` |
+| G2 | all 10 render as themselves, directly and at the join; green | **held**: PASS |
+
+**The guard was checked to discriminate.** In a throwaway copy of
+`semantic.h`, the predicate was widened by one value (`<= SEM_CAT_DIAGNOSTIC +
+1`). The guard then failed ("an accepted category has no name of its own").
+The header was restored and diffed back to identical, and the guard passes.
+**No live defect.** Widening the range and the encoding is one change under
+one red, taken when values are chosen.
+
+**D. The pin.** Search API queries were run for all 21 names, and their
+responses are kept at `~/references/ms-learn/search/`. Qualifying pages were
+fetched on 2026-09-23 (`~/references/ms-learn/FETCHED`,
+`SHA256SUMS`). The derived line for each page is its own meta description.
+
+| name | page | sha256 | derived line (the page's words) | vocabulary | agrees? |
+|---|---|---|---|---|---|
+| HalGetBusDataByOffset | `ddi/ntddk/nf-ntddk-halgetbusdatabyoffset` | `63ce5006aeb9…` | "retrieves information, starting at the offset, about a slot or address on an I/O bus"; and "The only supported BusDataType is PCIConfiguration" | PCI_CONFIG | **yes** |
+| HalSetBusDataByOffset | `ddi/ntddk/nf-ntddk-halsetbusdatabyoffset` | `b54eaa3c9ffe…` | "sets bus-configuration data for a device on a dynamically configurable I/O bus"; BusDataType "can be PCIConfiguration" | PCI_CONFIG | **yes, weaker**: the page permits PCI configuration and does not say it is the only type, as the Get page does |
+| KeQueryPerformanceCounter | `ddi/wdm/nf-wdm-kequeryperformancecounter` (also `ntifs`, `aa506cdd6901…`) | `01b3f30a4497…` | "retrieves the current value and frequency of the performance counter" | TIMING | **yes** |
+| KeStallExecutionProcessor | `ddi/wdm/nf-wdm-kestallexecutionprocessor` (also `ntifs`, `725a330ebd50…`) | `05056aa07697…` | "stalls the caller on the current processor for a specified time interval" | TIMING | **yes** |
+
+**The other 17 have no qualifying page.** Search returned nothing for 12 of
+them. For HalBugCheckSystem, the two environment-variable routines,
+HalTranslateBusAddress and KeFlushWriteBuffer it returned only forum threads
+or index pages. **A second instrument, reported separately and not moving N:**
+each of the 17 was also probed at the direct DDI URL pattern
+(`ddi/{wdm,ntddk,ntifs,ntosp}/nf-<header>-<name>`). **0 of 17 exist.** The
+probe was checked on known pages, which returned HTTP 200 (KeQueryPerformanceCounter,
+HalGetBusDataByOffset).
+
+| # | predicted | observed |
+|---|---|---|
+| N-HAL | **5** of 21 (range 4–7) | **4 of 21**. The point prediction **missed** by one, inside the range. The miss is **HalTranslateBusAddress**, which I expected from memory of the DDI reference. It has no page under either instrument today. What I recalled was not what is published |
+| four | 4 → 4 pinned | **held**: **4 vocabulary-uncited → 4 pinned** |
+| M | 0 disagreements | **held: M = 0**, named although zero. One of the four (HalSetBusDataByOffset) agrees on weaker wording |
+| split | import directory 64, pinned page 5, none 16 | **import directory 64, pinned page 4, none 17** |
+
+**X3's two numbers, as they will stand when values are chosen.**
+- **85 of 85** names print a value.
+- **68 of 85** carry a category from a source: 64 from the import directory,
+  4 from a pinned page.
+- **17 of 85 print `no-public-reference`.** All 17 are HAL names, and HAL is
+  the one bucket already named a residue.
+
+**And the vocabulary finding the order was chosen to preserve.** Before the
+pin, the four were **4 of 146** vocabulary-uncited entries, and **146 of 146**
+are uncited. The pin moved 4 and checked them: 4 agree, 0 contradict. **142
+remain uncited**, never checked against any published source. That is the
+bound on how much of the classifier rests on typed categories.
