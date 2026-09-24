@@ -125,3 +125,90 @@ outcome.
 ## Outcome
 
 *(below this line, from the artefact only)*
+
+**One binary (`dbInstaller.exe`), one build (26100.9444), n = 1.**
+
+**Instrument:** `closure.py` `efea75bb7f0a5ec4`; root sha256 `b0d8bf58e312a08c…`.
+It was run only after five controls with known answers:
+- `kernel32!HeapAlloc` forwards to `ntdll!RtlAllocateHeap`, and the walk
+  loads `ntdll`;
+- `api-ms-win-core-file-l1-1-0!CreateFileW` resolves to `kernelbase.dll`;
+- a hostless api-set is named unresolvable;
+- `NtClose` and `ZwClose` are one syscall (number 15);
+- `RtlAllocateHeap` is not a stub.
+
+### The three numbers, each with its distinct count
+
+| | static imports (the load-time closure) | static + delay-load |
+|---|---|---|
+| **DLLs reached** (distinct files) | **18** (depth 1: 8, depth 2: 8, depth 3: 2) | **379** (depth 2: 103, depth 3: 132, 4: 77, 5: 28, 6: 17, 7: 11, 8: 3) |
+| **distinct exported functions bound** (module, function, after forwarding) | **4,800** | **17,734** |
+| **distinct syscalls bound** (by number) | **1,281**: `ntdll` **259 of 488**, `win32u` **1,022 of 1,499** | **1,555**: `ntdll` 330, `win32u` 1,225 |
+
+**The static closure, by depth:**
+- **1:** advapi32, combase, kernel32, ntdll, ole32, shell32, shlwapi,
+  version;
+- **2:** gdi32, kernelbase, msvcp_win, msvcrt, rpcrt4, sechost, ucrtbase,
+  user32;
+- **3:** gdi32full, win32u.
+
+**Where the 4,800 bindings sit:** kernelbase 1,333, ntdll 1,060, win32u
+1,027, user32 333, kernel32 238, gdi32 211, ucrtbase 185, rpcrt4 126, and
+the rest below 100. The application itself imports **150** functions from
+6 DLLs (depth 1).
+
+### Against the predictions
+
+| # | predicted | observed |
+|---|---|---|
+| A1 | DLLs (static) 20–80 | **missed, low: 18.** Neither alternative (under 10, or over 200) either |
+| A2 | functions bound 1,000–6,000 | **held: 4,800** |
+| A3 | syscalls 100–500 | **missed, high: 1,281.** `ntdll` alone is 259, inside the range. `win32u` is the miss: user32, gdi32 and gdi32full bind **1,022 of its 1,499** stubs, almost the whole graphics and window service table, the moment any of them is loaded |
+| A4 | the delay layer grows DLLs by more than 50% | **held, by far: 18 → 379 (21×)** |
+| A5 | a `GetProcAddress`/`LoadLibrary` importer in the closure; open at runtime | **held: 17 of the 18 DLLs, and the application itself**, import one of them. The closure is open at runtime almost everywhere |
+| A6 | at least one hostless `ext-ms-*` edge | **held in the delay layer only**: 0 unresolved edges in the static layer. The delay layer has 131 distinct hostless api-set edges (both `api-` and `ext-`) |
+
+**A correction to my pre-registration, stated rather than absorbed:** A3's
+alternative said *"about 976 of ntdll's alone"*. 976 counts `Nt*`/`Zw*`
+**names**, which come in pairs. Counted by syscall number, as the same
+pre-registration defined it, `ntdll` has **488**.
+
+### The floors, named
+
+1. **Delay loads** turn 18 DLLs into 379 and 4,800 functions into 17,734.
+   The static figures are what the loader binds at start. The delay figures
+   are what the same binaries *can* bind if every delayed call is taken.
+2. **Dynamic loading:** every module in the static closure except one
+   imports `GetProcAddress`/`LoadLibrary*`. **No static figure is an upper
+   bound on what runs.**
+3. **Unresolved edges, all in the delay layer:** 317 edges, **236
+   distinct**:
+   - **131** api-sets with no host on this build (for example
+     `api-ms-win-coreui-secruntime-l1-1-0`, `ext-ms-mf-pal-l2-1-0`);
+   - **100** imports from DLLs not in top-level System32 (the copy was top
+     level only, for example `AzureAttestManager.dll`);
+   - **5** `comctl32` exports not found (`TaskDialogIndirect`,
+     `HIMAGELIST_QueryInterface`, ordinals 344/345/381). That is the
+     side-by-side case: System32 holds comctl32 v5, and a manifest selects
+     v6 from WinSxS, which the static walk does not model.
+4. **Intra-DLL calls:** the syscall figures count stubs **bound by an
+   import**. `ntdll`'s own `Rtl*` and loader code reaches syscalls by
+   direct call, which no import shows. The kernel figure is a floor.
+
+### What the number is, for the vocabulary question
+
+**The answer to "dozens or thousands" is thousands.** One small installer
+that imports 150 functions pulls in **4,800 distinct function bindings
+across 18 system DLLs at load**, and 17,734 across 379 if its delay loads
+are followed. **It is not a roadmap by itself; it is the subset
+conversation.**
+
+The shape says where that conversation starts:
+- **Over half the 4,800** sit in three modules: kernelbase, ntdll and
+  win32u.
+- **Most of the kernel surface is `win32u`**: the window and graphics
+  service table is bound wholesale by user32/gdi32. It is not something
+  this application chose.
+
+One binary, one build, n = 1; the figure is how large the problem is, not
+a law about applications.
