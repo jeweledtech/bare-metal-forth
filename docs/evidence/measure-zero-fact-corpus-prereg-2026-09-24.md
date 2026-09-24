@@ -52,7 +52,7 @@ come from the same run.
 `zero-fact-port-attest.json` in `~/corpus/tools-2026-09-24/SHA256SUMS`.
 0 empty outputs.
 
-### The raw reading
+### The raw reading (not a rate: see below. **Do not quote 91.23%**; the corpus zero-fact rate is *unmeasured, bounded 91.2–99.9%*)
 
 | set | drivers (with any hw) | hardware functions | with a fact (ports / stage-2) | zero-fact |
 |---|---|---|---|---|
@@ -127,3 +127,46 @@ spread (218–236 distinct ports per copy) makes fabrication the likely reading.
 the corpus looks like the HP eight (clean Microsoft inbox drivers). It
 contains protected third-party and licensing binaries, where the linear
 sweep manufactures facts.
+
+### Owner ruling, 2026-09-24, and the free control
+
+**The corpus zero-fact rate is unmeasured, with bounds 91.2%–99.9%.** It is
+not a rate, and 91.23% is not quoted as one in any store. The commit message
+of `412f5da` quotes it and cannot be amended; this line supersedes it. HP's
+representativeness is **undetermined**.
+
+**The System32 control, checked before reasoning from its label.** The owner
+suggested those 46 port facts might sit in user-mode images, where `in`/`out`
+would fault at ring 3. **They do not.** All 14 System32 images are **kernel
+mode** (Subsystem NATIVE), so the ring-3 argument does not apply. The 46 sit
+in `ntoskrnl.exe` (38), `ci.dll` (3), `skci.dll` (3), `kdnet.dll` (1) and
+`f3ahvoas.dll` (1).
+
+**`f3ahvoas.dll` is the positive control anyway, with no oracle.** It is a
+keyboard-layout DLL. It has **no `.text`**; its only executable section is
+`.data` (0x1000, 0x1400 bytes), which holds **49 UTF-16 key names**
+("Down", "Left", "Home", "Ctrl", "Num /", …). The product reports a hardware
+function `func_180001000` with **port 0xFA**, from `e6 fa` (`out %al,$0xfa`)
+at `0x180002261`, between `pop %rsp` / `sbb $0x67,%al` and
+`rolb $1,0x46(%rdx)` inside that table. The section is also full of
+`insl`/`outsb`: the letters `l`, `m` and `n` (0x6C–0x6E) decoded as string
+I/O. **The product prints a port access fabricated from a keyboard table.**
+That proves the failure exists. It does not give its rate, which still needs
+the attestation.
+
+**The defect, minted as `(bn)` before any Ghidra run** (owner ruling 2). The
+design question is answerable today. The lifter records a port for **every**
+`in`/`out` in the function's linear range (`uir.c`, `add_port` on each
+`UIR_PORT_IN`/`OUT`), with no check that the bytes are code. So it prints a
+sweep-derived value as instruction-derived evidence.
+- Red: `uir_RED_bn_unreachable_port_not_recorded`. `ret; out $0x60,%al; ret`
+  records 0x60 today.
+- Guard, green: a reachable `out` is still recorded.
+- **The pass state is necessary, not sufficient**: reachability from the
+  entry would not reject garbage reached by linear fall-through, which is how
+  `f3ahvoas`'s table is reached from `func_180001000`. That residual is stated
+  now, not discovered later.
+
+**Next, per ruling 4:** the Ghidra attestation of reachability, with
+positives first (serial.sys, i8042prt.sys: their known `in`/`out` must be
+reached) before any zero is read.
