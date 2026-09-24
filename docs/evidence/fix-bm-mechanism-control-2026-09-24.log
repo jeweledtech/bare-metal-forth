@@ -1,0 +1,9 @@
+# (bm) mechanism control: discovery step 2 takes the REL imm as the target (no address+length re-add), throwaway copy
+1
+  TEST: sem_RED_bm_call_target_is_entry                    XPASS: expected failure PASSED - stop; correct the register, then remove from xfail_names
+Results: 63/65 passed (xfail=1 of 2 registered, xpass=1)
+# restore check
+restored identical
+  TEST: sem_RED_bm_call_target_is_entry                    XFAIL (expected): the direct call's target is not a function entry
+Results: 63/65 passed (xfail=2 of 2 registered, xpass=0)
+343e89fa8fe39611
