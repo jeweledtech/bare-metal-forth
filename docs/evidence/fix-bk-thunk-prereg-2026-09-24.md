@@ -70,3 +70,42 @@ assume each thunk function is currently unclassified: a function consisting
 of a `jmp` has no call edges. A thunk function whose range also absorbed
 other code with classified calls would break that assumption. Where it
 breaks, it will be read from the bytes, not smoothed.
+
+---
+
+## Outcome
+
+*(below this line, from the artefact only)*
+
+**Inputs hashed:** `bin/translator` before `3fc5a848860d4d25`, after
+`1560da9a91319b0d`, built from private `63344d6` (red `46ba05d`), mirror
+identical. Readings are `bk-thunks-input.json` (the input count),
+`bk-reports-{pre,post}.tsv` and `bk-park-census-post.json` in
+`~/corpus/tools-2026-09-24/SHA256SUMS`. 0 empty outputs.
+
+**Eight of eight held, each exactly. Every prediction came from the input
+count; none came from a run of the change.**
+
+| # | predicted | observed |
+|---|---|---|
+| K1 | the gate fires on exactly the (bk) red; 419 tests; 12 reds; `[accepted=14]` | **held** (`fix-bk-xpass-gate-2026-09-24.log`) |
+| K2 | per driver, `iat_edges` and `iat_slot_hits` rise by exactly its thunk count; +3,611 | **held on 1,322 of 1,322** for both; total **+3,611** |
+| K3 | bytes change on exactly the 764 thunk drivers | **held as an exact set**: 764, 0 others |
+| K4 | hardware +11, only on drivers with a hardware thunk; HP stays 266 | **held**: **+11**, on 9 drivers, all with a hardware thunk; HP **266** |
+| K5 | buckets move on exactly the 165; scaffolding ≥ +509; conserved | **held as an exact set**: **165**. Scaffolding **+892** (509 thunks + 383 transitive callers); unclassified **−903** = −(892 + 11) |
+| K6 | all 66 thunk-only WDF drivers move | **66 of 66** |
+| K7 | census sites unchanged; 0 of 539 outcomes | **held**: 12 / 172 / 171 / 184; 0; 0 |
+| K8 | X1–X3 unchanged; HP buckets on ACPI and pci only; HP bytes on the five; `mapped_regions` 8 of 8; UIR 0 of 12; dumps 0 of 16 | **held**, every part |
+
+**Independent checks: four.** No dry run was made, so there is no replication
+to separate out.
+
+**What (bk) leaves, stated:**
+- **2,432 non-entry `jmp [slot]` sites stay unresolved**: tail calls in
+  bodies, and the 40 class-library thunks still absorbed (31 reached only by
+  `jmp`, 9 unreferenced).
+- Resolving those needs `jmp` targets as function entries, which the owner
+  ruled a separate behaviour change with its own letter.
+- **The one `MmMapIoSpace*` thunk** gets its IAT edge, but no park walk: the
+  base returns to the thunk's caller. Following a mapping through a thunk
+  is a separate question.
