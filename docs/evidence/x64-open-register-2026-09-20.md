@@ -549,3 +549,15 @@ and (aa) moves 22 of them. Both numbers, always (rule 29).
 (b), (c), (d), (d-k), (e), (h), (i), (k), (m), (n), (o), (w), (x), (z),
 (a). Each closed through an XPASS gate whose log names the exact set of
 names that moved.
+
+**Stale, stated rather than repaired from memory:** this list stops at (a).
+Items closed since then are recorded in their own sections and outcome
+docs, and are not enumerated here.
+
+**(bg), closed 2026-09-23, is the first defect class in this project
+bounded entirely by the specification.** objdump and our decoder agreed on
+all 228 cells (STAC, XGETBV, XSETBV, VMFUNC and GETSEC named under a prefix
+the SDM marks `NP`), so no differential could ever have found them. They
+were found by reading SDM 325462-092's NP/NFx column over every named row
+(`fix-bg-np-spec-read-prereg-2026-09-23.md`). That is the return on banking
+the manual.
