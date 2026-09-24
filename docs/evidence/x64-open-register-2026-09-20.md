@@ -98,7 +98,7 @@ asserted so a renamed suite cannot shrink the union silently. The
 | (t) | `unknown_0f_modrm_recovery` | decoder | `0F 0D C0` is #UD and is accepted |
 | (bk) | `sem_RED_bk_import_thunk_jmp_resolved` | classifier | an import thunk (`jmp [IAT]`) is not resolved as a call to its import: the thunk and its callers stay unclassified. Found by 664-0: **66** WDF drivers reach WDFLDR only through such thunks, and 75 of the 392 class-DLL importers have them (`measure-bi0-664-0-prereg-2026-09-24.md`). Harness control: the same fixture with `call` passes (`fix-bk-harness-control-2026-09-24.log`). Minted 2026-09-24; **not fixed**, since build order is the owner's |
 
-## Open, without a red (4)
+## Open, without a red (5)
 
 **Defect letters that are open and have no red yet**, counted so they
 are not carried only in prose. A red is written when the item is taken.
@@ -107,6 +107,7 @@ register check reads that shape as a red.
 
 | letter | what | suite it would live in | what is wrong |
 |---|---|---|---|
+| (bl) | four vocabulary categories their pinned page does not support | classifier | Found by (bi)-0 (`measure-bi0-664-0-prereg-2026-09-24.md`): IoCreateDevice, IoDetachDevice, IoOpenDeviceRegistryKey (typed PNP) and **MmBuildMdlForNonPagedPool (typed DMA, a hardware category)**. Each page describes a different kind of call; none says the typed one is wrong. **Adjudication is the owner's**, and so is the replacement category, which is a vocabulary edit (hash `b48923e8…`). So there is no red yet: its pass state cannot be written until the category is chosen. Measured price of the DMA one: 290 hardware functions on 114 drivers. Minted 2026-09-24 |
 | (bi) | the classifier vocabulary is uncited | classifier | **146 of 146** frozen vocabulary entries (`b48923e8…`) cite no pinned source (`x3-sourcing-prereg-2026-09-23.md` §A). X3's pin checked 4, all agreeing (M = 0), and 142 were never checked. Owner ruling 2026-09-23: own letter and own exit. **The first step is not a pinning campaign.** It is a yield measurement on a drawn sample, with the widened method (probe patterns beyond four, and not a control drawn from found pages), because the pass's two yields differ: 4 of 21 for uncovered HAL names against 4 of 4 for already-categorised ones, and the second is the suspicious one. Minted 2026-09-23 |
 | (q) | VEX / EVEX / REX2 unmodelled | decoder | measured zero in the corpus; see *Open, deferred* for its minting condition |
 | (be) | families narrower than the SDM | decoder | found by banking the SDM; unknowns, not wrong answers. Minted 2026-09-23, **split so the nonzero part is justified on its own terms** (owner): **(be-0), measured zero:** 7 legacy XMM encodings on the instruction pages but not in Tables A-4/A-5 (GFNI `66 0F38 CF`, `66 0F3A CE/CF`; Key Locker `F3 0F38 DC-DF`) and LKGS (`F2 0F 00 /6`), 0 corpus rows, with a control; and TESTUI/UIRET (`F3 0F 01 ED/EC`), left unknown by `(bd)`. **(be-n), nonzero:** LAR/LSL (`0F 02`/`03`) 3 rows in 2 binaries, INVPCID (`66 0F 38 82`) 14 rows in 1 KC binary |

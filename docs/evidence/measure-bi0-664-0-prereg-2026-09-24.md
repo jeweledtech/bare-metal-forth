@@ -109,3 +109,135 @@ already prints it.
 **Independent checks:** 664-0 is three instruments with one control (P4).
 (bi)-0 is three instruments with two control sets. Usage (U) is a pefile
 count. **Five in all.**
+
+---
+
+## Outcome
+
+*(below this line, from the artefact only)*
+
+**Inputs:** `translator.pre` `f8e18de7…`, current build `343e89fa…`; objdump
+2.42; pefile 2024.8.26. Scripts and results are in
+`~/corpus/tools-2026-09-24/` with `SHA256SUMS`. Pages are in
+`~/references/ms-learn/bi0/` (54 files hashed). No binary and no page enters
+a repository.
+
+### 664-0
+
+**The first run was voided by its own control.** v1 (`m664.v1.py`
+`7bdc0e3f…`) took objdump's `rex.W` prefix token for the mnemonic, so every
+`48 FF 15` call (`rex.W call *…(%rip)`) was classed D. **P4 failed: 8 of 179**
+moved drivers showed a moved site, against a prediction of 179. v2
+(`ddfa0a55…`) skips prefix tokens. **Only v2's numbers are used below**; v1's
+result is kept, labelled voided.
+
+| # | predicted | observed (v2) |
+|---|---|---|
+| P1 | ≥ 150 of the 213 have every site in class A | **missed: 3.** Class A sites (a `call [slot]` in an already-classified function) are on **147** drivers (732 sites). But **210** of the 213 also have class D sites |
+| P2 | class C (outside every lifted function) ≥ 1 | **missed: 0.** Every reference site is inside a lifted function |
+| P3 | E = 0 | **held**: every importer references what it imports |
+| P4 | control: all 179 moved drivers show a moved site | **held**: **179 of 179** (790 moved sites) |
+| — | class B (call in a function unclassified before and after) | **0** on both populations |
+
+**Neither reading named in the ruling is the answer. A third one is.** The
+**D** sites on the 213 are 273 `jmp [slot]` and 288 `mov reg,[slot]`.
+- **The `jmp` sites are import thunks**: functions that are only
+  `jmp [__imp_X]` followed by `int3` padding, reached by a direct call
+  (sampled on three drivers).
+- **66 of the 213 reach their class library only through thunks.** All 66
+  are WDFLDR importers. The analyzer resolves an import edge only on
+  `UIR_CALL`, so a thunk stays unclassified, and so do its callers. **That is
+  a defect, and it is now `(bk)`** with its red and a harness control (the
+  same fixture with `call` passes).
+- **The `mov` sites load an import's address as a value.** In the five
+  sampled it goes into RCX as the first argument of a local call. That is an
+  address taken, not a call at that site, so it is **not** called a defect.
+  A heuristic for what follows each `mov` was too loose (it matched any
+  RIP-relative call) and is **not reported**.
+- Across the 392, **75** drivers have thunks.
+
+**The second number for the 1,135.** Of the 392 drivers a class DLL *names*,
+**179 (46%)** had any function change bucket when the names got categories.
+The rest are 147 whose direct calls sit in already-classified functions and
+66 whose only use goes through thunks the analysis does not follow. How many
+of the 66 a `(bk)` fix would move is **not predicted here**.
+
+### (bi)-0
+
+**The sample** (seed 20260924, n = 30, `bi0-sample30.txt`): CreateFileW,
+DbgBreakPointWithStatus, ExAllocatePool, ExFreePool,
+ExfInterlockedInsertTailList, IoCompleteRequest, IoCreateDevice,
+IoDetachDevice, IoFreeIrp, IoGetCurrentIrpStackLocation,
+IoOpenDeviceRegistryKey, IoSetCompletionRoutine, IofCallDriver,
+IofCompleteRequest, KeAcquireInterruptSpinLock, KeClearEvent,
+KeInitializeEvent, KeQuerySystemTime, KfReleaseSpinLock,
+MmBuildMdlForNonPagedPool, MmUnlockPages, NtDeviceIoControlFile,
+PoRequestPowerIrp, READ_PORT_ULONG, READ_REGISTER_UCHAR, ReadFile,
+RtlAnsiStringToUnicodeString, ZwCreateKey, ZwSetValueKey, memmove.
+
+**Controls held.** The 3 invented names were found by **no** instrument. The
+X3 four were found by **all three**. The index instrument read the kernel
+index plus 22 header indexes: **1,818** distinct routine names.
+
+| # | predicted | observed |
+|---|---|---|
+| Y | 27 of 30 pinnable (22–30) | **25 of 30**. The point prediction missed; the result is inside the range. Not found: CreateFileW and ReadFile (Win32, documented outside `/ddi/`, which the method excludes), memmove, ExfInterlockedInsertTailList and IofCompleteRequest |
+| M | 1 disagreement (0–3) | **missed: 4 of 25**, above the range (below) |
+| U | 120 of 142 imported by ≥ 1 driver (100–142) | **missed: 95 of 142**, below the range. The 47 unused include Win32 names, inline macros (IoCompleteRequest, IoGetCurrentIrpStackLocation, IoMarkIrpPending) and the x86 HAL port and register routines (`READ_PORT_*` / `WRITE_PORT_*` / `*_REGISTER_*`). That grouping is a reading of the names. The count is over the 1,322 x64 drivers only; the PE32 controls do import `READ_PORT_UCHAR` |
+
+**The widened method paid once.** `KeQuerySystemTime`'s page lives at
+`…/nf-wdm-kequerysystemtime-r1`. The `nf-<h>-<name>` probe cannot guess that
+URL. The index listed it, and the listed URL redirects (301) there. That is a
+concrete case of the probe's failure mode, the one the X3 negative was
+narrowed for.
+
+**The four disagreements** (the page's own words against the typed category):
+
+| name | vocabulary | page | drivers importing |
+|---|---|---|---|
+| IoCreateDevice | PNP | "creates a device object for use by a driver" | 496 |
+| IoDetachDevice | PNP | "releases an attachment between the caller's device object and a lower driver's device object" | 251 |
+| IoOpenDeviceRegistryKey | PNP | "returns a handle to a registry state location for a particular device instance" | 247 |
+| MmBuildMdlForNonPagedPool | **DMA (hardware)** | "updates [an MDL] to describe the underlying physical pages" | 316 |
+
+**None of the pages says the typed category is wrong.** Each describes the
+call as a different kind: device-object plumbing (IO_MGR), registry
+(REGISTRY), memory management (MEMORY_MGR). Calling that a disagreement is
+**my reading**, and it goes to the owner for adjudication. Per the X3 ruling
+it is **not fixed here**. It is opened as `(bl)`.
+
+**The second number for (bi), measured for the one that moves buckets.** The
+three PNP names are scaffolding kinds, and any scaffolding replacement moves
+only drop-reason text, not a bucket. That is reasoned from `sem_is_scaffolding`
+and not run. **MmBuildMdlForNonPagedPool's DMA is a hardware category**, so it
+was measured.
+- **Instrument:** a counterfactual build in a scratch copy, never in a
+  repository. It differs from the shipped source in **exactly one line**,
+  DMA → MEMORY_MGR (diffed). Its binary is `1779b172…`, run over the 1,322
+  with 0 empty outputs.
+- A first counterfactual run produced **1,322 NOJSON**, from stale objects in
+  the copied `build/`. It was caught by the empty-output check, rebuilt clean
+  and re-run. **The first run's "0 changes" was not read as a result.**
+- **Result:** **114 drivers change buckets.** **290 hardware functions** go
+  (1.8% of the 16,400 on the 921 drivers with any), +327 scaffolding, −37
+  unclassified (conserved), and **3 drivers lose every hardware function
+  they had**.
+
+**One uncited category on one name holds up 290 hardware functions.** That
+is the answer to "which of the 146 would a citation move". **This number was
+not pre-registered.** It was measured after M was known, to price M. It is
+labelled that way, and no prediction is scored on it.
+
+**Stopping rule:** Y = 25 ≥ 15, so the rule does not say stop. **What the
+sample says instead:** yield is high (25 of 30), and the price is
+concentrated. 4 of 30 sampled entries are unsupported by their page, all four
+heavily imported, and one moves 290 hardware functions. A sample of 30 gives
+4/30 ≈ 13% as a point estimate. That is too few to state a population count,
+and none is stated.
+
+**Independent checks:**
+- 664-0: objdump sites, UIR ownership, report buckets, and the P4 control
+  (which voided v1).
+- (bi)-0: search, probe, index, and two control sets.
+- U: pefile.
+- The counterfactual, labelled post hoc.
