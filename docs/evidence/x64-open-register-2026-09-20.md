@@ -552,7 +552,7 @@ duplicated (d)/(d-k). Where no log survives, the closure is listed as
 **closed, no log**, and its only record is the `FIXED <date>` comment
 written into the suite's `xfail_names[]` when the name was retired.
 
-**With a banked gate log** (30 letters, 62 names; logs in `docs/evidence/`):
+**With a banked gate log** (31 letters, 64 names; logs in `docs/evidence/`):
 
 | closed | letter(s) | gate log | names on its XPASS lines |
 |---|---|---|---|
@@ -577,6 +577,7 @@ written into the suite's `xfail_names[]` when the name was retired.
 | 2026-09-23 | (bc) | `stage2-xpass-gate-2026-09-23.log` † | 1 |
 | 2026-09-23 | (bd) | `fix-bd-xpass-gate-2026-09-23.log` † | 2 |
 | 2026-09-23 | (bf) | `fix-bf-xpass-gate-2026-09-23.log` † | 1 |
+| 2026-09-23 | (bh) | `fix-bh-xpass-gate-2026-09-23.log` | 2 (the import sort, X1 and X2) |
 
 † **Banked 2026-09-23 from the session's scratch directory**, where the
 gate run had written it. Each is the verbatim gate output, copied
@@ -605,7 +606,7 @@ by name:
 pair): (ai), 2026-09-23, controls in the translator's
 `measure/comparer-controls/`.
 
-**Total closed: 43 letters** (30 + 12 + (ai)), counted from the rows above. The lesson from the "no log" rows is the
+**Total closed: 44 letters** (31 + 12 + (ai)), counted from the rows above. The lesson from the "no log" rows is the
 fourth lineage rule's corollary again: *keep every gate log.* Six of this
 week's logs survived only because the scratch directory had not been
 cleared.
