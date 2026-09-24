@@ -1,0 +1,515 @@
+[36mSuite census: test totals and the register union...[0m
+  test totals: 418 across 27 suites (baseline 418)
+  register: 14 reds across 27 suites, union matches
+[36mCorpus-absent refusal: each corpus suite must fail on an empty root...[0m
+  refused: test-mmio-consumer -- FAIL: cannot read /tmp/tmp.hCjaA4TkOB/hp_i3/i8042prt.sys
+  refused: test-port-attestation -- FAIL: corpus input missing: 8 of 8 drivers absent under /tmp/tmp.hCjaA4TkOB/hp_i3
+  refused: test-hp-drivers -- FAIL: corpus input missing: /tmp/tmp.hCjaA4TkOB/hp_i3/ACPI.sys
+  3 suites checked, 3 refused, 0 passed without inputs
+opcode table: regenerates identically
+[36mFloored division (Forth-83 conformance), delegated...[0m
+Running floored division test suite...
+
+╔════════════════════════════════════════════════════════════╗
+║  Forth-83 Floored Division Verification Suite              ║
+║  Jolly Genius Inc. - Ship's Systems Software               ║
+╚════════════════════════════════════════════════════════════╝
+
+
+============================================================
+Symmetric vs Floored Division Comparison
+============================================================
+Expression   | Symmetric (CPU)  | Floored (F83)    | Diff? 
+-------------|------------------|------------------|-------
+   7 / 3     | q=2    r=1       | q=2    r=1       | no
+  -7 / 3     | q=-2   r=-1      | q=-3   r=2       | [33mYES[0m
+   7 / -3    | q=-2   r=1       | q=-3   r=-2      | [33mYES[0m
+  -7 / -3    | q=2    r=-1      | q=2    r=-1      | no
+  10 / 3     | q=3    r=1       | q=3    r=1       | no
+ -10 / 3     | q=-3   r=-1      | q=-4   r=2       | [33mYES[0m
+  10 / -3    | q=-3   r=1       | q=-4   r=-2      | [33mYES[0m
+ -10 / -3    | q=3    r=-1      | q=3    r=-1      | no
+   1 / 3     | q=0    r=1       | q=0    r=1       | no
+  -1 / 3     | q=0    r=-1      | q=-1   r=2       | [33mYES[0m
+   1 / -3    | q=0    r=1       | q=-1   r=-2      | [33mYES[0m
+  -1 / -3    | q=0    r=-1      | q=0    r=-1      | no
+============================================================
+============================================================
+Floored Division Test Suite (Forth-83 Semantics)
+============================================================
+
+[32m[PASS][0m 7 / 3 = 2 rem 1 (both positive)
+[32m[PASS][0m 10 / 5 = 2 rem 0 (exact division)
+[32m[PASS][0m 1 / 1 = 1 rem 0 (identity)
+[32m[PASS][0m 0 / 5 = 0 rem 0 (zero dividend)
+[32m[PASS][0m -7 / -3 = 2 rem -1 (both negative)
+[32m[PASS][0m -10 / -5 = 2 rem 0 (exact, both negative)
+[32m[PASS][0m -7 / 3 = -3 rem 2 (FLOORED: different from symmetric -2,-1)
+       Symmetric would give: q=-2, r=-1
+[32m[PASS][0m 7 / -3 = -3 rem -2 (FLOORED: different from symmetric -2,1)
+       Symmetric would give: q=-2, r=1
+[32m[PASS][0m -1 / 3 = -1 rem 2 (small negative dividend)
+       Symmetric would give: q=0, r=-1
+[32m[PASS][0m 1 / -3 = -1 rem -2 (small positive dividend, neg divisor)
+       Symmetric would give: q=0, r=1
+[32m[PASS][0m -6 / 3 = -2 rem 0 (exact, different signs)
+[32m[PASS][0m 6 / -3 = -2 rem 0 (exact, different signs)
+[32m[PASS][0m -6 / -3 = 2 rem 0 (exact, both negative)
+[32m[PASS][0m 1000000 / 7 = 142857 rem 1
+[32m[PASS][0m -1000000 / 7 = -142858 rem 6 (FLOORED)
+       Symmetric would give: q=-142857, r=-1
+[32m[PASS][0m 1000000 / -7 = -142858 rem -6 (FLOORED)
+       Symmetric would give: q=-142857, r=1
+[32m[PASS][0m 17 / 4 = 4 rem 1
+[32m[PASS][0m -17 / 4 = -5 rem 3 (FLOORED)
+       Symmetric would give: q=-4, r=-1
+[32m[PASS][0m 17 / -4 = -5 rem -3 (FLOORED)
+       Symmetric would give: q=-4, r=1
+[32m[PASS][0m -17 / -4 = 4 rem -1
+[32m[PASS][0m 127 / 10
+[32m[PASS][0m -128 / 10 (FLOORED)
+       Symmetric would give: q=-12, r=-8
+[32m[PASS][0m 3 / 7 = 0 rem 3
+[32m[PASS][0m -3 / 7 = -1 rem 4 (FLOORED)
+       Symmetric would give: q=0, r=-3
+[32m[PASS][0m 3 / -7 = -1 rem -4 (FLOORED)
+       Symmetric would give: q=0, r=3
+[32m[PASS][0m -3 / -7 = 0 rem -3
+[32m[PASS][0m FB Example: -7 / 3 floored gives q=-3, r=2
+       Symmetric would give: q=-2, r=-1
+[32m[PASS][0m INT64_MAX / 2
+[32m[PASS][0m -INT64_MAX / 2 (FLOORED)
+       Symmetric would give: q=-4611686018427387903, r=-1
+
+============================================================
+Results: [32m29 passed[0m, 0 failed
+Cases where floored differs from symmetric: [33m13[0m
+============================================================
+
+============================================================
+Testing combined divmod function
+============================================================
+[32mAll divmod tests passed!
+[0m
+[32m✓ All tests passed - floored division is correct!
+[0m  Safe to integrate into Universal Binary Translator and Forth kernel.
+
+Exercising every floored-division emitter...
+floored-division emitters, all three targets
+  emit_floored_div_x64                24 bytes   ok
+  emit_floored_mod_x64                24 bytes   ok
+  emit_floored_divmod_x64             24 bytes   ok
+  emit_floored_div_arm64              28 bytes   ok
+  emit_floored_mod_arm64              28 bytes   ok
+  emit_floored_divmod_arm64           40 bytes   ok
+  emit_floored_div_riscv64            28 bytes   ok
+  emit_floored_mod_riscv64            28 bytes   ok
+  emit_floored_divmod_riscv64         40 bytes   ok
+
+9 emitters exercised, 0 failures
+x86-64 floored-division emitters, EXECUTED against the reference
+  emit_floored_div_x64   24 bytes, 11 vectors executed, 0 wrong
+  emit_floored_mod_x64   24 bytes, 11 vectors executed, 0 wrong
+
+control -- a SYMMETRIC divider must FAIL this comparison:
+  symmetric divider disagreed with the reference on 5 of 11 vectors
+
+NOT CLAIMED: the ARM64 and RISC-V emitters cannot be executed on
+this host.  They have SHAPE checks only (test_codegen_all.c), and
+the join proved here for x86-64 is still owed for them.
+
+11 vectors x 2 emitters, 0 wrong
+[36mSmoke-testing the shipped binary...[0m
+  -- self-test first: the checks must REJECT four bad outputs and
+     ACCEPT one good one, or a pass below proves nothing
+  rejected: too few lines
+  rejected: first line not at entry
+  rejected: a run of address-0 lines
+  rejected: the moffs address absent
+  rejected: a nop in a fixture with no NOP byte
+  rejected: one line too many (a desync)
+  accepted: a well-formed output (positive control)
+  SELF-TEST: 7 cases, 0 failures
+  examined 35 disassembly lines from the linked binary
+  instruction lines: 35 (expected exactly 35)
+  SMOKE PASS: shipped binary decodes the fixture, resolves the 64-bit moffs address, no address-0 run
+  -- the denominator instrument's refusals, same discipline
+  refused: a missing input
+  refused: an input with zero instructions
+  accepted: fixture/x64_reds.elf (35 instructions, positive control)
+  SELF-TEST: 3 cases, 0 failures
+  -- the parsing contract's operand roles, built from six defects
+  SELF-TEST: 10 cases, 0 failures
+  -- the C-source contract, built from three more
+  SELF-TEST: 6 cases, 0 failures
+[36mTesting the MMIO consumer (stage 1)...[0m
+gcc -Wall -Wextra -Wpedantic -Werror -O2 -std=c11 -D_POSIX_C_SOURCE=200809L -Isrc -Iinclude -DTRANSLATOR_NO_MAIN -DCORPUS_ROOT='"/home/bbrown/corpus"' -o build/tests/test_mmio_consumer \
+	tests/test_mmio_consumer.c build/loaders/com_loader.o build/loaders/elf_loader.o build/loaders/format_detect.o build/loaders/pe_loader.o build/decoders/arm64_decoder.o build/decoders/cil_decoder.o build/decoders/riscv_decoder.o build/decoders/x86_decoder.o build/ir/cil_semantic.o build/ir/semantic.o build/ir/uir.o build/codegen/codegen.o build/codegen/forth_codegen.o build/optimize/optimize.o build/api/api_map.o \
+	src/main/translator.c
+./build/tests/test_mmio_consumer
+MMIO Consumer, stage 1
+======================
+  TEST: aj_report_names_the_mapped_region_and_its_park       PASS
+  TEST: stage2_RED_hdaudbus_14_accesses                      PASS
+
+Results: 2/2 passed (xfail=0 of 0 registered, xpass=0)
+[36mTesting PE loader...[0m
+gcc -Wall -Wextra -Wpedantic -Werror -O2 -std=c11 -D_POSIX_C_SOURCE=200809L -Isrc -Iinclude -o build/tests/test_pe_loader \
+	tests/test_pe_loader.c \
+	src/loaders/pe_loader.c
+./build/tests/test_pe_loader
+PE Loader Tests
+===============
+  TEST: load_minimal_pe                          PASS
+  TEST: find_text_section                        PASS
+  TEST: rva_to_ptr                               PASS
+  TEST: reject_invalid_data                      PASS
+  TEST: import_parsing                           PASS
+
+Results: 5/5 passed
+[36mTesting x86 decoder...[0m
+gcc -Wall -Wextra -Wpedantic -Werror -O2 -std=c11 -D_POSIX_C_SOURCE=200809L -Isrc -Iinclude -o build/tests/test_x86_decoder \
+	tests/test_x86_decoder.c \
+	src/decoders/x86_decoder.c
+./build/tests/test_x86_decoder
+x86 Decoder Tests
+=================
+  TEST: NOP                                           PASS
+  TEST: RET                                           PASS
+  TEST: PUSH_EAX                                      PASS
+  TEST: POP_EBX                                       PASS
+  TEST: MOV_EAX_imm32                                 PASS
+  TEST: MOV_AL_imm8                                   PASS
+  TEST: IN_AL_imm8                                    PASS
+  TEST: OUT_imm8_AL                                   PASS
+  TEST: IN_EAX_DX                                     PASS
+  TEST: OUT_DX_AL                                     PASS
+  TEST: CALL_rel32                                    PASS
+  TEST: JMP_short                                     PASS
+  TEST: JMP_rel32                                     PASS
+  TEST: JE_short                                      PASS
+  TEST: MOV_mem_EAX_to_EBX                            PASS
+  TEST: MOV_EAX_from_EBP_plus_8                       PASS
+  TEST: MOV_ECX_from_EDI_plus_0x100                   PASS
+  TEST: MOVZX_EAX_byte_ptr_ECX                        PASS
+  TEST: JNE_near                                      PASS
+  TEST: ADD_EAX_imm8                                  PASS
+  TEST: CMP_EAX_imm8                                  PASS
+  TEST: decode_range                                  PASS
+  TEST: LEA_EAX_EBP_plus_8                            PASS
+  TEST: MOV_EAX_ESI_plus_EDI_x4                       PASS
+  TEST: CLI_STI                                       PASS
+  TEST: LEAVE                                         PASS
+  TEST: XOR_EAX_EAX                                   PASS
+  TEST: TEST_AL_imm8                                  PASS
+  TEST: 16bit_MOV_AX_imm16                            PASS
+  TEST: 16bit_opsize_gives_32bit                      PASS
+  TEST: 16bit_IN_OUT_ports                            PASS
+  TEST: REX_W_MOV_RBP_RSP                             PASS
+  TEST: REX_B_PUSH_R8                                 PASS
+  TEST: no_REX_in_32bit_mode                          PASS
+  TEST: x64_RED_lea_rip_relative                      PASS
+  TEST: x64_RED_mov_rax_imm64_len10                   PASS
+  TEST: x64_RED_rex_b_base_r8                         PASS
+  TEST: x64_RED_rex_r_reg_field_r8                    PASS
+  TEST: x64_RED_rex_b_push_r12                        XFAIL (expected): opcode-embedded reg: expected 12 (R12)
+  TEST: x64_RED_push_default_size_64                  PASS
+  TEST: x64_RED_byte_reg_sil_under_rex                XFAIL (expected): source reg: expected 18 (SIL)
+  TEST: x64_RED_truncated_imm32_refused               XFAIL (expected): truncated imm32: decoder returned nonzero for a 2-byte buffer (read past the end)
+  TEST: x64_RED_truncated_disp32_refused              XFAIL (expected): truncated disp32: decoder returned nonzero for a 3-byte buffer (read past the end)
+  TEST: x64_RED_rex_x_sib_index_r8                    PASS
+  TEST: x64_RED_rex_x_sib_index_r12_escape            PASS
+  TEST: x64_RED_rex_b_rm_register_r8                  PASS
+  TEST: x64_RED_call_indirect_default_size_64         PASS
+  TEST: x64_RED_push_opsize_prefix_16                 PASS
+  TEST: x64_RED_push_rexw_redundant_64                PASS
+  TEST: x64_RED_push_opsize_and_rexw_is_64            PASS
+  TEST: x64_RED_push_imm_default_size_64              PASS
+  TEST: x64_RED_pop_rm_decoded                        PASS
+  TEST: x64_RED_n_movsxd_length                       PASS
+  TEST: x64_RED_n_imul_imm32_length                   PASS
+  TEST: x64_RED_n_imul_imm8_length                    PASS
+  TEST: x64_RED_n_x87_modrm_length                    PASS
+  TEST: x64_RED_n_enter_length                        PASS
+  TEST: x64_RED_n_jrcxz_length                        PASS
+  TEST: x64_RED_o_moffs_64bit_address                 PASS
+  TEST: x64_RED_p_movsxd_decoded                      PASS
+  TEST: x64_RED_p_imul_imm_decoded                    PASS
+  TEST: x64_RED_s_pshufw_imm8_length                  PASS
+  TEST: x64_RED_s_cmpps_imm8_length                   PASS
+  TEST: x64_RED_s_pinsrw_imm8_length                  PASS
+  TEST: x64_RED_s_pextrw_imm8_length                  PASS
+  TEST: x64_RED_s_mov_cr_mod_ignored                  PASS
+  TEST: x64_RED_s_pextrw_xmm_imm8_length              PASS
+  TEST: x64_RED_s_rsm_no_modrm_length                 PASS
+  TEST: x64_RED_au_system_family_named                PASS
+  TEST: x64_RED_av_crdr_operands                      PASS
+  TEST: x64_RED_ba_sse_family_named                   PASS
+  TEST: x64_RED_ba_sse_operands                       PASS
+  TEST: x64_RED_bd_system_prefix_not_misnamed         PASS
+  TEST: x64_RED_bd_mandatory_prefix_consulted         PASS
+  TEST: x64_RED_bf_sse_mod_validity                   PASS
+  TEST: x64_RED_bg_np_prefix_objdump_accepts          PASS
+  TEST: x64_RED_u_0f_map_matches_oracle               XFAIL (expected): checked=2065 wrong_rows=3 wrong_opcodes=1: 0F0F
+  TEST: x86_RED_v_addr_size_prefix_disp16             XFAIL (expected): length: expected 5 (67: 16-bit addressing, mod=10 is disp16)
+  TEST: x64_RED_n_invalid_06_refused                  PASS
+  TEST: x64_RED_n_invalid_82_mode_split               PASS
+  TEST: x64_RED_n_invalid_walk_continues              PASS
+  TEST: x64_RED_w_pushad_invalid_64                   PASS
+  TEST: x64_RED_r1_push_iz_opsize16                   XFAIL (expected): length: expected 4 (66 68 iw)
+  TEST: x64_RED_r2_test_eax_iz_opsize16               XFAIL (expected): length: expected 4 (66 A9 iw)
+  TEST: x64_RED_r3_test_ev_iz_opsize16                XFAIL (expected): length: expected 5 (66 F7 /0 iw)
+  TEST: x64_RED_x_fxch_register_form                  PASS
+  TEST: x64_RED_x_fninit_register_form                PASS
+  TEST: x64_RED_x_fcomi_register_form                 PASS
+  TEST: x64_GUARD_x_fadd_st0_register_form            PASS
+  TEST: x64_RED_y_lea_register_form_invalid           XFAIL (expected): 64-bit: 8D C0 decoded (LEA reg,reg is #UD); expected INVALID
+  TEST: x64_RED_ac_nop_cells_match_the_screen         (8192 cells) PASS
+  TEST: x64_RED_aa_unhandled_two_byte_is_not_nop      PASS
+  TEST: x64_RED_ab_two_byte_arm_ignores_mandatory_prefix XFAIL (expected): 0F AE C0 (invalid in both instruments) and F3 0F AE C0 (RDFSBASE, 4 bytes in both) decode to the same instruction; the two-byte arm never reads the mandatory prefix
+  TEST: x64_GUARD_n_pushf_stays_len1                  PASS
+  TEST: x64_GUARD_n_popf_stays_len1                   PASS
+  TEST: x64_table_consistency_sweep                   (checked=2220 tautological=468 skipped=384 wrong_rows=13 disagreeing_opcodes=4) PASS
+  TEST: x86_32_table_consistency_sweep                (checked=1092 tautological=360 skipped=84 wrong_rows=11 disagreeing_opcodes=4) PASS
+  TEST: x64_GUARD_pop_rm_digit_nonzero_not_pop        PASS
+  TEST: x64_GUARD_far_call_ff3_keeps_default_size     PASS
+  TEST: x64_GUARD_inc_ff0_keeps_normal_size           PASS
+  TEST: x64_GUARD_opsize_prefix_call_is_16            PASS
+  TEST: x64_GUARD_legacy_segment_push_invalid_in_64bit PASS
+  TEST: x64_GUARD_push_size_stays_4_in_32bit_mode     PASS
+  TEST: x64_GUARD_rex_r_ignored_on_group3_digit       PASS
+  TEST: x64_GUARD_rex_wr_ignored_on_group3_digit      PASS
+  TEST: x64_GUARD_rex_r_ignored_on_group5_digit       PASS
+  TEST: x64_GUARD_rex_r_ignored_on_group1_digit       PASS
+  TEST: x64_GUARD_opcode_82_not_an_alu_op_in_64bit    PASS
+  TEST: x64_GUARD_rex_does_not_leak_to_next_insn      PASS
+  TEST: INSB                                          PASS
+  TEST: INSD                                          PASS
+  TEST: OUTSB                                         PASS
+  TEST: REP_INSB                                      PASS
+  TEST: multibyte_nop_0F1F                            PASS
+  TEST: cmovcc_0F44                                   PASS
+  TEST: bt_rm_r_0FA3                                  PASS
+  TEST: bt_rm_imm8_0FBA                               PASS
+  TEST: cmpxchg_0FB1                                  PASS
+  TEST: xadd_0FC1                                     PASS
+  TEST: unknown_0f_modrm_recovery                     XFAIL (expected): 0F 0D C0 is the register form of PREFETCH and is #UD in both instruments; the decoder accepts it instead of refusing
+  TEST: desync_recovery_BT_then_IN                    PASS
+  TEST: three_byte_0F38                               PASS
+  TEST: three_byte_0F3A                               PASS
+
+Results: pass=111 xfail=12 fail=0 xpass=0 (tests=123)
+[36mTesting dump_starts RIP arm...[0m
+gcc -Wall -Wextra -Wpedantic -Werror -O2 -std=c11 -D_POSIX_C_SOURCE=200809L -Isrc -Iinclude -D_POSIX_C_SOURCE=200809L -Itests -o build/tests/test_dump_starts_arm \
+	tests/test_dump_starts_arm.c src/loaders/pe_loader.c \
+	src/loaders/elf_loader.c src/loaders/format_detect.c \
+	src/decoders/x86_decoder.c
+=== dump_starts RIP arm (base == 32) ===
+  TEST: rip_arm_resolves_fixture_lea_to_oracle_target  PASS  [A:0x40101a]
+  TEST: rip_arm_negative_disp_keeps_sign               PASS  [A:0x400fea]
+  TEST: rip_arm_is_relative_to_instruction_end         PASS  [A:0x40100a]
+  TEST: CONTROL_absolute_arm_prints_raw_disp           PASS  [A:0x10]
+  TEST: CONTROL_base_register_still_memory_form        PASS  [M:RAX,-,1,0x18]
+
+Results: all passed
+[36mTesting port attestation (finding z)...[0m
+gcc -Wall -Wextra -Wpedantic -Werror -O2 -std=c11 -D_POSIX_C_SOURCE=200809L -Isrc -Iinclude -DTRANSLATOR_NO_MAIN -DCORPUS_ROOT='"/home/bbrown/corpus"' -o build/tests/test_port_attestation \
+	tests/test_port_attestation.c \
+	src/main/translator.c \
+	src/loaders/pe_loader.c \
+	src/loaders/elf_loader.c \
+	src/loaders/format_detect.c \
+	src/loaders/com_loader.c \
+	src/decoders/x86_decoder.c \
+	src/ir/uir.c \
+	src/ir/semantic.c \
+	src/codegen/forth_codegen.c
+./build/tests/test_port_attestation
+=== Port attestation (finding z) ===
+  TEST: z_no_unattested_port_reaches_the_emitter       (8 drivers analysed) PASS
+
+Results: 1/1 passed (xfail=0 of 0 registered, xpass=0, skipped=0)
+[36mTesting CIL decoder...[0m
+gcc -Wall -Wextra -Wpedantic -Werror -O2 -std=c11 -D_POSIX_C_SOURCE=200809L -Isrc -Iinclude -o build/tests/test_cil_decoder \
+	tests/test_cil_decoder.c \
+	src/decoders/cil_decoder.c \
+	src/loaders/pe_loader.c
+./build/tests/test_cil_decoder
+CIL Decoder Tests
+=================
+  TEST: decode_nop                                    PASS
+  TEST: decode_ret                                    PASS
+  TEST: decode_ldloc_0                                PASS
+  TEST: decode_ldc_i4_s                               PASS
+  TEST: decode_ldc_i4                                 PASS
+  TEST: decode_call                                   PASS
+  TEST: decode_br_s                                   PASS
+  TEST: decode_ceq_extended                           PASS
+  TEST: decode_switch                                 PASS
+  TEST: decode_unknown                                PASS
+  TEST: tiny_method_header                            PASS
+  TEST: fat_method_header                             PASS
+  TEST: opcode_names                                  PASS
+  TEST: instruction_sequence                          PASS
+
+Results: 14/14 passed
+[36mTesting CIL semantic classifier...[0m
+gcc -Wall -Wextra -Wpedantic -Werror -O2 -std=c11 -D_POSIX_C_SOURCE=200809L -Isrc -Iinclude -o build/tests/test_cil_semantic \
+	tests/test_cil_semantic.c \
+	src/ir/cil_semantic.c \
+	src/decoders/cil_decoder.c \
+	src/loaders/pe_loader.c -lm
+./build/tests/test_cil_semantic
+CIL Semantic Classifier Tests
+=============================
+  TEST: classify_security_namespace                   PASS
+  TEST: classify_payload                              PASS
+  TEST: classify_mixed_payload_ratio                  PASS
+  TEST: classify_empty_method                         PASS
+  TEST: threshold_filter                              PASS
+  TEST: ldsfld_detection                              PASS
+
+Results: 6/6 passed
+[36mTesting ARM64 decoder...[0m
+gcc -Wall -Wextra -Wpedantic -Werror -O2 -std=c11 -D_POSIX_C_SOURCE=200809L -Isrc -Iinclude -o build/tests/test_arm64_decoder \
+	tests/test_arm64_decoder.c \
+	src/decoders/arm64_decoder.c
+./build/tests/test_arm64_decoder
+ARM64 Decoder Tests
+===================
+  TEST: NOP                                           PASS
+  TEST: RET                                           PASS
+  TEST: ADD_X0_X1_42                                  PASS
+  TEST: SUB_W0_W1_10                                  PASS
+  TEST: CMP_X1_0                                      PASS
+  TEST: MOVZ_X0_0x1234                                PASS
+  TEST: MOVK_X0_0x5678_LSL16                          PASS
+  TEST: B_offset_0x100                                PASS
+  TEST: BL_offset_0x200                               PASS
+  TEST: B_EQ_target                                   PASS
+  TEST: CBZ_X0_target                                 PASS
+  TEST: LDR_X0_X1_offset8                             PASS
+  TEST: STR_W0_X1_offset4                             PASS
+  TEST: MRS_sysreg                                    PASS
+  TEST: MSR_sysreg                                    PASS
+  TEST: SVC_0                                         PASS
+  TEST: ADD_X0_X1_X2                                  PASS
+  TEST: MOV_X0_X1                                     PASS
+  TEST: DMB_ISH                                       PASS
+  TEST: decode_range_sequence                         PASS
+  TEST: sysreg_encoding                               PASS
+
+Results: 21/21 passed
+[36mTesting UIR lifter...[0m
+gcc -Wall -Wextra -Wpedantic -Werror -O2 -std=c11 -D_POSIX_C_SOURCE=200809L -Isrc -Iinclude -o build/tests/test_uir \
+	tests/test_uir.c \
+	src/ir/uir.c \
+	src/decoders/x86_decoder.c
+./build/tests/test_uir
+UIR Lifter Tests
+================
+  TEST: port_in_immediate                                  PASS
+  TEST: port_out_immediate                                 PASS
+  TEST: port_in_dx                                         PASS
+  TEST: port_out_dx                                        PASS
+  TEST: load_from_memory                                   PASS
+  TEST: store_to_memory                                    PASS
+  TEST: call_relative                                      PASS
+  TEST: ret                                                PASS
+  TEST: add_immediate                                      PASS
+  TEST: xor_reg_reg                                        PASS
+  TEST: conditional_branch_splits_blocks                   PASS
+  TEST: cli_sti                                            PASS
+  TEST: port_summary                                       PASS
+  TEST: push_pop                                           PASS
+  TEST: mov_reg_reg                                        PASS
+  TEST: cmp                                                PASS
+  TEST: port_in_dword                                      PASS
+  TEST: insb_lifts_to_port_in                              PASS
+  TEST: outsb_lifts_to_port_out                            PASS
+  TEST: int10h_lifts_to_uir_int                            PASS
+  TEST: int21h_no_hw_flag                                  PASS
+  TEST: mixed_int_and_port_io                              PASS
+  TEST: uir_opcode_name_is_total_over_the_enum             (45 opcodes) PASS
+  TEST: af_modelled_identity_does_not_lift_to_nop          PASS
+  TEST: ad_invalid_does_not_lift_to_nop                    PASS
+
+Results: 25/25 passed (xfail=0 of 0 registered, xpass=0)
+[36mTesting semantic analyzer...[0m
+gcc -Wall -Wextra -Wpedantic -Werror -O2 -std=c11 -D_POSIX_C_SOURCE=200809L -Isrc -Iinclude -o build/tests/test_semantic \
+	tests/test_semantic.c \
+	src/ir/semantic.c \
+	src/ir/uir.c \
+	src/decoders/x86_decoder.c
+./build/tests/test_semantic
+Semantic Analyzer Tests
+=======================
+  TEST: classify_port_io                                   PASS
+  TEST: classify_write_port                                PASS
+  TEST: classify_mmio                                      PASS
+  TEST: classify_timing                                    PASS
+  TEST: classify_irp_scaffolding                           PASS
+  TEST: classify_pnp_scaffolding                           PASS
+  TEST: classify_unknown_api                               PASS
+  TEST: category_classification_helpers                    PASS
+  TEST: classify_imports_batch                             PASS
+  TEST: analyze_hw_function                                PASS
+  TEST: classify_pci_config                                PASS
+  TEST: classify_dma                                       PASS
+  TEST: classify_sync_scaffolding                          PASS
+  TEST: iat_call_detects_hw_function                       PASS
+  TEST: sem_RED_a_iat_resolver_refuses_non_iat_target      PASS
+  TEST: iat_scaffolding_call_not_hardware                  PASS
+  TEST: drop_reason_is_category_set                        PASS
+  TEST: bios_int10h_classified_hardware                    PASS
+  TEST: dos_int21h_classified_scaffolding                  PASS
+  TEST: flabel_disc_access_positive                        PASS
+  TEST: flabel_disc_access_negative                        PASS
+  TEST: flabel_video_positive                              PASS
+  TEST: flabel_video_negative                              PASS
+  TEST: flabel_mmio_positive                               PASS
+  TEST: flabel_mmio_negative                               PASS
+  TEST: flabel_hal_wrapper_positive                        PASS
+  TEST: flabel_hal_wrapper_negative                        PASS
+  TEST: flabel_hal_wrapper_rejects_has_port_io             PASS
+  TEST: flabel_int_setup_positive                          PASS
+  TEST: flabel_int_setup_negative                          PASS
+  TEST: flabel_i8042prt_stays_port_io                      PASS
+  TEST: gate_confident_consistent_export                   PASS
+  TEST: gate_unclassified_to_func                          PASS
+  TEST: gate_absent_export_label_derived                   PASS
+  TEST: gate_conflicting_export_to_func                    PASS
+  TEST: gate_neutral_export_passes                         PASS
+  TEST: gate_no_substring_false_conflict                   PASS
+  TEST: gate_nonhw_keeps_export_name                       PASS
+  TEST: pw_GUARD_plain_park_is_found                       PASS
+  TEST: sem_RED_ak_read_only_dest_keeps_the_base           PASS
+  TEST: sem_RED_al_invisible_write_is_not_a_park           PASS
+  TEST: sem_RED_am_xchg_records_both_writes                PASS
+  TEST: sem_RED_an_unseeable_write_stops_the_walk          PASS
+  TEST: pw_xchg_with_memory_is_not_a_silent_none           PASS
+  TEST: sem_RED_ao_ret_ends_the_walk                       PASS
+  TEST: pw_GUARD_volatile_register_dies_at_call            PASS
+  TEST: sem_RED_ap_callee_saved_survives_call              PASS
+  TEST: pw_GUARD_release_of_another_region_kills_nothing   PASS
+  TEST: sem_RED_aq_store_after_release_is_named            PASS
+  TEST: sem_RED_ar_park_route_is_reported                  PASS
+  TEST: sem_RED_as_setcc_writes_only_its_operand           PASS
+  TEST: sem_RED_at_sbb_adc_rol_ror_write_only_their_operand PASS
+  TEST: pw_GUARD_cr_read_into_base_kills_it                PASS
+  TEST: sem_RED_aw_movcr_write_set                         PASS
+  TEST: sem_RED_ax_none_carries_a_route                    PASS
+  TEST: sem_RED_ay_movsxd_imul3_write_only_dest            PASS
+  TEST: sem_RED_bb_sse_dest_seen                           PASS
+  TEST: pw_GUARD_bb_sse_contract                           PASS
+  TEST: sem_RED_bh_import_category_printed_as_name         PASS
+  TEST: sem_RED_bh_import_family_by_dll_set                PASS
+  TEST: sem_RED_bj_class_library_categories                PASS
+  TEST: sem_RED_bj_no_public_reference                     PASS
+  TEST: sem_RED_bj_category_source                         PASS
+  TEST: sem_RED_bk_import_thunk_jmp_resolved               XFAIL (expected): the jmp [IAT] thunk is not scaffolding for its import
+  TEST: sem_RED_bm_call_target_is_entry                    XPASS: expected failure PASSED - stop; correct the register, then remove from xfail_names
+
+Results: 63/65 passed (xfail=1 of 2 registered, xpass=1)
+HARD FAILURE: 1 expected failure(s) passed (XPASS).
+make: *** [Makefile:187: test-semantic] Error 1

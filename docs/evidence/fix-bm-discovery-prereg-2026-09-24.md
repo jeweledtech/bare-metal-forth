@@ -83,3 +83,76 @@ The differential's `dump_starts` does not call discovery.
 
 **Five.** A fix that lands inside N1–N5 but misses S1–S6 is the more
 interesting outcome, and will be read that way.
+
+---
+
+## Outcome
+
+*(below this line, from the artefact only)*
+
+**Inputs hashed:** `bin/translator` before `343e89fa8fe39611`, after
+`60df7c753af56625`, built from private `2dbcdb3` (red `03e932f`), mirror
+identical. Readings are in `~/corpus/tools-2026-09-24/`: `bm-reports-{pre,post}.tsv`,
+`bm-park-census-{pre,post}.json` and `bm-m664-post.json`, all in `SHA256SUMS`.
+0 empty outputs in either report run. The census's fresh before-reading
+reproduces the site counts 12 / 172 / 171 / 184.
+
+### Must not move: five of five held
+
+| # | observed |
+|---|---|
+| N1 | **1,097 of 1,097** clean drivers' reports byte-identical |
+| N2 | UIR: exactly the two predicted files differ (`serial.sys`, `nmap_service.exe`), **10 of 12 identical**; dumps **0 of 16** differ |
+| N3 | **0** hex; `import_family` unchanged on **1,322 of 1,322**; four-DLL sets unchanged on **1,322 of 1,322** |
+| N4 | site counts **12 / 172 / 171 / 184** unchanged; **0** sites appear or disappear; the HP row is identical |
+| N5 | the gate fired on exactly `sem_RED_bm_call_target_is_entry` (`fix-bm-xpass-gate-2026-09-24.log`); `(bk)` still red; 418 tests, 13 reds |
+
+### Should move: two held, two partly, two missed, and the misses are the finding
+
+| # | predicted | observed |
+|---|---|---|
+| S1 | all 225 change, and `total_functions` rises on each | **missed**: **218** of 225 changed. The count **rose on 198** and **fell on 20**. **7** are byte-identical, each with only 1–4 missing targets. That they map onto existing entries through a boundary difference is reasoned, not checked |
+| S2 | ΔTotal ≈ **+18,800** (17,000–19,600) | **missed, sign reversed: −71,502.** The 198 rose **+16,593**, just below the range for the rise alone. The 20 fell **−88,095** |
+| S3 | unclassified > 50% of ΔTotal; hardware does not fall | **partly.** On the 198, unclassified is +17,348 (all of the rise, with scaffolding −838), and hardware is +83 net but **fell on 4**. On the 20, hardware **−1,745** |
+| S4 | ≥ 1 census outcome changes, all in affected drivers, toward `none` | **held on count and place, missed on direction**: **3** changed, all in affected drivers (one each on Dell, older ASUS and newer ASUS). All three are **`none` → `frame`**, away from `none`: the walks found a park they had missed |
+| S5 | `serial.sys` 36 → 38; `nmap_service.exe` 15 → 90–108 | **held**: 36 → **38**; 15 → **108** |
+| S6 | exactly 199 absorbed thunks become their own function | **held exactly**: **199** called thunks → own; 31 `jmp`-only and 9 unreferenced stay absorbed; the 52 already-own unchanged |
+
+### What the misses found: (bm) was two-sided
+
+**All 20 drivers whose function count fell have image base `0x10000`.** For
+them, the old `address + length + absolute` landed **back inside** the
+discovery range, at a wrong address. So the defect did not only *miss*
+entries: on low-base images it **fabricated** them, at addresses no call
+targets. Examples:
+- `RTKVHD64.sys`: **53,468 → 5,472** and 39,292 → 8,841 (two builds);
+- `megasr`, `iaStorV`, `amdsbs`, `nvraid`, `nvstor`, `vsmraid`: each ×3
+  builds, roughly halved.
+
+**My extent instrument could not see this side.** It counted direct-call
+targets that were *not* entries. A fabricated entry is an entry that no call
+targets, which it never looked for. **The should-move prediction is what
+exposed it.** A fix landing inside N1–N5 with only a must-not-move set would
+have read as clean. This is the owner's point 2, observed.
+
+**So earlier function-unit figures are inflated on those 20 drivers** by
+88,095 fabricated functions, 1,745 of them hardware, and 8,867 scaffolding.
+That includes the (bi)-0 counterfactual's denominator ("16,400 hardware
+functions on 921 drivers") and (bj)'s bucket totals, to the extent those
+drivers are in them. **They are not re-derived here.** They are named, so a
+reader of those documents knows which drivers carried fabricated functions.
+
+### The park census, resolved
+
+(bm) moved **3 of 539** census outcomes, all `none` → `frame`, one on each
+non-HP machine, and moved no site count. The provisional mark on
+`park-census-cross-vendor-2026-09-22.md` is resolved with those three
+named. Its table's structure shares stand to within one site per machine.
+
+**The commit message of `2dbcdb3`** says "missing entries on 205 drivers and
+fabricating them on 20". All 225 had missing entries, and 20 of them also had
+fabricated ones. This paragraph supersedes it.
+
+**Independent checks: five,** as pre-registered. Two of six should-move
+predictions held exactly, two held in part, and two missed. The two misses
+found the fabricated side.

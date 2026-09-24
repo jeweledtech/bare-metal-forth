@@ -67,7 +67,7 @@ it:**
 **Gate: exactly one name.** `test_mmio_consumer` is back to an empty
 expected-failure list.
 
-## Open, with a red (14)
+## Open, with a red (13)
 
 **The table is the whole list, across every suite.** Until 2026-09-21
 the executable check compared it against `test_x86_decoder.c`'s
@@ -96,7 +96,6 @@ asserted so a renamed suite cannot shrink the union silently. The
 | (y) | `x64_RED_y_lea_register_form_invalid` | decoder | `8D C0` LEA register form is #UD |
 | (ab) | `x64_RED_ab_two_byte_arm_ignores_mandatory_prefix` | decoder | the arm never reads `66`/`F2`/`F3` |
 | (t) | `unknown_0f_modrm_recovery` | decoder | `0F 0D C0` is #UD and is accepted |
-| (bm) | `sem_RED_bm_call_target_is_entry` | discovery | `sem_discover_functions()` step 2 adds address+length to a REL operand's imm, which the decoder already stores as the **absolute** target, so direct-call targets are dropped as entries. Masked wherever `.pdata` lists every function (0 missing on the HP eight); across the 1,322, **225 drivers** miss entries, **19,329 of 483,053** direct-call targets, over the translator's own discovery range (a first count over `.text` alone said 199; superseded). **The park census's Dell and ASUS rows are provisional** (65, 78 and 83 of their sites sit in affected drivers; HP 0). Mechanism control: taking imm as the target turns the red green (`fix-bm-mechanism-control-2026-09-24.log`). **Blocks `(bk)`**: 239 of 291 class-library thunks are absorbed into a neighbouring function, for lack of an entry (`bk-bm-thunks-and-discovery-2026-09-24.md`). Minted 2026-09-24 |
 | (bk) | `sem_RED_bk_import_thunk_jmp_resolved` | classifier | an import thunk (`jmp [IAT]`) is not resolved as a call to its import: the thunk and its callers stay unclassified. Found by 664-0: **66** WDF drivers reach WDFLDR only through such thunks, and 75 of the 392 class-DLL importers have them (`measure-bi0-664-0-prereg-2026-09-24.md`). Harness control: the same fixture with `call` passes (`fix-bk-harness-control-2026-09-24.log`). Minted 2026-09-24; **not fixed**, since build order is the owner's |
 
 ## Open, without a red (5)
@@ -556,7 +555,7 @@ duplicated (d)/(d-k). Where no log survives, the closure is listed as
 **closed, no log**, and its only record is the `FIXED <date>` comment
 written into the suite's `xfail_names[]` when the name was retired.
 
-**With a banked gate log** (32 letters, 67 names; logs in `docs/evidence/`):
+**With a banked gate log** (33 letters, 68 names; logs in `docs/evidence/`):
 
 | closed | letter(s) | gate log | names on its XPASS lines |
 |---|---|---|---|
@@ -583,6 +582,7 @@ written into the suite's `xfail_names[]` when the name was retired.
 | 2026-09-23 | (bf) | `fix-bf-xpass-gate-2026-09-23.log` † | 1 |
 | 2026-09-23 | (bh) | `fix-bh-xpass-gate-2026-09-23.log` | 2 (the import sort, X1 and X2) |
 | 2026-09-23 | (bj) | `fix-bj-xpass-gate-2026-09-23.log` | 3 (X3's values; change 1, the one-list encoding, had no red: its property and three independent checks are in `fix-bj-scaf-encoding-prereg-2026-09-23.md`) |
+| 2026-09-24 | (bm) | `fix-bm-xpass-gate-2026-09-24.log` | 1 (discovery took a REL target re-offset; two-sided: entries missed on 225 drivers, fabricated on the 20 at image base 0x10000) |
 
 † **Banked 2026-09-23 from the session's scratch directory**, where the
 gate run had written it. Each is the verbatim gate output, copied
@@ -611,7 +611,7 @@ by name:
 pair): (ai), 2026-09-23, controls in the translator's
 `measure/comparer-controls/`.
 
-**Total closed: 45 letters** (32 + 12 + (ai)), counted from the rows above. The lesson from the "no log" rows is the
+**Total closed: 46 letters** (33 + 12 + (ai)), counted from the rows above. The lesson from the "no log" rows is the
 fourth lineage rule's corollary again: *keep every gate log.* Six of this
 week's logs survived only because the scratch directory had not been
 cleared.

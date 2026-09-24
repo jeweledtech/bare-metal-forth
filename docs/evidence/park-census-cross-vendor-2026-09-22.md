@@ -1,6 +1,12 @@
 # Cross-vendor park census, and the Mac decode rate (2026-09-22)
 
-> **PROVISIONAL since 2026-09-24: the Dell and ASUS rows rest on function
+> **Resolved 2026-09-24 (`fix-bm-discovery-prereg-2026-09-24.md`, outcome):**
+> `(bm)` landed. It moved **3 of 539** census outcomes, all `none` → `frame`,
+> one on each of Dell, older ASUS and newer ASUS, and **no site count**. HP is
+> identical. The structure shares below stand to within one site per machine.
+> The provisional note it replaces is kept below, struck, for the record.
+>
+> ~~**PROVISIONAL since 2026-09-24: the Dell and ASUS rows rest on function
 > boundaries that `(bm)` shows are wrong on some of their drivers.** The unit
 > here is the function, and `(bm)` (discovery drops direct-call targets as
 > entries) affects **225 of the 1,322** kernel drivers. Intersected with this
@@ -11,7 +17,7 @@
 >   **Newer ASUS: 83 of 184** (27).
 >
 > Which figures move is to be **measured** when `(bm)` lands, against the
-> candidate list in its pre-registration. It is not deduced here.
+> candidate list in its pre-registration. It is not deduced here.~~
 
 **Instrument:** the shipped translator's own report (`-t report -S`), which is not a
 new instrument, run over every x86-64 PE file in each machine's set. Run
