@@ -1,0 +1,8 @@
+# (bk) harness control: the red's thunk fixture with UIR_CALL in place of UIR_JMP (throwaway copy)
+1
+  TEST: sem_RED_bk_import_thunk_jmp_resolved               XPASS: expected failure PASSED - stop; correct the register, then remove from xfail_names
+Results: 63/64 passed (xfail=0 of 1 registered, xpass=1)
+# restore check
+restored identical
+  TEST: sem_RED_bk_import_thunk_jmp_resolved               XFAIL (expected): the jmp [IAT] thunk is not scaffolding for its import
+Results: 63/64 passed (xfail=1 of 1 registered, xpass=0)
