@@ -284,3 +284,17 @@ and the import-site writer above never runs for it. The enum readers
 `sem_category_name`) are a separate census, owed before a value is chosen.
 
 **No category value is chosen in this section.**
+
+## 7. Met, 2026-09-23
+
+X1 by `(bh)`, X2 by `(bh)`, and X3 by `(bj)`
+(`fix-bj-values-prereg-2026-09-23.md`, outcome):
+- **X1:** 0 of 128,142 imports print a hex category.
+- **X2:** 1,322 of 1,322 agree with the scanner.
+- **X3:** 85 of 85 print a value, 68 of 85 are sourced, and 17 print
+  `NO_PUBLIC_REFERENCE`.
+
+X3's count was met as amended in §6 and in `(bj)`'s pre-registration: the
+vocabulary hash is unchanged, not re-pinned. The next items are the 664
+unsorted drivers, with their own exit and the ceiling of 1,135 (§5), and
+`(bi)`.

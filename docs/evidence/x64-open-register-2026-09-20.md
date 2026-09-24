@@ -67,7 +67,7 @@ it:**
 **Gate: exactly one name.** `test_mmio_consumer` is back to an empty
 expected-failure list.
 
-## Open, with a red (15)
+## Open, with a red (12)
 
 **The table is the whole list, across every suite.** Until 2026-09-21
 the executable check compared it against `test_x86_decoder.c`'s
@@ -96,11 +96,8 @@ asserted so a renamed suite cannot shrink the union silently. The
 | (y) | `x64_RED_y_lea_register_form_invalid` | decoder | `8D C0` LEA register form is #UD |
 | (ab) | `x64_RED_ab_two_byte_arm_ignores_mandatory_prefix` | decoder | the arm never reads `66`/`F2`/`F3` |
 | (t) | `unknown_0f_modrm_recovery` | decoder | `0F 0D C0` is #UD and is accepted |
-| (bj) | `sem_RED_bj_class_library_categories` | classifier | X3 change 2: CLASSPNP / portcls / WDFLDR imports take their category from the import directory (`fix-bj-values-prereg-2026-09-23.md`) |
-| (bj) | `sem_RED_bj_no_public_reference` | classifier | the 17 unreferenced HAL names print `NO_PUBLIC_REFERENCE` |
-| (bj) | `sem_RED_bj_category_source` | classifier | every import prints the source of its category |
 
-## Open, without a red (5)
+## Open, without a red (4)
 
 **Defect letters that are open and have no red yet**, counted so they
 are not carried only in prose. A red is written when the item is taken.
@@ -109,7 +106,6 @@ register check reads that shape as a red.
 
 | letter | what | suite it would live in | what is wrong |
 |---|---|---|---|
-| (bj) | X3: the import sort's vocabulary | classifier | the 85 names from CLASSPNP / portcls / WDFLDR / HAL (`import-sort-exit-2026-09-23.md` §3, §6; sourcing in `x3-sourcing-prereg-2026-09-23.md`). **Change 1 done 2026-09-23** (`fix-bj-scaf-encoding-prereg-2026-09-23.md`), a behaviour-preserving change of structure. **The property it buys, which no test can express:** *before, the accepted range and the mask's bit layout were separate arithmetic that happened to agree; now they are one list and cannot disagree.* Tests observe behaviour, and this is structure. Its gate was three independent checks (output invariance, suite state, discrimination at the new structure), with the must-not-move figures pre-registered and byte-exact. The list order is **frozen, append only**: no mask bits are serialized, but the rendered name order is on disk (header comment names where). **Change 2 next**: three class-library categories, `no-public-reference` for 17. Exit: 85 of 85 print a value; 68 of 85 sourced |
 | (bi) | the classifier vocabulary is uncited | classifier | **146 of 146** frozen vocabulary entries (`b48923e8…`) cite no pinned source (`x3-sourcing-prereg-2026-09-23.md` §A). X3's pin checked 4, all agreeing (M = 0), and 142 were never checked. Owner ruling 2026-09-23: own letter and own exit. **The first step is not a pinning campaign.** It is a yield measurement on a drawn sample, with the widened method (probe patterns beyond four, and not a control drawn from found pages), because the pass's two yields differ: 4 of 21 for uncovered HAL names against 4 of 4 for already-categorised ones, and the second is the suspicious one. Minted 2026-09-23 |
 | (q) | VEX / EVEX / REX2 unmodelled | decoder | measured zero in the corpus; see *Open, deferred* for its minting condition |
 | (be) | families narrower than the SDM | decoder | found by banking the SDM; unknowns, not wrong answers. Minted 2026-09-23, **split so the nonzero part is justified on its own terms** (owner): **(be-0), measured zero:** 7 legacy XMM encodings on the instruction pages but not in Tables A-4/A-5 (GFNI `66 0F38 CF`, `66 0F3A CE/CF`; Key Locker `F3 0F38 DC-DF`) and LKGS (`F2 0F 00 /6`), 0 corpus rows, with a control; and TESTUI/UIRET (`F3 0F 01 ED/EC`), left unknown by `(bd)`. **(be-n), nonzero:** LAR/LSL (`0F 02`/`03`) 3 rows in 2 binaries, INVPCID (`66 0F 38 82`) 14 rows in 1 KC binary |
@@ -557,7 +553,7 @@ duplicated (d)/(d-k). Where no log survives, the closure is listed as
 **closed, no log**, and its only record is the `FIXED <date>` comment
 written into the suite's `xfail_names[]` when the name was retired.
 
-**With a banked gate log** (31 letters, 64 names; logs in `docs/evidence/`):
+**With a banked gate log** (32 letters, 67 names; logs in `docs/evidence/`):
 
 | closed | letter(s) | gate log | names on its XPASS lines |
 |---|---|---|---|
@@ -583,6 +579,7 @@ written into the suite's `xfail_names[]` when the name was retired.
 | 2026-09-23 | (bd) | `fix-bd-xpass-gate-2026-09-23.log` † | 2 |
 | 2026-09-23 | (bf) | `fix-bf-xpass-gate-2026-09-23.log` † | 1 |
 | 2026-09-23 | (bh) | `fix-bh-xpass-gate-2026-09-23.log` | 2 (the import sort, X1 and X2) |
+| 2026-09-23 | (bj) | `fix-bj-xpass-gate-2026-09-23.log` | 3 (X3's values; change 1, the one-list encoding, had no red: its property and three independent checks are in `fix-bj-scaf-encoding-prereg-2026-09-23.md`) |
 
 † **Banked 2026-09-23 from the session's scratch directory**, where the
 gate run had written it. Each is the verbatim gate output, copied
@@ -611,7 +608,7 @@ by name:
 pair): (ai), 2026-09-23, controls in the translator's
 `measure/comparer-controls/`.
 
-**Total closed: 44 letters** (31 + 12 + (ai)), counted from the rows above. The lesson from the "no log" rows is the
+**Total closed: 45 letters** (32 + 12 + (ai)), counted from the rows above. The lesson from the "no log" rows is the
 fourth lineage rule's corollary again: *keep every gate log.* Six of this
 week's logs survived only because the scratch directory had not been
 cleared.

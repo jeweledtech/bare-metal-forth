@@ -1,0 +1,9 @@
+# (bj) change 2 discrimination: the STORAGE-CLASS drop-reason name removed from sem_category_filter_name in a throwaway copy
+0
+  TEST: callgraph_scaf_domain_renders_as_itself            FAIL: an accepted category has no name of its own
+Results: 8/9 passed
+# restore check
+restored identical to private repo
+  TEST: callgraph_scaf_domain_renders_as_itself            [accepted=13] PASS
+Results: 9/9 passed
+343e89fa8fe39611
