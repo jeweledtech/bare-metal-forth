@@ -68,3 +68,33 @@ question, with a proposal. It is not guessed, and it is not claimed.
 ## Outcome
 
 *(below this line, from the artefact only)*
+
+**Inputs hashed:** `bin/translator` before `11f51761d4ad5d7a`, after
+`03c1e890068a86f7`, built from private `7b3d67f` (red `1fdf84f`), mirror
+identical. `dump_starts` `f4cee936de91769a` in both. `kdrv_scan.py`
+`437b218a…`. Before-reading `77719b09…`, after-reading
+`import-sort-report-after-2026-09-23.tsv` `2ee9a695…`, both in
+`~/corpus/tools-2026-09-23/SHA256SUMS`.
+
+| # | predicted | observed |
+|---|---|---|
+| B1 | the gate fires on exactly the two `(bh)` names; tests 410 → 412; reds 12 → 14 → 12 | **held**: the gate fired on exactly `sem_RED_bh_import_category_printed_as_name` and `sem_RED_bh_import_family_by_dll_set` (`fix-bh-xpass-gate-2026-09-23.log`), and nothing else. After removal: 412 tests across 27 suites, 12 reds, register union matches |
+| B2 | X1: 0 of 128,142 hex; import count equals bytes on 1,322 of 1,322 | **held exactly**: **0 of 128,142** print a hex category (before: 128,142 of 128,142). The count equals the bytes on **1,322 of 1,322** |
+| B3 | X2: 1,322 of 1,322 agree with the scanner; 17 / 15 / 360 / 266 / 664 | **held exactly**: **1,322 of 1,322** agree, 0 disagree. storage-class **17**, audio-port-class **15**, wdf **360**, hal-residue **266**, unsorted **664** |
+| B4 | every report emitted on the 4,324 excluded PEs prints `out-of-scope`; the emitted count is counted, not predicted | **held**: **3,835 reports emitted, 3,835 `out-of-scope`, 0 anything else**. **489 not emitted**, each by the translator's own refusal and none read as a pass: **481** "No .text section found in PE" (resource-only images: 333 `.mui`, the rest resource DLLs) and **8** timeouts at 300 s (6 GUI, 2 console). Per reason: GUI 1,252 of 1,616 emitted, console 2,324 of 2,448, native with no imports 243 of 244, native importing ntdll 11 of 11, boot applications 5 of 5 |
+| B5 | on the HP eight, only `category` values and the one `import_family` line differ | **held**, on all 12 snapshot inputs: each report changed in exactly **(imports + 1)** lines (ACPI 273 = 272 + 1, … the ELF fixture 1 = 0 + 1). Removing `category` and `import_family` lines leaves **0** differing lines |
+| B6 | 0 of 12 UIR files and 0 of 16 dumps change | **held**: **0 of 12** and **0 of 16** |
+
+**The families on the snapshot inputs** match the exit's §4. disk →
+storage-class, HDAudBus → audio-port-class, usbxhci → wdf; ACPI, i8042prt,
+pci, serial and storport → **hal-residue**; nmap and the ELF fixture →
+**out-of-scope**. The two 32-bit ReactOS controls (native, importing `hal`)
+also → hal-residue.
+
+**Found on the way, not a prediction:** the census baseline
+(`tests/suite_census.tsv`) carried `test_x86_decoder.c` at **14** registered
+reds after `(bf)` and `(bg)` had closed; the live count was 12. The count
+column was right and the red column was stale. `--update` corrected it in the
+red commit, and the diff shows it.
+
+**X3 is still open**, as stated at the top. The exit is two of three.
