@@ -165,7 +165,7 @@ the rest below 100. The application itself imports **150** functions from
 | A2 | functions bound 1,000–6,000 | **held: 4,800** |
 | A3 | syscalls 100–500 | **missed, high: 1,281.** `ntdll` alone is 259, inside the range. `win32u` is the miss: user32, gdi32 and gdi32full bind **1,022 of its 1,499** stubs, almost the whole graphics and window service table, the moment any of them is loaded |
 | A4 | the delay layer grows DLLs by more than 50% | **held, by far: 18 → 379 (21×)** |
-| A5 | a `GetProcAddress`/`LoadLibrary` importer in the closure; open at runtime | **held: 17 of the 18 DLLs, and the application itself**, import one of them. The closure is open at runtime almost everywhere |
+| A5 | a `GetProcAddress`/`LoadLibrary` importer in the closure; open at runtime | **held: 16 of the 18 DLLs, and the application itself**, import one of them (the two that do not are `ntdll` and `win32u`, the bottom of the graph). The closure is open at runtime almost everywhere |
 | A6 | at least one hostless `ext-ms-*` edge | **held in the delay layer only**: 0 unresolved edges in the static layer. The delay layer has 131 distinct hostless api-set edges (both `api-` and `ext-`) |
 
 **A correction to my pre-registration, stated rather than absorbed:** A3's
@@ -178,8 +178,8 @@ pre-registration defined it, `ntdll` has **488**.
 1. **Delay loads** turn 18 DLLs into 379 and 4,800 functions into 17,734.
    The static figures are what the loader binds at start. The delay figures
    are what the same binaries *can* bind if every delayed call is taken.
-2. **Dynamic loading:** every module in the static closure except one
-   imports `GetProcAddress`/`LoadLibrary*`. **No static figure is an upper
+2. **Dynamic loading:** 16 of the 18 DLLs in the static closure, and the
+   application, import `GetProcAddress`/`LoadLibrary*`; only `ntdll` and `win32u` do not. **No static figure is an upper
    bound on what runs.**
 3. **Unresolved edges, all in the delay layer:** 317 edges, **236
    distinct**:
