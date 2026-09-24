@@ -36,3 +36,58 @@ labels:
 | E1 | **~30%** of the *unattested* port-fact sites are removed (range 10–60%) |
 | E2 | **≤ 2%** of the *attested* sites are removed (jump tables) |
 | E3 | port-fact functions left after the fix: **~600** of 932 (range 400–850) |
+
+## Prediction 2: the rule's outcome, from a second implementation, before the C change
+
+`bn_model.py` (Python, over `-t uir`; sha in `~/corpus/tools-2026-09-24/SHA256SUMS`)
+implements the rule over the UIR text: block reachability from the entry,
+and pass 4's DX back-scan. The function-level count uses the lifter's own
+printed edges (`-> fall_through` / `-> branch`). It is scored against the
+Ghidra labels.
+
+| | before | kept after the rule |
+|---|---|---|
+| port-fact sites, unattested | 34,724 | 11,133 (**23,591 removed, 67.9%**) |
+| port-fact sites, attested | 573 | 544 (**29 removed**) |
+| port-fact functions, **attested** | 220 | **191** |
+| … of which ClipSp (non-code, per the owner's point 3) | 127 | 100 |
+| … **outside ClipSp** | **93** | **91** |
+| port-fact functions, **unattested** | 712 | **363** (349 removed, 49%) |
+| … outside ClipSp | 319 | 120 |
+
+**Scored against my estimate (part 1):**
+- E1 predicted 30% of unattested sites removed, range 10–60%: **missed,
+  67.9%**.
+- E2 predicted ≤ 2% of attested sites removed: **missed, 5.1%**.
+- E3 predicted ~600 port-fact functions left, range 400–850: **held, 554**.
+
+**The owner's gate, predicted to fail in two named places:**
+- **2 attested functions outside ClipSp lose their port facts**, in
+  `RTKVHD64.sys` (fn `0x160260`). The chain to the attested sites breaks at
+  a block ending in an `unknown` instruction our decoder cannot identify,
+  where Ghidra decodes on. The lifter's own printed edges agree. This is **a
+  decoder-coverage gap feeding the CFG**, not the rule.
+- **27 ClipSp attested functions lose theirs.** Under point 3 (no device, no
+  hardware resources, every port site in 7.1–7.9 bits/byte sections) these
+  are not port access, so this is correct.
+
+**The residual, as the owner asked:** the rule removes **349 of the 712**
+unattested functions, not 712. The other 363 stay, reached by linear
+fall-through (f3ahvoas's kind) or through code Ghidra itself does not
+reach. **So the guard needs a second condition.** That is not a failure of
+this fix, and it is named here before the fix lands.
+
+## The gate for the C change
+
+1. The (bn) red XPASSes on exactly its name, the guard stays green, and
+   the suites are otherwise unchanged. The domain guard stays at 14.
+2. **The C change reproduces the model exactly:** per driver, the set of
+   functions keeping port facts equals the model's, with **554** in total
+   (191 attested + 363 unattested).
+3. **Nothing but port facts moves:** UIR text unchanged on all 12 snapshot
+   inputs (ports are facts about the UIR, not UIR lines), dumps 0 of 16, X1–X3
+   unchanged, census 0 of 539.
+4. Buckets may move: a function that is hardware only through its port fact
+   and loses it leaves the hardware block. That count is **not predicted**,
+   because a port-fact function can also be hardware through its imports.
+   It is counted after.
