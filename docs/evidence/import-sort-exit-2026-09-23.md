@@ -91,7 +91,7 @@ scaffolding, hardware.
 **X2: a family per driver, equal to the bytes' answer on 1,322 of 1,322.** The
 rule takes the first of these that the driver imports: CLASSPNP → *storage
 class*; portcls → *audio port class*; WDFLDR → *WDF*; HAL → *HAL, no class
-DLL*. A driver that imports none of the four prints **unsorted**. Unsorted is
+DLL* (printed `hal-residue`, see §5). A driver that imports none of the four prints **unsorted**. Unsorted is
 a distinct value, never a family and never an empty field (the twenty-seventh
 rule: zero-found must not print like a result).
 
@@ -100,7 +100,7 @@ rule: zero-found must not print like a result).
 | storage class (CLASSPNP) | **17** |
 | audio port class (portcls) | **15** |
 | WDF (WDFLDR) | **360** |
-| HAL, no class DLL | **266** |
+| `hal-residue` (HAL, no class DLL) | **266** |
 | **unsorted** | **664** |
 | **total** | **1,322** |
 
@@ -109,9 +109,10 @@ The scanner is an independent reader (pefile, not the translator's PE loader).
 
 *Stated so it is not read as derived:* the precedence was chosen with the
 co-occurrence table in view. The table is printed so that any other
-precedence can be re-derived from it. The only overlaps are portcls with WDFLDR
-(9, all with HAL too) and CLASSPNP with HAL (1). No driver imports both
-CLASSPNP and portcls.
+precedence can be re-derived from it. ~~The only overlaps are portcls with
+WDFLDR (9, all with HAL too) and CLASSPNP with HAL (1).~~ **Resolved
+2026-09-23: that sentence was wrong** and read the table incompletely. The
+counts are in §5. No driver imports both CLASSPNP and portcls.
 
 | imports, of the four | drivers |
 |---|---|
@@ -167,3 +168,55 @@ the exit**. That is a scope cut, stated for the owner's review.
 three banked files are listed in `~/corpus/tools-2026-09-23/SHA256SUMS`. No
 binary, name slug or device identifier is published; the per-driver file
 stays in the corpus.
+
+## 5. Amendments after owner review, 2026-09-23 (X1–X3 counts unchanged)
+
+All three rulings accepted: the cut stands, the order stands, no widening.
+Every figure below was re-read from `kdrv_scan.py`'s output. **No exit count
+moved.**
+
+**The HAL bucket is a residue, and is printed as one: `hal-residue`.** 266 of
+the 658 sorted drivers land in it, and HAL is last in the order. Nearly
+anything that touches hardware imports HAL, so the bucket is what is left
+after the other three, not a family. On the HP eight it takes ACPI, i8042prt,
+pci, serial and storport, and the hand reading told several of those apart. X2
+passing means *266 drivers import HAL and no class DLL*. **It does not mean
+266 drivers identified as a HAL family.** A residue printed under a family's
+name is the error `(ax)` fixed for `none`, one level up.
+
+**Overlap, corrected.** The §3 sentence I wrote said the only overlaps were 9
+and 1. The owner's review then read that as "10 of 658 in more than one
+family". Both are wrong. Counted:
+
+| overlap | drivers |
+|---|---|
+| import more than one of the **three class DLLs** | **9** of the 392 that import any class DLL (all portcls + WDFLDR; CLASSPNP ∩ portcls 0, CLASSPNP ∩ WDFLDR 0) |
+| import a class DLL **and** HAL | **126** of those 392 |
+| import more than one of the four | **126** of 658 |
+
+So there are two properties, not one. **The three class families are nearly
+disjoint (9 of 392)**, and their order among themselves is almost arbitrary,
+not load-bearing. **HAL's place is load-bearing:** 126 class-DLL drivers
+(32%) also import HAL. Put HAL anywhere but last and it takes them. That is
+the measured reason HAL is last, and the same fact is why it is a residue.
+
+**The ceiling on any DLL-based rule: 1,135 of 1,322 (85.9%).** 187 drivers
+import `ntoskrnl.exe` and nothing else. No rule that reads the DLL set can
+ever sort them, however it is widened. This bounds every future widening, not
+only this one. The 664 unsorted are the next item, with its own exit. The
+most a DLL rule could reach there is 664 − 187 = 477.
+
+**WMILIB and WppRecorder: the cut, as a measurement.** Across the 1,322 they
+are imported by:
+
+| DLL | drivers | CLASSPNP (17) | portcls (15) | WDFLDR (360) | hal-residue (266) | unsorted (664) |
+|---|---|---|---|---|---|---|
+| WppRecorder | 286 (21.6%) | 0 | 10 | 177 | 37 | 62 |
+| WMILIB | 103 (7.8%) | 0 | 7 | 4 | 43 | 49 |
+
+*Stated against the ruling's premise:* neither DLL is imported by nearly
+everything; 21.6% and 7.8% is far from all. The measured reason for the cut
+is spread. Each one sits in **four of the five buckets**, so on its own it
+says nothing about which family a driver belongs to. WppRecorder is a tracing
+library and WMILIB a WMI helper. Those two descriptions are readings of the
+DLL names, not measurements, and are given only as context.
