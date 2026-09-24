@@ -132,10 +132,11 @@ objdump output, re-decoded by the new build.
 **The limit of the sweep, stated so it is not read as completeness.** It
 flags a cell only where **objdump disagrees** with us under a prefix.
 Where the SDM marks a row `NP` but objdump *also* accepts the prefixed form
-as the same instruction (STAC `66 0F 01 CB` is one candidate), both
-instruments agree, and the sweep cannot see it. Closing that needs the
-SDM's NP/NFx column read for every named row, not a differential. It is
-not claimed here.
+as the same instruction, both instruments agree, and the sweep cannot see
+it. **Verified to occur:** STAC is `NP 0F 01 CB` in the SDM, objdump prints
+`data16 stac` for `66 0F 01 CB`, and we print `stac`. That witness is now
+the red `(bg)`. Its full bound needs the SDM's NP/NFx column read for every
+named row, not a differential, and is owed when `(bg)` is taken.
 
 **Also recorded, not taken:** TESTUI (`F3 0F 01 ED`) and UIRET (`F3 0F 01
 EC`) are UINTR instructions we leave unknown, which is not a wrong answer.
