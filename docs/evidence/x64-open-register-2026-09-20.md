@@ -67,7 +67,7 @@ it:**
 **Gate: exactly one name.** `test_mmio_consumer` is back to an empty
 expected-failure list.
 
-## Open, with a red (12)
+## Open, with a red (13)
 
 **The table is the whole list, across every suite.** Until 2026-09-21
 the executable check compared it against `test_x86_decoder.c`'s
@@ -96,8 +96,9 @@ asserted so a renamed suite cannot shrink the union silently. The
 | (y) | `x64_RED_y_lea_register_form_invalid` | decoder | `8D C0` LEA register form is #UD |
 | (ab) | `x64_RED_ab_two_byte_arm_ignores_mandatory_prefix` | decoder | the arm never reads `66`/`F2`/`F3` |
 | (t) | `unknown_0f_modrm_recovery` | decoder | `0F 0D C0` is #UD and is accepted |
+| (bs) | `bs_RED_f_emits_only_the_named_function` | consumer | `-f` is parsed into `opts.function_name` and nothing reads it; the output is byte-identical with and without it. Minted 2026-09-25 (`fix-bs-function-filter-prereg-2026-09-25.md`) |
 
-## Open, without a red (6)
+## Open, without a red (8)
 
 **Defect letters that are open and have no red yet**, counted so they
 are not carried only in prose. A red is written when the item is taken.
@@ -111,6 +112,8 @@ register check reads that shape as a red.
 | (bi) | the classifier vocabulary is uncited | classifier | **146 of 146** frozen vocabulary entries (`b48923e8…`) cite no pinned source (`x3-sourcing-prereg-2026-09-23.md` §A). X3's pin checked 4, all agreeing (M = 0), and 142 were never checked. Owner ruling 2026-09-23: own letter and own exit. **The first step is not a pinning campaign.** It is a yield measurement on a drawn sample, with the widened method (probe patterns beyond four, and not a control drawn from found pages), because the pass's two yields differ: 4 of 21 for uncovered HAL names against 4 of 4 for already-categorised ones, and the second is the suspicious one. Minted 2026-09-23 |
 | (q) | VEX / EVEX / REX2 unmodelled | decoder | measured zero in the corpus; see *Open, deferred* for its minting condition |
 | (be) | families narrower than the SDM | decoder | found by banking the SDM; unknowns, not wrong answers. Minted 2026-09-23, **split so the nonzero part is justified on its own terms** (owner): **(be-0), measured zero:** 7 legacy XMM encodings on the instruction pages but not in Tables A-4/A-5 (GFNI `66 0F38 CF`, `66 0F3A CE/CF`; Key Locker `F3 0F38 DC-DF`) and LKGS (`F2 0F 00 /6`), 0 corpus rows, with a control; and TESTUI/UIRET (`F3 0F 01 ED/EC`), left unknown by `(bd)`. **(be-n), nonzero:** LAR/LSL (`0F 02`/`03`) 3 rows in 2 binaries, INVPCID (`66 0F 38 82`) 14 rows in 1 KC binary |
+| (bt) | codegen drops the recorded accesses | codegen | Stage 2's accesses live in `sem_function_t.mapped_regions[].accesses`. The glue in `translator.c` (`generate_forth_output`, about lines 320-329) copies only `hal_calls` and port ops into `forth_gen_function_t`, and that struct has no field for them. HDAudBus `1c0022510` emits two bare `MAP-PHYS` and none of its 14 reads. Scope (owner): the word takes the MMIO base on the stack and emits one fetch of the right width per recorded access, at its offset, in address order. Finding the base is **not** in (bt). Red when taken, after (bs). Minted 2026-09-25 |
+| (bu) | MAP-PHYS stack effect prints `( -- )` | codegen | The API table gives `MmMapIoSpaceEx` 3 args and 1 return, but `stack_effect_for_hal` (`forth_codegen.c`, about lines 259-265) has no 3-argument case and falls through to `( -- )`. Owner: emit `( phys size -- virt )` and say in the comment that the Windows protection argument is dropped. Own red, when taken. Minted 2026-09-25 |
 | (az) | DX-port scan ignores MOVSXD | lifter | `uir.c`'s backward scan for the register feeding `in`/`out` via DX matches only MOV / MOVZX / MOVSX into EDX. (p) made MOVSXD (and three-operand IMUL) visible to this reader, which never saw them while they were unknown, so it is a gap **created by (p)** (rule 24). Minted 2026-09-23 |
 
 ## (s) CLOSED 2026-09-21 — and with it the decoder queue
