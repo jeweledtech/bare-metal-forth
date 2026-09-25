@@ -179,3 +179,8 @@ docs/plans/
 *.tar.gz
 *.kc
 *.elides
+
+# Third-party specifications (2026-09-25: the Intel HDA Rev 1.0a PDF landed in
+# refs/, untracked and NOT ignored).  Staging by exact path is the first line;
+# this is the second.  Evidence cites a spec by sha256 and page, never by copy.
+/refs/
