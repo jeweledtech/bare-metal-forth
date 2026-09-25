@@ -121,3 +121,20 @@ fabricated entries (A, including (br)); unbounded extents without `.pdata`
 designed yet. Class A's 15 "neither" entries have an unread source. Reading
 them from the bytes is the next measurement, and the owner's stratified
 hand-read now has its strata.
+
+### Owner's record, end of 2026-09-24
+
+- **The owner's own error, stated by the owner:** the extent hypothesis was
+  abandoned on a summary number ("P resolves 0") instead of the partition
+  behind it. "Resolves 0" and "cannot answer" are different results, which is
+  the zero-measured-versus-zero-found error turned inward. It is the sixth
+  desk error this week, and the first where something was dropped too quickly
+  rather than asserted too quickly. **Corrected:** extent is not the problem
+  for functions with `.pdata` (16.9% of uncovered sites). For real functions
+  without it, it plausibly is (36.5%), reasoned from the partition and not
+  measured.
+- **(bm)'s scorecard is reopened** (register). The first measurement next
+  session: how many of (bm)'s +16,593 new entries are call targets decoded
+  from non-code.
+- **The hand-read is not started tonight.** The strata stand. The sample
+  design waits.
