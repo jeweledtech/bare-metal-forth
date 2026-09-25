@@ -21,3 +21,24 @@ every one unreachable. **4 functions on 4 drivers.** These are the 4 that
 | Q2 | hardware **−4 exactly**; buckets move on **exactly those 4** drivers |
 | Q3 | report bytes change on **at least** those 4. A reachable-only DOS `int 21h` scan could also move a DOS_API function, which is not counted here, and any such driver will be named |
 | Q4 | nothing else moves: X1–X3, `iat_edges` and census 0 of 539; HP unchanged at 265; UIR 0 of 12 (this is an analyzer change); dumps 0 of 16 |
+
+---
+
+## Outcome
+
+*(below this line, from the artefact only)*
+
+Build `adcbf3c1a22f1233` from private `aedec6f` (red `d2fdd6c`); before
+`e343fdb9…`. Reading `bq-reports-post.tsv` (in `SHA256SUMS`); 0 empty
+outputs.
+
+| # | observed |
+|---|---|
+| Q1 | **held**: the gate fired on exactly the (bq) red (`fix-bq-xpass-gate-2026-09-24.log`); `bios_int10h_classified_hardware` and `dos_int21h_classified_scaffolding` green; 423 tests, 12 reds |
+| Q2 | **held exactly**: hardware **−4**, moved set **equals** the 4 drivers (ClipSp ×3, iaStorVD on newer ASUS) |
+| Q3 | **held**: bytes changed on those 4 only. No DOS-path mover appeared |
+| Q4 | **held**: X1 0; X2 and X3 1,322 of 1,322; `iat_edges` 1,322 of 1,322; census 0 of 539; HP 265; UIR 0 of 12; dumps 0 of 16 |
+
+**The reachability rule now covers all three writers of the hardware label
+from instruction evidence:** port values (bn), the port flag (bo) and the
+interrupt scan (bq). Hardware functions: **9,921**.
