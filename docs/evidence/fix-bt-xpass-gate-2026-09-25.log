@@ -1,0 +1,159 @@
+[36mSuite census: test totals and the register union...[0m
+  test totals: 425 across 27 suites (baseline 425)
+  register: 13 reds across 27 suites, union matches
+[36mCorpus-absent refusal: each corpus suite must fail on an empty root...[0m
+  refused: test-mmio-consumer -- FAIL: cannot read /tmp/tmp.EblUq8iAVT/hp_i3/i8042prt.sys
+  refused: test-port-attestation -- FAIL: corpus input missing: 8 of 8 drivers absent under /tmp/tmp.EblUq8iAVT/hp_i3
+  refused: test-hp-drivers -- FAIL: corpus input missing: /tmp/tmp.EblUq8iAVT/hp_i3/ACPI.sys
+  3 suites checked, 3 refused, 0 passed without inputs
+opcode table: regenerates identically
+[36mFloored division (Forth-83 conformance), delegated...[0m
+Running floored division test suite...
+
+╔════════════════════════════════════════════════════════════╗
+║  Forth-83 Floored Division Verification Suite              ║
+║  Jolly Genius Inc. - Ship's Systems Software               ║
+╚════════════════════════════════════════════════════════════╝
+
+
+============================================================
+Symmetric vs Floored Division Comparison
+============================================================
+Expression   | Symmetric (CPU)  | Floored (F83)    | Diff? 
+-------------|------------------|------------------|-------
+   7 / 3     | q=2    r=1       | q=2    r=1       | no
+  -7 / 3     | q=-2   r=-1      | q=-3   r=2       | [33mYES[0m
+   7 / -3    | q=-2   r=1       | q=-3   r=-2      | [33mYES[0m
+  -7 / -3    | q=2    r=-1      | q=2    r=-1      | no
+  10 / 3     | q=3    r=1       | q=3    r=1       | no
+ -10 / 3     | q=-3   r=-1      | q=-4   r=2       | [33mYES[0m
+  10 / -3    | q=-3   r=1       | q=-4   r=-2      | [33mYES[0m
+ -10 / -3    | q=3    r=-1      | q=3    r=-1      | no
+   1 / 3     | q=0    r=1       | q=0    r=1       | no
+  -1 / 3     | q=0    r=-1      | q=-1   r=2       | [33mYES[0m
+   1 / -3    | q=0    r=1       | q=-1   r=-2      | [33mYES[0m
+  -1 / -3    | q=0    r=-1      | q=0    r=-1      | no
+============================================================
+============================================================
+Floored Division Test Suite (Forth-83 Semantics)
+============================================================
+
+[32m[PASS][0m 7 / 3 = 2 rem 1 (both positive)
+[32m[PASS][0m 10 / 5 = 2 rem 0 (exact division)
+[32m[PASS][0m 1 / 1 = 1 rem 0 (identity)
+[32m[PASS][0m 0 / 5 = 0 rem 0 (zero dividend)
+[32m[PASS][0m -7 / -3 = 2 rem -1 (both negative)
+[32m[PASS][0m -10 / -5 = 2 rem 0 (exact, both negative)
+[32m[PASS][0m -7 / 3 = -3 rem 2 (FLOORED: different from symmetric -2,-1)
+       Symmetric would give: q=-2, r=-1
+[32m[PASS][0m 7 / -3 = -3 rem -2 (FLOORED: different from symmetric -2,1)
+       Symmetric would give: q=-2, r=1
+[32m[PASS][0m -1 / 3 = -1 rem 2 (small negative dividend)
+       Symmetric would give: q=0, r=-1
+[32m[PASS][0m 1 / -3 = -1 rem -2 (small positive dividend, neg divisor)
+       Symmetric would give: q=0, r=1
+[32m[PASS][0m -6 / 3 = -2 rem 0 (exact, different signs)
+[32m[PASS][0m 6 / -3 = -2 rem 0 (exact, different signs)
+[32m[PASS][0m -6 / -3 = 2 rem 0 (exact, both negative)
+[32m[PASS][0m 1000000 / 7 = 142857 rem 1
+[32m[PASS][0m -1000000 / 7 = -142858 rem 6 (FLOORED)
+       Symmetric would give: q=-142857, r=-1
+[32m[PASS][0m 1000000 / -7 = -142858 rem -6 (FLOORED)
+       Symmetric would give: q=-142857, r=1
+[32m[PASS][0m 17 / 4 = 4 rem 1
+[32m[PASS][0m -17 / 4 = -5 rem 3 (FLOORED)
+       Symmetric would give: q=-4, r=-1
+[32m[PASS][0m 17 / -4 = -5 rem -3 (FLOORED)
+       Symmetric would give: q=-4, r=1
+[32m[PASS][0m -17 / -4 = 4 rem -1
+[32m[PASS][0m 127 / 10
+[32m[PASS][0m -128 / 10 (FLOORED)
+       Symmetric would give: q=-12, r=-8
+[32m[PASS][0m 3 / 7 = 0 rem 3
+[32m[PASS][0m -3 / 7 = -1 rem 4 (FLOORED)
+       Symmetric would give: q=0, r=-3
+[32m[PASS][0m 3 / -7 = -1 rem -4 (FLOORED)
+       Symmetric would give: q=0, r=3
+[32m[PASS][0m -3 / -7 = 0 rem -3
+[32m[PASS][0m FB Example: -7 / 3 floored gives q=-3, r=2
+       Symmetric would give: q=-2, r=-1
+[32m[PASS][0m INT64_MAX / 2
+[32m[PASS][0m -INT64_MAX / 2 (FLOORED)
+       Symmetric would give: q=-4611686018427387903, r=-1
+
+============================================================
+Results: [32m29 passed[0m, 0 failed
+Cases where floored differs from symmetric: [33m13[0m
+============================================================
+
+============================================================
+Testing combined divmod function
+============================================================
+[32mAll divmod tests passed!
+[0m
+[32m✓ All tests passed - floored division is correct!
+[0m  Safe to integrate into Universal Binary Translator and Forth kernel.
+
+Exercising every floored-division emitter...
+floored-division emitters, all three targets
+  emit_floored_div_x64                24 bytes   ok
+  emit_floored_mod_x64                24 bytes   ok
+  emit_floored_divmod_x64             24 bytes   ok
+  emit_floored_div_arm64              28 bytes   ok
+  emit_floored_mod_arm64              28 bytes   ok
+  emit_floored_divmod_arm64           40 bytes   ok
+  emit_floored_div_riscv64            28 bytes   ok
+  emit_floored_mod_riscv64            28 bytes   ok
+  emit_floored_divmod_riscv64         40 bytes   ok
+
+9 emitters exercised, 0 failures
+x86-64 floored-division emitters, EXECUTED against the reference
+  emit_floored_div_x64   24 bytes, 11 vectors executed, 0 wrong
+  emit_floored_mod_x64   24 bytes, 11 vectors executed, 0 wrong
+
+control -- a SYMMETRIC divider must FAIL this comparison:
+  symmetric divider disagreed with the reference on 5 of 11 vectors
+
+NOT CLAIMED: the ARM64 and RISC-V emitters cannot be executed on
+this host.  They have SHAPE checks only (test_codegen_all.c), and
+the join proved here for x86-64 is still owed for them.
+
+11 vectors x 2 emitters, 0 wrong
+[36mSmoke-testing the shipped binary...[0m
+  -- self-test first: the checks must REJECT four bad outputs and
+     ACCEPT one good one, or a pass below proves nothing
+  rejected: too few lines
+  rejected: first line not at entry
+  rejected: a run of address-0 lines
+  rejected: the moffs address absent
+  rejected: a nop in a fixture with no NOP byte
+  rejected: one line too many (a desync)
+  accepted: a well-formed output (positive control)
+  SELF-TEST: 7 cases, 0 failures
+  examined 35 disassembly lines from the linked binary
+  instruction lines: 35 (expected exactly 35)
+  SMOKE PASS: shipped binary decodes the fixture, resolves the 64-bit moffs address, no address-0 run
+  -- the denominator instrument's refusals, same discipline
+  refused: a missing input
+  refused: an input with zero instructions
+  accepted: fixture/x64_reds.elf (35 instructions, positive control)
+  SELF-TEST: 3 cases, 0 failures
+  -- the parsing contract's operand roles, built from six defects
+  SELF-TEST: 10 cases, 0 failures
+  -- the C-source contract, built from three more
+  SELF-TEST: 6 cases, 0 failures
+[36mTesting the MMIO consumer (stage 1)...[0m
+gcc -Wall -Wextra -Wpedantic -Werror -O2 -std=c11 -D_POSIX_C_SOURCE=200809L -Isrc -Iinclude -DTRANSLATOR_NO_MAIN -DCORPUS_ROOT='"/home/bbrown/corpus"' -o build/tests/test_mmio_consumer \
+	tests/test_mmio_consumer.c build/loaders/com_loader.o build/loaders/elf_loader.o build/loaders/format_detect.o build/loaders/pe_loader.o build/decoders/arm64_decoder.o build/decoders/cil_decoder.o build/decoders/riscv_decoder.o build/decoders/x86_decoder.o build/ir/cil_semantic.o build/ir/semantic.o build/ir/uir.o build/codegen/codegen.o build/codegen/forth_codegen.o build/optimize/optimize.o build/api/api_map.o \
+	src/main/translator.c
+./build/tests/test_mmio_consumer
+MMIO Consumer, stage 1
+======================
+  TEST: aj_report_names_the_mapped_region_and_its_park       PASS
+  TEST: stage2_RED_hdaudbus_14_accesses                      PASS
+  TEST: bs_RED_f_emits_only_the_named_function               FAIL: the no-flag vocabulary has no MMIO-FN-1C0022510; 
+  TEST: bt_RED_codegen_emits_recorded_accesses               XPASS: expected failure PASSED - stop; correct the register, then remove from xfail_names
+
+Results: 2/4 passed (xfail=0 of 1 registered, xpass=1)
+HARD FAILURE: 1 expected failure(s) passed (XPASS).
+make: *** [Makefile:198: test-mmio-consumer] Error 1

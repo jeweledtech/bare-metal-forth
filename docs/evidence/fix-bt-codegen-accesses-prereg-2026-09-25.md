@@ -133,3 +133,53 @@ that the word contains no executable `MAP-PHYS` line.
 ## Outcome
 
 *(below this line, from the artefact only)*
+
+**Inputs hashed:** `translator.c` `8f6db6cc2a08134f`, `forth_codegen.c`
+`5d20f7c0e1d93d33`, `forth_codegen.h` `c8fd9f2f48d1ec83`,
+`test_mmio_consumer.c` `a91a8505ab5d8bf4`, and build `bin/translator`
+`5b813601891fa1f0`. The build before the fix was `57d9b73ebdd13337`, and
+its `-t forth` hashes equal (bs)'s after-sweep.
+
+### The gate run also failed (bs)'s test, and the check was the suspect
+
+**The gate fired on exactly `bt_RED_codegen_emits_recorded_accesses`.**
+The same run (`fix-bt-xpass-gate-2026-09-25.log`, verbatim) also **failed
+`bs_RED_f_emits_only_the_named_function`**: "the no-flag vocabulary has no
+MMIO-FN-1C0022510".
+
+**Read before touching:**
+- The (bs) test's `cut_to_word` takes a definition to run from a `: ` line
+  to a `;` line. (bt)'s accessors are **one-line** definitions (`: … ;`).
+  So the parser ran from the first accessor to the word's `;`, treated all
+  of it as one block named after that accessor, and never found the word.
+- **The product was right.** `-f 1C0022510` emits the function's accessor
+  group and its word, and drops only other functions' blocks.
+
+**(bt) changed the format that the (bs) test reads, so (bt) owns that
+reader (rule 24).**
+- The parser now attaches a `\ registers of the region` group (its header,
+  one-line definitions and one blank line) to the word that follows it. A
+  group with no word after it fails the cut.
+- **Nothing it asserts was loosened:** it still demands byte equality with
+  the cut.
+- **Checked independently of the test:** for **all 396** kept functions in
+  the 10 moved drivers, CLI `-f <address>` equals the no-flag output cut
+  with the same group rule, **396 of 396**.
+
+### The predictions
+
+| # | predicted | observed |
+|---|---|---|
+| T1 | the gate fires on exactly the (bt) red; 425 tests; reds 12 → 13 → 12 | **held**, with the (bs) reader failure above, which was read, resolved and recorded. After retiring the red: `test-all` exits 0, 425 tests across 27 suites, 12 reds, and the union matches |
+| T2 | HP HDAudBus emits the pre-registered block byte for byte | **held**: the block is present verbatim |
+| T3 | 26 accessors, 62 access lines, 19 map lines (4 `walk stopped`), 6 `two regions`, 6 writes, no MAP-PHYS left | **held exactly**: 26 / 62 / 19 (4) / 6 / 6, and no MAP-PHYS call left in any word with accesses |
+| T4 | exactly 10 drivers, exactly 11 words | **held**: the moved set is the 10 predicted drivers, and the changed words are the 11 predicted functions |
+| T5 | 1,328 drivers byte-identical; within the 10, everything else identical | **held**: 1,328 identical. In the 10, the head and tail of every file are identical, and every other word is identical |
+| T6 | `-t report` identical on 1,338; nothing else moves | **held**: 1,338 of 1,338 |
+
+**What the translator now emits for HDAudBus `1c0022510`** is seven
+`( base -- x )` words for the registers read by hand on the HP today:
+`+0 W@` (GCAP), `+2 C@` (VMIN), `+3 C@` (VMAJ), `+4 W@`, `+6 W@`, `+8 @`
+(GCTL) and `+14 W@`. The spec names come from the spec check, not from
+the codegen. **Finding the base (`PCI-FIND-CLASS` plus BAR) is the next
+letter; it was not in (bt).**
