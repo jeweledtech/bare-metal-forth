@@ -106,3 +106,41 @@ move (ACPI).
 **Not addressed here, named:** semantic's BIOS scan ignoring reachability is
 the same defect class in a third place. It is left for its own letter, not
 widened into (bo).
+
+---
+
+## Outcome
+
+*(below this line, from the artefact only)*
+
+**Inputs hashed:** `bin/translator` before `016001f9c343189b`, after
+`e343fdb9f654c474`, built from private `6be84f3` (red `bdc6a4b`), mirror
+identical. Readings are `bo-reports-post.tsv`, `bo-zero-fact.tsv` and
+`bo-reach-v4.json` in `~/corpus/tools-2026-09-24/SHA256SUMS`. 0 empty
+outputs.
+
+| # | predicted (as amended) | observed |
+|---|---|---|
+| O1 | gate on exactly the (bo) red after the BIOS-interrupt writer was included; 422 tests | **held on the second build** (`fix-bo-xpass-gate-2026-09-24.log`). **Missed on the first build**, with an unpredicted failure, `int10h_lifts_to_uir_int`, recorded above |
+| O2 | hardware −826 exactly; buckets on exactly the 244 | **held exactly**: **−826**; the moved set **equals** the 244; each driver's hardware loss equals its predicted move count on **244 of 244**. The moved functions went to scaffolding **+105** and unclassified **+721** |
+| O3 | bytes change on exactly the 244 flip drivers | **held as an exact set**: 244, 0 others |
+| O4 | nothing else moves | **held**: 0 hex; X2 and X3 1,322 of 1,322; `iat_edges` 1,322 of 1,322; port-fact functions **553** (count unchanged); census 0 of 539 |
+| O5 | HP 266 → 265; ACPI only; UIR 1 of 12; dumps 0 of 16 | **held**: 265; ACPI's report and UIR only; dumps 0 |
+| O6 | product zero-fact 94.32%; the gap to the oracle's 98.97% stays | **held**: **94.32%** (9,925 hardware, 564 with a fact). **The gap stays**, and it is the 363 fall-through functions |
+| O7 | 43 of the moved have a Ghidra-attested site; presumed (bp) | **not read individually**: recorded as 43 unverified false negatives against the oracle |
+
+**(bo) completes (bn).** A function no longer prints "hardware" on the
+strength of a port instruction no path reaches. On **244 drivers**, **826**
+functions that were hardware only through unreachable port bytes are no
+longer labelled hardware. **HP: 265.**
+
+**Found while fixing, and now its own red: `(bq)`** (private `d2fdd6c`).
+`semantic.c`'s BIOS-interrupt scan walks every block and marks hardware
+from an unreachable `int 0x10`. That is the same defect class in a third
+place, held apart rather than widened into (bo).
+
+**Independent checks: four**, as pre-registered.
+
+**Next, per the owner:** decide (bn)'s second condition against the gap as it
+now stands. 94.32% against 98.97% is 363 fall-through functions whose port
+instructions are reachable only by falling through from real code.
