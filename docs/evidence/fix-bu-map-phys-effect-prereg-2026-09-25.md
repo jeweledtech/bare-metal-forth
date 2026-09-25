@@ -63,3 +63,54 @@ the code), give a per-file sha256 table. That table's own sha256 is
 ## Outcome
 
 *(below this line, from the artefact only)*
+
+### First build (`8e4e1bfbdfaaedc4`): U1 and U2 held, U3 failed
+
+| # | observed |
+|---|---|
+| U1 | **held:** the gate fired on exactly `bu_RED_map_phys_stack_effect` (`fix-bu-xpass-gate-2026-09-25.log`) |
+| U2 | **held:** 1,338 of 1,338 outputs equal their predicted sha256; 232 moved |
+| U3 | **FAILED.** `-t report` was identical on 1,338, but **another test moved**. After the red was retired, `test-all` reached `test_beep_validation`, which the gate run never reached because it stopped at the XPASS: `line_length_block_safe FAIL: line 76 is 84 chars (max 64): : MMIO-FN-11879  ( phys size -- virt )  …` |
+
+**The design broke a product constraint I did not read.** Block loading
+truncates a line past column 64. The single-call header with its note ran
+to 84 characters.
+
+**The same measurement found a defect in (bt), which is closed:**
+- (bt)'s `\ map … walk stopped at 0x…` lines are **over 64 characters**:
+  **4 lines**, in Dell `hdaudbus` (×2), Newer ASUS `errdev` and Older ASUS
+  `fvevol`. **None** of the 10 drivers (bt) moved had a long line before
+  it.
+- No test reads them: the only line-length check is on the beep fixture.
+- **Minted (bw).** It gets its own red, after (bu) closes.
+- **Named, not taken:** 94 long lines existed before both letters. They
+  are StorPort and IALPSS helper names and STRIP lines in 27 files, an
+  older and separate class.
+
+### Corrective (pre-registered here, before it was built)
+
+**The design, restated in full:**
+- MAP-PHYS is `( phys size -- virt )`.
+- The note moves to **its own comment line**: `    \ Windows arg 3
+  (protect / cache type) dropped`. That is **50 characters**, whatever the
+  word's name.
+- **Single-call:** `: <NAME>  ( phys size -- virt )`, then the note line,
+  then `    MAP-PHYS`.
+- **Multi-call:** `    MAP-PHYS  \ ( phys size -- virt )` followed by the
+  note line, for each call.
+
+**The red is restated to this text.** The committed red (`c813d8e`)
+asserts the first design's one-line note. It goes back into
+`xfail_names[]` with the new expected text before the corrective is
+built, and this edit is the only change to it.
+
+**The exact after-state, predicted as text** (`bu_predict2.py`, from the
+same inputs as U2): **232 moved**, and the per-file table's sha256 is
+**`62d2c00ac16d276e…`**. The longest new or changed line is **50** and
+**none is over 64**.
+
+| # | prediction |
+|---|---|
+| C1 | the gate fires on exactly `bu_RED_map_phys_stack_effect` again |
+| C2 | 1,338 of 1,338 outputs equal `bu_pred2.tsv`; 232 moved |
+| C3 | `test-all` exits 0 **including** `line_length_block_safe`; 426 tests, 12 reds after retiring; `-t report` identical on 1,338 |
