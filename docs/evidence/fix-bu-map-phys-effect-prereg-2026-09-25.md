@@ -114,3 +114,21 @@ same inputs as U2): **232 moved**, and the per-file table's sha256 is
 | C1 | the gate fires on exactly `bu_RED_map_phys_stack_effect` again |
 | C2 | 1,338 of 1,338 outputs equal `bu_pred2.tsv`; 232 moved |
 | C3 | `test-all` exits 0 **including** `line_length_block_safe`; 426 tests, 12 reds after retiring; `-t report` identical on 1,338 |
+
+### Corrective outcome
+
+**Inputs hashed:** `forth_codegen.c` `d3dd62bc830b353a`,
+`test_mmio_consumer.c` `c582a5c3f3f78f66`, and build `bin/translator`
+`cfa43f46783de0ec`.
+
+| # | observed |
+|---|---|
+| C1 | **held:** the gate fired on exactly `bu_RED_map_phys_stack_effect` (`fix-bu-corrective-xpass-gate-2026-09-25.log`) |
+| C2 | **held:** 1,338 of 1,338 outputs equal `bu_pred2.tsv`; 232 moved; `-t report` identical on 1,338 |
+| C3 | **held:** `test-all` exits 0 with 426 tests across 27 suites and 12 reds; the union matches. All four `line_length_block_safe` checks pass, including beep's (120 lines, all ≤ 64) |
+
+**(bu) is closed.** `MAP-PHYS` prints `( phys size -- virt )`, and a
+line of its own says the Windows third argument (protection or cache type)
+is dropped. The rule taken from this: **a gate run that stops at the
+XPASS has not run the later suites. U3-type predictions are read from
+the post-retirement `test-all`, never from the gate run.**
