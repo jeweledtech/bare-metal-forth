@@ -67,7 +67,7 @@ it:**
 **Gate: exactly one name.** `test_mmio_consumer` is back to an empty
 expected-failure list.
 
-## Open, with a red (13)
+## Open, with a red (12)
 
 **The table is the whole list, across every suite.** Until 2026-09-21
 the executable check compared it against `test_x86_decoder.c`'s
@@ -96,7 +96,6 @@ asserted so a renamed suite cannot shrink the union silently. The
 | (y) | `x64_RED_y_lea_register_form_invalid` | decoder | `8D C0` LEA register form is #UD |
 | (ab) | `x64_RED_ab_two_byte_arm_ignores_mandatory_prefix` | decoder | the arm never reads `66`/`F2`/`F3` |
 | (t) | `unknown_0f_modrm_recovery` | decoder | `0F 0D C0` is #UD and is accepted |
-| (bs) | `bs_RED_f_emits_only_the_named_function` | consumer | `-f` is parsed into `opts.function_name` and nothing reads it; the output is byte-identical with and without it. Minted 2026-09-25 (`fix-bs-function-filter-prereg-2026-09-25.md`) |
 
 ## Open, without a red (8)
 
@@ -592,6 +591,7 @@ written into the suite's `xfail_names[]` when the name was retired.
 | 2026-09-24 | (bn) | `fix-bn-xpass-gate-2026-09-24.log` | 1 (a port is recorded only for a reachable instruction; kept 553 of 932 port-fact functions, 135 of 136 drivers matching the model exactly; not sufficient: product zero-fact 94.75% against the oracle's 97.85–99.03%) |
 | 2026-09-24 | (bo) | `fix-bo-xpass-gate-2026-09-24.log` | 1 (the port I/O flag from reachable code only; −826 hardware functions on exactly the 244 predicted drivers; HP 265) |
 | 2026-09-24 | (bq) | `fix-bq-xpass-gate-2026-09-24.log` | 1 (the analyzer's interrupt scan reads reachable blocks only; −4 hardware on exactly the 4 predicted drivers) |
+| 2026-09-25 | (bs) | `fix-bs-xpass-gate-2026-09-25.log` | 1 (`-f` names one function: the no-flag vocabulary cut to that word, byte-equal to the prediction on HDAudBus and i8042prt; three refusals; no-flag output unmoved on 1,338 of 1,338) |
 
 † **Banked 2026-09-23 from the session's scratch directory**, where the
 gate run had written it. Each is the verbatim gate output, copied

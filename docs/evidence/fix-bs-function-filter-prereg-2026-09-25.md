@@ -65,3 +65,46 @@ happens.
 ## Outcome
 
 *(below this line, from the artefact only)*
+
+**Inputs hashed:** `translator.c` `75065fe76da0f118`,
+`forth_codegen.c` `7d99e29ae83018f3`, `forth_codegen.h`
+`5fd446bd9eec1ab2`, and build `bin/translator` `57d9b73ebdd13337`. The
+build before the fix was `adcbf3c1a22f1233`.
+
+### The first build failed the gate, and the defect was mine
+
+**The first fix build XFAILed on one count only:** the three refusals
+held, but the vocabulary was not the cut. A diff against the pre-registered
+prediction showed exactly one line:
+
+```
+< \ STRIP: 346 total -> 21 kept / 76 scaffolding / 249 unclass
+> \ STRIP: 346 total -> 1 kept / 76 scaffolding / 249 unclass
+```
+
+- The codegen contract says *"kept count == function_count"*
+  (`forth_codegen.h`). The emitter prints `function_count` as "kept". My
+  filter narrowed `function_count`, so the summary described the one word
+  instead of the driver. That contradicts design point 1, which says the
+  strip summary stays unchanged.
+- **The fix carries the driver's count** in a new `kept_count` field. It
+  defaults to `function_count` when 0, so other callers are unchanged.
+- **Neither the prediction nor the red was edited.** The filter itself
+  selects one entry of the function list. It never reads or cuts text, and
+  it does not use the test's `cut_to_word`, so the check stays independent
+  of the code it checks.
+
+### The predictions
+
+| # | predicted | observed |
+|---|---|---|
+| S1 | the gate fires on exactly the (bs) red; 424 tests; reds 12 → 13 → 12 | **held on the second build:** the gate fired on exactly `bs_RED_f_emits_only_the_named_function` (`fix-bs-xpass-gate-2026-09-25.log`). After retiring it: `test-all` exits 0, 424 tests across 27 suites, 12 reds, and the union matches |
+| S2 | HDAudBus `-f 1C0022510`: sha256 `c456d6bdf114d7c3…`, 1 word, the same in all four spellings | **held:** `c456d6bdf114d7c3` for `1C0022510`, `func_1C0022510`, `0x1C0022510` and `1c0022510`. It has one colon definition and is byte-equal to the predicted file |
+| S3 | i8042prt `-f 1C0001260`: sha256 `4c50ea2297dd1c99…` | **held:** `4c50ea2297dd1c99`, byte-equal to the predicted file, with its 3 accessors kept |
+| S4 | three refusals, exit 1, empty stdout | **held:** each exits 1 with 0 bytes on stdout. stderr says `no function has that name or address`, `function 0x1C0001010 is not kept, so no word is emitted for it`, and `-f is supported only with -t forth` |
+| S5 | no-flag byte-identical on 1,338 of 1,338 | **held:** 1,338 same and 0 moved, over the same input set |
+| S6 | nothing else moves | **held:** every other suite is green, and the only census change is `test_mmio_consumer.c` at 4 tests |
+
+**(bs) is closed.** `-f` now does what its help line says, for `-t forth`.
+For every other target it is refused rather than ignored. **Named, not
+taken:** wiring `-f` for the other targets.
