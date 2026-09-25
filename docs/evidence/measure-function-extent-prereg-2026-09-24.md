@@ -91,7 +91,10 @@ outside ClipSp, 100 attested in ClipSp.
 ### The owner's reframe, tested: the residual is not mostly an extent problem
 
 **P resolves none of the 362.** 88% of these functions carry a `.pdata`
-range, and every unattested port site lies **inside** it. The product's
+range, and in each of them **at least one** kept port site lies before the
+range's end. (A first draft said *every* site lies inside. That is more than
+P = 0 shows, and it is corrected here.) The 12% with no range are
+*undetermined* under P. The product's
 extent agrees with the compiler's unwind data for these functions. So the 363
 are not, for the most part, neighbours the extent swallowed. **(bp)'s region
 is a genuine extent case**: no `.pdata`, no reference, found by Ghidra's
@@ -113,8 +116,10 @@ Every reachable port site in the kept port-fact functions (11,453):
 | Ghidra has a different instruction starting there | 0 |
 
 **94% of the residual's port sites are bytes that flow-following disassembly
-does not treat as code, inside declared function ranges**, which our linear
-decode lifts and our CFG reaches. Desync (131) explains little of it.
+does not treat as code**, inside functions the product discovered, which our
+linear decode lifts and our CFG reaches. Whether each such site also lies
+inside its function's `.pdata` range was **not measured per site**. (A first
+draft asserted it; corrected.) Desync (131) explains little of it.
 
 **How our CFG reaches those bytes is not measured.** It could be fall-through
 past a call that does not return; a fall-through edge after a table jump; an
