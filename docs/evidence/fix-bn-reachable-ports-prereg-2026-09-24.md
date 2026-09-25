@@ -63,10 +63,16 @@ Ghidra labels.
 
 **The owner's gate, predicted to fail in two named places:**
 - **2 attested functions outside ClipSp lose their port facts**, in
-  `RTKVHD64.sys` (fn `0x160260`). The chain to the attested sites breaks at
+  `RTKVHD64.sys` (fn `0x160260`). ~~The chain to the attested sites breaks at
   a block ending in an `unknown` instruction our decoder cannot identify,
-  where Ghidra decodes on. The lifter's own printed edges agree. This is **a
-  decoder-coverage gap feeding the CFG**, not the rule.
+  where Ghidra decodes on. This is a decoder-coverage gap feeding the CFG.~~
+  **Corrected 2026-09-24 (read from the bytes):** the attested sites sit in a
+  153-block region of the function that no edge reaches. The region's roots
+  follow a `ret` and a `jmp`. It has **no `.pdata` coverage** (a 0x28000-byte
+  gap in the `CODE` section), no direct call or jump, and no stored pointer.
+  Ghidra finds it with its function-start analysis, **not** by following
+  flow from anything we know. The `unknown` I cited is inside the region, not
+  its cause. This is **`(bp)`**, not decoder coverage, and not the rule.
 - **27 ClipSp attested functions lose theirs.** Under point 3 (no device, no
   hardware resources, every port site in 7.1–7.9 bits/byte sections) these
   are not port access, so this is correct.
@@ -114,8 +120,8 @@ outputs.
 **The owner's exact-set gate, scored as predicted.** The attested functions
 kept are **191 of 220**. The 27 ClipSp functions dropped are correct (non-code,
 point 3). The **2 RTKVHD64** functions are false negatives against the oracle,
-from our CFG breaking at an undecodable instruction. That is decoder coverage,
-not the rule. **Unattested functions removed: 349 of 712**, with 363 left.
+~~from our CFG breaking at an undecodable instruction~~: **corrected**, it is
+code no entry of ours reaches (`(bp)`, above). It is not the rule. **Unattested functions removed: 349 of 712**, with 363 left.
 
 ### What (bn) did not reach, now measured
 
