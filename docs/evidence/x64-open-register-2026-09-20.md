@@ -67,7 +67,7 @@ it:**
 **Gate: exactly one name.** `test_mmio_consumer` is back to an empty
 expected-failure list.
 
-## Open, with a red (13)
+## Open, with a red (12)
 
 **The table is the whole list, across every suite.** Until 2026-09-21
 the executable check compared it against `test_x86_decoder.c`'s
@@ -96,7 +96,6 @@ asserted so a renamed suite cannot shrink the union silently. The
 | (y) | `x64_RED_y_lea_register_form_invalid` | decoder | `8D C0` LEA register form is #UD |
 | (ab) | `x64_RED_ab_two_byte_arm_ignores_mandatory_prefix` | decoder | the arm never reads `66`/`F2`/`F3` |
 | (t) | `unknown_0f_modrm_recovery` | decoder | `0F 0D C0` is #UD and is accepted |
-| (bn) | `uir_RED_bn_unreachable_port_not_recorded` | lifter | a port fact is recorded for every `in`/`out` in a function's linear range, reachable or not, so non-code bytes print as instruction-derived evidence. Proven on `f3ahvoas.dll` (port 0xFA decoded from a keyboard-layout table). The pass state (reachability from the entry) is necessary, not sufficient (`measure-zero-fact-corpus-prereg-2026-09-24.md`) |
 
 ## Open, without a red (4)
 
@@ -554,7 +553,7 @@ duplicated (d)/(d-k). Where no log survives, the closure is listed as
 **closed, no log**, and its only record is the `FIXED <date>` comment
 written into the suite's `xfail_names[]` when the name was retired.
 
-**With a banked gate log** (35 letters, 70 names; logs in `docs/evidence/`):
+**With a banked gate log** (36 letters, 71 names; logs in `docs/evidence/`):
 
 | closed | letter(s) | gate log | names on its XPASS lines |
 |---|---|---|---|
@@ -584,6 +583,7 @@ written into the suite's `xfail_names[]` when the name was retired.
 | 2026-09-24 | (bm) | `fix-bm-xpass-gate-2026-09-24.log` | 1 (discovery took a REL target re-offset; two-sided: entries missed on 225 drivers, fabricated on the 20 at image base 0x10000) |
 | 2026-09-24 | (bl) | `fix-bl-xpass-gate-2026-09-24.log` | 1 (the hardware criterion, created 2026-09-24; the three MDL routines → BUFFER_SETUP; 133 drivers emptied of hardware functions, all read first) |
 | 2026-09-24 | (bk) | `fix-bk-xpass-gate-2026-09-24.log` | 1 (a thunk function's entry `jmp [IAT]` resolved as its import; 3,611 thunks on 764 drivers, iat_edges +thunk count on 1,322 of 1,322) |
+| 2026-09-24 | (bn) | `fix-bn-xpass-gate-2026-09-24.log` | 1 (a port is recorded only for a reachable instruction; kept 553 of 932 port-fact functions, 135 of 136 drivers matching the model exactly; not sufficient: product zero-fact 94.75% against the oracle's 97.85–99.03%) |
 
 † **Banked 2026-09-23 from the session's scratch directory**, where the
 gate run had written it. Each is the verbatim gate output, copied
@@ -612,7 +612,7 @@ by name:
 pair): (ai), 2026-09-23, controls in the translator's
 `measure/comparer-controls/`.
 
-**Total closed: 48 letters** (35 + 12 + (ai)), counted from the rows above. The lesson from the "no log" rows is the
+**Total closed: 49 letters** (36 + 12 + (ai)), counted from the rows above. The lesson from the "no log" rows is the
 fourth lineage rule's corollary again: *keep every gate log.* Six of this
 week's logs survived only because the scratch directory had not been
 cleared.

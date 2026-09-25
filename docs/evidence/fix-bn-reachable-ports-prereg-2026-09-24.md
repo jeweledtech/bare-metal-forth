@@ -91,3 +91,48 @@ this fix, and it is named here before the fix lands.
    and loses it leaves the hardware block. That count is **not predicted**,
    because a port-fact function can also be hardware through its imports.
    It is counted after.
+
+---
+
+## Outcome
+
+*(below this line, from the artefact only)*
+
+**Inputs hashed:** `bin/translator` before `1560da9a91319b0d`, after
+`016001f9c343189b`, built from private `b8a1484` (red `67aa689`), mirror
+identical. Readings are `bn-reports-post.tsv`, `bn-zero-fact.tsv` and
+`bn-model-sites.json` in `~/corpus/tools-2026-09-24/SHA256SUMS`. 0 empty
+outputs.
+
+| gate | predicted | observed |
+|---|---|---|
+| 1 | the (bn) red XPASSes alone; its guard stays green; the domain guard stays 14 | **held** (`fix-bn-xpass-gate-2026-09-24.log`): 421 tests, 12 reds |
+| 2 | per driver, the C's kept port-fact functions equal the model's; 554 in total | **135 of 136 drivers exact; 553 against 554.** The one miss, `PEAuth.sys` (older ASUS) `0x1c00b4008`, is **the model's error**. The model credited a DX port from `mov r2, 0x3a1160e0a9c0602d` (a 64-bit move into RDX), a form the C's pass 4 has never counted: the pre-fix port list for that function is {0xAC, 0x1D, 0xB1, 0x6F, 0x81, 0x30, 0xD6}, with no 0x602d. The function itself is protected-code garbage (`invalid`, `sti`, `hlt`, operandless `port_in`) |
+| 3 | only port facts move: UIR 0 of 12, dumps 0 of 16, X1–X3, census 0 of 539 | **held**: UIR 0; dumps 0; snapshot reports 0; X1 0 hex, X2 and X3 1,322 of 1,322; `iat_edges` unchanged on 1,322; census 0 of 539. Report bytes changed on **98** drivers, all among the 136 port-fact drivers |
+| 4 | buckets may move; counted after | **0 moved.** See the residual below |
+
+**The owner's exact-set gate, scored as predicted.** The attested functions
+kept are **191 of 220**. The 27 ClipSp functions dropped are correct (non-code,
+point 3). The **2 RTKVHD64** functions are false negatives against the oracle,
+from our CFG breaking at an undecodable instruction. That is decoder coverage,
+not the rule. **Unattested functions removed: 349 of 712**, with 363 left.
+
+### What (bn) did not reach, now measured
+
+- **The convergence check (owner point 5) does not converge.** The product's
+  own zero-fact number after the fix is **94.75%** (10,751 hardware, 553
+  port-fact, 11 stage-2), up from 91.23%. The oracle says 97.85–99.03%.
+  **The gap is the 363 unattested functions kept**, reached by linear
+  fall-through, so the second condition the pre-registration named is
+  needed. An internal check and an external oracle do **not** yet agree, and
+  that is the result.
+- **The hardware label is untouched: 0 buckets moved.** The fix filters port
+  *values*. The lifter's `has_port_io` is still set by **any** `in`/`out`,
+  reachable or not, and it still makes a function hardware. So the functions
+  that lost every port fact are still printed as hardware. **That is the same
+  defect one level up**, and it is not pre-registered. It needs its own letter
+  and red before any fix. How many hardware functions it holds up is **not
+  measured**.
+
+**Independent checks:** the suites, the model (a second implementation), the
+population run, the census and the snapshot. **Five.**
