@@ -132,3 +132,11 @@ Nothing is designed before that.
 **(bp) stands as its own, smaller item**: extent where there is no
 `.pdata`. **(bn)'s second condition is now a question about our CFG's edges
 into non-code, not about extent.**
+
+> **Corrected 2026-09-24** (`measure-residual-predecessor-prereg-2026-09-24.md`):
+> "the residual is not mostly an extent problem" holds only for functions
+> **with** a `.pdata` range. The P rule is *undetermined* for functions without
+> one, and **real functions with no `.pdata` range hold 36.5% of the uncovered
+> port sites**. That is (bp)'s class, and it is not the exception I called it.
+> The largest share (46.6%) is entries created from non-code, including
+> `(br)`, a side effect of (bm).
