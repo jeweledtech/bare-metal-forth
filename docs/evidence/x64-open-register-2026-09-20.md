@@ -67,7 +67,7 @@ it:**
 **Gate: exactly one name.** `test_mmio_consumer` is back to an empty
 expected-failure list.
 
-## Open, with a red (12)
+## Open, with a red (13)
 
 **The table is the whole list, across every suite.** Until 2026-09-21
 the executable check compared it against `test_x86_decoder.c`'s
@@ -96,6 +96,7 @@ asserted so a renamed suite cannot shrink the union silently. The
 | (y) | `x64_RED_y_lea_register_form_invalid` | decoder | `8D C0` LEA register form is #UD |
 | (ab) | `x64_RED_ab_two_byte_arm_ignores_mandatory_prefix` | decoder | the arm never reads `66`/`F2`/`F3` |
 | (t) | `unknown_0f_modrm_recovery` | decoder | `0F 0D C0` is #UD and is accepted |
+| (bo) | `uir_RED_bo_unreachable_port_not_port_io` | lifter | `has_port_io` is set by any `in`/`out`, reachable or not, and makes a function hardware, so functions `(bn)` stripped of every port fact still print as hardware. Found by `(bn)`'s outcome (0 buckets moved); its reach is **not measured** (`fix-bn-reachable-ports-prereg-2026-09-24.md`) |
 
 ## Open, without a red (4)
 
