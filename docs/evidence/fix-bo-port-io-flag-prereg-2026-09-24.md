@@ -72,3 +72,37 @@ report's import categories), plus `-t uir` port sites and printed edges.
 
 **Independent checks:** the suites; the population run (O2–O4 and O6's
 inputs); the census; the snapshot. **Four.**
+
+## Amendment, before the population run (2026-09-24)
+
+**A third writer I missed, found by the suite, not by reading.** The first
+build failed `int10h_lifts_to_uir_int` ("has_port_io not set for BIOS INT").
+`lift_one` also sets `has_port_io` for BIOS software interrupts (`int`
+0x10/0x13/0x14/0x15/0x16/0x1A), and my recompute wiped that. **O1 therefore
+missed on the first build**, with an unpredicted test failure. The fix now
+includes reachable BIOS interrupts, under the same rule. The gate then fired
+on exactly the (bo) red.
+
+**A second effect of the same path.** `semantic.c` separately scans **every**
+block for those interrupt vectors and marks the function hardware
+(BIOS_INT), reachable or not. So a function holding such an `int`, even in
+unreachable bytes, stays hardware after (bo).
+
+**Reach re-counted (`bo_reach.py` v4, before any population run of the fixed
+build):** flips **837** (unchanged), moves **826** (was 830; 4 functions hold
+a BIOS-vector `int`), on the same **244** drivers. Of the 826, **43** have a
+Ghidra-attested site, and 646 are in drivers with a dump. HP: 1 flip and 1
+move (ACPI).
+
+**Amended predictions** (O1 and O2 restated; O6's arithmetic follows):
+- **O1:** 422 tests. The gate fired on exactly the (bo) red **after** the
+  BIOS-interrupt writer was included. The first build's unpredicted failure
+  is recorded as a miss.
+- **O2:** hardware **−826 exactly**, buckets moving on exactly the 244.
+- **O6:** product zero-fact (9,925 − 564) / 9,925 = **94.32%** against the
+  oracle's (9,925 − 102) / 9,925 = **98.97%** on the same denominator. The
+  gap stays.
+
+**Not addressed here, named:** semantic's BIOS scan ignoring reachability is
+the same defect class in a third place. It is left for its own letter, not
+widened into (bo).
