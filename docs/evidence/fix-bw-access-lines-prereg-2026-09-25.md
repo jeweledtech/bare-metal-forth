@@ -68,3 +68,17 @@ it still XFAILs on **exactly the same 4 lines**.
 ## Outcome
 
 *(below this line, from the artefact only)*
+
+**Inputs hashed:** `forth_codegen.c` `7f5a39b56ebbc014`,
+`test_mmio_consumer.c` `15575a21d0d90319`, and build `bin/translator`
+`da984e6aa401b953`.
+
+| # | observed |
+|---|---|
+| W1 | **held:** the gate fired on exactly `bw_RED_access_words_block_safe` (`fix-bw-xpass-gate-2026-09-25.log`) |
+| W2 | **held:** 1,338 of 1,338 outputs equal `bw_pred.tsv`; 3 moved |
+| W3 | **held**, read from the post-retirement `test-all`: exit 0, 427 tests across 27 suites, 12 reds, the union matches, all 4 `line_length_block_safe` checks pass; `-t report` identical on 1,338 |
+
+**(bw) is closed.** Every line (bt) emits, on all 10 drivers it touches,
+is at most 64 characters. The longest is exactly 64, so the format still
+has no margin, as recorded above.

@@ -67,7 +67,7 @@ it:**
 **Gate: exactly one name.** `test_mmio_consumer` is back to an empty
 expected-failure list.
 
-## Open, with a red (13)
+## Open, with a red (12)
 
 **The table is the whole list, across every suite.** Until 2026-09-21
 the executable check compared it against `test_x86_decoder.c`'s
@@ -96,7 +96,6 @@ asserted so a renamed suite cannot shrink the union silently. The
 | (y) | `x64_RED_y_lea_register_form_invalid` | decoder | `8D C0` LEA register form is #UD |
 | (ab) | `x64_RED_ab_two_byte_arm_ignores_mandatory_prefix` | decoder | the arm never reads `66`/`F2`/`F3` |
 | (t) | `unknown_0f_modrm_recovery` | decoder | `0F 0D C0` is #UD and is accepted |
-| (bw) | `bw_RED_access_words_block_safe` | consumer | (bt)'s `\ map … walk stopped at 0x…` lines run past column 64. There are 4 of them (83, 83, 83 and 84 characters) in Dell `hdaudbus` (×2), Newer ASUS `errdev` and Older ASUS `fvevol`. The format has no margin: the longest line that fits is exactly 64. The design is the owner's (`fix-bw-access-lines-prereg-2026-09-25.md`). Minted 2026-09-25 |
 
 ## Open, without a red (7)
 
@@ -594,6 +593,7 @@ written into the suite's `xfail_names[]` when the name was retired.
 | 2026-09-25 | (bs) | `fix-bs-xpass-gate-2026-09-25.log` | 1 (`-f` names one function: the no-flag vocabulary cut to that word, byte-equal to the prediction on HDAudBus and i8042prt; three refusals; no-flag output unmoved on 1,338 of 1,338) |
 | 2026-09-25 | (bt) | `fix-bt-xpass-gate-2026-09-25.log` | 1 (codegen emits the recorded accesses: 26 accessors, 62 access lines, 11 words on exactly the 10 predicted drivers; 1,328 drivers and every `-t report` unmoved. The same run failed (bs)'s test, whose parser predated one-line definitions; the reader was updated and checked against `-f` on 396 of 396 functions) |
 | 2026-09-25 | (bu) | `fix-bu-corrective-xpass-gate-2026-09-25.log` | 1 (MAP-PHYS is `( phys size -- virt )`, with the dropped third argument on a 50-char line of its own. The first build failed U3 on a line past column 64 (`fix-bu-xpass-gate-2026-09-25.log`), and the red was restated. The corrective equals its text prediction on 1,338 of 1,338, with 232 moved) |
+| 2026-09-25 | (bw) | `fix-bw-xpass-gate-2026-09-25.log` | 1 (`walk stopped` on its own line; every (bt) line on all 10 drivers ≤ 64; 1,338 of 1,338 equal the text prediction, 3 moved) |
 
 † **Banked 2026-09-23 from the session's scratch directory**, where the
 gate run had written it. Each is the verbatim gate output, copied
