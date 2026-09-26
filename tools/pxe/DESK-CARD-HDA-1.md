@@ -34,9 +34,13 @@ substitution. Values marked "iron" below are the HP readings from
 git status --porcelain          # clean, or explain before proceeding
 git remote -v                   # verified, not assumed
 make build/combined.img         # the catalog must include HDAUDBUS
-sha256sum build/combined.img    # BUILD: ______________________
-python3 tools/catalog_layout.py HDAUDBUS   # THRU: ______ ______ (this build)
+sha256sum forth/dict/hdaudbus.fth   # expect 4813ac3589b744fd...
+sha256sum build/combined.img    # BUILD: ______  (expect 840696e3e6fafad6...)
+python3 tools/catalog_layout.py HDAUDBUS   # THRU: ___ ___  (expect 579 602)
 ```
+If BUILD is not `840696e3…`, the tree changed since the dry run. Record
+the hash and the THRU range it prints, and use that range in Section 2.
+The dry-run log then describes a different image, so note that.
 
 `forth/dict/hdaudbus.fth` must be present: it is private (it lives in the
 vocabularies repo and is ignored in the public tree). Its sha256 must be
@@ -50,12 +54,21 @@ lsblk -o NAME,LABEL,SIZE,TRAN   # exactly ONE FORTHBOOT, TRAN usb
 sudo mount -L FORTHBOOT /mnt/fb
 sudo cp build/combined.img /mnt/fb/forth.img && sync
 sha256sum /mnt/fb/forth.img build/combined.img   # MUST match
+```
+Start the listener in a **second terminal**, while the stick is still
+mounted. It hashes `--deployed` at startup, aborts on a mismatch, and
+keeps running:
+```bash
 python3 tools/hp-portread-capture.py --boot-path usb \
     --deployed /mnt/fb/forth.img \
     --out docs/evidence/hda-iron-$(date +%F).log
-sudo umount /mnt/fb
 ```
-Expect `hash gate: PASS (deployed == build)`. BUILD == STICK: ____
+Expect `hash gate: PASS (deployed == build)` and `boot path: usb`. Only
+THEN, back in the first terminal:
+```bash
+sudo umount /mnt/fb        # the listener keeps running; move the stick to the HP
+```
+BUILD == STICK: ____
 
 ## 1. Boot — F9 → FORTHBOOT → banner → `ok`
 

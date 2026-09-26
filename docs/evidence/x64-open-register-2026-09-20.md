@@ -97,7 +97,7 @@ asserted so a renamed suite cannot shrink the union silently. The
 | (ab) | `x64_RED_ab_two_byte_arm_ignores_mandatory_prefix` | decoder | the arm never reads `66`/`F2`/`F3` |
 | (t) | `unknown_0f_modrm_recovery` | decoder | `0F 0D C0` is #UD and is accepted |
 
-## Open, without a red (7)
+## Open, without a red (8)
 
 **Defect letters that are open and have no red yet**, counted so they
 are not carried only in prose. A red is written when the item is taken.
@@ -112,6 +112,7 @@ register check reads that shape as a red.
 | (q) | VEX / EVEX / REX2 unmodelled | decoder | measured zero in the corpus; see *Open, deferred* for its minting condition |
 | (be) | families narrower than the SDM | decoder | found by banking the SDM; unknowns, not wrong answers. Minted 2026-09-23, **split so the nonzero part is justified on its own terms** (owner): **(be-0), measured zero:** 7 legacy XMM encodings on the instruction pages but not in Tables A-4/A-5 (GFNI `66 0F38 CF`, `66 0F3A CE/CF`; Key Locker `F3 0F38 DC-DF`) and LKGS (`F2 0F 00 /6`), 0 corpus rows, with a control; and TESTUI/UIRET (`F3 0F 01 ED/EC`), left unknown by `(bd)`. **(be-n), nonzero:** LAR/LSL (`0F 02`/`03`) 3 rows in 2 binaries, INVPCID (`66 0F 38 82`) 14 rows in 1 KC binary |
 | (bv) | `HDA-RESET` does not reset | vocab (private `audio.fth`) | It stores 0 then 1 with a 32-bit `!` at BAR+0x0C, which Rev 1.0a Table 2 gives to WAKEEN (0C-0D) and WAKESTS (0E-0F). CRST is bit 0 of GCTL at **0x08** (§3.3.7). It then polls 0x08 for nonzero, and on the HP CRST already reads 1 (the owner's iron reading, 2026-09-25), so it reports success without resetting. The Windows driver and Linux both put the reset at 0x08. First written that way in `75e8739` (2026-04-12), with no comment. **Own red, on the HP, before anyone changes it. Not taken yet.** Minted 2026-09-25 (`hda-iron-and-spec-2026-09-25.md`) |
+| (bx) | emitted names can pass the parser's 31 characters | codegen | `word_` copies at most 31 characters (`cmp ecx, 31`) and silently splits a longer token, so an over-long emitted name is cut with no error. The longest corpus name today is 18 (`HDAUDBUS-R58+14-W@`), but nothing checks. **Ruling (owner, 2026-09-25):** a generator-side guard. Every name the translator emits must be ≤ 31 characters, checked across the corpus, and **refused rather than emitted** when it is not. Not urgent: taken after the base-finding letter. Minted 2026-09-25 (`base-at-accessors-2026-09-25.md`) |
 | (az) | DX-port scan ignores MOVSXD | lifter | `uir.c`'s backward scan for the register feeding `in`/`out` via DX matches only MOV / MOVZX / MOVSX into EDX. (p) made MOVSXD (and three-operand IMUL) visible to this reader, which never saw them while they were unknown, so it is a gap **created by (p)** (rule 24). Minted 2026-09-23 |
 
 ## (s) CLOSED 2026-09-21 — and with it the decoder queue
