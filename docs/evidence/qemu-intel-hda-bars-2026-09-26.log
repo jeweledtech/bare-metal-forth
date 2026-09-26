@@ -1,0 +1,15 @@
+input sha256 840696e3e6fafad61009d8c00debee20379c4e6e07280ab97e383d24e86291a3  build/combined.img
+git HEAD 2d3acbd328b913e45250475fcb0ca529f8ed495b
+fixture: qemu-system-i386 -M pc -device intel-hda (alone; floppy boot)
+qemu: QEMU emulator version 8.2.2 (Debian 1:8.2.2+ds-0ubuntu1.18)
+ALSO PCI-ENUM HEX            -> ok
+0 4 0 0 PCI-READ .H8         -> 26688086ok
+0 4 0 4 PCI-READ .H8         -> 00100103ok
+0 4 0 8 PCI-READ .H8         -> 04030001ok
+0 4 0 10 PCI-READ .H8        -> FEBB0000ok
+0 4 0 14 PCI-READ .H8        -> 00000000ok
+0 4 0 18 PCI-READ .H8        -> 00000000ok
+0 4 0 1C PCI-READ .H8        -> 00000000ok
+0 4 0 20 PCI-READ .H8        -> 00000000ok
+0 4 0 24 PCI-READ .H8        -> 00000000ok
+DEPTH . DECIMAL              -> 0 ok

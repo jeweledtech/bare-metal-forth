@@ -1,0 +1,47 @@
+input sha256 840696e3e6fafad61009d8c00debee20379c4e6e07280ab97e383d24e86291a3  build/combined.img
+card sha256 b27606cd14030eae4faa63884a29f0ce9cef2771ba0abe5cdf1c64d318c0356d
+git HEAD 2d3acbd328b913e45250475fcb0ca529f8ed495b (card uncommitted at run time)
+fixture: qemu-system-i386 -M pc -device qemu-xhci -device usb-kbd -device intel-hda (00:04.0) + ide copy
+DRY-RUN DESK-CARD-HDA-2.md on the QEMU fixture (rule 16); PCI-ENUM THRU 877 904; alive: 42 ok
+      (fixture substitution: 0 1F 3  -> 0 4 0  in every typed line)
+[## 2. Gate — with a cont] ONLY FORTH DEFINITIONS
+      -> ok
+[## 2. Gate — with a cont] ALSO PCI-ENUM
+      -> ok
+[## 2. Gate — with a cont] DECIMAL
+      -> ok
+[## 2. Gate — with a cont] : DEF? WORD FIND NIP ;
+      -> ok
+[## 2. Gate — with a cont] : CLR BEGIN DEPTH WHILE DROP REPEAT ;
+      -> ok
+[## 2. Gate — with a cont] DEF? DEF? .
+      -> 375788 ok
+[## 2. Gate — with a cont] DEF? NO-SUCH-WORD .
+      -> 0 ok
+[## 2. Gate — with a cont] DEF? PCI-FIND-CLASS .
+      -> 212432 ok
+[## 3. The table and the ] PCI-COUNT @ .
+      -> 8 ok
+[## 3. The table and the ] HEX
+      -> ok
+[## 3. The table and the ] 4 3 PCI-FIND-CLASS .S
+      -> <0 5 0 -1 >ok
+[## 3. The table and the ] CLR
+      -> ok
+[## 3. The table and the ] DEPTH .
+      -> 0 ok
+[## 4. 00:1F.3's class an] 0 4 0 8 PCI-READ .H8
+      -> 0C033001ok
+[## 4. 00:1F.3's class an] 0 4 0 18 PCI-READ .H8
+      -> 00000000ok
+[## 4. 00:1F.3's class an] 0 4 0 1C PCI-READ .H8
+      -> 00000000ok
+[## 4. 00:1F.3's class an] 0 4 0 20 PCI-READ .H8
+      -> 00000000ok
+[## 4. 00:1F.3's class an] 0 4 0 24 PCI-READ .H8
+      -> 00000000ok
+[## 5. Exit] DEPTH .
+      -> 0 ok
+[## 5. Exit] DECIMAL
+      -> ok
+EXIT DEPTH/BASE: 0 ok / 10 ok
