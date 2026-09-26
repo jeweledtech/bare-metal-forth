@@ -1,7 +1,7 @@
 # (n) guard scratch-fail run, 2026-09-19: the one-byte default arm is TEMPORARILY changed to consume a ModRM after every unknown opcode (the naive length-recovery fix), the suite and the fixture walk are run, and the real file is restored byte-for-byte (sha256 of the real file recorded before and after). Nothing here is committed as decoder code.
 # PREDICTED before the run: x64_GUARD_n_pushf_stays_len1 and x64_GUARD_n_popf_stays_len1 FAIL (9C/9D read length 2); the ModRM-only (n) reds XPASS: x64_RED_n_movsxd_length (63 C0) and x64_RED_n_x87_modrm_length (D9 00); the immediate-class (n) reds stay XFAIL (69, 6B, C8, E3); (u) unaffected (0F arm untouched); dump_starts on fixture v12 loses the starts at 40102e (the separator MOV) and 401030 (9D): 9C eats 89, C0 becomes an opcode whose ModRM 9D pulls a disp32 + imm8.
 # scratch diff:
-#   --- /tmp/claude-1000/-home-bbrown-projects-forthos/c351ac93-95ad-4231-9155-e60637625172/scratchpad/x86_decoder.c.real	2026-09-19 20:35:45.081342718 -0700
+#   --- <scratch>/x86_decoder.c.real	2026-09-19 20:35:45.081342718 -0700
 #   +++ src/decoders/x86_decoder.c	2026-09-19 20:35:45.087571053 -0700
 #   @@ -1254,6 +1254,8 @@
 #    
