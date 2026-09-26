@@ -13,7 +13,10 @@ comments anyway; stripping keeps the log readable).  Non-forth prose
 between fences is not typed.  Monitor actions (QEMU has no hands) are
 injected at named headings via HOOKS below and printed as such.
 
-Usage: dryrun-card.py <card.md> <serial-port> <monitor-port> <block-range-vocab>
+Usage: dryrun-card.py <card.md> <serial-port> <monitor-port> <block-range-vocab> [OLD=NEW;...]
+The optional last argument substitutes fixture values for iron ones in
+every typed line (the HDA-1 card's HP base and PCI address -> QEMU's);
+each substitution is printed once at the start of the log.
 Fixture: launch the test-xhci QEMU line first (see tests/test_xhci.py
 and the Makefile), then run this, then kill QEMU.
 """
@@ -25,6 +28,7 @@ import sys
 import time
 
 CARD, PORT, MON, VOCAB = sys.argv[1], int(sys.argv[2]), int(sys.argv[3]), sys.argv[4]
+SUBST = [tuple(p.split('=', 1)) for p in sys.argv[5].split(';')] if len(sys.argv) > 5 else []
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
@@ -130,6 +134,8 @@ xs, xe = blocks(VOCAB)
 port = None
 print(f'DRY-RUN {os.path.basename(CARD)} on the QEMU fixture (rule 16); '
       f'{VOCAB} THRU {xs} {xe}; alive: {send("7 6 * .", 1.2)}')
+for a, b in SUBST:
+    print(f'      (fixture substitution: {a} -> {b} in every typed line)')
 
 heading = ''
 in_forth = False
@@ -169,6 +175,8 @@ for raw in open(CARD):
             port = re.findall(r'-?\d+', send('FIRST-CCS .', 1.2))[0]
             print(f'      (fixture: FIRST-CCS = {port}; fills every ______ port blank)')
         typed = typed.replace('______', port)
+    for a, b in SUBST:
+        typed = typed.replace(a, b)
     if typed.startswith('<saved>'):
         typed = typed.replace('<saved>', saved_dword3 or '18000001')
     for i in range(repeat):

@@ -1,0 +1,113 @@
+input sha256 840696e3e6fafad61009d8c00debee20379c4e6e07280ab97e383d24e86291a3 build/combined.img
+card sha256 41c06f1995b33cac54b292735a1cd1f7f64655181d794e89515de113d9834936
+package sha256 4813ac3589b744fdc2456ed4278c27200b4b350a2703923a9877fd7eecc9ab1a forth/dict/hdaudbus.fth
+fixture: qemu-system-i386 -M pc -device intel-hda (00:04.0 8086:2668, BAR FEBB0000) + test-xhci devices
+DRY-RUN DESK-CARD-HDA-1.md on the QEMU fixture (rule 16); HDAUDBUS THRU 579 602; alive: 42 ok
+      (fixture substitution: 0 1F 3  -> 0 4 0  in every typed line)
+      (fixture substitution: B1228000 -> FEBB0000 in every typed line)
+      (fixture substitution: B1228004 -> FEBB0004 in every typed line)
+      (fixture substitution: B1228006 -> FEBB0006 in every typed line)
+      (fixture substitution: B1228014 -> FEBB0014 in every typed line)
+      (fixture substitution: B122800E -> FEBB000E in every typed line)
+[## 2. Load + gate] DECIMAL 579 602 THRU
+      -> ok
+[## 2. Load + gate] ONLY FORTH DEFINITIONS
+      -> ok
+[## 2. Load + gate] ALSO PCI-ENUM  ALSO HDAUDBUS
+      -> ok
+[## 2. Load + gate] DECIMAL
+      -> ok
+[## 2. Load + gate] : DEF? WORD FIND NIP ;
+      -> ok
+[## 2. Load + gate] DEF? DEF? .
+      -> 376168 ok
+[## 2. Load + gate] DEF? HDAUDBUS-R58+14-W@ .
+      -> 376100 ok
+[## 3. The base address, ] HEX
+      -> ok
+[## 3. The base address, ] 0 4 0 4 PCI-READ .H8
+      -> 00100103ok
+[## 3. The base address, ] 0 4 0 10 PCI-READ .H8
+      -> FEBB0000ok
+[## 3. The base address, ] 0 4 0 14 PCI-READ .H8
+      -> 00000000ok
+[## 4. The accessors agai] FEBB0000 HDAUDBUS-R58+2-C@ .H8
+      -> 00000000ok
+[## 4. The accessors agai] FEBB0000 HDAUDBUS-R58+3-C@ .H8
+      -> 00000001ok
+[## 4. The accessors agai] FEBB0000 HDAUDBUS-R58+0-W@ .H8
+      -> 00004401ok
+[## 4. The accessors agai] FEBB0000 HDAUDBUS-R58+8-@ .H8
+      -> 00000000ok
+[## 4. The accessors agai] FEBB0000 HDAUDBUS-R58+4-W@ .H8
+      -> 0000003Cok
+[## 4. The accessors agai] FEBB0004 W@ .H8
+      -> 0000003Cok
+[## 4. The accessors agai] FEBB0000 HDAUDBUS-R58+6-W@ .H8
+      -> 0000001Dok
+[## 4. The accessors agai] FEBB0006 W@ .H8
+      -> 0000001Dok
+[## 4. The accessors agai] FEBB0000 HDAUDBUS-R58+14-W@ .H8
+      -> 00000000ok
+[## 4. The accessors agai] FEBB0014 W@ .H8
+      -> 00000000ok
+[## 4. The accessors agai] FEBB000E W@ .H8
+      -> 00000000ok
+[## 4b. The base question] 1111 HERE @ 40 + 0E + W!
+      -> ok
+[## 4b. The base question] 2222 HERE @ 40 + 14 + W!
+      -> ok
+[## 4b. The base question] HERE @ 40 + HDAUDBUS-R58+14-W@ .H8
+      -> 00002222ok
+[## 5. Exit] DEPTH .
+      -> 0 ok
+[## 5. Exit] DECIMAL
+      -> ok
+EXIT DEPTH/BASE: 0 ok / 10 ok
+--- CONTROL (not on the card): the same literal compiled under DECIMAL must read 0x0E
+>>> DECIMAL
+DECIMAL
+ok
+>>> : T14-DEC 14 + W@ ;
+: T14-DEC 14 + W@ ;
+ok
+>>> HEX
+HEX
+ok
+>>> HERE @ 40 + T14-DEC .H8
+HERE @ 40 + T14-DEC .H8
+00000000ok
+>>> HERE @ 40 + HDAUDBUS-R58+14-W@ .H8
+HERE @ 40 + HDAUDBUS-R58+14-W@ .H8
+00000000ok
+>>> DECIMAL
+DECIMAL
+ok
+--- CONTROL, corrected (the first control defined T14-DEC AFTER the writes, which moved HERE; its zeros read unwritten memory and are void)
+>>> DECIMAL
+DECIMAL
+ok
+>>> : T14-DEC2 14 + W@ ;
+: T14-DEC2 14 + W@ ;
+ok
+>>> HEX
+HEX
+ok
+>>> 1111 HERE @ 40 + 0E + W!
+1111 HERE @ 40 + 0E + W!
+ok
+>>> 2222 HERE @ 40 + 14 + W!
+2222 HERE @ 40 + 14 + W!
+ok
+>>> HERE @ 40 + T14-DEC2 .H8
+HERE @ 40 + T14-DEC2 .H8
+00001111ok
+>>> HERE @ 40 + HDAUDBUS-R58+14-W@ .H8
+HERE @ 40 + HDAUDBUS-R58+14-W@ .H8
+00002222ok
+>>> DECIMAL
+DECIMAL
+ok
+>>> DEPTH .
+DEPTH .
+0 ok

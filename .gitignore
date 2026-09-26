@@ -57,6 +57,9 @@ forth/dict/file-editor-disk.fth
 forth/dict/disk-survey-form.fth
 forth/dict/port-monitor.fth
 forth/dict/port-monitor-form.fth
+
+# Translator output (private pipeline; not in a tier until the owner places it)
+forth/dict/hdaudbus.fth
 tests/test_stub_dispatch.py
 tests/test_ui_core.py
 tests/test_gui_harvest.py
