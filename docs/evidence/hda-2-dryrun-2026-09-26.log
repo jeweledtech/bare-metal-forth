@@ -46,3 +46,40 @@ DRY-RUN DESK-CARD-HDA-2.md on the QEMU fixture (rule 16); PCI-ENUM THRU 877 904;
 [## 5. Exit] DECIMAL
       -> ok
 EXIT DEPTH/BASE: 0 ok / 10 ok
+
+--- appended 2026-09-26: the not-found branch (owner's request; the card's <0 > was a prediction until this run)
+input sha256 840696e3e6fafad61009d8c00debee20379c4e6e07280ab97e383d24e86291a3  build/combined.img
+card sha256 fdfec85159454279da18dc2052366d3772128b561a09714b1dd7fd5ba933a963
+git HEAD f4d23f3d37a94ec3240ba0e04689105d9ff9716e
+fixture: same as run 2 (intel-hda first, qemu-xhci, usb-kbd, ide copy)
+[not-found] ONLY FORTH DEFINITIONS
+      -> ok
+[not-found] ALSO PCI-ENUM
+      -> ok
+[not-found] DECIMAL
+      -> ok
+[not-found] : CLR BEGIN DEPTH WHILE DROP REPEAT ;
+      -> ok
+[not-found] PCI-LIST
+      -> 
+B D F Vend:Dev Cl
+00 00 00 8086:1237 06/00
+00 01 00 8086:7000 06/01
+00 01 01 8086:7010 01/01
+00 01 03 8086:7113 06/80
+00 02 00 1234:1111 03/00
+00 03 00 8086:100E 02/00
+00 04 00 8086:2668 04/03
+00 05 00 1B36:000D 0C/03
+8 devices
+ok
+[not-found] HEX
+      -> ok
+[not-found] 7 7 PCI-FIND-CLASS .S
+      -> <0 >ok
+[not-found] CLR
+      -> ok
+[not-found] DEPTH .
+      -> 0 ok
+[not-found] DECIMAL
+      -> ok
