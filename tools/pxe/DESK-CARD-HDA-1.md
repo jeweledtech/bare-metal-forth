@@ -153,3 +153,52 @@ DEPTH .                        \ expect 0
 DECIMAL
 ```
 Photo of the screen; end the log.
+
+---
+
+## Outcome — 2026-09-26 (written from the log only)
+
+Log: `docs/evidence/hda-iron-2026-09-26.log`, sha256 `1b16ec01d32978c4…`.
+Line numbers below are that file's.
+
+- Section 0: `hash gate: PASS (deployed == build)`, image `840696e3…`
+  on both (l.5–8); boot path usb (l.9).
+- Section 2: `DEF? DEF? .` = 376168 (l.44); `DEF? HDAUDBUS-R58+14-W@ .`
+  = 376100 (l.46).
+- Section 3: command 00100006, BAR0 B1228004, upper 00000000 (l.50–54).
+  No STOP condition.
+- Section 4: VMIN 00000000, VMAJ 00000001, GCAP 00009701, GCTL 00000001
+  (l.56–62). Pairs, accessor/direct: +4 0000003C/0000003C, +6
+  0000001C/0000001C, +14 00000C00/00000C00 (l.64–74). 0x0E = 00000005
+  (l.76), which differs from 0x14, so the +14 pair discriminates base.
+- Section 4b: 00002222 (l.82).
+- Section 5: DEPTH 0 (l.84).
+
+**Independent checks: three.** Seven readings match, but they do not
+make seven checks.
+1. Accessor = direct read at the same address, for +4, +6 and +14. This
+   checks the offset and the compile base. It shares `W@`/`C@` with the
+   direct read, so it cannot see a fault in those.
+2. VMAJ/VMIN equal the spec's reset values, 01h/00h
+   (`hda-iron-and-spec-2026-09-25.md`).
+3. The RAM probe (4b): BASE 16 at compile time, without the hardware.
+
+GCAP and GCTL matching the 2026-09-25 hand reads shows the reading
+repeats. It is not a fourth check.
+
+Notes, not defects of this card:
+- **The echo is not a transcript of what was typed.** The log holds 30
+  backspace bytes, from typos corrected at the keyboard (l.41, 49, 59,
+  63, 77, 79, 81). Mechanism, read from `src/kernel/forth.asm`: ACCEPT
+  echoes an erase as BS SP BS, and print_char's VGA `.bs` path calls
+  print_char with a space, which is mirrored to serial and net as well.
+  Each erase therefore goes out as `08 20 20 08 20` (hexdump, l.41), and
+  a terminal leaves two stray spaces per erased character. The input
+  buffer was right, because every one of those lines resolved and
+  printed a value. Whether the doubled space in the mirror is a kernel
+  defect is for the owner to rule.
+- **The DEF? gate had no control for a word that never existed.** Every
+  `DEF?` line expects a nonzero result, so a `DEF?` that always returned
+  nonzero would pass. The next card should add a line like
+  `DEF? NO-SUCH-WORD-XYZ .  \ expect 0`. No card template exists in
+  `tools/pxe/`, so this note is where that requirement is carried.
