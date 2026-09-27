@@ -214,3 +214,48 @@ supersedes the 09-25 photo as the record, and the photo becomes
 corroboration when it is committed.
 
 **(bz) closes on iron.**
+
+### Addendum — 2026-09-27, after the desk's review
+
+**The independent-check count is four, not three.** The desk named the
+instance-1 refusal (`1 HDAUDBUS-R58-BASE` = 0, l.80) as a check. It is
+one: it runs PCI-CLASS-NTH's out-of-range branch, which no other line on
+the card reaches. The list is then:
+1. the found base = the hand-typed base;
+2. BDF = PCI-FIND-CLASS;
+3. COUNT = PCI-LIST's single 04/03 row;
+4. the instance-1 refusal.
+
+The desk also listed "the config BAR read". That is not a fifth check.
+PCI-BAR64@ reads the same register (config 0x10 = B1228004 on 09-25),
+so it belongs to check 1.
+
+**The stick — observed (host kernel log, 2026-09-27):**
+- **08:19:56–08:22:14.** Port 3-5 enumerated a `General UDisk`, USB id
+  `abcd:1234`, serial `2306262320331016668715`, 126 MB (245,760
+  sectors). That is the stick that carried HDA-2 (listener 08:21:59).
+- **14:59:38–15:10:11.** On port 3-5, a device with the **same serial**
+  connected and disconnected repeatedly, then failed to enumerate with
+  **32 `error -71`** lines, the first at 14:59:42 and the last at
+  15:10:11.
+- **15:10:23, and again at 15:12:13.** Port **3-6** enumerated a device
+  with the **same id and serial** cleanly. The listener started at
+  15:11:43, so this is the stick that carried HDA-3. Its image is
+  hash-gated `51cad6cf…` (l.5–8).
+- **14:49:43.** A separate `SanDisk 3.2Gen1` (`0781:55ab`, 988 GB)
+  attached on port 6-1. Nothing ties it to this run.
+
+**Not established by the log:**
+- **Whether HDA-3's stick is the one that failed or a second one.**
+  Generic `abcd:1234` UDisks commonly share one factory serial, so the
+  serial cannot tell two units apart.
+- **How HDA-3's stick was provisioned** (the card's file copy or
+  `make-uefi-usb.sh`). This session's shell history is not yet
+  written to disk.
+
+The owner says the old FORTHBOOT failed (-71, not enumerating) and was
+retired. The -71 run on port 3-5 is consistent with that. It is also
+consistent with a bad port or cable, because the same serial
+enumerated on 3-6 eleven seconds later. **The owner records which
+physical stick this was and how it was written.** Every trip's hash
+gate still proves the image, whichever stick carries it.
