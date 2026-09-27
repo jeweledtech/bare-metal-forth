@@ -154,3 +154,63 @@ first **logged** count of the HP's 04/03 functions (the 09-25 count is a
 photo). It must equal Section 3's COUNT.
 
 Photo of the screen; end the log.
+
+---
+
+## Outcome — 2026-09-27 (written from the log only)
+
+Log: `docs/evidence/hda3-iron-2026-09-27.log`, sha256 `e31d60702bd40e59…`.
+Line numbers below are that file's. All 15 lines with erases were
+replayed byte by byte (`08 20 20 08 20` per erase, (by)). Each
+resolves to the card's line exactly, with no stray `08`. The break
+inside PCI-LIST at l.112–113 is a UDP packet boundary: a new timestamp
+opens l.113, and the row reads `00 1C 00 8086:9D14 06/04`.
+
+- **Section 0:** `hash gate: PASS (deployed == build)`, image
+  `51cad6cf…` on both (l.5–8); boot path usb (l.9); HEAD 475484f (l.3).
+- **Section 2:**
+  - `DEF? DEF? .` = 377848 (l.51).
+  - `DEF? NO-SUCH-WORD .` = 0 (l.53).
+  - PCI-BAR 375788 (l.55), HDAUDBUS 377248 (l.57),
+    HDAUDBUS-R58-BASE 377756 (l.63). All three equal the dry run's
+    numbers.
+- **Section 3:**
+  - COUNT 1 (l.65).
+  - LIST `0 00:1F.3` (l.68).
+  - `0 HDAUDBUS-BDF .S` = `<0 1F 3 -1 >` (l.72) = `4 3 PCI-FIND-CLASS .S`
+    (l.76).
+  - `1 HDAUDBUS-R58-BASE` = 0 (l.80).
+  - DEPTH 0 (l.82).
+- **Section 4:**
+  - base **B1228000** (l.84);
+  - VMIN 00000000 (l.86), VMAJ 00000001 (l.88), GCAP 00009701 (l.90),
+    GCTL 00000001 (l.92), OUTPAY 0000003C (l.94), INPAY 0000001C (l.96),
+    0x14 00000C00 (l.98);
+  - DEPTH 0 (l.100).
+
+  **All eight equal HDA-1's.**
+- **Section 5:** PCI-LIST shows **16 devices** (l.121). Exactly one
+  row reads 04/03: `00 1F 03 8086:9D71` (l.117). That equals Section
+  3's COUNT. DEPTH 0 (l.126).
+
+**Every pre-registered HP prediction held**
+(`bz-base-finding-prereg-2026-09-27.md`).
+
+**Independent checks: three.**
+1. The emitted base equals the address HDA-1 typed by hand
+   (B1228000). This run reached it through the INF's class,
+   PCI-CLASS-NTH and PCI-BAR64@, with no typed address.
+2. PCI-CLASS-NTH (pci-bar.fth, block-loaded) and PCI-FIND-CLASS (embedded
+   pci-enum) return the same b:d:f. They share PCI-TBL, but not the
+   code that walks it.
+3. COUNT 1 equals PCI-LIST's single 04/03 row. They share the table's
+   class bytes; COUNT also confirms each hit with a live config read.
+
+The eight register values repeat HDA-1 through the same accessors:
+that is repetition, not a check.
+
+**The HP's 04/03 count is now logged:** one function among 16. That
+supersedes the 09-25 photo as the record, and the photo becomes
+corroboration when it is committed.
+
+**(bz) closes on iron.**
