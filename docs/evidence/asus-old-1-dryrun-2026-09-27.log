@@ -1,0 +1,50 @@
+input sha256 51cad6cf5080f7705f9860591f461811d3f1a6e1e34bf76ddc060df26a4dbdd0  (byte-identical copy of build/combined.img)
+card sha256 ffe824a182b3c5743675c52c46f9482c122e93f3e61a17b91ad848d18c5c3181
+git HEAD 1f4c0338867b27b2bc57dc1477242c6a092db256 (card uncommitted at run time)
+fixture: qemu-system-i386 -M pc -device intel-hda -device ich9-ahci + ide copy; QEMU is NOT the ASUS: no 9DC8/9DD3, prog-IF 00, no auto-detect banner lines for AHCI
+DRY-RUN DESK-CARD-ASUS-OLD-1.md on the QEMU fixture (rule 16); PCI-ENUM THRU 885 912; alive: 42 ok
+[## 2. Gate] ONLY FORTH DEFINITIONS
+      -> ok
+[## 2. Gate] ALSO PCI-ENUM
+      -> ok
+[## 2. Gate] DECIMAL
+      -> ok
+[## 2. Gate] : DEF? WORD FIND NIP ;
+      -> ok
+[## 2. Gate] : CLR BEGIN DEPTH WHILE DROP REPEAT ;
+      -> ok
+[## 2. Gate] DEF? DEF? .
+      -> 375788 ok
+[## 2. Gate] DEF? NO-SUCH-WORD .
+      -> 0 ok
+[## 2. Gate] DEF? PCI-FIND-CLASS .
+      -> 212432 ok
+[## 3. The bus] PCI-LIST
+      -> B D F Vend:Dev Cl
+00 00 00 8086:1237 06/00
+00 01 00 8086:7000 06/01
+00 01 01 8086:7010 01/01
+00 01 03 8086:7113 06/80
+00 02 00 1234:1111 03/00
+00 03 00 8086:100E 02/00
+00 04 00 8086:2668 04/03
+00 05 00 8086:2922 01/06
+8 devices
+ok
+[## 3. The bus] DECIMAL
+      -> ok
+[## 4. The class search —] HEX
+      -> ok
+[## 4. The class search —] 4 3 PCI-FIND-CLASS .S
+      -> <0 4 0 -1 >ok
+[## 4. The class search —] CLR
+      -> ok
+[## 4. The class search —] 1 6 PCI-FIND-CLASS .S
+      -> <0 5 0 -1 >ok
+[## 4. The class search —] CLR
+      -> ok
+[## 4. The class search —] DEPTH .
+      -> 0 ok
+[## 4. The class search —] DECIMAL
+      -> ok
+EXIT DEPTH/BASE: 0 ok / 10 ok
