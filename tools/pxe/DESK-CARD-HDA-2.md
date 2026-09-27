@@ -190,3 +190,13 @@ Notes, not defects of this card:
   nothing. *Reasoned, not measured:* with memory decode on (command
   0006, `hda-iron-and-spec-2026-09-25.md`) and BAR0 at B1228000, non-overlapping assignment would bound
   BAR4 at 0x20000 or less.
+
+**Note, 2026-09-27 (after commit 134869d).** The listener was still
+running when this log was committed. It was stopped at 15:11:39, just
+before HDA-3's listener started, and the capture tool then appended
+one footer line: `=== capture stopped 2026-09-27T15:11:39.287111-07:00
+===`. **Nothing else was received between 08:28:15 and the stop.**
+
+That footer is **not** committed (owner ruling): the committed file
+stays `2630c8cbb9fc78c2…`, the sha this outcome cites. From now on,
+iron logs are committed only after the listener stops.
