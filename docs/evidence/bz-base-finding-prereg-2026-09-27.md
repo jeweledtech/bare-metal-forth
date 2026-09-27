@@ -249,3 +249,39 @@ the words, never what the words *do*.
 ALSO XHCI ALSO HARDWARE`. They are records of trips already run, against
 images that predate the move. They are not re-run, so they are not
 changed. A future xHCI card loads PCI-BAR and adds `ALSO PCI-BAR`.
+
+### Corrective C2 (2026-09-27, before inf_binding.py is written; found by reading the HP's hdaudbus.inf)
+
+The HP's `[Microsoft.ntamd64]` binds the install section
+`HDAudio_Device` to **two** IDs:
+- `PCI\CC_0403`;
+- `ACPI\CLS_0004&SUBCLS_0003`.
+
+**The refusal rule as written would refuse this INF**, because it
+refuses when "any reaching ID is not of the class-only form
+`PCI\CC_xxxx`". The rule's purpose was narrower: to refuse when the INF
+binds a **PCI** device by vendor/device, where the class rule would be
+the wrong choice (the intcaudiobus case).
+
+**Mechanism:** ForthOS finds devices through PCI config space only
+(`PCI-CLASS-NTH` walks PCI-TBL). An ID from another enumerator (ACPI,
+HDAUDIO, ...) names devices that search can never return, so it
+neither supports nor contradicts the PCI binding.
+
+**The refusal rule, restated.** Refuse (exit 2, no file) when:
+- no model line reaches the binary with a `PCI\` ID;
+- any reaching `PCI\` ID is not class-only `PCI\CC_xxxx` (4 hex
+  digits);
+- the class-only IDs name more than one class/subclass.
+
+Non-PCI IDs are written to the binding file as `other <id>` lines, for
+provenance. The translator ignores them, so R1's pre-registered text is
+unchanged. The HP binding file gains one line:
+`other ACPI\CLS_0004&SUBCLS_0003`.
+
+**Model sections** are the `[Manufacturer]` names with each listed
+decoration (`Microsoft`, `Microsoft.ntamd64`). **Services sections** are
+the install section's `.Services` sections, with or without a
+`.NT`/`.NTamd64` decoration (here `HDAudio_Device.NT.Services`).
+AddService's third field names the service-install section whose
+ServiceBinary basename must equal the binary.
