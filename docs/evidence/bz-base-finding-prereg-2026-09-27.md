@@ -224,3 +224,28 @@ GCAP and GCTL repeating 09-25 is repetition, not a check.
 ## Outcome
 
 (written after the build; nothing above this line changes)
+
+### Corrective C1 (2026-09-27, before any Forth code; found by reading test_xhci.py)
+
+**M2 as written is wrong.** It says test_xhci.py's only edit is one
+added load step. The suite also sets its search order itself: `ONLY
+FORTH DEFINITIONS`, `ALSO PCI-ENUM` and a guarded `ALSO XHCI` (l.611–617).
+It then checks `DEF? BAR64-MASK` (#7) and `DEF? PCI-BAR64@` (#8).
+
+After the move those two words live in PCI-BAR. XHCI's own `ALSO
+PCI-BAR` runs inside XHCI's load, and **`ALSO X` does not expose X's
+ALSO chain** to the caller's search order (standing kernel lesson). So
+#7 and #8 would fail for a reason that is not a regression.
+
+**M2, restated:** test_xhci.py gets exactly two edits:
+1. a PCI-BAR `THRU` before the XHCI `THRU`;
+2. a guarded `ALSO PCI-BAR` after the `ALSO PCI-ENUM` at l.612.
+
+Its check count and its pass count are unchanged. The mechanism
+travels with the corrective: the move changes which vocabulary *holds*
+the words, never what the words *do*.
+
+**Named, not edited:** DESK-CARD-XHCI-2E, -3D and -4 type `ALSO PCI-ENUM
+ALSO XHCI ALSO HARDWARE`. They are records of trips already run, against
+images that predate the move. They are not re-run, so they are not
+changed. A future xHCI card loads PCI-BAR and adds `ALSO PCI-BAR`.
