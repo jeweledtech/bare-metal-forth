@@ -56,15 +56,6 @@ EXEMPT = {
         'needs the throwaway -DDICT_BACKSTOP=0 image (make backstop0);'
         ' one-shot liveness proof with its own evidence total, pinned'
         ' out of the sweep by the suite docstring',
-    'test-pipeline':
-        'UBT translator pipeline, not a kernel suite; excluded from'
-        ' make test by design (docs/CLAUDE.md)',
-    'test-translator':
-        'UBT translator suite; lives in forthos-vocabularies and is'
-        ' gitignored here, so this target cannot run in a public'
-        ' clone. Own grammar, own log; nightly target, schedule HELD'
-        ' (nineteenth rule, 2026-09-14) until the PE32+ path reds on'
-        ' offset-00',
     'test-arm64-boot':
         'ARM64 virt dispatch defect open (wild jump to 0x401A1FA4,'
         ' recorded 2026-07) -- cannot be green until resolved; needs'
