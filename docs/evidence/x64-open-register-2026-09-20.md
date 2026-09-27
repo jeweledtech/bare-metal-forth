@@ -22,6 +22,22 @@ cannot drift (owner item 7). For a finding
 with no red, this file is the only record, which is why each one
 carries the **condition that mints it** rather than an intention.
 
+## (bx) CLOSED 2026-09-27 — emitted names are guarded at 31
+
+**The guard.** It runs over the final forth text and refuses any
+defined name longer than word_'s 31. It names the long name and
+truncates nothing.
+
+**Gates** (`bx-name-guard-prereg-2026-09-27.md`):
+- red `bx_RED_overlong_name_refused`, XPASS gate
+  `fix-bx-xpass-gate-2026-09-27.log`;
+- corpus scans over 1,322 distinct drivers. Before: exactly 7 emitted an
+  over-long VOCABULARY name (Bluetooth LEEnumerator 39 and
+  AvrcpTransport 34 on three machines, one `.deleteme` at 51). After:
+  those 7 are refused and the other 1,315 are byte-identical.
+
+**Source:** `derive_vocab_name` never truncates. Those 7 now need `-n`.
+
 ## (bz) CLOSED 2026-09-27 — the HDAUDBUS vocabulary finds its own base
 
 **How it was built:**
@@ -90,7 +106,7 @@ it:**
 **Gate: exactly one name.** `test_mmio_consumer` is back to an empty
 expected-failure list.
 
-## Open, with a red (13)
+## Open, with a red (12)
 
 **The table is the whole list, across every suite.** Until 2026-09-21
 the executable check compared it against `test_x86_decoder.c`'s
@@ -119,7 +135,6 @@ asserted so a renamed suite cannot shrink the union silently. The
 | (y) | `x64_RED_y_lea_register_form_invalid` | decoder | `8D C0` LEA register form is #UD |
 | (ab) | `x64_RED_ab_two_byte_arm_ignores_mandatory_prefix` | decoder | the arm never reads `66`/`F2`/`F3` |
 | (t) | `unknown_0f_modrm_recovery` | decoder | `0F 0D C0` is #UD and is accepted |
-| (bx) | `bx_RED_overlong_name_refused` | mmio consumer | emitted names can pass the parser's 31 characters, and `derive_vocab_name` never truncates: 7 of 1,322 distinct corpus drivers emit a VOCABULARY name of 34, 39 or 51 characters. Pre-registered 2026-09-27 (`bx-name-guard-prereg-2026-09-27.md`): one guard over the final text refuses any defined name > 31 |
 
 ## Open, without a red (8)
 

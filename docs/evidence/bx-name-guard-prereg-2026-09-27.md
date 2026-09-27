@@ -124,3 +124,49 @@ to "refused". That is the letter.
 ## Outcome
 
 (written after the runs; nothing above this line changes)
+
+### Outcome — 2026-09-27
+
+**Commits:**
+- public: prereg 97d7e83, red 1f4c033;
+- private: red 129e07b, fix 028f490.
+
+**The red:**
+- `bx_RED_overlong_name_refused` went red on legs (b) and (c) only; (a)
+  and (d) passed as controls.
+- The **XPASS gate fired on exactly that name**
+  (`fix-bx-xpass-gate-2026-09-27.log`, translator `38eafafc…`), and it
+  was removed.
+- **M1 HELD:** 429 tests across 27 suites, 12 reds, register union
+  matches. At the red commit it was 429 and 13.
+
+**The corpus scans**
+(`~/corpus/tools-2026-09-27/`: instrument `name_scan.py` 602a8a167dc78a9d, before
+`name_scan-before.tsv` c88870e5a3d1cf3e on translator `39d817ca`, after
+`name_scan-after.tsv` d797f2ce70f4ac0b on `38eafafc`):
+- **S1 HELD.** Before the guard, exactly the **7** pre-registered
+  drivers emit a defined name > 31. In every one, the only such name is
+  the derived VOCABULARY name (34, 39 or 51 characters). No other
+  driver emits one. The alternative (a long name from another codegen
+  path) did not occur.
+- **S2 HELD.** After the guard, exactly those 7 are refused (rc 1). For
+  example: `(bx) emitted name MICROSOFT.BLUETOOTH.LEGACY.LEENUMERATOR
+  is 39 characters; the Forth parser takes 31. Nothing was emitted.
+  Name the vocabulary with -n.` The other 1,315 translate.
+- **S3 HELD.** All 1,315 other outputs are **byte-identical** before and
+  after. The guard changed nothing it accepts, and that covers M2 (the
+  10 (bt) drivers).
+
+**An instrument defect, found and fixed before either counted scan.**
+Scan v1 listed each set's top level only and missed **14** drivers:
+the Defender `wd*.sys` and `ksld.sys` (+ 2 `.bak`), which live in
+subdirectories. Its output is kept as `name_scan-before-v1-missed-14.tsv`.
+v2 walks subdirectories and accepts a path only when its sha256
+matches. **Both counted scans ran on v2**, so before and after were
+read by the same instrument.
+
+**Named, not taken:** the 7 drivers now translate only with `-n` (for
+example `-n BTLE`, leg (d)). The `{`, `}` and `.` characters in the
+`.deleteme` driver's name are a separate question.
+
+**(bx) closes.**

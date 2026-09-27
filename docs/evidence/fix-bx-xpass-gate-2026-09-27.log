@@ -1,0 +1,20 @@
+translator 38eafafc78ee0c40
+[36mTesting the MMIO consumer (stage 1)...[0m
+gcc -Wall -Wextra -Wpedantic -Werror -O2 -std=c11 -D_POSIX_C_SOURCE=200809L -Isrc -Iinclude -DTRANSLATOR_NO_MAIN -DCORPUS_ROOT='"/home/bbrown/corpus"' -o build/tests/test_mmio_consumer \
+	tests/test_mmio_consumer.c build/loaders/com_loader.o build/loaders/elf_loader.o build/loaders/format_detect.o build/loaders/pe_loader.o build/decoders/arm64_decoder.o build/decoders/cil_decoder.o build/decoders/riscv_decoder.o build/decoders/x86_decoder.o build/ir/cil_semantic.o build/ir/semantic.o build/ir/uir.o build/codegen/codegen.o build/codegen/forth_codegen.o build/optimize/optimize.o build/api/api_map.o \
+	src/main/translator.c
+./build/tests/test_mmio_consumer
+MMIO Consumer, stage 1
+======================
+  TEST: aj_report_names_the_mapped_region_and_its_park       PASS
+  TEST: stage2_RED_hdaudbus_14_accesses                      PASS
+  TEST: bs_RED_f_emits_only_the_named_function               PASS
+  TEST: bt_RED_codegen_emits_recorded_accesses               PASS
+  TEST: bu_RED_map_phys_stack_effect                         PASS
+  TEST: bw_RED_access_words_block_safe                       PASS
+  TEST: bz_RED_binding_words_emitted                         PASS
+  TEST: bx_RED_overlong_name_refused                         XPASS: expected failure PASSED - stop; correct the register, then remove from xfail_names
+
+Results: 7/8 passed (xfail=0 of 1 registered, xpass=1)
+HARD FAILURE: 1 expected failure(s) passed (XPASS).
+make: *** [Makefile:198: test-mmio-consumer] Error 1
