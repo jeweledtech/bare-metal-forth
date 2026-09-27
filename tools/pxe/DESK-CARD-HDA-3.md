@@ -259,3 +259,17 @@ consistent with a bad port or cable, because the same serial
 enumerated on 3-6 eleven seconds later. **The owner records which
 physical stick this was and how it was written.** Every trip's hash
 gate still proves the image, whichever stick carries it.
+
+**The stick, owner ruling (2026-09-27):**
+- **It was the SAME stick for HDA-2 and HDA-3.**
+  - On the HP, one USB port did not show it at F9; the other port booted
+    it.
+  - On the dev box it failed repeatedly on port 3-5 and worked on 3-6.
+- **Recorded as a marginal stick/port combination, not a failed stick.**
+  The desk's "failed and retired" was the desk's own inference, and it
+  is recorded as a **desk error**. The kernel log above is consistent
+  with the owner's account: same serial on both ports.
+- **The image was written by the card's usual Section 0 copy** (a file
+  copy, not `make-uefi-usb.sh`).
+- **Recommended:** provision a spare stick. The hash gate stays the
+  protection, whichever stick carries the image.
