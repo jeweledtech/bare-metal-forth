@@ -110,10 +110,10 @@ DEPTH .                        \ expect 0
 Still in HEX. One read per line.
 ```forth
 0 1F 3 8 PCI-READ .H8          \ class/rev  expect 04030021 (owner, 09-25)
-0 1F 3 18 PCI-READ .H8         \ BAR2  record: ________
-0 1F 3 1C PCI-READ .H8         \ BAR3  record: ________
-0 1F 3 20 PCI-READ .H8         \ BAR4  record: ________
-0 1F 3 24 PCI-READ .H8         \ BAR5  record: ________
+0 1F 3 18 PCI-READ .H8         \ BAR2  record: __00000000______
+0 1F 3 1C PCI-READ .H8         \ BAR3  record: __00000000______
+0 1F 3 20 PCI-READ .H8         \ BAR4  record: __B1200004______
+0 1F 3 24 PCI-READ .H8         \ BAR5  record: __00000000______
 ```
 Candidates, named before the trip. They are **reasoned, not cited**:
 no PCH datasheet is pinned in the repo. B comes from Intel's usual
@@ -140,3 +140,53 @@ DEPTH .                        \ expect 0
 DECIMAL
 ```
 Photo of the screen; end the log.
+
+---
+
+## Outcome — 2026-09-27 (written from the log only)
+
+Log: `docs/evidence/hda2-iron-2026-09-27.log`, sha256 `2630c8cbb9fc78c2…`.
+Line numbers below are that file's. Every line with erases was replayed
+byte by byte (`08 20 20 08 20` per erase, (by)); each resolves to the
+card's line exactly, with no stray `08`. The echo `01      1F 3 24` is
+`0 1F 3 24`.
+
+- Section 0: `hash gate: PASS (deployed == build)`, image `840696e3…`
+  on both (l.5–8); boot path usb (l.9); HEAD b56a22e (l.3).
+- Section 2: `DEF? DEF? .` = 375788 (l.31); `DEF? NO-SUCH-WORD .` = 0
+  (l.33), so DEF? can say no; `DEF? PCI-FIND-CLASS .` = 212432 (l.35).
+- Section 3: `PCI-COUNT @ .` = 16 (l.37), as expected; the table is not
+  full. `4 3 PCI-FIND-CLASS .S` = `<0 1F 3 -1 >` (l.41), found on its
+  own; DEPTH 0 after CLR (l.45).
+- Section 4: class/rev 04030021 (l.47). BAR2 0x18 00000000 (l.49),
+  BAR3 0x1C 00000000 (l.51), BAR4 0x20 B1200004 (l.53), BAR5 0x24
+  00000000 (l.55).
+- Section 5: DEPTH 0 (l.57).
+
+**Candidate B.** 00:1F.3 reads as two 64-bit memory BARs: BAR0
+0x00000000_B1228000 (HDA-1) and BAR4 0x00000000_B1200000. "First memory
+resource" therefore has a choice to make on the HP. QEMU's intel-hda has
+one BAR (candidate A), so the fixture cannot exercise that choice.
+
+**Independent checks: two.**
+1. The class search and the direct read agree by different paths:
+   `PCI-FIND-CLASS` walks the table built at enumeration and finds
+   0 1F 3, and `PCI-READ` of 0x08 at 0 1F 3 gives class 04/03. The class
+   read repeats 09-25's hand read; that is repetition, not a third check.
+2. The DEF? control prints 0 (the gap HDA-1's notes recorded, closed).
+The four BAR readings are one read each, with no second path.
+
+Notes, not defects of this card:
+- Prog-if is 00 (040300), not 80. The INF trees give the same picture:
+  the HP's only 0403 function-driver INF is hdaudbus.inf (`PCI\CC_0403`),
+  while the intcaudiobus.inf IDs on the other three machines are
+  `CC_040380` (`~/corpus/tools-2026-09-26/inf_cc0403.out`). Hardware
+  and rules agree; what Windows actually bound waits on the HP's
+  pci-bound.csv.
+- `PCI-LIST` was advised for after Section 5 and was not typed (the log
+  has 0 lines containing it). The HP's count of 04/03 functions is
+  still not in any log; `PCI-FIND-CLASS` reports the first match only.
+- BAR4's size is unknown: sizing needs a write, and this card writes
+  nothing. *Reasoned, not measured:* with memory decode on (command
+  0006, `hda-iron-and-spec-2026-09-25.md`) and BAR0 at B1228000, non-overlapping assignment would bound
+  BAR4 at 0x20000 or less.
