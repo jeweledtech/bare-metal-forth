@@ -597,6 +597,14 @@ def continuity(where):
 print('\n=== Phase 1: block-load XHCI (pre-registered red) ===')
 continuity('phase 1')
 zap()
+# (bz) corrective C1, 2026-09-27: PCI-BAR64@ moved to block-loaded
+# pci-bar.fth, which XHCI now ALSOs.  Loaded first, unscored, so the
+# check numbering and the pass count are unchanged.
+ps, pe = get_vocab_blocks('PCI-BAR')
+instrument_unscored('PCI-BAR has catalog placement (control)',
+                    ps is not None, 'forth/dict/pci-bar.fth absent')
+send(f'{ps} {pe} THRU', 10)
+instrument_unscored('PCI-BAR blocks load (interpreter alive)', alive())
 xs, xe = get_vocab_blocks('XHCI')
 check('XHCI has catalog placement',                          # 4
       xs is not None, 'forth/dict/xhci.fth absent from scan')
@@ -610,6 +618,10 @@ else:
           False, 'no placement -- THRU not attempted')
 send('ONLY FORTH DEFINITIONS')
 send('ALSO PCI-ENUM')
+# (bz) C1: ALSO XHCI does not expose XHCI's own ALSO PCI-BAR, and
+# checks 7-8 ask DEF? of the moved words.  Guarded like ALSO XHCI.
+if defined('PCI-BAR'):
+    send('ALSO PCI-BAR')
 d_vocab = defined('XHCI')
 check('XHCI vocabulary defined (DEF? nonzero)', d_vocab)     # 6
 if d_vocab:

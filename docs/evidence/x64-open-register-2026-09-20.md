@@ -67,7 +67,7 @@ it:**
 **Gate: exactly one name.** `test_mmio_consumer` is back to an empty
 expected-failure list.
 
-## Open, with a red (13)
+## Open, with a red (12)
 
 **The table is the whole list, across every suite.** Until 2026-09-21
 the executable check compared it against `test_x86_decoder.c`'s
@@ -96,9 +96,8 @@ asserted so a renamed suite cannot shrink the union silently. The
 | (y) | `x64_RED_y_lea_register_form_invalid` | decoder | `8D C0` LEA register form is #UD |
 | (ab) | `x64_RED_ab_two_byte_arm_ignores_mandatory_prefix` | decoder | the arm never reads `66`/`F2`/`F3` |
 | (t) | `unknown_0f_modrm_recovery` | decoder | `0F 0D C0` is #UD and is accepted |
-| (bz) | `bz_RED_binding_words_emitted` | mmio consumer | the HDAUDBUS vocabulary cannot find its own base: every read needs a hand-typed address (`B1228000`). Pre-registered 2026-09-27 (`bz-base-finding-prereg-2026-09-27.md`): a `-B` binding read from hdaudbus.inf, emitted COUNT/BDF/LIST words and `HDAUDBUS-R58-BASE`, shared words in a new block-loaded pci-bar.fth |
 
-## Open, without a red (9)
+## Open, without a red (10)
 
 **Defect letters that are open and have no red yet**, counted so they
 are not carried only in prose. A red is written when the item is taken.
@@ -115,6 +114,7 @@ register check reads that shape as a red.
 | (bv) | `HDA-RESET` does not reset | vocab (private `audio.fth`) | It stores 0 then 1 with a 32-bit `!` at BAR+0x0C, which Rev 1.0a Table 2 gives to WAKEEN (0C-0D) and WAKESTS (0E-0F). CRST is bit 0 of GCTL at **0x08** (§3.3.7). It then polls 0x08 for nonzero, and on the HP CRST already reads 1 (the owner's iron reading, 2026-09-25), so it reports success without resetting. The Windows driver and Linux both put the reset at 0x08. First written that way in `75e8739` (2026-04-12), with no comment. **Own red, on the HP, before anyone changes it. Not taken yet.** Minted 2026-09-25 (`hda-iron-and-spec-2026-09-25.md`) |
 | (bx) | emitted names can pass the parser's 31 characters | codegen | `word_` copies at most 31 characters (`cmp ecx, 31`) and silently splits a longer token, so an over-long emitted name is cut with no error. The longest corpus name today is 18 (`HDAUDBUS-R58+14-W@`), but nothing checks. **Ruling (owner, 2026-09-25):** a generator-side guard. Every name the translator emits must be ≤ 31 characters, checked across the corpus, and **refused rather than emitted** when it is not. Not urgent: taken after the base-finding letter. Minted 2026-09-25 (`base-at-accessors-2026-09-25.md`) |
 | (by) | the wire echo cannot reproduce the input on an erase | kernel (`src/kernel/forth.asm`, ACCEPT and print_char) | ACCEPT echoes an erase as BS, space, BS through print_char, and print_char's VGA `.bs` path prints a space through print_char again, which mirrors to serial and net. Each erase goes out as `08 20 20 08 20` (hexdump of `hda-iron-2026-09-26.log` l.41; 30 backspace bytes in that log), and a terminal replaying it keeps two stray spaces per erased character. The input buffer is right (every such line in that log resolved). **Ruling (owner, 2026-09-26):** evidence logs are the product's record, so a wire echo that cannot reproduce the input is an instrument defect. Low priority; red when taken. Minted 2026-09-26 (`DESK-CARD-HDA-1.md` outcome) |
+| (bz) | the HDAUDBUS vocabulary finds its own base; its iron trip is owed | mmio consumer | Red `bz_RED_binding_words_emitted` FIXED 2026-09-27 (XPASS gate `fix-bz-xpass-gate-2026-09-27.log`): `-B` reads `inf_binding.py`'s file, and the output carries `ALSO PCI-BAR`, HDAUDBUS-COUNT/-BDF/-LIST and `HDAUDBUS-R58-BASE`. **Open until the HP card runs the emitted words with no hand-typed address and reproduces HDA-1's values** (`bz-base-finding-prereg-2026-09-27.md`). Then (bx) |
 | (az) | DX-port scan ignores MOVSXD | lifter | `uir.c`'s backward scan for the register feeding `in`/`out` via DX matches only MOV / MOVZX / MOVSX into EDX. (p) made MOVSXD (and three-operand IMUL) visible to this reader, which never saw them while they were unknown, so it is a gap **created by (p)** (rule 24). Minted 2026-09-23 |
 
 ## (s) CLOSED 2026-09-21 — and with it the decoder queue

@@ -285,3 +285,97 @@ the install section's `.Services` sections, with or without a
 `.NT`/`.NTamd64` decoration (here `HDAudio_Device.NT.Services`).
 AddService's third field names the service-install section whose
 ServiceBinary basename must equal the binary.
+
+### Outcome — 2026-09-27 (QEMU and host; the HP card has not run yet)
+
+**Commits:**
+- public: prereg 76928e4, R2 red eaccb61, C1 5d40842, C2 c01f3bb;
+- private: R1 red c71bcd9, fix b58d443.
+
+Translator `da984e6a…` at the red, rebuilt at the fix.
+
+**The reds:**
+- **R1** went red for exactly the four pre-registered reasons (no
+  REQUIRES line, no ALSO PCI-BAR, no binding block, no base word), and
+  its control held: without `-B` the output names PCI-BAR nowhere. The
+  **XPASS gate fired on exactly `bz_RED_binding_words_emitted`**
+  (`fix-bz-xpass-gate-2026-09-27.log`), and the name was removed.
+- **R2** measured **1/16** on the tree without pci-bar.fth, as
+  pre-registered (only DEPTH 0 passes; image 840696e3,
+  `bz-r2-red-2026-09-27.log`), and **16/16** after the fix (image
+  51cad6cf, `bz-r2-green-2026-09-27.log`). The two intel-hda functions
+  are instances 0 = 00:04.0 and 1 = 00:05.0. Instances 2 and −1
+  refuse, instance 0 equals PCI-FIND-CLASS, and the BAR0 values
+  differ.
+
+**Must not move:**
+- **M1 HELD.** `bmforth.img` is `dfd7c5f30e22ecf3` before and after,
+  and pci-enum.fth is byte-identical.
+- **M2 HELD.** test_xhci **319/319** (`bz-test-xhci-after-2026-09-27.log`)
+  against its last baseline 319/319 at dbc982e
+  (`xhci-guard-green-2026-09-17.log`). It took C1's two edits, with the
+  PCI-BAR load unscored.
+- **M3 HELD.** Translator: 428 tests across 27 suites, 12 reds, register
+  union matches. At the red commit it was 428 and 13.
+- **M4 HELD.** All 10 (bt) outputs without `-B` are byte-identical to
+  the baseline hashes taken before the red.
+- **M5 MISSED BY ONE LINE.** The `-B` diff against a75e03f's file has
+  the REQUIRES header (3 lines), `ALSO PCI-BAR`, the binding block and
+  the base comment + word, **and a footer `PREVIOUS`**. The footer
+  emits one PREVIOUS per ALSO dependency, so the new ALSO brings its
+  own. The prediction was written without reading the footer code. The
+  line is correct, and the miss is the prediction's.
+- **M6:** see below.
+
+**Named move, as predicted:** `combined.img` went from `840696e3…` to
+`51cad6cf…`. Ranges: PCI-BAR 878–884 (new, before PCI-ENUM, which moved
+to 885–912); HDAUDBUS 579–603 (one block longer).
+
+**The move is verbatim:** all 31 non-blank lines removed from xhci.fth
+appear, in order, in pci-bar.fth.
+
+**inf_binding.py on the four hdaudbus.inf:**
+- all four bind `PCI\CC_0403`, each with `other
+  ACPI\CLS_0004&SUBCLS_0003`;
+- HP `09165ec0…`, Older ASUS `7faf60fb…`, Dell `33b5460f…`, Newer ASUS
+  `a40cde1c…`.
+
+**Refusal controls:**
+- intcaudiobus.inf refuses (28 VEN-specific ids);
+- a binary the INF does not install refuses;
+- **usbxhci.inf refuses** on `PCI\CC_0C0330`: a class + prog-IF id,
+  which the 4-digit rule does not accept. An xHCI binding needs a
+  prog-IF-aware search (PCI-FIND-TYPE's rule); that is a later letter's
+  input.
+
+**HDA-3 dry run** (`hda-3-dryrun-2026-09-27.log`, one intel-hda at
+00:04.0, no substitutions) — **every QEMU prediction held:**
+- COUNT 1;
+- LIST `0 00:04.0`;
+- `0 HDAUDBUS-BDF` = `<0 4 0 -1 >` = PCI-FIND-CLASS;
+- `1 HDAUDBUS-R58-BASE` = 0;
+- base FEBB0000;
+- through it: VMIN 0, VMAJ 1, GCAP 4401, OUTPAY 3C, INPAY 1D, +14 0000
+  (GCTL 0, as HDA-1's dry run logged);
+- PCI-LIST has one 04/03 row;
+- exit DEPTH 0, BASE 10.
+
+**(bz) stays open** until DESK-CARD-HDA-3 runs on the HP.
+
+**M6: HELD for every suite (bz) touches.** One gate fails, and it was
+failing before this letter.
+- `make test` (`bz-make-test-2026-09-27.log`) passed every target up to
+  `test-make-wiring`, which scored **39/41** and stopped the run. That
+  covers test-xhci 319/319 again and test-pci-bar 16/16.
+- The two failures say the EXEMPT entries for `test-pipeline` and
+  `test-translator` are stale. Both targets were wired into `test:` on
+  2026-09-21 (0850a51) while the gate's exemption list dates from
+  09-14.
+- **The same two failures reproduce on b56a22e, before any (bz) work
+  (38/40, clean worktree).** So they are pre-existing and not this
+  letter's. The +1/+1 is test-pci-bar, wired and passing.
+- The nine targets make skipped after the stop were then run with
+  `make -k` (`bz-make-test-bz-rest-2026-09-27.log`): all pass, rc 0,
+  check-sync OK.
+- **Owed, not taken here:** deleting the two stale EXEMPT entries is a
+  one-line repair. It is out of (bz)'s scope, and the owner rules on it.

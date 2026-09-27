@@ -1,0 +1,88 @@
+input sha256 51cad6cf5080f7705f9860591f461811d3f1a6e1e34bf76ddc060df26a4dbdd0  (byte-identical copy of build/combined.img; the original was locked by a running test-xhci)
+card sha256 589d31e8743dbe017883e0af2ba2a8cfe6fb2f3b0bd42cf54c688b3ead4a3ea3
+git HEAD c01f3bb9ba5f8ef58307c86ecb45ecb956845dda (card, pci-bar.fth, xhci.fth, test_xhci.py uncommitted at run time)
+fixture: qemu-system-i386 -M pc -device intel-hda -device qemu-xhci -device usb-kbd + ide copy (intel-hda first, as HDA-1/2)
+DRY-RUN DESK-CARD-HDA-3.md on the QEMU fixture (rule 16); HDAUDBUS THRU 579 603; alive: 42 ok
+[## 2. Load + gate — with] ONLY FORTH DEFINITIONS
+      -> ok
+[## 2. Load + gate — with] DECIMAL
+      -> ok
+[## 2. Load + gate — with] 878 884 THRU
+      -> ok
+[## 2. Load + gate — with] 579 603 THRU
+      -> ok
+[## 2. Load + gate — with] ONLY FORTH DEFINITIONS
+      -> ok
+[## 2. Load + gate — with] ALSO PCI-ENUM
+      -> ok
+[## 2. Load + gate — with] : DEF? WORD FIND NIP ;
+      -> ok
+[## 2. Load + gate — with] : CLR BEGIN DEPTH WHILE DROP REPEAT ;
+      -> ok
+[## 2. Load + gate — with] DEF? DEF? .
+      -> 377848 ok
+[## 2. Load + gate — with] DEF? NO-SUCH-WORD .
+      -> 0 ok
+[## 2. Load + gate — with] DEF? PCI-BAR .
+      -> 375788 ok
+[## 2. Load + gate — with] DEF? HDAUDBUS .
+      -> 377248 ok
+[## 2. Load + gate — with] ALSO PCI-BAR
+      -> ok
+[## 2. Load + gate — with] ALSO HDAUDBUS
+      -> ok
+[## 2. Load + gate — with] DEF? HDAUDBUS-R58-BASE .
+      -> 377756 ok
+[## 3. The instances — ev] HDAUDBUS-COUNT .
+      -> 1 ok
+[## 3. The instances — ev] HDAUDBUS-LIST
+      -> 0 00:04.0ok
+[## 3. The instances — ev] HEX
+      -> ok
+[## 3. The instances — ev] 0 HDAUDBUS-BDF .S
+      -> <0 4 0 -1 >ok
+[## 3. The instances — ev] CLR
+      -> ok
+[## 3. The instances — ev] 4 3 PCI-FIND-CLASS .S
+      -> <0 4 0 -1 >ok
+[## 3. The instances — ev] CLR
+      -> ok
+[## 3. The instances — ev] 1 HDAUDBUS-R58-BASE .
+      -> 0 ok
+[## 3. The instances — ev] DEPTH .
+      -> 0 ok
+[## 4. The base and the r] 0 HDAUDBUS-R58-BASE .H8
+      -> FEBB0000ok
+[## 4. The base and the r] 0 HDAUDBUS-R58-BASE HDAUDBUS-R58+2-C@ .H8
+      -> 00000000ok
+[## 4. The base and the r] 0 HDAUDBUS-R58-BASE HDAUDBUS-R58+3-C@ .H8
+      -> 00000001ok
+[## 4. The base and the r] 0 HDAUDBUS-R58-BASE HDAUDBUS-R58+0-W@ .H8
+      -> 00004401ok
+[## 4. The base and the r] 0 HDAUDBUS-R58-BASE HDAUDBUS-R58+8-@ .H8
+      -> 00000000ok
+[## 4. The base and the r] 0 HDAUDBUS-R58-BASE HDAUDBUS-R58+4-W@ .H8
+      -> 0000003Cok
+[## 4. The base and the r] 0 HDAUDBUS-R58-BASE HDAUDBUS-R58+6-W@ .H8
+      -> 0000001Dok
+[## 4. The base and the r] 0 HDAUDBUS-R58-BASE HDAUDBUS-R58+14-W@ .H8
+      -> 00000000ok
+[## 4. The base and the r] DEPTH .
+      -> 0 ok
+[## 5. The bus, for the c] PCI-LIST
+      -> B D F Vend:Dev Cl
+00 00 00 8086:1237 06/00
+00 01 00 8086:7000 06/01
+00 01 01 8086:7010 01/01
+00 01 03 8086:7113 06/80
+00 02 00 1234:1111 03/00
+00 03 00 8086:100E 02/00
+00 04 00 8086:2668 04/03
+00 05 00 1B36:000D 0C/03
+8 devices
+ok
+[## 5. The bus, for the c] DECIMAL
+      -> ok
+[## 5. The bus, for the c] DEPTH .
+      -> 0 ok
+EXIT DEPTH/BASE: 0 ok / 10 ok

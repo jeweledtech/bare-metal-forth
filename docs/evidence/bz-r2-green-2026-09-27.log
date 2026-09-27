@@ -1,0 +1,32 @@
+Running PCI-BAR vocab test...
+input sha256 51cad6cf5080f7705f9860591f461811d3f1a6e1e34bf76ddc060df26a4dbdd0  build/combined.img
+
+=== Phase 0: instrument controls (fatal on failure) ===
+  instrument: interpreter alive
+  instrument: DEF? says yes and no
+  instrument: fixture: embedded PCI-FIND-CLASS finds an 04/03 function
+  PCI-FIND-CLASS 4 3 -> [0, 4, 0]
+
+=== Phase 1: block-load PCI-BAR (pre-registered red) ===
+  PASS: PCI-BAR has catalog placement
+  loading PCI-BAR (878-884 THRU)...
+  PASS: PCI-BAR blocks load (interpreter alive after THRU)
+  PASS: PCI-BAR vocabulary defined
+  PASS: PCI-CLASS-COUNT, -NTH, -LIST defined
+  PASS: PCI-BAR64@ defined in PCI-BAR
+
+=== Phase 2: two intel-hda functions ===
+  PASS: 4 3 PCI-CLASS-COUNT = 2
+  PASS: instance 0 found
+  PASS: instance 0 = PCI-FIND-CLASS (agreement control)
+  PASS: instance 1 found, a different b:d:f
+  PASS: instance 2 refuses: <0 >
+  PASS: instance -1 refuses: <0 >
+  PASS: the two instances have distinct nonzero BAR0
+  PCI-CLASS-LIST rows: [('0', '00', '04', '0'), ('1', '00', '05', '0')]
+  PASS: PCI-CLASS-LIST prints exactly 2 rows, 0 and 1
+  PASS: row 0 is instance 0
+  PASS: absent class 7/7: count 0, instance 0 refuses
+  PASS: DEPTH 0 at exit
+
+Results: 16/16 passed
