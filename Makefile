@@ -489,6 +489,22 @@ test-xhci: $(COMBINED)
 	@python3 tests/test_xhci.py $$(($(TEST_PORT_BASE)+94)) $(COMBINED) $$(($(TEST_PORT_BASE)+93)); \
 		STATUS=$$?; pkill -9 -f "[q]emu.*$$(($(TEST_PORT_BASE)+94))" 2>/dev/null; exit $$STATUS
 
+# PCI-BAR gate, (bz) R2 (docs/evidence/bz-base-finding-prereg-2026-09-27.md):
+# block-loaded pci-bar.fth, instances of a class in scan order.  TWO
+# intel-hda functions, so "never chosen implicitly" meets more than one
+# instance (the HP has one).  Port +87 was unused.
+test-pci-bar: $(COMBINED)
+	@cp $(COMBINED) $(COMBINED_IDE)
+	@echo "Running PCI-BAR vocab test..."
+	@$(QEMU) -M pc -device intel-hda -device intel-hda \
+		-drive file=$(COMBINED),format=raw,if=floppy \
+		-drive file=$(COMBINED_IDE),format=raw,if=ide,index=1 \
+		-serial tcp::$$(($(TEST_PORT_BASE)+87)),server=on,wait=off \
+		-display none -daemonize
+	@sleep 2
+	@python3 tests/test_pci_bar.py $$(($(TEST_PORT_BASE)+87)) $(COMBINED); \
+		STATUS=$$?; pkill -9 -f "[q]emu.*$$(($(TEST_PORT_BASE)+87))" 2>/dev/null; exit $$STATUS
+
 # S"/."/ABORT" laydown suite (crafts blocks in buffer memory; no
 # block storage image needed, same tier as test-dict-bounds).
 test-squote-laydown: $(ACTIVE_IMAGE)
@@ -778,7 +794,7 @@ test-meta: $(COMBINED)
 #     its output as evidence, and it never gates a build.  If it must ever
 #     gate something, the gate goes on a deterministic artefact derived from
 #     it and pinned -- the treatment the Ghidra oracle already has.
-test: lint test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-block-reload test-squote-laydown test-install test-vbr test-grub-cfg test-doc-drift test-make-wiring test-g6 test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
+test: lint test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-block-reload test-squote-laydown test-install test-vbr test-grub-cfg test-doc-drift test-make-wiring test-g6 test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)
