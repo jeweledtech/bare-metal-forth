@@ -129,8 +129,11 @@ def cmd(s, c, t=1.5):
 def main():
     for p in (PXELINUX, LDLINUX, MEMDISK):
         if not os.path.exists(p):
-            print(f'SKIP: {p} not installed')
-            sys.exit(0)
+            # A missing prerequisite is not a pass (uefi-2-prereg (b),
+            # 2026-09-28): under make test a SKIP exiting 0 read as green.
+            # Exit 3, no score, as test_uefi_boot.py does.
+            print(f'INSTRUMENT FAIL: {p} not installed -- no score')
+            sys.exit(3)
 
     have_ahci = os.path.exists(
         os.path.join(ROOT, 'forth', 'dict', 'ahci.fth'))
