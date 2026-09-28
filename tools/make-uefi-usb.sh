@@ -99,8 +99,9 @@ else
     # UEFI mode — cannot boot 16-bit real-mode code directly
     menuentry "ForthOS — Boot via Legacy/CSM (select this USB as non-UEFI)" {
         echo ""
-        echo "  ForthOS is a 16-bit real-mode bare-metal kernel."
-        echo "  UEFI mode cannot execute real-mode code."
+        echo "  ForthOS runs in 32-bit protected mode, but it is"
+        echo "  loaded by a 16-bit BIOS boot sector through memdisk."
+        echo "  UEFI mode cannot run that loader."
         echo ""
         echo "  To boot ForthOS:"
         echo "    1. Reboot and enter BIOS Setup (F10 on HP)"
