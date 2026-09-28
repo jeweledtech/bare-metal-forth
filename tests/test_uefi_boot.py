@@ -108,21 +108,33 @@ try:
 
     with open(OUT, 'wb') as f:
         f.truncate(DISK_MIB * 1024 * 1024)
+    # Determinism (owner ruling 2026-09-28): the replica's sha must repeat
+    # run to run.  Measured sources of drift: sgdisk's random disk and
+    # partition GUIDs, and FAT directory timestamps.  All three pinned.
     run(['sgdisk', '--zap-all', OUT])
     run(['sgdisk', '-n', '1:2048:+1M', '-t', '1:ef02', '-c', '1:BIOS Boot', OUT])
     run(['sgdisk', '-n', '2:0:0', '-t', '2:ef00', '-c', '2:EFI System', OUT])
+    run(['sgdisk', '-U', 'F0E7B007-0000-4000-8000-000000000000',
+         '-u', '1:F0E7B007-0000-4000-8000-000000000001',
+         '-u', '2:F0E7B007-0000-4000-8000-000000000002', OUT])
     info = run(['sgdisk', '-i', '2', OUT]).stdout
     first = int(re.search(r'First sector: (\d+)', info).group(1))
     last = int(re.search(r'Last sector: (\d+)', info).group(1))
     esp = os.path.join(work, 'esp.fat')
     with open(esp, 'wb') as f:
         f.truncate((last - first + 1) * 512)
-    run(['mkfs.fat', '-F', '32', '-n', 'FORTHBOOT', esp])
-    env = dict(os.environ, MTOOLS_SKIP_CHECK='1')
+    epoch = 1790000000                          # fixed; any constant
+    env = dict(os.environ, MTOOLS_SKIP_CHECK='1', SOURCE_DATE_EPOCH=str(epoch))
+    # fixed volume ID; --invariant fixes the label entry's time (mkfs.fat
+    # ignores SOURCE_DATE_EPOCH, measured 2026-09-28)
+    run(['mkfs.fat', '-F', '32', '-n', 'FORTHBOOT', '--invariant', '-i', 'F0E7B007', esp], env=env)
+    for dp, _, fs in os.walk(mnt):
+        for f in fs:
+            os.utime(os.path.join(dp, f), (epoch, epoch))
     for d in ('/boot', '/boot/grub', '/EFI', '/EFI/BOOT'):
         run(['mmd', '-i', esp, '::' + d], env=env)
     for rel in ('memdisk', 'forth.img', 'boot/grub/grub.cfg', 'EFI/BOOT/BOOTX64.EFI'):
-        run(['mcopy', '-i', esp, os.path.join(mnt, rel), '::/' + rel], env=env)
+        run(['mcopy', '-m', '-i', esp, os.path.join(mnt, rel), '::/' + rel], env=env)
     run(['dd', f'if={esp}', f'of={OUT}', 'bs=512', f'seek={first}', 'conv=notrunc',
          'status=none'])
     print(f'stick replica {OUT}: GPT, ESP sectors {first}-{last}, '
