@@ -1,0 +1,25 @@
+=== Memdisk boot: (BLK-WRITE-NONE) + AHCI install ===
+  (booted via pxelinux -> memdisk)
+  PASS: memdisk default = (BLK-WRITE-NONE)
+  PASS: memdisk default = (BLK-READ-NONE)
+  PASS: RAM-backed BLOCK read works
+  PASS: PBLK-READ refused loudly on memdisk
+  PASS: loud reader returns ior=1
+  PASS: SAVE-BUFFERS fails loudly on memdisk
+  PASS: system alive after refusal
+  PASS: stacks balanced
+  PASS: ALSO AHCI
+  PASS: AHCI-INIT on memdisk boot
+  PASS: AHCI-RW installs writer
+  PASS: AHCI-RW installs reader
+  PASS: BLK-READER@ = AHCI-READER-XT
+  PASS: dirty buffer flushes via AHCI
+  PASS: AHCI-READ LBA 623 ok
+  PASS: persisted pattern 42 on AHCI disk
+  PASS: PBLK-READ via AHCI ior=0
+  PASS: vectored read returns pattern 42
+  PASS: sentinel at byte 900 survives (full 1024-byte copy)
+  PASS: final stack balance
+
+Passed: 20/20
+rc=0

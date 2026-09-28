@@ -129,3 +129,53 @@ GRUB i386-pc and the `raw` flag are exercised only on the HP.
 ## Outcome
 
 (written after the run; nothing above this line changes)
+
+### Outcome — 2026-09-28
+
+**Commits:** prereg 7dec02e, red 56e7098, `make-uefi-usb.sh` text fix
+d5a7487.
+
+**The red is XFAIL, as predicted** (`uefi-1-red-2026-09-28.log`; serial
+in `uefi-1-red-serial-2026-09-28.log`). Inputs: image `combined.img`
+`51cad6cf…`, script `2e93ee34…`.
+- **The control was seen.** OVMF found `EFI/BOOT/BOOTX64.EFI` on the
+  replica and GRUB drew its UEFI menu on serial.
+- The default entry then printed its CSM instructions and waited at
+  `read`.
+- **No kernel banner or `ok` appeared in 60 s.**
+- After the text fix (script `ce252cc6…`) the red is still XFAIL with the
+  control seen. The fix changes only the UEFI branch's echo lines.
+
+**Two instrument faults, fixed before the counted run.** The first run
+ended `INSTRUMENT FAIL` (exit 3, no score), although GRUB's echo text
+did reach serial. The kept serial log showed why:
+1. The menu title's em dash arrives as UTF-8 (`E2 80 94`), and the
+   serial was decoded as Latin-1.
+2. **GRUB truncates menu titles to the menu width** (`…as non-U`), so
+   the full title never appears.
+
+**The fix:** decode as UTF-8 and match the title's first 40 characters.
+The control stays fatal. Neither fault touched the criterion: the kernel
+banner + `ok`.
+
+**Must not move:**
+- **M1 HELD.** `test_memdisk_blk_writer.py` passed **20/20**, rc 0, after
+  the stage (`uefi-1-m1-after-2026-09-28.log`), the same as the baseline.
+- **M2 HELD.** `make test` rc 0, "All tests passed!"
+  (`uefi-1-make-test-2026-09-28.log`):
+  - 13 `XFAIL (expected)` = the 12 translator reds + the new
+    `uefi1_RED_stick_boots_to_ok_under_ovmf`;
+  - 0 other failures;
+  - wiring gate 40/40 (`test-uefi-boot` wired);
+  - check-sync OK.
+- **M3 HELD by construction.** No `boot.asm`, `forth.asm` or `.fth`
+  changed, so `combined.img` is still `51cad6cf…`. The HP boots the
+  script's `pc` branch, which is untouched. No iron trip is owed for
+  UEFI-1.
+
+**Still with the owner:** where a Python red is registered (see above).
+Until the owner rules, `UEFI_REDS` in the test and this document are the
+registration.
+
+**Next stage (not started):** UEFI-2, own GDT (selector 0x08) and an
+abstract block base, landed on the BIOS path first.
