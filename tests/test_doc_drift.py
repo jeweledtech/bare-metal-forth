@@ -493,11 +493,51 @@ def gate_b_3a():
         check('both ALSO SURVEYOR and USING INSTALL present', False)
 
 
+# ---------------------------------------------------------------------------
+# Gate C -- the register's "Python reds" table must equal the *_RED_
+# identifiers in tests/*.py (owner ruling 2026-09-28: one register, two
+# readers; the C-suite union check in suite_census.py reads the other table)
+# ---------------------------------------------------------------------------
+REGISTER = 'docs/evidence/x64-open-register-2026-09-20.md'
+RED_ID = re.compile(r'\b[a-z0-9]+_RED_[A-Za-z0-9_]+\b')
+
+
+def gate_c():
+    print('Gate C: register "Python reds" vs *_RED_ identifiers in tests/*.py')
+    reg = read(REGISTER)
+    m = re.search(r'^## Python reds \((\d+)\)\n(.*?)(?=^## )', reg, re.M | re.S)
+    if not m:
+        check('register has a "## Python reds (N)" section', False)
+        return
+    check('register has a "## Python reds (N)" section', True)
+    stated = int(m.group(1))
+    rows = [l for l in m.group(2).splitlines() if l.startswith('|')][2:]
+    listed = set()
+    for l in rows:
+        cells = [c.strip() for c in l.strip().strip('|').split('|')]
+        if len(cells) > 1 and cells[1].startswith('`') and cells[1].endswith('`'):
+            listed.add(cells[1].strip('`'))
+    check(f'heading count ({stated}) = rows ({len(rows)})', stated == len(rows))
+    found = set()
+    tests = os.path.join(ROOT, 'tests')
+    for f in sorted(os.listdir(tests)):
+        if f.endswith('.py') and f != os.path.basename(__file__):
+            found |= set(RED_ID.findall(open(os.path.join(tests, f)).read()))
+    print(f'  register lists {len(listed)}: {sorted(listed)}')
+    print(f'  tests/*.py carry {len(found)}: {sorted(found)}')
+    check('every register row names a red a test carries',
+          listed <= found, f'register only: {sorted(listed - found)}')
+    check('every red a test carries is in the register',
+          found <= listed, f'tests only: {sorted(found - listed)}')
+
+
 if __name__ == '__main__':
     gate_a()
     print()
     gate_b()
     print()
     gate_b_3a()
+    print()
+    gate_c()
     print(f'\nPassed: {PASS}/{PASS + FAIL}')
     sys.exit(0 if FAIL == 0 else 1)
