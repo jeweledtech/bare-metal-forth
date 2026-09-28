@@ -625,6 +625,14 @@ test-translator:
 	@$(MAKE) -C tools/translator test
 
 # Offline GRUB cfg gates: drift, converter pin, scan fatality
+# UEFI-1 red (docs/evidence/uefi-1-prereg-2026-09-28.md): a rootless replica
+# of the make-uefi-usb.sh stick booted under OVMF (no CSM) must reach the
+# Forth banner + ok on serial.  Registered red: prints XFAIL and exits 0
+# until UEFI-3; XPASS exits 1.  Serial goes to a file, no TCP port.
+test-uefi-boot: $(COMBINED)
+	@echo "Running UEFI boot red (OVMF, no CSM)..."
+	@python3 tests/test_uefi_boot.py $(COMBINED)
+
 test-grub-cfg:
 	@echo "Running GRUB cfg gates..."
 	@python3 tests/test_grub_cfg.py
@@ -794,7 +802,7 @@ test-meta: $(COMBINED)
 #     its output as evidence, and it never gates a build.  If it must ever
 #     gate something, the gate goes on a deterministic artefact derived from
 #     it and pinned -- the treatment the Ghidra oracle already has.
-test: lint test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-block-reload test-squote-laydown test-install test-vbr test-grub-cfg test-doc-drift test-make-wiring test-g6 test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
+test: lint test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-block-reload test-squote-laydown test-install test-vbr test-grub-cfg test-uefi-boot test-doc-drift test-make-wiring test-g6 test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)

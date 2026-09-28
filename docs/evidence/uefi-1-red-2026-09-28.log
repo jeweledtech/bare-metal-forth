@@ -1,0 +1,10 @@
+input sha256 51cad6cf5080f7705f9860591f461811d3f1a6e1e34bf76ddc060df26a4dbdd0  build/combined.img
+script sha256 2e93ee34d39415d7316d3d850df8d19d77ee1fde414277a99e18826f613b1576  tools/make-uefi-usb.sh
+control: the UEFI branch title 'ForthOS — Boot via Legacy/CSM (select th' must reach serial
+stick replica build/uefi-stick-test.img: GPT, ESP sectors 4096-131038, sha256 648e4e42d0541bd4
+serial: 3353 bytes after 60 s; control seen: True; banner + ok seen: False
+  |     1. Reboot and enter BIOS Setup (F10 on HP)
+  |     2. Enable Legacy Support / CSM
+  |     3. Boot Menu (F9) -> select this USB WITHOUT 'UEFI:' prefix
+  |   Press Enter to reboot to BIOS Setup, or ESC for GRUB shell.
+XFAIL (expected): uefi1_RED_stick_boots_to_ok_under_ovmf -- no banner/ok within 60 s
