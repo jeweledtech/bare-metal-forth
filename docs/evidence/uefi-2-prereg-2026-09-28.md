@@ -149,6 +149,67 @@ and the byte-replay of erased lines.
   the kernel's own GDT on iron.
 - **Dry run:** in QEMU with intel-hda before printing (rule 16).
 
+## Amendments (owner, 2026-09-28, before any code)
+
+**(a) What the controls read.** They read **CS = 0x0008** and
+**DS = ES = SS = 0x0010** (FS and GS are also 0x0010). They parse QEMU
+HMP `info registers` lines of exactly this form, captured 2026-09-28 on
+today's image (`bmforth.img` `dfd7c5f3…` on floppy + `combined.img` on
+IDE, at `ok`):
+```
+CS =0008 00000000 ffffffff 00cf9a00 DPL=0 CS32 [-R-]
+DS =0010 00000000 ffffffff 00cf9300 DPL=0 DS   [-WA]
+ES =0010 00000000 ffffffff 00cf9300 DPL=0 DS   [-WA]
+SS =0010 00000000 ffffffff 00cf9300 DPL=0 DS   [-WA]
+GDT=     00007d90 00000017
+IDT=     00029400 000007ff
+```
+- **The GDT base.** Check 1's red is **measured**, not only predicted:
+  **0x7D90**, inside the boot sector (0x7C00–0x7DFF). Limit 0x17.
+- **The parse.** Selector = the 4 hex digits after `CS =`, `DS =`,
+  `ES =` and `SS =`. GDT base and limit = the two hex words after
+  `GDT=`.
+- **Noted, not in scope:** the kernel's IDT is at **0x29400**. That is
+  outside the kernel image, in the variables area above 0x28000, and
+  UEFI-MMAP-0 checks that range.
+
+**(c) The HP card's PCI-BAR line** runs inside a HEX block, with DEPTH
+shown before and after:
+```forth
+HEX
+DEPTH .                        \ expect 0
+0 1F 3 0 PCI-BAR64@ .H8        \ expect B1228000
+DEPTH .                        \ expect 0
+DECIMAL
+```
+**Expect B1228000.** It is the config value B1228004 with its flag bits
+masked (bit 2 = 64-bit type; PCI-BAR64@ masks with FFFFFFF0):
+- the raw B1228004 is config 0x10 as read on the HP in
+  `hda-iron-and-spec-2026-09-25.md` l.10;
+- the masked B1228000 is what HDA-3 logged through PCI-BAR64@
+  (`hda3-iron-2026-09-27.log` l.84, `B1228000ok`).
+
+**(b) The memdisk gate's false pass.** `test_memdisk_blk_writer.py`
+printed `SKIP` and exited 0 when pxelinux or memdisk was missing
+(l.131-133). Under `make test` that reads as a pass. It becomes
+`INSTRUMENT FAIL`, exit 3, as in `test_uefi_boot.py`, in its own commit
+with a negative control.
+
+**(d) UEFI-MMAP-0**, a read-only probe, runs **before any UEFI-2 code**.
+It boots OVMF in QEMU to the EFI shell, runs `memmap`, keeps the output
+as evidence, and reports every range covering:
+- 0x7C00–0x9FFFF;
+- 0x30000–0x80000;
+- 0x100000–0x400000.
+
+Conventional or BootServices* memory = free after ExitBootServices; any
+other type = a collision, reported and not designed around. If
+practical, it also answers from GRUB 2.12's source whether the
+x86_64-efi multiboot2 loader accepts load address 0x7E00.
+
+**Named gap, no action:** the two sibling topology tests from bc06026
+(`test_persist_quick`, `test_ahci_blk_writer`) are unwired.
+
 ---
 
 ## Outcome
