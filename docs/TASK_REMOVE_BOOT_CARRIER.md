@@ -112,6 +112,46 @@ not to the stick it booted from. Consequences:
   merely a carrier-removal prerequisite, and it outranks everything else in
   this document.
 
+### 3a.1 — CARRIER-0b follow-up: the fail-closed default is N1's first half
+
+CARRIER-0b (`docs/evidence/carrier-0b-write-vector-2026-09-29.md`) confirmed
+the write-vector concern from the code, with the nuances now folded into gate
+C5 (compare a written LBA span, not LBA 0 — block writes start at LBA 225 and
+never touch LBA 0).
+
+**Is a stock installed instance's block write path working today?** (asked to
+size whether a blanket fail-closed default is free):
+
+- **The installer does not use block writes.** `ADD-BOOT-ENTRY` / `ADD-PARTITION`
+  write the VBR, the 224 kernel sectors, and partition metadata through
+  `SAFE-WRITE` / `SEC-WRITE-VEC` (raw sector writes, AHCI), never the block
+  layer. So install is unaffected by the block write vector entirely.
+- **Block writes (`SAVE-BUFFERS`) exist and are used** by `editor.fth`,
+  `mirror.fth`, `net-dict.fth`, `video.fth`. On a cell-0 boot the default is
+  `(BLK-WRITE-ATA)` → IDE-slave 0x1F0. On real AHCI/NVMe hardware nothing
+  answers there, so working block persistence on the HP requires the paid
+  `AHCI-RW`, which **overrides** the vector at runtime (`BLK-WRITER!`) — the
+  boot-time default is moot for that path.
+- **Nothing wired into `make test`, nothing on real hardware, and not G6**
+  (whose "persist" is the monitor channel, not blocks) relies on the default
+  ATA block writer. Only QEMU-with-IDE does (`test_persist_quick`, unwired).
+
+**Therefore:** a blanket `(BLK-WRITE-NONE)` cell-0 default is *nearly* free but
+not entirely — an installed instance is also cell-0 and legitimately wants ATA
+writes (the QEMU-IDE / legacy-IDE case), so a blanket default trades a
+host-safety risk for a regression on that path. **The fail-closed default is
+therefore the first half of N1, not a separate decision:** fail-closed needs
+the legitimate case to carry a *positive* signal first (a "this is my medium"
+state), which is exactly N1's three-state design.
+
+**UEFI-5 should define the third state for its own path without waiting for the
+general N1 design.** A UEFI-booted kernel sets the base cell to a
+**not-internal-disk** value, so its block writes land in the NONE (refuse)
+branch. That closes the host-safety hole on the path where it is live, at
+UEFI-5, and the general N1 design generalizes it afterward. This is the surgical
+move: it does not touch the installed-ATA default that the QEMU-IDE path relies
+on.
+
 ---
 
 ## 4. Stages
@@ -152,7 +192,7 @@ not to the stick it booted from. Consequences:
 
 | # | Decision |
 |---|---|
-| N1 | How the base cell expresses three states instead of two (RAM / internal disk / boot medium). Blocks CARRIER-1 and CARRIER-2. Widened from "installer byte source" by CARRIER-0 F3. |
+| N1 | How the base cell expresses three states instead of two (RAM / internal disk / boot medium). Blocks CARRIER-1 and CARRIER-2. Widened from "installer byte source" by CARRIER-0 F3. **First half = the fail-closed write default (CARRIER-0b): the legitimate installed-ATA case needs a positive "this is my medium" signal before a cell-0 boot can safely refuse; UEFI-5 sets the cell to a not-internal-disk value for its path ahead of the general design (§3a.1).** |
 | N2 | Does the native stick keep a FAT32 partition for interop, or is it raw ForthOS blocks end to end? Raw is purer; FAT32 is how a user gets files on and off. |
 | N3 | Ship carrier removal before or after the UEFI stick entry? BIOS-only means two stick formats in the wild for a while. |
 | N4 | Canonical accessor for the base cell across the public/paid boundary (F1) — which side owns it, and what the public name is. |

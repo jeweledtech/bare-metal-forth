@@ -75,3 +75,24 @@ The concern is **real but conditional**, and the precise shape matters:
 
 The resolution is N1's three-state design plus this fail-closed default;
 both are the owner's call before CARRIER-1.
+
+## Follow-up (owner question, 2026-09-29): does a stock installed instance write blocks today?
+
+- **Installer: no block writes.** `ADD-BOOT-ENTRY`/`ADD-PARTITION` write the
+  VBR, 224 kernel sectors and partition metadata via `SAFE-WRITE` /
+  `SEC-WRITE-VEC` (raw sector writes), never the block layer. Install is
+  unaffected by the block write vector.
+- **Block writes exist and are used** by `editor.fth`, `mirror.fth`,
+  `net-dict.fth`, `video.fth` (`UPDATE SAVE-BUFFERS`). On real AHCI/NVMe
+  hardware the default `(BLK-WRITE-ATA)` (IDE 0x1F0) has no device, so working
+  persistence needs the paid `AHCI-RW`, which overrides the vector at runtime.
+- **Nothing wired / on real HW / in G6 relies on the default ATA block
+  writer** (G6's "persist" is the monitor channel; `test_persist_quick` is
+  unwired). Only QEMU-with-IDE does.
+
+**So blanket `(BLK-WRITE-NONE)` is nearly free but not entirely** — an installed
+instance is also cell-0 and legitimately wants ATA writes on the QEMU-IDE /
+legacy-IDE path. **The fail-closed default is thus N1's first half, not a
+separate decision:** the legitimate case needs a positive "this is my medium"
+signal first. UEFI-5 can close its own path early by setting the cell to a
+not-internal-disk value (see the carrier task doc §3a.1).
