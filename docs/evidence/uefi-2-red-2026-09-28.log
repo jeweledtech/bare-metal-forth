@@ -1,0 +1,15 @@
+Running UEFI-2 own-GDT red...
+input sha256 dfd7c5f30e22ecf3c662f9f84756eb801e7629658d19d61fb06e9e636986473b  build/bmforth.img
+input sha256 51cad6cf5080f7705f9860591f461811d3f1a6e1e34bf76ddc060df26a4dbdd0  build/combined.img
+  CS = 0008 00000000
+  DS = 0010 00000000
+  ES = 0010 00000000
+  SS = 0010 00000000
+  GDT= 00007d90 00000017
+  PCI-BAR blocks 878-884 THRU; alive after: True
+  check 1: GDT base 0x7d90 in the kernel image [0x7e00, 0x23e00): False
+  control: GDT limit >= 0x17: True
+  control: CS = 0x0008: True
+  control: DS = ES = SS = 0x0010: True
+  control: alive after the PCI-BAR THRU: True
+XFAIL (expected): uefi2_RED_kernel_runs_on_own_gdt -- GDT base 0x7d90 is outside the kernel image

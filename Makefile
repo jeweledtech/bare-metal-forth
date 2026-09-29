@@ -625,6 +625,13 @@ test-translator:
 	@$(MAKE) -C tools/translator test
 
 # Offline GRUB cfg gates: drift, converter pin, scan fatality
+# UEFI-2 red (docs/evidence/uefi-2-prereg-2026-09-28.md): at `ok`, QEMU's
+# `info registers` must show the GDT inside the kernel image, CS=0x08,
+# DS/ES/SS=0x10.  Floppy bmforth.img + IDE combined.img (amendment e).
+test-uefi2-gdt: $(IMAGE) $(COMBINED)
+	@echo "Running UEFI-2 own-GDT red..."
+	@python3 tests/test_uefi2_gdt.py $(IMAGE) $(COMBINED) $$(($(TEST_PORT_BASE)+77)) $$(($(TEST_PORT_BASE)+78))
+
 # M1 of the UEFI stages (uefi-1-prereg-2026-09-28.md): the HP's BIOS boot
 # chain in QEMU -- pxelinux -> memdisk -> combined.img -- reaches ok,
 # reads blocks from RAM and refuses writes loudly (M4b, bc06026).  It
@@ -811,7 +818,7 @@ test-meta: $(COMBINED)
 #     its output as evidence, and it never gates a build.  If it must ever
 #     gate something, the gate goes on a deterministic artefact derived from
 #     it and pinned -- the treatment the Ghidra oracle already has.
-test: lint test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-block-reload test-squote-laydown test-install test-vbr test-grub-cfg test-uefi-boot test-memdisk test-doc-drift test-make-wiring test-g6 test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
+test: lint test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-block-reload test-squote-laydown test-install test-vbr test-grub-cfg test-uefi-boot test-uefi2-gdt test-memdisk test-doc-drift test-make-wiring test-g6 test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)

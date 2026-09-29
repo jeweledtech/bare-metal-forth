@@ -136,7 +136,7 @@ asserted so a renamed suite cannot shrink the union silently. The
 | (ab) | `x64_RED_ab_two_byte_arm_ignores_mandatory_prefix` | decoder | the arm never reads `66`/`F2`/`F3` |
 | (t) | `unknown_0f_modrm_recovery` | decoder | `0F 0D C0` is #UD and is accepted |
 
-## Python reds (1)
+## Python reds (2)
 
 **One register, two readers** (owner ruling 2026-09-28):
 - The C-suite union check (`suite_census.py`, unchanged) reads the table
@@ -149,6 +149,7 @@ asserted so a renamed suite cannot shrink the union silently. The
 | stage | red | test | what is wrong |
 |---|---|---|---|
 | UEFI-1 | `uefi1_RED_stick_boots_to_ok_under_ovmf` | tests/test_uefi_boot.py | the FORTHBOOT stick does not reach `ok` under UEFI with no CSM: its UEFI branch only prints CSM instructions (`uefi-1-prereg-2026-09-28.md`); XPASS due at UEFI-3 |
+| UEFI-2 | `uefi2_RED_kernel_runs_on_own_gdt` | tests/test_uefi2_gdt.py | the kernel runs on the boot sector's GDT (QEMU `GDT= 00007d90 00000017`, inside 0x7C00-0x7DFF), which a multiboot2 load will not have (`uefi-2-prereg-2026-09-28.md`) |
 
 ## Open, without a red (8)
 
