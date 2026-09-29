@@ -1,0 +1,35 @@
+input sha256 be05f8e7f53305e709a55f10295bd366101af72a5f1a4bb3a822774f1936e9a2  (forth.img = build/combined.img; bmforth.img 848971e1...)
+card sha256 036c91da96a1da794f18f8ee2126e993e0fb6ffe3109e48267817c1f93524203
+git HEAD 0eb5a33 + UEFI-2 working tree (card, fix uncommitted at run time)
+fixture: qemu-system-i386 -m 64, pxelinux -> memdisk (harddisk) -> combined.img, as the HP boots; e1000 00:03.0, intel-hda 00:04.0 (BAR0 FEBB0000)
+DRY-RUN DESK-CARD-UEFI-2.md on the QEMU fixture (rule 16); PCI-BAR THRU 878 884; alive: 42 ok
+      (fixture substitution: 0 1F 3 -> 0 4 0 in every typed line)
+[## 2. Blocks and the gat] ONLY FORTH DEFINITIONS
+      -> ok
+[## 2. Blocks and the gat] DECIMAL
+      -> ok
+[## 2. Blocks and the gat] 878 884 THRU
+      -> ok
+[## 2. Blocks and the gat] ALSO PCI-ENUM
+      -> ok
+[## 2. Blocks and the gat] : DEF? WORD FIND NIP ;
+      -> ok
+[## 2. Blocks and the gat] DEF? DEF? .
+      -> 377244 ok
+[## 2. Blocks and the gat] DEF? NO-SUCH-WORD .
+      -> 0 ok
+[## 2. Blocks and the gat] DEF? PCI-BAR .
+      -> 375788 ok
+[## 2. Blocks and the gat] ALSO PCI-BAR
+      -> ok
+[## 3. One config-space r] HEX
+      -> ok
+[## 3. One config-space r] DEPTH .
+      -> 0 ok
+[## 3. One config-space r] 0 4 0 0 PCI-BAR64@ .H8
+      -> FEBB0000ok
+[## 3. One config-space r] DEPTH .
+      -> 0 ok
+[## 3. One config-space r] DECIMAL
+      -> ok
+EXIT DEPTH/BASE: 0 ok / 10 ok

@@ -223,3 +223,78 @@ this red.
 ## Outcome
 
 (written after the build; nothing above this line changes)
+
+### Outcome — 2026-09-28 (QEMU; M3 is the HP trip, pending)
+
+**Commits:** amendment (e) 9205d17, red 0eb5a33, then the fix and this
+outcome.
+
+**The fix (`forth.asm`):**
+- **The kernel's own GDT.** `kernel_start` now opens with `lgdt
+  [kernel_gdt_descriptor]`, a far jump through `KERNEL_CODE_SEL` (0x08),
+  and `KERNEL_DATA_SEL` (0x10) into DS/ES/FS/GS/SS, before the stacks
+  are set.
+- **Where it lives.** `kernel_gdt` is a byte copy of `boot.asm:284-301`,
+  next to `idt_descriptor`, inside the kernel image.
+- **One block-image base.** `MEMDISK_BASE` became `BLK_IMAGE_BASE` at the
+  same cell, 0x28098. The **6 code reads** were renamed (vector choice,
+  BLOCK, LOAD, `-->`, `ram_read_block`), and the old name survives only
+  in the handoff comments. `boot.asm` is untouched.
+- **Size and lint.** `check-kernel-size` is OK (115200 of 115200), and
+  asm lint is OK.
+
+**Images:**
+- `bmforth.img` `dfd7c5f3…` → **`848971e185ff08e8…`**;
+- `combined.img` `51cad6cf…` → **`be05f8e7f53305e7…`**.
+
+**The red: XFAIL, then XPASS, then removed.**
+- **Before**, on bmforth `dfd7c5f3`: `GDT= 00007d90 00000017`, outside the
+  kernel image. XFAIL, with every control passing
+  (`uefi-2-red-2026-09-28.log`).
+- **After**: `GDT= 0000abc8 00000017`, inside [0x7E00, 0x23E00), with
+  CS=0008, DS=ES=SS=0010, limit 0x17 and the interpreter alive after the
+  PCI-BAR THRU. That is XPASS, exit 1
+  (`fix-uefi2-xpass-gate-2026-09-28.log`).
+- **Removed.** The name came out of `UEFI_REDS` and out of the register.
+  **Gate C showed both states: 2/2 at the XPASS, 1/1 after.** The same
+  test now reports `PASS: uefi2 kernel runs on own GDT`.
+
+**Must not move:**
+- **M1 HELD.** `test-memdisk` 20/20 on the new image.
+- **M2 HELD.** `make test` rc 0, "All tests passed!"
+  (`uefi-2-make-test-2026-09-28.log`): 13 `XFAIL (expected)` (12
+  translator + uefi1), 0 other failures, wiring 42/42, test-uefi2-gdt
+  PASS.
+- **M4 HELD.** The UEFI-1 red is still XFAIL with the control seen. The
+  replica's new sha is **a9a796da5bc1afb6**, identical on two runs.
+- **Block range held.** PCI-BAR is still 878–884:
+  - the host resolver says so;
+  - in the new `combined.img`'s own bytes, block 878 begins
+    `\ CATALOG: PCI-BAR`, block 885 begins `\ CATALOG: PCI-ENUM`, and
+    block 884 holds PCI-BAR's last lines. `KERNEL_PADDED_SIZE`, and so
+    `BLOCKS_LBA_BASE`, are unchanged.
+- **M3: the card is written and dry-run; the trip is pending.**
+  `tools/pxe/DESK-CARD-UEFI-2.md` has both image hashes filled.
+  - **The dry run** (`uefi-2-dryrun-2026-09-28.log`) booted pxelinux →
+    memdisk → combined.img, as the HP does, with intel-hda at 00:04.0:
+    - `878 884 THRU` loads from the RAM image, and `DEF? PCI-BAR` is
+      nonzero;
+    - the never-defined control prints 0;
+    - `0 4 0 0 PCI-BAR64@ .H8` reads FEBB0000, with DEPTH 0 before and
+      after;
+    - it exits with DEPTH 0 and BASE 10.
+  - **The dry run caught a false claim on the card.** It said
+    `PCI-BAR vocab loaded` prints during the THRU, and it does not: not
+    in the dry run, and not in HDA-3's iron log l.61, where the THRU line
+    is followed by an empty line. The card now relies on
+    `DEF? PCI-BAR`, and the dry run was repeated on the corrected card
+    (sha `036c91da…`).
+  - **Named, not taken:** the interpret-mode `."` at the end of a
+    block-loaded vocabulary prints nothing.
+
+**Carried into the UEFI-3 pre-registration** (desk finding, not acted
+on). GRUB places the multiboot2 MBI and the `combined.img` module
+wherever it likes, and either could land inside a fixed window
+(0x7C00–0x9FFFF, 0x30000–0x7FFFF, 0x100000–0x3FFFFF). The kernel must
+read both and, before touching those windows, either copy them clear or
+refuse on overlap.
