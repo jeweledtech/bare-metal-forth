@@ -231,6 +231,13 @@ combined: $(COMBINED) $(COMBINED_IDE)
 usb-image: $(COMBINED)
 	VERSION="$(VERSION)" bash tools/make-usb-image.sh
 
+# check-coverage — fail if a hardware-device vocabulary (by catalog CATEGORY)
+# exists in forth/dict/ but HARDWARE-COVERAGE.md does not name it. Makes the
+# 2026-09-29 staleness class (shipped vocab, doc still says PLANNED) a build
+# failure. Fast, offline; wired into `make test`.
+check-coverage:
+	@bash tools/check-coverage.sh
+
 # QEMU IDE copy: avoids file lock conflict when same data is both floppy and IDE
 $(COMBINED_IDE): $(COMBINED)
 	cp $(COMBINED) $(COMBINED_IDE)
@@ -827,7 +834,7 @@ test-meta: $(COMBINED)
 #     its output as evidence, and it never gates a build.  If it must ever
 #     gate something, the gate goes on a deterministic artefact derived from
 #     it and pinned -- the treatment the Ghidra oracle already has.
-test: lint test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-block-reload test-squote-laydown test-install test-vbr test-grub-cfg test-uefi-boot test-uefi2-gdt test-memdisk test-doc-drift test-make-wiring test-g6 test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
+test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-block-reload test-squote-laydown test-install test-vbr test-grub-cfg test-uefi-boot test-uefi2-gdt test-memdisk test-doc-drift test-make-wiring test-g6 test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)
@@ -912,4 +919,4 @@ grub-net: $(COMBINED) tools/pxe/grub.cfg
 pxe-push-grub: grub-net
 	@bash tools/pxe/push-grub.sh
 
-.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined usb-image check-kernel-size test test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-grub-cfg test-g6
+.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined usb-image check-coverage check-kernel-size test test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-grub-cfg test-g6

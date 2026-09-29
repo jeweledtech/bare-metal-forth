@@ -41,7 +41,7 @@ Status legend:
 |---|---|---|
 | CPU bring-up (x86) | COVERED | NASM kernel, direct instruction-set targeting |
 | Interrupt handling | PARTIAL | Sufficient for keyboard and timer operation; APIC-depth work not yet scoped |
-| Timers | PARTIAL | Operational for current workloads |
+| Timers | PARTIAL | Operational for current workloads (`pit-timer.fth`) |
 | ARM64 target | PARTIAL | Metacompiler Phase C in progress; QEMU virt machine, exception vector stub in place |
 | SMP / multicore | EXCLUDED | See Non-Goals |
 
@@ -57,9 +57,10 @@ Status legend:
 
 | Capability | Status | Notes |
 |---|---|---|
-| AHCI (SATA controller) | COVERED | Direct controller programming |
-| NTFS read | COVERED | Full MFT walker; validated against 1.2M-record fragmented MFT on reference hardware |
-| FAT32 read | COVERED | Reads EFI System Partition; LFN display polish pending |
+| AHCI (SATA controller) | COVERED | Direct controller programming (`ahci.fth`) |
+| NTFS read | COVERED | Full MFT walker (`ntfs.fth`); validated against 1.2M-record fragmented MFT on reference hardware |
+| FAT32 read | COVERED | Reads EFI System Partition (`fat32.fth`); LFN display polish pending |
+| ATAPI CD/DVD (SATA) | PARTIAL | `cd-atapi.fth`, `atapi-ahci.fth`; present, iron-validation scope open |
 | File browser / editor over real filesystems | COVERED | HP bare-metal validated |
 | NVMe | PLANNED | After PCI enumeration; required for NVMe-only modern laptops |
 | USB mass storage | PLANNED | After USB core (see Human Interface) |
@@ -70,7 +71,7 @@ Status legend:
 |---|---|---|
 | UDP console (development) | COVERED | Network console on reference platform |
 | NIC vocabulary | COVERED | `rtl8168.fth` (HP bare-metal validated — carries the net console), `rtl8139.fth`, `ne2000.fth` (QEMU) |
-| Protocol words (ARP/IP/UDP as vocabulary) | PARTIAL | `UDP-SEND`/`NET-SEND` exist (fixed addressing; the net console's TX path). No receive/ARP resolution as vocabulary yet |
+| Protocol words (ARP/IP/UDP as vocabulary) | PARTIAL | `UDP-SEND`/`NET-SEND` exist (`net-dict.fth`; fixed addressing, the net console's TX path). No receive/ARP resolution as vocabulary yet |
 | DHCP | PLANNED | Missing. Addressing is fixed today; no lease client |
 | 802.11 / WPA2 | PLANNED | Missing entirely. Three of four reference machines are Wi-Fi-only; needs an 802.11 MAC vocabulary, WPA2, and a vendor firmware blob (a licensing question, not only an engineering one) |
 | Full socket stack | EXCLUDED | See Non-Goals |
@@ -79,10 +80,12 @@ Status legend:
 
 | Capability | Status | Notes |
 |---|---|---|
-| PS/2 keyboard (i8042) | COVERED | HP bare-metal validated |
-| VGA text and graphics | COVERED | Editor, file browser, forms render on real hardware |
+| PS/2 keyboard (i8042) | COVERED | HP bare-metal validated (`ps2-keyboard.fth`) |
+| PS/2 mouse (i8042 aux) | PARTIAL | `ps2-mouse.fth`; present, iron-validation scope open |
+| VGA text and graphics | COVERED | Editor, file browser, forms render on real hardware (`vga-graphics.fth`; richer `graphics.fth`/`video.fth` are paid tier-3 vocabs) |
+| Serial console (16550 UART) | COVERED | Kernel COM1 console + `serial-16550.fth`; every QEMU test drives it |
 | USB core + USB HID | PARTIAL | xHCI vocabulary + HID keyboard (`HID-POLL`, `xhci.fth`); QEMU-proven and exercised on the HP through the xHCI iron cards. HID-on-iron validation scope not yet closed |
-| Audio | PLANNED | Low priority |
+| Audio | PARTIAL | `audio.fth` (PC-speaker words + AC97/HDA constants); no HDA controller driven yet. Low priority |
 
 ---
 
