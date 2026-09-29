@@ -358,14 +358,18 @@ kernel_start:
     ; BLK_IMAGE_BASE is set by bootloader if memdisk detected; default 0
     ; (the boot sector's memdisk probe is the MEMDISK_BASE handoff)
     ; (bootloader writes it before PM switch, kernel just reads it)
-    ; Block write vector: default = ATA PIO writer. On memdisk boot there
-    ; is no write path, so install the loud-fail stub — a write that goes
-    ; nowhere must say so instead of 'ok'.
-    mov dword [BLK_WRITE_VEC], BLKWRITEATA
-    cmp dword [BLK_IMAGE_BASE], 0
-    je .write_vec_done
+    ; Block write vector: FAIL-CLOSED by default (CARRIER-0b, 2026-09-29).
+    ; Was: ATA PIO writer on a cell-0 boot, loud-fail stub on memdisk.  But a
+    ; cell-0 boot (installed / native VBR / UEFI) writing via (BLK-WRITE-ATA)
+    ; targets IDE-slave 0x1F0 with no guard — on a SATA-in-IDE-compat machine
+    ; that silently overwrites the host disk and returns ior=0.  Nothing
+    ; wired / on real AHCI-NVMe hardware / in G6 relied on the ATA default
+    ; (HP persistence installs the AHCI writer, which overrides this vector;
+    ; the installer uses raw SEC-WRITE-VEC, not this).  So default to the
+    ; loud-fail stub for every boot; N1 restores a real writer behind a
+    ; positive "this is my medium" signal, and AHCI-RW still overrides at
+    ; runtime.
     mov dword [BLK_WRITE_VEC], BLKWRITENONE
-.write_vec_done:
     ; Block read vector: persistent reads (PBLK-READ) mirror the write
     ; vector. Disk boot: ATA reader. Memdisk boot: loud-fail stub — a
     ; persistent read must NOT fall back to the RAM copy (silent-stale

@@ -29,7 +29,9 @@ import subprocess
 import sys
 import time
 
-CARRIER_REDS = ['carrier_RED_cell0_write_fails_closed']
+# red removed after its XPASS gate fired on exactly this name
+# (fix-carrier0b-xpass-gate-2026-09-29.log); a clobber is now a plain FAIL.
+CARRIER_REDS = []
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FLOPPY = os.path.join(ROOT, 'build', 'bmforth.img')
 SCRATCH = os.path.join(ROOT, 'build', 'carrier-write-scratch.img')

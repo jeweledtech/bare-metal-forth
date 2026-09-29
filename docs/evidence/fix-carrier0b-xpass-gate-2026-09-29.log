@@ -1,0 +1,5 @@
+fixed bmforth b9593319b316b007
+  BLK-WRITER@ = 'WV .\r\n40560 ok'; (BLK-WRITE-NONE) = "' (BLK-WRITE-NONE) .\r\n40560 ok"
+  SAVE-BUFFERS -> 'SAVE-BUFFERS\r\nBLOCK WRITE FAIL 199\r\nok'
+  scratch LBA 623: sentinel intact=True, clobbered-by-write=False
+XPASS: carrier_RED_cell0_write_fails_closed — host disk untouched; remove the red
