@@ -210,6 +210,14 @@ x86_64-efi multiboot2 loader accepts load address 0x7E00.
 **Named gap, no action:** the two sibling topology tests from bc06026
 (`test_persist_quick`, `test_ahci_blk_writer`) are unwired.
 
+**(e) The red's boot path** (owner, 2026-09-28, before code).
+`uefi2_RED_kernel_runs_on_own_gdt` boots **`bmforth.img` on floppy +
+`combined.img` on IDE**, the path the (a) register lines were captured
+on. So its controls read the same path those lines came from, and no
+re-capture is needed. On that path `MEMDISK_BASE` is 0 and blocks load
+over ATA PIO. The memdisk path is covered by M1 (`test-memdisk`), not by
+this red.
+
 ---
 
 ## Outcome
