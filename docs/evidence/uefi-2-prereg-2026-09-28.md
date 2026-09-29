@@ -285,8 +285,9 @@ outcome.
     - it exits with DEPTH 0 and BASE 10.
   - **The dry run caught a false claim on the card.** It said
     `PCI-BAR vocab loaded` prints during the THRU, and it does not: not
-    in the dry run, and not in HDA-3's iron log l.61, where the THRU line
-    is followed by an empty line. The card now relies on
+    in the dry run, and not in HDA-3's iron log l.37-38, where the THRU line
+    is followed by an empty line. (Corrected: l.61 was first written
+    here from memory, and the log reads l.37-38.) The card now relies on
     `DEF? PCI-BAR`, and the dry run was repeated on the corrected card
     (sha `036c91da…`).
   - **Named, not taken:** the interpret-mode `."` at the end of a
