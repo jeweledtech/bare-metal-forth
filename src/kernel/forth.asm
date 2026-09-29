@@ -138,7 +138,11 @@ BLK_BUF_HEADERS     equ 0x28060     ; 4 headers x 12 bytes = 48 bytes
                                     ; flags: bit 0=valid, bit 1=dirty
 BLK_BUF_CUR         equ 0x28090     ; Index of current buffer (for UPDATE)
 BLK_BUF_CLOCK        equ 0x28094    ; LRU age counter
-MEMDISK_BASE         equ 0x28098    ; Physical base of memdisk RAM image (0 = not memdisk)
+BLK_IMAGE_BASE       equ 0x28098    ; Physical base of a whole combined.img in RAM (0 = none)
+; UEFI-2: one block-image base.  Writers: the boot sector's memdisk probe
+; (boot.asm:172-174; the cell was named MEMDISK_BASE until UEFI-2), and at
+; UEFI-3 the multiboot2 module.  Readers: the vector choice at boot,
+; BLOCK, LOAD, --> and ram_read_block.  Same cell, same address.
 BLK_WRITE_VEC        equ 0x2809C    ; XT of active block writer ( buf-addr blk# -- ior )
 BLK_READ_VEC         equ 0x280A0    ; XT of active persistent reader ( buf-addr blk# -- ior )
 BLK_NUM_BUFFERS     equ 4
@@ -309,7 +313,27 @@ TRACE_ENTRY_SZ      equ 12          ; 12 bytes per entry
 ; Serial port constants (COM1)
 COM1_PORT       equ 0x3F8
 
+; UEFI-2: the kernel's own GDT selectors, the same values boot.asm uses
+; (CODE_SEG boot.asm:309 = 0x08, DATA_SEG boot.asm:310 = 0x10).  The IDT
+; gates hard-code 0x08 (init_idt), so these must not change.
+KERNEL_CODE_SEL equ 0x08
+KERNEL_DATA_SEL equ 0x10
+
 kernel_start:
+    ; UEFI-2: run on the kernel's own GDT, first thing.  Until now the
+    ; kernel ran on the boot sector's GDT (boot.asm:282-310, at 0x7D90 in
+    ; memory the kernel does not own), and a multiboot2 load (UEFI-3) has
+    ; no boot sector at all.  Same descriptors, same selectors.
+    lgdt [kernel_gdt_descriptor]
+    jmp KERNEL_CODE_SEL:.gdt_reload_cs
+.gdt_reload_cs:
+    mov ax, KERNEL_DATA_SEL
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+    mov ss, ax
+
     ; Initialize stacks
     mov esp, DATA_STACK_TOP
     mov ebp, RETURN_STACK_TOP
@@ -331,13 +355,14 @@ kernel_start:
     mov dword [VAR_BLOCK_LOADING], 0
     mov dword [BLK_BUF_CUR], 0
     mov dword [BLK_BUF_CLOCK], 0
-    ; MEMDISK_BASE is set by bootloader if memdisk detected; default 0
+    ; BLK_IMAGE_BASE is set by bootloader if memdisk detected; default 0
+    ; (the boot sector's memdisk probe is the MEMDISK_BASE handoff)
     ; (bootloader writes it before PM switch, kernel just reads it)
     ; Block write vector: default = ATA PIO writer. On memdisk boot there
     ; is no write path, so install the loud-fail stub — a write that goes
     ; nowhere must say so instead of 'ok'.
     mov dword [BLK_WRITE_VEC], BLKWRITEATA
-    cmp dword [MEMDISK_BASE], 0
+    cmp dword [BLK_IMAGE_BASE], 0
     je .write_vec_done
     mov dword [BLK_WRITE_VEC], BLKWRITENONE
 .write_vec_done:
@@ -346,7 +371,7 @@ kernel_start:
     ; persistent read must NOT fall back to the RAM copy (silent-stale
     ; is the exact bug the vector pair exists to kill).
     mov dword [BLK_READ_VEC], BLKREADATA
-    cmp dword [MEMDISK_BASE], 0
+    cmp dword [BLK_IMAGE_BASE], 0
     je .read_vec_done
     mov dword [BLK_READ_VEC], BLKREADNONE
 .read_vec_done:
@@ -2816,7 +2841,7 @@ DEFCODE "BLOCK", BLOCK, 0
     mov eax, [ebx]              ; block#
 
     ; Check if we booted from memdisk (RAM-backed image)
-    cmp dword [MEMDISK_BASE], 0
+    cmp dword [BLK_IMAGE_BASE], 0
     jne .ram_path
 
     ; --- ATA PIO path (QEMU / real disk) ---
@@ -2962,7 +2987,7 @@ DEFCODE "(BLK-WRITE-ATA)", BLKWRITEATA, 0
     NEXT
 
 ; (BLK-WRITE-NONE) - ( buf-addr blk# -- ior ) Always-fail stub.
-; Installed at boot when MEMDISK_BASE is set: PXE/memdisk boot has no
+; Installed at boot when BLK_IMAGE_BASE is set: PXE/memdisk boot has no
 ; block write path until a vocabulary installs one (e.g. AHCI).
 DEFCODE "(BLK-WRITE-NONE)", BLKWRITENONE, 0
     pop eax
@@ -3013,7 +3038,7 @@ DEFCODE "(BLK-READ-ATA)", BLKREADATA, 0
     NEXT
 
 ; (BLK-READ-NONE) - ( buf-addr blk# -- ior ) Loud-fail stub.
-; Installed at boot when MEMDISK_BASE is set: PXE/memdisk boot has no
+; Installed at boot when BLK_IMAGE_BASE is set: PXE/memdisk boot has no
 ; persistent read path until a vocabulary installs one (e.g. AHCI).
 ; Announces itself: a persistent read with no medium behind it must say
 ; so — it must NEVER quietly serve the RAM copy instead.
@@ -3150,7 +3175,7 @@ DEFCODE "LOAD", LOAD, 0
     push ebx
     mov eax, [ebx]              ; block# from header
 
-    cmp dword [MEMDISK_BASE], 0
+    cmp dword [BLK_IMAGE_BASE], 0
     jne .load_ram
 
     ; ATA PIO path
@@ -3213,7 +3238,7 @@ DEFCODE "-->", CHAIN, F_IMMEDIATE
     push ebx
     mov eax, [ebx]
 
-    cmp dword [MEMDISK_BASE], 0
+    cmp dword [BLK_IMAGE_BASE], 0
     jne .chain_ram
 
     shl eax, 1
@@ -3921,6 +3946,21 @@ init_idt:
     pop ebx
     pop eax
     ret
+
+; UEFI-2: the kernel's own GDT, byte for byte boot.asm:284-301 --
+; null, 0x08 code (ring 0, exec/read, 4 GB flat), 0x10 data (ring 0,
+; read/write, 4 GB flat).  It lives in the kernel image.
+align 8
+kernel_gdt:
+    dd 0, 0                                 ; 0x00 null
+    dw 0xFFFF, 0x0000                       ; 0x08 code: limit 15:0, base 15:0
+    db 0x00, 10011010b, 11001111b, 0x00     ;      base 23:16, access, flags|limit, base 31:24
+    dw 0xFFFF, 0x0000                       ; 0x10 data
+    db 0x00, 10010010b, 11001111b, 0x00
+kernel_gdt_end:
+kernel_gdt_descriptor:
+    dw kernel_gdt_end - kernel_gdt - 1      ; 0x17, as boot.asm's
+    dd kernel_gdt
 
 ; IDT descriptor for LIDT
 idt_descriptor:
@@ -5365,9 +5405,9 @@ ata_read_sector:
 ; Input:  EAX = block number
 ;         EDI = destination buffer (in BLK_BUF_DATA pool)
 ; The combined image layout in RAM:
-;   MEMDISK_BASE + 0       = boot sector (512 bytes)
-;   MEMDISK_BASE + 512     = kernel (KERNEL_PADDED_SIZE bytes)
-;   MEMDISK_BASE + COMBINED_HEADER_SIZE = block 0 (1024 bytes)
+;   BLK_IMAGE_BASE + 0       = boot sector (512 bytes)
+;   BLK_IMAGE_BASE + 512     = kernel (KERNEL_PADDED_SIZE bytes)
+;   BLK_IMAGE_BASE + COMBINED_HEADER_SIZE = block 0 (1024 bytes)
 ;   ...
 ; So block N byte offset = COMBINED_HEADER_SIZE + N * 1024
 ; Clobbers: EAX, ECX, ESI (restores ESI before return)
@@ -5376,10 +5416,10 @@ ata_read_sector:
 
 ram_read_block:
     push esi                        ; Preserve Forth IP
-    ; Source address: MEMDISK_BASE + COMBINED_HEADER_SIZE + block# * 1024
+    ; Source address: BLK_IMAGE_BASE + COMBINED_HEADER_SIZE + block# * 1024
     shl eax, 10                     ; block# * 1024
     add eax, COMBINED_HEADER_SIZE   ; + boot+kernel prefix
-    add eax, [MEMDISK_BASE]         ; + RAM base address
+    add eax, [BLK_IMAGE_BASE]         ; + RAM base address
     mov esi, eax                    ; ESI = source
     mov ecx, 256                    ; 256 dwords = 1024 bytes
     rep movsd                       ; copy to [EDI]

@@ -30,7 +30,9 @@ import sys
 import tempfile
 import time
 
-UEFI_REDS = ['uefi2_RED_kernel_runs_on_own_gdt']
+# The red was removed after its XPASS gate fired on exactly its name
+# (fix-uefi2-xpass-gate-2026-09-28.log); a failure is now a plain FAIL.
+UEFI_REDS = []
 TEST_ID = 'uefi2 kernel runs on own GDT'
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

@@ -1,0 +1,16 @@
+Running UEFI-2 own-GDT red...
+input sha256 848971e185ff08e8b1d37cb5add9d91c28d99685ed05d0e402434b1ce73cedb8  build/bmforth.img
+input sha256 be05f8e7f53305e709a55f10295bd366101af72a5f1a4bb3a822774f1936e9a2  build/combined.img
+  CS = 0008 00000000
+  DS = 0010 00000000
+  ES = 0010 00000000
+  SS = 0010 00000000
+  GDT= 0000abc8 00000017
+  PCI-BAR blocks 878-884 THRU; alive after: True
+  check 1: GDT base 0xabc8 in the kernel image [0x7e00, 0x23e00): True
+  control: GDT limit >= 0x17: True
+  control: CS = 0x0008: True
+  control: DS = ES = SS = 0x0010: True
+  control: alive after the PCI-BAR THRU: True
+XPASS: uefi2_RED_kernel_runs_on_own_gdt passed -- stop; record it, then remove the red
+make: *** [Makefile:633: test-uefi2-gdt] Error 1
