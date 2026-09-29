@@ -222,6 +222,15 @@ $(COMBINED): $(IMAGE) $(BUILD)/.catalog.stamp
 
 combined: $(COMBINED) $(COMBINED_IDE)
 
+# usb-image — compose a complete writable ForthOS disk image (loopback file,
+# not /dev/sdX) plus its .sha256 files and a releases.json fragment, per
+# TASK_FORTHOS_CREATOR.md §1/§3.  Server-side only; the Creator app never
+# composes.  Compose needs root (losetup/mount/grub-install); packaging does
+# not.  make-uefi-usb.sh keeps the interactive /dev/sdX path and its NVMe guard.
+#   make usb-image VERSION=0.9.3
+usb-image: $(COMBINED)
+	VERSION="$(VERSION)" bash tools/make-usb-image.sh
+
 # QEMU IDE copy: avoids file lock conflict when same data is both floppy and IDE
 $(COMBINED_IDE): $(COMBINED)
 	cp $(COMBINED) $(COMBINED_IDE)
@@ -903,4 +912,4 @@ grub-net: $(COMBINED) tools/pxe/grub.cfg
 pxe-push-grub: grub-net
 	@bash tools/pxe/push-grub.sh
 
-.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined check-kernel-size test test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-grub-cfg test-g6
+.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined usb-image check-kernel-size test test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-grub-cfg test-g6
