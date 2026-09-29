@@ -136,7 +136,7 @@ asserted so a renamed suite cannot shrink the union silently. The
 | (ab) | `x64_RED_ab_two_byte_arm_ignores_mandatory_prefix` | decoder | the arm never reads `66`/`F2`/`F3` |
 | (t) | `unknown_0f_modrm_recovery` | decoder | `0F 0D C0` is #UD and is accepted |
 
-## Python reds (1)
+## Python reds (2)
 
 **One register, two readers** (owner ruling 2026-09-28):
 - The C-suite union check (`suite_census.py`, unchanged) reads the table
@@ -149,6 +149,7 @@ asserted so a renamed suite cannot shrink the union silently. The
 | stage | red | test | what is wrong |
 |---|---|---|---|
 | UEFI-1 | `uefi1_RED_stick_boots_to_ok_under_ovmf` | tests/test_uefi_boot.py | the FORTHBOOT stick does not reach `ok` under UEFI with no CSM: its UEFI branch only prints CSM instructions (`uefi-1-prereg-2026-09-28.md`); XPASS due at UEFI-3 |
+| CARRIER-0b | `carrier_RED_cell0_write_fails_closed` | tests/test_carrier_write_safe.py | a cell-0 boot arms `(BLK-WRITE-ATA)` and a `SAVE-BUFFERS` writes a block to a fixed disk (IDE-slave 0x1F0) ungated — host-safety. Fail-closed default is N1 first half (`carrier-0b-write-vector-2026-09-29.md`) |
 
 ## Open, without a red (8)
 

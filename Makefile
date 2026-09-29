@@ -648,6 +648,13 @@ test-uefi2-gdt: $(IMAGE) $(COMBINED)
 	@echo "Running UEFI-2 own-GDT red..."
 	@python3 tests/test_uefi2_gdt.py $(IMAGE) $(COMBINED) $$(($(TEST_PORT_BASE)+77)) $$(($(TEST_PORT_BASE)+78))
 
+# CARRIER-0b host-safety gate (carrier-0b-write-vector-2026-09-29.md): a cell-0
+# boot must NOT write blocks to a fixed disk by default. Floppy (cell-0) + a
+# scratch IDE disk with a sentinel; a SAVE-BUFFERS must leave it intact.
+test-carrier-write-safe: $(IMAGE)
+	@echo "Running CARRIER-0b write-safety gate..."
+	@python3 tests/test_carrier_write_safe.py $$(($(TEST_PORT_BASE)+79))
+
 # M1 of the UEFI stages (uefi-1-prereg-2026-09-28.md): the HP's BIOS boot
 # chain in QEMU -- pxelinux -> memdisk -> combined.img -- reaches ok,
 # reads blocks from RAM and refuses writes loudly (M4b, bc06026).  It
@@ -834,7 +841,7 @@ test-meta: $(COMBINED)
 #     its output as evidence, and it never gates a build.  If it must ever
 #     gate something, the gate goes on a deterministic artefact derived from
 #     it and pinned -- the treatment the Ghidra oracle already has.
-test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-block-reload test-squote-laydown test-install test-vbr test-grub-cfg test-uefi-boot test-uefi2-gdt test-memdisk test-doc-drift test-make-wiring test-g6 test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
+test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-block-reload test-squote-laydown test-install test-vbr test-grub-cfg test-uefi-boot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-g6 test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)
