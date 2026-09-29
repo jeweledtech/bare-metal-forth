@@ -4,6 +4,13 @@
 # non-interactive, loopback-file counterpart of tools/make-uefi-usb.sh, which
 # still owns the interactive /dev/sdX path and its NVMe refusal guard.
 #
+# TRANSITIONAL FORMAT — this composes a GRUB + memdisk carrier image, which is
+# exactly what CARRIER-3 (TASK, boot-carrier removal) sets out to delete. It is
+# correct for today's boot format and worth having now, but it is NOT the
+# permanent release format: CARRIER-3 adds a `usb-image-native` target (no GRUB,
+# no memdisk, no FAT32 ESP) that supersedes this one. Do not build a release
+# pipeline that assumes this format is forever.
+#
 # TASK_FORTHOS_CREATOR.md §1 (Option 1, composed image) + §3 (releases.json).
 # The Creator app never composes an image; all composition lives here.
 #
