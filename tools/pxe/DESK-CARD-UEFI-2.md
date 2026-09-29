@@ -1,5 +1,10 @@
 # DESK CARD — HP 15-bs0xx: UEFI-2 — the kernel on its own GDT (M3)
 
+> **Image hashes below are STALE after CARRIER-0b (2026-09-29).** The
+> write-vector fix changed the kernel (bmforth 848971e1 -> b9593319).
+> Regenerate BUILD hashes at desk-prep time; the trip should run the
+> current image, not these.
+
 Print this only after the owner rules on it. Fill every blank **before
 leaving the desk**.
 

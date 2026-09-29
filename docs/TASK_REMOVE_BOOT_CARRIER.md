@@ -159,7 +159,7 @@ on.
 | Stage | Work | Runnable when |
 |---|---|---|
 | CARRIER-0 | Read-only audit of every reader of the base cell | **Complete** (9b86e8d) |
-| CARRIER-0b | Verify F3's write-vector question against the UEFI path. Read-only. | **Now** — outranks the rest |
+| CARRIER-0b | Verified (write-vector host-safety); **fail-closed default shipped**: cell-0 arms `(BLK-WRITE-NONE)` (708d1b4), gated by `test-carrier-write-safe` | **Done** |
 | CARRIER-1 | Single canonical accessor for the base cell (F1); add the third block-source meaning (F3); retarget `BUILD-VBR` to removable media; stick layout | after N1 |
 | CARRIER-2 | Resolve the installer's kernel-byte source (F2) | after N1 |
 | CARRIER-3 | `make usb-image-native` — composed stick image with no GRUB, no memdisk, no FAT32 ESP | after CARRIER-1 |
