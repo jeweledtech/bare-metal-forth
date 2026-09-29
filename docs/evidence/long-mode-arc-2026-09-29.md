@@ -69,6 +69,18 @@ What becomes 64-bit?
   mode, run a trivial 64-bit stub, return) before committing A or B.
   Cheapest first step; keeps both doors open.
 
+**B's cost, named so it is not discovered later (owner, 2026-09-29):**
+B introduces a **mode boundary**, and every OS-surface call from a
+64-bit app crosses it (64-bit app → transition → 32-bit Forth vocabulary
+→ back). A 32↔64 transition layer *is* a layer, and that sits awkwardly
+against the project's "nothing between a word and the silicon" pitch. It
+is not assumed away: **its per-call cost is measured at LONG-2**, not
+hand-waved. The reason to accept it anyway is that the boundary is
+**explicit and inspectable** — a named trampoline you can read — rather
+than a HAL hiding the hardware behind a device model. That is a different
+thing from the layers the Non-Goals reject, and the doc says so on the
+record.
+
 **Recommendation: C first, then most likely B.** B preserves the shipped
 32-bit kernel and every gate that guards it, and it matches the
 project's actual goal — the 64-bit code we care about is *application*
@@ -118,7 +130,8 @@ long mode builds on that. Each stage keeps the 32-bit kernel booting.
 - Where page tables live in the fixed layout, and whether they collide
   with the pool or dictionary (the UEFI-MMAP-0 method applies).
 - Whether B's 32/64 call bridge can reuse the existing vectored-execution
-  pattern or needs a new trampoline.
+  pattern or needs a new trampoline. Its per-crossing cost is a LONG-2
+  measurement (see the named boundary cost in §3).
 - The addressing "tool" the owner mentioned: with paging, 64-bit
   addresses are virtual. A translated app's pointers become page-table
   entries, not raw physical addresses. This is B's core mechanism, sized
