@@ -14,10 +14,29 @@ DEFCODE "FIND", FIND, 0     ; ( c-addr -- c-addr 0 | xt 1 | xt -1 )
     push eax
     NEXT
 ```
-The comment promises the ANS contract — two cells out, an immediacy flag
-(`xt 1` immediate, `xt -1` normal, `c-addr 0` not found). The body
-consumes `c-addr` and pushes **one** cell: `xt` (found) or `0` (not).
-The real contract is `( c-addr -- xt|0 )`.
+The comment promises the ANS contract — an immediacy flag (`xt 1`
+immediate, `xt -1` normal, `c-addr 0` not found). The body does **not**
+pop `c-addr` (`find_` reads `word_buffer`, not the stack); it just pushes
+`eax` on top. So the real contract is `( c-addr -- c-addr xt|0 )`: the
+input address is retained and `xt` (found) or `0` (not) is pushed above
+it.
+
+> **Reading corrected by measurement, 2026-09-30.** An earlier draft of
+> this finding said the body "consumes `c-addr` and pushes one cell"
+> (`( c-addr -- xt|0 )`) and inferred a stack underflow in the callers.
+> That was wrong — the same confident-wrong-reading failure this finding
+> is *about*. The FIRSTBOOT session measured `FIND` in QEMU on the current
+> image: after `WORD FIND` the stack is `c-addr xt` (two cells), so
+> `WORD FIND NIP` leaves exactly `xt` with no underflow. The correction is
+> folded in below. The conclusion is unchanged: the comment is false and
+> the rename is the right fix.
+
+Cell **count** is not the lie — both the comment and the body leave two
+cells. The lie is what the second cell *means*: the comment says an
+immediacy flag `±1` (and that `c-addr` is replaced by `xt` on a hit);
+the body always keeps `c-addr` and makes the top cell the raw `xt|0`.
+Not-found agrees (`c-addr 0`); found does not (`c-addr xt` vs the
+promised `xt 1`/`xt -1`).
 
 `find_` (`forth.asm:4861`) also takes **no stack input** — it reads the
 name from `word_buffer`, not from `c-addr`. So `FIND` ignores the address
@@ -40,16 +59,16 @@ on a machine that cannot boot the result.
 
 ## Callers and workarounds
 
-- **Shipped, latent:** `install.fth:101` `BIND-WRITER` and `:125`
+- **Shipped, and correct:** `install.fth:101` `BIND-WRITER` and `:125`
   `BIND-READER`, both `WORD FIND NIP  DUP IF …! ELSE DROP THEN`.
-  `WORD` leaves `c-addr`; the simplified `FIND` replaces it with `xt|0`
-  (one cell); `NIP` then keeps `xt|0` but **pops one cell from beneath**
-  (a one-cell data-stack underflow per call). They work as bind-if-found
-  only because `find_` returns `0`/`xt`, and only because `WORD` and
-  `FIND` run back-to-back in a colon definition (no interpreter
-  token-fetch between them — `lesson_word_find_interactive`). They depend
-  entirely on the lying two-cell comment. Benign today (clean call
-  stack), fragile forever.
+  `WORD` leaves `c-addr`; `FIND` pushes `xt|0` **on top** (leaving
+  `c-addr xt|0`); `NIP` drops the `c-addr` and keeps `xt|0`. **No
+  underflow — these are correct code**, and they work as bind-if-found
+  because `find_` returns `0`/`xt`. (They do still depend on `WORD` and
+  `FIND` running back-to-back in a colon definition so `word_buffer`
+  survives — `lesson_word_find_interactive`.) The finding is *not* that
+  these callers are broken; it is that the comment they were written
+  against is false, so the next caller that trusts it will not be.
 - **Interactive:** `WORD X FIND` at the prompt always looks up `FIND`,
   never `X` (the interpreter re-fills `word_buffer`). Known since
   2026-08-04.
@@ -67,10 +86,14 @@ on a machine that cannot boot the result.
   `FIND`** — grep of `forth/dict/` finds only `install.fth`'s two
   `WORD FIND NIP` sites (token-parsed, not constructed) and the
   metacompiler's `S" FIND"` *name emissions* into target images (not
-  calls). So this is **latent** in shipped code, not a live
-  false-positive gate there.
+  calls). The two `install.fth` callers use `FIND` correctly, so the
+  false comment is **dormant** in shipped code — it misleads no shipped
+  caller today.
 - The **live** false-positive was the wizard, now guarded. The hazard is
-  that the next author writes `<string> FIND` trusting the comment.
+  purely forward: the next author who writes `<string> FIND` trusting the
+  comment (expecting `±1`, or expecting `c-addr` to be replaced by `xt`,
+  or building a name rather than parsing one) gets a confident-wrong
+  answer.
 
 ## The owed fix (not done here — tee'd up)
 
@@ -99,9 +122,10 @@ Two options; both make the next misuse impossible to write by accident:
    change before the pending HP trip (UEFI-2 + CARRIER-0b are already
    unpushed). Owner's call.**
 2. **Restore the real ANS contract.** Make `FIND` push `xt flag` /
-   `c-addr 0` and read `c-addr`. Correct, but changes behavior and must
-   fix both `install.fth` callers (their `NIP` assumes the two-cell
-   shape) — and it is a wider blast radius.
+   `c-addr 0` and read `c-addr` from the stack. Correct, but it changes
+   the top cell's meaning from the raw `xt` to a `±1` flag, so both
+   `install.fth` callers (whose `NIP` keeps that top cell and expects it
+   to be the `xt`) must change — a wider blast radius.
 
 **Recommendation:** option 1 now (rename + truthful comment + fix the two
 callers), red-first; option 2 only if a genuine ANS `FIND` is wanted
