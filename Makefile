@@ -257,7 +257,12 @@ check-kernel-size: $(IMAGE)
 # --- Test Targets ---
 
 # Port base for tests (each test uses a different port)
-TEST_PORT_BASE ?= 4500
+# Per-worktree default so two checkouts don't share a port range and
+# cross-kill each other's QEMU (docs/evidence/finding-harness-pkill-cross-worktree-2026-09-30.md).
+# Derived from this worktree's path; step 200 > the +0..+100 offsets the
+# recipes use, so adjacent bases never overlap. Override explicitly with
+# `make ... TEST_PORT_BASE=NNNN`.
+TEST_PORT_BASE ?= $(shell b=$$(printf '%s' "$(CURDIR)" | cksum | cut -d' ' -f1); echo $$(( 2200 + (b % 34) * 200 )))
 
 # Run smoke test (no block storage needed)
 test-smoke: $(ACTIVE_IMAGE)
