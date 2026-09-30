@@ -542,6 +542,46 @@ test-pci-bar: $(COMBINED)
 	@python3 tests/test_pci_bar.py $$(($(TEST_PORT_BASE)+87)) $(COMBINED); \
 		STATUS=$$?; pkill -9 -f "[q]emu.*$$(($(TEST_PORT_BASE)+87))" 2>/dev/null; exit $$STATUS
 
+# FIRSTBOOT wizard gate, docs/TASK_FORTHOS_FIRSTBOOT.md s.8 steps 1-3:
+# block-loaded firstboot.fth, screens read through the monitor
+# (pmemsave 0xB8000) because the wizard loop owns KEY.  Two fixtures:
+# lan (rtl8139 driven, e1000 undriven, AHCI present) and offline (no
+# NIC, PIIX IDE only -- the path three of four reference machines
+# take).  Ports +88/+89 and +84/+85 were unused.
+# Each fixture is ONE shell: a trap kills its QEMU (by pidfile) on any
+# exit, INT, TERM or HUP.  SIGKILL cannot be trapped, so each run also
+# first kills a QEMU left by a killed previous run (an orphan held the
+# monitor port during development, 2026-09-29).
+FB_KILL = if [ -f $$PIDF ]; then kill -9 $$(cat $$PIDF) 2>/dev/null; rm -f $$PIDF; fi
+test-firstboot: $(COMBINED)
+	@PIDF=$(BUILD)/firstboot-lan.pid; $(FB_KILL); \
+	trap '$(FB_KILL)' EXIT INT TERM HUP; \
+	cp $(COMBINED) $(COMBINED_IDE); \
+	echo "Running FIRSTBOOT wizard test (lan)..."; \
+	$(QEMU) -M pc -nic none -device rtl8139 -device e1000 \
+		-device ahci,id=ahci0 \
+		-drive file=$(COMBINED),format=raw,if=floppy \
+		-drive file=$(COMBINED_IDE),format=raw,if=ide,index=1 \
+		-serial tcp::$$(($(TEST_PORT_BASE)+88)),server=on,wait=off \
+		-monitor tcp:127.0.0.1:$$(($(TEST_PORT_BASE)+89)),server=on,wait=off \
+		-display none -daemonize -pidfile $$PIDF || exit 1; \
+	sleep 2; \
+	python3 tests/test_firstboot.py $$(($(TEST_PORT_BASE)+88)) $(COMBINED) \
+		$$(($(TEST_PORT_BASE)+89)) lan $(COMBINED_IDE)
+	@PIDF=$(BUILD)/firstboot-offline.pid; $(FB_KILL); \
+	trap '$(FB_KILL)' EXIT INT TERM HUP; \
+	cp $(COMBINED) $(COMBINED_IDE); \
+	echo "Running FIRSTBOOT wizard test (offline)..."; \
+	$(QEMU) -M pc -nic none \
+		-drive file=$(COMBINED),format=raw,if=floppy \
+		-drive file=$(COMBINED_IDE),format=raw,if=ide,index=1 \
+		-serial tcp::$$(($(TEST_PORT_BASE)+84)),server=on,wait=off \
+		-monitor tcp:127.0.0.1:$$(($(TEST_PORT_BASE)+85)),server=on,wait=off \
+		-display none -daemonize -pidfile $$PIDF || exit 1; \
+	sleep 2; \
+	python3 tests/test_firstboot.py $$(($(TEST_PORT_BASE)+84)) $(COMBINED) \
+		$$(($(TEST_PORT_BASE)+85)) offline $(COMBINED_IDE)
+
 # S"/."/ABORT" laydown suite (crafts blocks in buffer memory; no
 # block storage image needed, same tier as test-dict-bounds).
 test-squote-laydown: $(ACTIVE_IMAGE)
@@ -862,7 +902,7 @@ test-meta: $(COMBINED)
 #     its output as evidence, and it never gates a build.  If it must ever
 #     gate something, the gate goes on a deterministic artefact derived from
 #     it and pinned -- the treatment the Ghidra oracle already has.
-test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-block-reload test-squote-laydown test-install test-vbr test-grub-cfg test-uefi-boot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-g6 test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
+test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-squote-laydown test-install test-vbr test-grub-cfg test-uefi-boot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-g6 test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)
