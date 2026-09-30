@@ -6,7 +6,7 @@
 **Repo:** `jeweledtech/bare-metal-forth`
 **Related:** `TASK_INSTALL_BOOT_ENTRY.md` (Branch D, `BUILD-VBR`), the UEFI arc
 (UEFI-2…UEFI-5), `docs/evidence/carrier-0-memdisk-coupling-2026-09-29.md`,
-`claude/TASK_FORTHOS_CREATOR.md` (parked)
+the parked Creator spec (`forthos-creator/docs/`, separate repo)
 
 ---
 
