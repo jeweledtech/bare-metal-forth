@@ -79,10 +79,25 @@ Two options; both make the next misuse impossible to write by accident:
 1. **Rename + correct the comment.** Rename the primitive to
    `(FIND-LAST)` (or similar) with a truthful `( c-addr -- xt|0 )`
    comment noting it reads `word_buffer`, not `c-addr`. Update the two
-   `install.fth` callers. Cheapest; removes the ANS-shaped trap. Note:
-   the metacompiler emits the *name* `FIND` into target images
-   (`target-*.fth` `S" FIND"`) — that is target-side and independent of
-   the host primitive's name, but confirm before renaming.
+   `install.fth` callers. Cheapest; removes the ANS-shaped trap.
+
+   **Metacompiler dependency — CHECKED 2026-09-30, rename is safe.** The
+   worry was `test_meta_compile.py`, which looks up `FIND` in the
+   metacompiled symbol table (`comp_words` includes `'FIND'`, via
+   `T-FIND-SYM`). Two "FIND" things exist in the metacompiler and
+   **neither is tied to the host Forth word's name**:
+   - the *target* symbol `FIND` is a literal `S" FIND" TX-CODE`
+     (`target-x86.fth:847`) — renaming the host word does not change it,
+     so `T-FIND-SYM` still finds it;
+   - `ADDR-FIND` (the host address the target's FIND calls) is
+     `DEFCONST "ADDR-FIND", ADDR_FIND_FN, find_` (`forth.asm:3607`),
+     bound to the **asm label `find_`**, not the DEFCODE word.
+   No `' FIND` tick or `T-ALIAS ... FIND` exists (grep of `forth/dict/`).
+   So renaming `DEFCODE "FIND"` → `DEFCODE "(FIND-LAST)"` breaks neither
+   the meta test nor the metacompiler. **The blocker is cleared; the
+   only remaining question is sequencing — whether to stack this kernel
+   change before the pending HP trip (UEFI-2 + CARRIER-0b are already
+   unpushed). Owner's call.**
 2. **Restore the real ANS contract.** Make `FIND` push `xt flag` /
    `c-addr 0` and read `c-addr`. Correct, but changes behavior and must
    fix both `install.fth` callers (their `NIP` assumes the two-cell
