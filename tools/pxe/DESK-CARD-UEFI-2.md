@@ -1,12 +1,31 @@
 # DESK CARD — HP 15-bs0xx: UEFI-2 — the kernel on its own GDT (M3)
 
-> **Image hashes below are STALE after CARRIER-0b (2026-09-29).** The
-> write-vector fix changed the kernel (bmforth 848971e1 -> b9593319).
-> Regenerate BUILD hashes at desk-prep time; the trip should run the
-> current image, not these.
+> **PRE-FLIGHT — regenerated for the post-CARRIER-0b tree (2026-09-30).**
+> This card was updated after the CARRIER-0b write-vector fix. The kernel
+> is now `bmforth b9593319…`; the stick image is `combined.img 6fac2873…`
+> (which embeds that kernel). Two things MUST be redone before the trip,
+> or the stick runs a kernel that no longer matches the tree:
+>
+> 1. **Rebuild and re-confirm the BUILD hashes** in Section 0 — they are
+>    filled for `b9593319` / `6fac2873`. If `make build/combined.img`
+>    yields anything else, the tree moved again: STOP and regenerate.
+> 2. **Rewrite the stick** (Section 0's file-copy) and confirm its
+>    `forth.img` hashes to `6fac2873…`. A stick written before CARRIER-0b
+>    carries the old kernel (`848971e1`) and must not be used.
 
 Print this only after the owner rules on it. Fill every blank **before
 leaving the desk**.
+
+**What CARRIER-0b did and did not change (2026-09-30).** The HP boots
+PXE / GRUB / memdisk, so its base cell (`BLK_IMAGE_BASE`, 0x28098) is
+**non-zero**. Under the old code a non-zero cell already armed
+`(BLK-WRITE-NONE)`; CARRIER-0b changed only the cell-**zero** branch. So
+the HP's boot path behaves **identically** before and after the fix, and
+block persistence still comes from `AHCI-RW` overriding the write vector
+at runtime, not from the boot-time default. **For the bench:** a
+block-write difference observed here is a **finding to record, not an
+expected effect of the new kernel** — do not spend bench time blaming
+CARRIER-0b for it.
 
 **What this trip checks.** UEFI-2 changed the kernel.
 - **Before:** it ran on the boot sector's GDT (QEMU: `GDT= 00007d90`).
@@ -41,19 +60,20 @@ expectations below are the HP's.
 git status --porcelain          # clean, or explain before proceeding
 git remote -v
 make build/combined.img
-sha256sum build/bmforth.img     # expect 848971e185ff08e8b1d37cb5add9d91c28d99685ed05d0e402434b1ce73cedb8
-sha256sum build/combined.img    # expect be05f8e7f53305e709a55f10295bd366101af72a5f1a4bb3a822774f1936e9a2
+sha256sum build/bmforth.img     # expect b9593319b316b007c5176ec156ccd623f57d7ea1f344220a351194dbdb3f3c40
+sha256sum build/combined.img    # expect 6fac2873dff359c2da9357fd6dc126e24b5b7e5546a5060e65d274d539ec5998
 ```
-If either hash differs, the tree changed since the dry run: **STOP**.
+If either hash differs, the tree changed since this card was
+regenerated (`b9593319` / `6fac2873`): **STOP** and regenerate.
 
-**The image changed since HDA-3** (combined `51cad6cf…` →
-`be05f8e7…`), so the stick must be refreshed with the usual file copy,
-NOT `make-uefi-usb.sh`:
+**The image changed** (combined `51cad6cf…` HDA-3 → `be05f8e7…` UEFI-2
+→ `6fac2873…` CARRIER-0b), so the stick must be refreshed with the usual
+file copy, NOT `make-uefi-usb.sh`:
 ```bash
 lsblk -o NAME,LABEL,SIZE,TRAN   # exactly ONE FORTHBOOT, TRAN usb
 sudo mount -L FORTHBOOT /mnt/fb
 sudo cp build/combined.img /mnt/fb/forth.img && sync
-sha256sum /mnt/fb/forth.img build/combined.img   # MUST match
+sha256sum /mnt/fb/forth.img build/combined.img   # MUST match, = 6fac2873…
 ```
 **Stick and port.** The stick/port combination is marginal (HDA-3
 addendum). If the stick does not show at F9 on one HP port, use the
@@ -128,3 +148,25 @@ l.84).
 - [ ] Anything else ⇒ record it and STOP.
 
 Photo of the screen; stop the listener; **then** commit the log.
+
+## Opportunistic captures — a skip here is NOT a trip failure
+
+Two extras worth grabbing while at the machine. Neither gates the trip;
+mark a skip as a skip, do not treat it as a red.
+
+**R6 — firmware state, verbatim.** At the F10 firmware screen, before
+changing anything, record exactly:
+- CSM / Legacy Support: on / off ⇒ ____
+- Secure Boot: on / off ⇒ ____
+Its job is to make a *future* firmware-settings change diagnosable as a
+settings change, not a code regression. Photo the screen too.
+
+**R2 — `efibootmgr -v`, verbatim (UEFI-booted dev-box sessions only).**
+On the dev box, only if this session came up UEFI-booted:
+```bash
+[ -d /sys/firmware/efi ] && efibootmgr -v \
+  || echo "legacy/CSM session — R2 skipped (cannot capture from here)"
+```
+It is the G4 equality baseline and **cannot** be captured from a
+legacy/CSM session. If legacy, skip it and write "legacy — skipped"
+rather than improvising: ____
