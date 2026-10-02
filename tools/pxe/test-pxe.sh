@@ -60,10 +60,14 @@ else
     fail "Nothing listening on DHCP port 67"
 fi
 
-# Check config has dhcp-boot
+# Check config has dhcp-boot, and use WHATEVER it points at — do not assume
+# pxelinux.0. The GRUB switch made it grub/i386-pc/core.0; the old hardcoded
+# check reported a false FAIL (a status field asserting the pre-switch
+# assumption, not the live config).
 if [ -f /etc/forthos-pxe-dnsmasq.conf ]; then
-    if grep -q "dhcp-boot=pxelinux.0" /etc/forthos-pxe-dnsmasq.conf; then
-        pass "dhcp-boot=pxelinux.0 configured"
+    BOOTFILE=$(grep -oE 'dhcp-boot=[^,]+' /etc/forthos-pxe-dnsmasq.conf | head -1 | cut -d= -f2)
+    if [ -n "$BOOTFILE" ]; then
+        pass "dhcp-boot=$BOOTFILE configured"
     else
         fail "dhcp-boot missing from config"
     fi
@@ -75,6 +79,7 @@ if [ -f /etc/forthos-pxe-dnsmasq.conf ]; then
 else
     fail "/etc/forthos-pxe-dnsmasq.conf not found"
 fi
+BOOTFILE="${BOOTFILE:-grub/i386-pc/core.0}"   # fallback if config unreadable
 echo ""
 
 # --- 3. TFTP server ---
@@ -94,7 +99,7 @@ echo ""
 
 # --- 4. Boot files in TFTP root ---
 echo "--- Boot files: $TFTP_ROOT ---"
-for FILE in pxelinux.0 ldlinux.c32 memdisk forth.img; do
+for FILE in "$BOOTFILE" memdisk forth.img; do
     if [ -f "$TFTP_ROOT/$FILE" ]; then
         SIZE=$(stat -c%s "$TFTP_ROOT/$FILE" 2>/dev/null)
         pass "$FILE ($SIZE bytes)"
@@ -103,30 +108,36 @@ for FILE in pxelinux.0 ldlinux.c32 memdisk forth.img; do
     fi
 done
 
-if [ -f "$TFTP_ROOT/pxelinux.cfg/default" ]; then
-    pass "pxelinux.cfg/default exists"
-    # Verify it references memdisk + forth.img
-    if grep -q "memdisk" "$TFTP_ROOT/pxelinux.cfg/default" && \
-       grep -q "forth.img" "$TFTP_ROOT/pxelinux.cfg/default"; then
+# Boot menu lives where the active boot file expects it: grub/grub.cfg for a
+# GRUB bootfile, pxelinux.cfg/default for pxelinux.
+case "$BOOTFILE" in
+    grub/*) MENU="grub/grub.cfg" ;;
+    *)      MENU="pxelinux.cfg/default" ;;
+esac
+if [ -f "$TFTP_ROOT/$MENU" ]; then
+    pass "$MENU exists"
+    if grep -q "memdisk" "$TFTP_ROOT/$MENU" && \
+       grep -q "forth.img" "$TFTP_ROOT/$MENU"; then
         pass "Boot menu references memdisk + forth.img"
     else
         warn "Boot menu may be misconfigured"
     fi
 else
-    fail "pxelinux.cfg/default missing (run: make pxe-setup)"
+    fail "$MENU missing (run: make pxe-setup / pxe-push-grub)"
 fi
 echo ""
 
 # --- 5. TFTP transfer test ---
 echo "--- TFTP transfer test (localhost) ---"
 if command -v tftp > /dev/null 2>&1; then
-    # Test pxelinux.0
+    # Test the active boot file (whatever dhcp-boot points at)
     TMPDIR=$(mktemp -d)
-    if timeout 5 tftp "$DEV_IP" -c get pxelinux.0 "$TMPDIR/pxelinux.0" 2>/dev/null && \
-       [ -s "$TMPDIR/pxelinux.0" ]; then
-        pass "pxelinux.0 retrievable via TFTP"
+    BF_BASE=$(basename "$BOOTFILE")
+    if timeout 5 tftp "$DEV_IP" -c get "$BOOTFILE" "$TMPDIR/$BF_BASE" 2>/dev/null && \
+       [ -s "$TMPDIR/$BF_BASE" ]; then
+        pass "$BOOTFILE retrievable via TFTP"
     else
-        fail "Cannot retrieve pxelinux.0 via TFTP"
+        fail "Cannot retrieve $BOOTFILE via TFTP"
     fi
     # Test forth.img
     if timeout 5 tftp "$DEV_IP" -c get forth.img "$TMPDIR/forth.img" 2>/dev/null && \
