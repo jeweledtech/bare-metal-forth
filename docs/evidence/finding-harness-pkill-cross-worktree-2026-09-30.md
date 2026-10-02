@@ -141,6 +141,18 @@ orphan, or another session's live run, and only the first is yours to kill.
 The real cure is the same as the port class: kill-by-PID teardown that
 cannot leave a daemonized survivor.
 
+**Second occurrence, 2026-10-02 (it is the standing condition, not an
+exception to wait out).** While diagnosing the test-hang fix, a parallel
+session's QEMU held this worktree's `build/combined-ide.img` and rebuilt the
+shared images under an active run, killing the guest mid-test at
+non-deterministic points and masquerading as a fix bug — a second
+cross-session collision costing a diagnosis cycle this week. The answer is
+not to wait for a quiet tree but to **work in a dedicated git worktree**: a
+separate `build/` ends the image collision by construction (CPU is still
+shared, so TCG runs slow under load, but that only slows — it does not
+corrupt). Parallel terminals here are standing, so trip/harness work that
+touches shared `build/` artifacts should assume them.
+
 Two verification traps seen running this down, each of which makes a green
 tree look red or a red look green:
 

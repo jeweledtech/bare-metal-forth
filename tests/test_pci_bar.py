@@ -60,39 +60,14 @@ for v in vocabs:
     return (int(parts[0]), int(parts[1])) if len(parts) == 2 else (None, None)
 
 
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.settimeout(10)
-for _ in range(20):
-    try:
-        s.connect(('127.0.0.1', PORT))
-        break
-    except OSError:
-        time.sleep(0.5)
-else:
-    print('FAIL: connect')
-    sys.exit(1)
-time.sleep(2)
-try:
-    while True:
-        s.recv(4096)
-except Exception:
-    pass
+import serial as _ser  # tests/serial.py; script-dir sys.path shadows pyserial
+s = _ser.connect_and_sync(PORT, budget=30.0)
 
 
 def send(cmd, wait=1.0):
-    s.sendall((cmd + '\r').encode())
-    time.sleep(wait)
-    s.settimeout(2)
-    resp = b''
-    while True:
-        try:
-            d = s.recv(4096)
-            if not d:
-                break
-            resp += d
-        except Exception:
-            break
-    return resp.decode('ascii', errors='replace')
+    # Bounded in aggregate via serial.send_expect (TASK_HARNESS_KILL_BY_PID
+    # §3c). Same raw-reply contract.
+    return _ser.send_expect(s, cmd, budget=max(wait + 6.0, 10.0), settle=wait)
 
 
 def body_of(raw):

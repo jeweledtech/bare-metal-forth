@@ -192,6 +192,7 @@ becomes an unbounded debugging session.
 | H7 | **Red first.** A deliberately-hung test (a recipe whose test invocation blocks forever) must fail its recipe **within `N` seconds**, leave **no** orphaned QEMU, and **not** hold the image lock. Prove the hang-to-20-min red on the pre-timeout recipe first, then the bounded-fail green after. `test-xhci` is a live instance of the hung case today. |
 | H8 | Every converted recipe's test invocation carries `timeout $(T_<NAME>)` with a named budget. `grep -c 'python3 tests/' Makefile` equals the count of those lines also matching `timeout $(T_`. |
 | H9 | A converted recipe must pass against a deliberately **slowed** guest **and** a deliberately **fast** start (§3c). The race is lost on the *fast* side, so a slow-only gate would have shipped green all week; both twins are required. |
+| H10 | A converted recipe must **fail within its budget** when QEMU is prevented from starting at all (port already bound, or a bad `-drive`), proving `-daemonize`'s post-init return + `|| exit 1` still report a dead *launch* — rather than the test connecting to nothing and hanging on a guest that never came up. |
 
 ---
 
