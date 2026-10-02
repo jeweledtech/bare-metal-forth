@@ -19,17 +19,21 @@ does not establish "the USB boot path is broken."
 
 ## What is NOT established — and must be, first
 
-The physical device cannot be identified from the dev box this session:
+The physical device at the HP's F9 cannot be identified from the dev box,
+though one of the three candidate descriptions has now been ruled out:
 
-- **No USB mass-storage device is attached to the dev box now.** `lsusb`
-  shows only root hubs plus keyboard/Bluetooth/audio/LED; `/dev/sd*` is
-  empty; `lsblk` is loop devices and the two internal NVMe drives. So its
-  vendor:product, serial, and true capacity cannot be read here.
-- **The notes do not agree on which stick it is.** The owner reports the
-  currently-plugged stick reads **120 MB**, not the **57.3 GB SanDisk** in
-  the working notes, while the HDA-3 addendum names a **General `UDisk`**
-  (`abcd:1234`, serial `…668715`). That is potentially three different
-  descriptions. We do not know which physical device was at the HP's F9.
+- **The 57.3 GB SanDisk is a distractor, now identified.** It is attached to
+  the dev box as `/dev/sda` — SanDisk 3.2Gen1, 57.3 GB, partition labelled
+  `TAILS` (a Tails install) — observed directly this session, and by a
+  parallel session earlier. It was never written as FORTHBOOT, so it cannot
+  be the stick at the HP's F9. The "three conflicting descriptions" are
+  really this unrelated dev-box SanDisk plus **two** real candidates: the
+  **120 MB** stick the owner reports, and the HDA-3 **General `UDisk`**
+  (`abcd:1234`, serial `…668715`).
+- **Neither remaining candidate could be examined here.** Only the SanDisk
+  is attached; the 120 MB stick and the General UDisk are not, so their
+  vendor:product, serial, and true capacity cannot be read, and which of the
+  two was at the HP's F9 is unestablished.
 - **120 MB may not be the real size.** A whole-disk image read as if it
   were the first partition, or a stick written with a small fixed-size
   image and never re-partitioned, both present as a small device. "120 MB"
@@ -71,10 +75,11 @@ provisioning action, not a demonstrated fault.
 
 ## What would turn this into a finding (bench steps, in order)
 
-1. **Identify the device.** Plug the stick that was at the HP into the dev
-   box; record `lsusb` (vendor:product), `lsblk -o NAME,SIZE,TRAN,MODEL,SERIAL`,
-   and `sudo fdisk -l` for the device. Resolve the 120 MB vs 57.3 GB
-   question: is it a small stick, or a small image on a larger one?
+1. **Identify the device** (the SanDisk is already ruled out — see above).
+   Plug the stick that was at the HP into the dev box; record `lsusb`
+   (vendor:product), `lsblk -o NAME,SIZE,TRAN,MODEL,SERIAL`, and
+   `sudo fdisk -l`. Is it the 120 MB stick or the General UDisk, and is
+   120 MB a real size or a small image on a larger device?
 2. **Read its state.** Does it carry a valid FORTHBOOT layout and a
    `forth.img` = `build/combined.img`? Was it the HDA-3 `UDisk`, or a
    different device?
