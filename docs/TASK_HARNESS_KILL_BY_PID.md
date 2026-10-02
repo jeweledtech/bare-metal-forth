@@ -1,0 +1,166 @@
+# TASK: Kill QEMU by PID, not by pattern
+
+**Owner:** JeweledTech · A Jolly Genius Inc. company
+**Status:** READY — mechanical, wants a quiet machine and one session
+**Date:** 2026-10-02
+**Repo:** `jeweledtech/bare-metal-forth`
+**Source finding:** `docs/evidence/finding-harness-pkill-cross-worktree-2026-09-30.md`
+
+---
+
+## 1. Why now
+
+This is the last open item from the finding. Two of its three fixes landed
+(per-worktree `TEST_PORT_BASE`, the `docs/CLAUDE.md` broad-kill replacement);
+the 55 Makefile recipes still tear down by name pattern.
+
+It is being done now because the machine is quiet and one session owns the
+tree. A wide mechanical change across every test recipe is exactly the work
+that cannot be done safely with concurrent sessions — and the failure mode it
+removes is what cost most of 2026-09-30:
+
+- an orphaned QEMU held a monitor port and failed the next run at launch;
+- an orphaned QEMU held the **write lock on `build/bmforth.img`**, which the
+  port fix does not address at all;
+- a pattern kill reached a process in another tree;
+- each of those surfaced as a red `make test` on a tree whose code was fine.
+
+The cost is not the lost minutes. It is that a red suite stops meaning
+"you broke something."
+
+---
+
+## 2. Scope
+
+| Surface | Count | Change |
+|---|---|---|
+| `Makefile` recipes using `pkill -9 -f "[q]emu.*<port>"` | 55 | kill by PID from a pidfile |
+| `-daemonize` launches without `-pidfile` | 17 | add `-pidfile` |
+| `tests/iv_roundtrip_test.py:13`, `tests/test_meta_b6b.py:133`, `tests/synced_revert*.py` | 3 | kill the `Popen` handle they already own |
+| `TEST_PORT_BASE` | — | done (`65a5cdd`), no change |
+
+Out of scope: the three translator corpus suites, anything under
+`tools/translator/`, and `docs/CLAUDE.md` (already corrected).
+
+---
+
+## 3. The pattern — already proven
+
+`test-firstboot` (merged at `661486c`) is the reference implementation. It was
+verified across normal exit, SIGINT, SIGTERM and SIGKILL on 2026-09-29. Copy
+its shape; do not invent a second one.
+
+```make
+QEMU_KILL = if [ -f $$PIDF ]; then kill -9 $$(cat $$PIDF) 2>/dev/null; rm -f $$PIDF; fi
+
+test-firstboot: $(COMBINED)
+    @PIDF=$(BUILD)/firstboot-lan.pid; $(QEMU_KILL); \
+    trap '$(QEMU_KILL)' EXIT INT TERM HUP; set -e; \
+    $(QEMU) ... -daemonize -pidfile $$PIDF; \
+    sleep 2; \
+    python3 tests/test_firstboot.py ...
+```
+
+Four properties, all load-bearing:
+
+1. **One shell per fixture.** Make runs each recipe line in its own shell, so a
+   `trap` set on line 1 is gone by line 2. The recipe must be a single
+   continued shell — this is the actual work, not the kill line.
+2. **Pre-clean before launch.** SIGKILL cannot be trapped, so a previous run
+   killed hard leaves both a QEMU and its pidfile. Clearing the pidfile's PID
+   first is what makes the *next* run succeed.
+3. **Pidfile under this tree's `build/`.** A tree can then only ever kill its
+   own QEMUs, by construction rather than by careful pattern-writing.
+4. **Fail the recipe if the launch fails.** A QEMU that fails to start must
+   fail the recipe (via `set -e` or `|| exit 1`), not fall through to a test
+   that then times out mysteriously.
+
+### 3a. Generalize the helper
+
+Promote `FB_KILL` to one shared `QEMU_KILL` used by every recipe, so there are
+not 55 copies to keep correct. Name pidfiles after the target
+(`$(BUILD)/<target>.pid`, and `<target>-<fixture>.pid` where a recipe runs
+more than one).
+
+---
+
+## 4. The gotcha that will bite during conversion
+
+Collapsing a multi-line recipe into one shell **changes error semantics.**
+Today make stops at the first failing line. In a single continued shell,
+everything after a failure still runs unless you make it not.
+
+Every converted recipe must either `set -e` at the top of its shell or carry
+explicit `|| exit` on each step that matters. A recipe that silently continues
+past a failed build and then "passes" its test is a worse outcome than the
+problem being fixed.
+
+**`set -e` has blind spots.** It does *not* fire for a command inside an `if`
+condition, on the left of `||`/`&&`, or (in default bash) for a non-final
+command in a pipeline. Batch 1's recipes (`test-xhci`, `test-pci-bar`) are
+linear, so `set -e` holds there. For each of the 17 in batch 2, check for
+those shapes as you convert; where one appears, add an explicit `|| exit 1` on
+that step rather than trusting `set -e`. A failed step sailing past silently is
+exactly what this section exists to stop, and in those shapes it would do so
+while *appearing* guarded.
+
+Verify this per batch, not at the end.
+
+---
+
+## 5. Order of work
+
+Convert in batches, running `make test` between them. Fifty-five recipes
+changed in one pass with no intermediate verification is how a clean change
+becomes an unbounded debugging session.
+
+1. **Helper + two recipes.** Add `QEMU_KILL`; convert `test-xhci` and
+   `test-pci-bar` (both already hit by the orphan problem). Full `make test`.
+2. **The `-daemonize` seventeen.** These are the ones that can orphan. Batch of
+   ~6, `make test` between.
+3. **The remaining recipes.** Mechanical once the pattern is set.
+4. **The three `.py` files.** Each already holds a `Popen`; kill that handle in
+   a `finally`, drop the `pkill`.
+5. **Optional, recommended:** have a recipe refuse to start when its serial
+   port is already bound (`ss -tlnp`), so a collision fails loudly instead of
+   hijacking or killing. Costs one check, removes the remaining ambiguity.
+
+---
+
+## 6. Gates
+
+| # | Gate |
+|---|---|
+| H1 | **Red first.** Two QEMUs running, one from a second checkout at a different base. Run a converted recipe to completion. Before the change, a pattern kill reaches the other; after, it must not. Prove the red fails on today's tree before trusting the green. |
+| H2 | No orphan after normal exit, SIGINT, or SIGTERM — for every converted recipe, not just a sample. |
+| H3 | After SIGKILL, the next run's pre-clean clears the orphan and starts cleanly. |
+| H4 | `make test` green after every batch. Read `MAKE_TEST_EXIT` from the log, not the harness's exit code. |
+| H5 | A deliberately failing step inside a converted single-shell recipe fails the recipe (§4). |
+| H6 | `grep -c '^\t.*pkill' Makefile` → 0. Scoped to tab-indented recipe lines so it catches pattern kills in recipes and ignores the finding's filename cited in comments (a legitimate citation). Apply the same scoping to the 3 `.py` files — no `pkill` *invocation* remains; a citation in a comment is fine. |
+
+---
+
+## 7. Verification traps already learned
+
+Both cost a diagnosis cycle on 2026-09-30/10-01. Do not re-derive them:
+
+- **`make -n test` is not a valid proxy for `make test`.** The corpus-absent
+  gate shells out to `make <subtest>`; under `-n` every child exits 0 without
+  running, which reads as the gate's own failure condition. It reports a red
+  that does not exist.
+- **The harness's exit code is not make's.** A trailing `tail` or `echo` in the
+  wrapper returns 0 while `make test` exited 2. Capture `MAKE_TEST_EXIT` into
+  the log and read the log.
+
+---
+
+## 8. What this does not fix
+
+The image write lock is reduced, not eliminated. Traps mean a killed run no
+longer leaves a QEMU holding `build/bmforth.img`, which was the observed
+failure — but two *concurrently running* suites in the same working tree still
+collide on that file regardless of ports or pidfiles. Separate worktrees have
+separate `build/`, so the per-worktree discipline remains the answer there.
+
+Worth one line in the finding once this lands, so the next reader knows which
+half each fix bought.

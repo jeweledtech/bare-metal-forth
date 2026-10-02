@@ -514,33 +514,35 @@ test-block-reload: $(COMBINED)
 # Monitor port: the design named +95, but +95 is test-block-reload's
 # (observed above); +93 is unused and one below the serial port.
 test-xhci: $(COMBINED)
-	@cp $(COMBINED) $(COMBINED_IDE)
-	@echo "Running xHCI vocab test..."
-	@$(QEMU) -M pc -device qemu-xhci -device usb-kbd,id=kbd \
+	@PIDF=$(BUILD)/test-xhci.pid; $(QEMU_KILL); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP; set -e; \
+	cp $(COMBINED) $(COMBINED_IDE); \
+	echo "Running xHCI vocab test..."; \
+	$(QEMU) -M pc -device qemu-xhci -device usb-kbd,id=kbd \
 		-drive file=$(COMBINED),format=raw,if=floppy \
 		-drive file=$(COMBINED_IDE),format=raw,if=ide,index=1 \
 		-serial tcp::$$(($(TEST_PORT_BASE)+94)),server=on,wait=off \
 		-monitor tcp:127.0.0.1:$$(($(TEST_PORT_BASE)+93)),server=on,wait=off \
-		-display none -daemonize
-	@sleep 2
-	@python3 tests/test_xhci.py $$(($(TEST_PORT_BASE)+94)) $(COMBINED) $$(($(TEST_PORT_BASE)+93)); \
-		STATUS=$$?; pkill -9 -f "[q]emu.*$$(($(TEST_PORT_BASE)+94))" 2>/dev/null; exit $$STATUS
+		-display none -daemonize -pidfile $$PIDF; \
+	sleep 2; \
+	python3 tests/test_xhci.py $$(($(TEST_PORT_BASE)+94)) $(COMBINED) $$(($(TEST_PORT_BASE)+93))
 
 # PCI-BAR gate, (bz) R2 (docs/evidence/bz-base-finding-prereg-2026-09-27.md):
 # block-loaded pci-bar.fth, instances of a class in scan order.  TWO
 # intel-hda functions, so "never chosen implicitly" meets more than one
 # instance (the HP has one).  Port +87 was unused.
 test-pci-bar: $(COMBINED)
-	@cp $(COMBINED) $(COMBINED_IDE)
-	@echo "Running PCI-BAR vocab test..."
-	@$(QEMU) -M pc -device intel-hda -device intel-hda \
+	@PIDF=$(BUILD)/test-pci-bar.pid; $(QEMU_KILL); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP; set -e; \
+	cp $(COMBINED) $(COMBINED_IDE); \
+	echo "Running PCI-BAR vocab test..."; \
+	$(QEMU) -M pc -device intel-hda -device intel-hda \
 		-drive file=$(COMBINED),format=raw,if=floppy \
 		-drive file=$(COMBINED_IDE),format=raw,if=ide,index=1 \
 		-serial tcp::$$(($(TEST_PORT_BASE)+87)),server=on,wait=off \
-		-display none -daemonize
-	@sleep 2
-	@python3 tests/test_pci_bar.py $$(($(TEST_PORT_BASE)+87)) $(COMBINED); \
-		STATUS=$$?; pkill -9 -f "[q]emu.*$$(($(TEST_PORT_BASE)+87))" 2>/dev/null; exit $$STATUS
+		-display none -daemonize -pidfile $$PIDF; \
+	sleep 2; \
+	python3 tests/test_pci_bar.py $$(($(TEST_PORT_BASE)+87)) $(COMBINED)
 
 # FIRSTBOOT wizard gate, docs/TASK_FORTHOS_FIRSTBOOT.md s.8 steps 1-3:
 # block-loaded firstboot.fth, screens read through the monitor
@@ -552,10 +554,17 @@ test-pci-bar: $(COMBINED)
 # exit, INT, TERM or HUP.  SIGKILL cannot be trapped, so each run also
 # first kills a QEMU left by a killed previous run (an orphan held the
 # monitor port during development, 2026-09-29).
-FB_KILL = if [ -f $$PIDF ]; then kill -9 $$(cat $$PIDF) 2>/dev/null; rm -f $$PIDF; fi
+# QEMU_KILL — shared teardown for every daemonized test recipe: kill the PID
+# in this recipe's pidfile (never a name pattern, which reaches other trees
+# and other sessions — finding-harness-pkill-cross-worktree). Used via a trap
+# so it fires on normal exit and on INT/TERM/HUP, plus once before launch to
+# pre-clean a pidfile left by a SIGKILL'd previous run (SIGKILL can't be
+# trapped). Pidfiles live under this tree's $(BUILD)/, so a tree only ever
+# kills its own QEMUs. See docs/TASK_HARNESS_KILL_BY_PID.md.
+QEMU_KILL = if [ -f $$PIDF ]; then kill -9 $$(cat $$PIDF) 2>/dev/null; rm -f $$PIDF; fi
 test-firstboot: $(COMBINED)
-	@PIDF=$(BUILD)/firstboot-lan.pid; $(FB_KILL); \
-	trap '$(FB_KILL)' EXIT INT TERM HUP; \
+	@PIDF=$(BUILD)/firstboot-lan.pid; $(QEMU_KILL); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP; \
 	cp $(COMBINED) $(COMBINED_IDE); \
 	echo "Running FIRSTBOOT wizard test (lan)..."; \
 	$(QEMU) -M pc -nic none -device rtl8139 -device e1000 \
@@ -568,8 +577,8 @@ test-firstboot: $(COMBINED)
 	sleep 2; \
 	python3 tests/test_firstboot.py $$(($(TEST_PORT_BASE)+88)) $(COMBINED) \
 		$$(($(TEST_PORT_BASE)+89)) lan $(COMBINED_IDE)
-	@PIDF=$(BUILD)/firstboot-offline.pid; $(FB_KILL); \
-	trap '$(FB_KILL)' EXIT INT TERM HUP; \
+	@PIDF=$(BUILD)/firstboot-offline.pid; $(QEMU_KILL); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP; \
 	cp $(COMBINED) $(COMBINED_IDE); \
 	echo "Running FIRSTBOOT wizard test (offline)..."; \
 	$(QEMU) -M pc -nic none \
