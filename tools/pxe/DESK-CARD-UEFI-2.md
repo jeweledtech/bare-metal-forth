@@ -1,17 +1,19 @@
 # DESK CARD — HP 15-bs0xx: UEFI-2 — the kernel on its own GDT (M3)
 
-> **PRE-FLIGHT — regenerated for the post-CARRIER-0b tree (2026-09-30).**
-> This card was updated after the CARRIER-0b write-vector fix. The kernel
-> is now `bmforth b9593319…`; the stick image is `combined.img 6fac2873…`
-> (which embeds that kernel). Two things MUST be redone before the trip,
-> or the stick runs a kernel that no longer matches the tree:
+> **PRE-FLIGHT — hashes are generated, not pinned (2026-10-01).** This
+> card no longer carries image hashes inline: pinned hashes went stale
+> once from CARRIER-0b and will again when the wizard branch shifts the
+> catalog blocks. The trip is pinned by the **commit**, and the stick is
+> checked against a **generated** hash file:
 >
-> 1. **Rebuild and re-confirm the BUILD hashes** in Section 0 — they are
->    filled for `b9593319` / `6fac2873`. If `make build/combined.img`
->    yields anything else, the tree moved again: STOP and regenerate.
-> 2. **Rewrite the stick** (Section 0's file-copy) and confirm its
->    `forth.img` hashes to `6fac2873…`. A stick written before CARRIER-0b
->    carries the old kernel (`848971e1`) and must not be used.
+> 1. **Record the commit:** `git status --porcelain` clean and
+>    `git rev-parse HEAD`. That — not a hash printed here — says which
+>    tree the trip ran.
+> 2. **Generate the hashes:** `make desk-hashes` writes
+>    `build/desk-hashes.txt` (bmforth + combined for the current build).
+> 3. **Rewrite the stick** and confirm its `forth.img` equals the
+>    `combined.img` line in that file. A stick written against an older
+>    build carries a different kernel and must not be used.
 
 Print this only after the owner rules on it. Fill every blank **before
 leaving the desk**.
@@ -58,26 +60,35 @@ expectations below are the HP's.
 
 ```bash
 git status --porcelain          # clean, or explain before proceeding
-git remote -v
-make build/combined.img
-sha256sum build/bmforth.img     # expect b9593319b316b007c5176ec156ccd623f57d7ea1f344220a351194dbdb3f3c40
-sha256sum build/combined.img    # expect 6fac2873dff359c2da9357fd6dc126e24b5b7e5546a5060e65d274d539ec5998
+git remote -v                   # destination verified, not assumed
+git rev-parse HEAD              # RECORD this — it says which tree ran: ____
+make desk-hashes               # builds the images, writes build/desk-hashes.txt
+cat build/desk-hashes.txt      # the two lines are GENERATED for this build
 ```
-If either hash differs, the tree changed since this card was
-regenerated (`b9593319` / `6fac2873`): **STOP** and regenerate.
+No hashes are pinned on this card. `build/desk-hashes.txt` carries the
+`bmforth.img` and `combined.img` hashes for the tree you just recorded; the
+stick is checked against that file, below, not against a literal printed
+here that could go stale (it went stale once at CARRIER-0b).
 
-**The image changed** (combined `51cad6cf…` HDA-3 → `be05f8e7…` UEFI-2
-→ `6fac2873…` CARRIER-0b), so the stick must be refreshed with the usual
-file copy, NOT `make-uefi-usb.sh`:
+**The image changed at CARRIER-0b** (and will change again on the wizard
+branch), so the stick must be refreshed with the usual file copy, **NOT**
+`make-uefi-usb.sh`:
 ```bash
 lsblk -o NAME,LABEL,SIZE,TRAN   # exactly ONE FORTHBOOT, TRAN usb
 sudo mount -L FORTHBOOT /mnt/fb
 sudo cp build/combined.img /mnt/fb/forth.img && sync
-sha256sum /mnt/fb/forth.img build/combined.img   # MUST match, = 6fac2873…
+# Confirm the stick carries THIS build's kernel — compare, don't eyeball:
+STICK=$(sha256sum /mnt/fb/forth.img | cut -d' ' -f1)
+WANT=$(awk '/combined.img/{print $2}' build/desk-hashes.txt)
+[ "$STICK" = "$WANT" ] && echo "BUILD == STICK OK" || echo "MISMATCH — rewrite"
 ```
+BUILD == STICK: ____
+
 **Stick and port.** The stick/port combination is marginal (HDA-3
 addendum). If the stick does not show at F9 on one HP port, use the
-other, and record which: ____.
+other, and record which: ____. If it shows at no port and you fall back
+to PXE, that is the USB-not-offered finding — record it, the trip still
+runs over PXE.
 
 Start the listener in a **second terminal**, while the stick is mounted:
 ```bash
@@ -85,11 +96,14 @@ python3 tools/hp-portread-capture.py --boot-path usb \
     --deployed /mnt/fb/forth.img \
     --out docs/evidence/uefi2-iron-$(date +%F).log
 ```
-Expect `hash gate: PASS (deployed == build)` and `boot path: usb`. Then:
+Expect `hash gate: PASS (deployed == build)`. The header records
+`boot path (intended): usb`; the **actual** path is detected from this
+box and appended when you stop the listener. If the stick was not offered
+and you booted PXE, the footer says so and flags the flag/evidence
+discrepancy — no hand-written correction note needed. Then:
 ```bash
 sudo umount /mnt/fb
 ```
-BUILD == STICK: ____
 
 **Block range.** `878 884 THRU` is PCI-BAR on this image. It was
 checked two ways:

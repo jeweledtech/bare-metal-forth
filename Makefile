@@ -238,6 +238,16 @@ usb-image: $(COMBINED)
 check-coverage:
 	@bash tools/check-coverage.sh
 
+# desk-hashes — write the CURRENT build image hashes to build/desk-hashes.txt
+# at desk-prep time. Desk cards point at this file instead of pinning hashes
+# inline, so an image change (CARRIER-0b, a wizard-branch catalog shift, ...)
+# cannot silently invalidate a trip document — the operator regenerates and
+# compares the stick against the freshly-generated combined.img line.
+desk-hashes: $(IMAGE) $(COMBINED)
+	@printf 'bmforth.img  %s\ncombined.img %s\n' \
+	  "$$(sha256sum $(IMAGE) | cut -d' ' -f1)" \
+	  "$$(sha256sum $(COMBINED) | cut -d' ' -f1)" | tee $(BUILD)/desk-hashes.txt
+
 # QEMU IDE copy: avoids file lock conflict when same data is both floppy and IDE
 $(COMBINED_IDE): $(COMBINED)
 	cp $(COMBINED) $(COMBINED_IDE)
@@ -931,4 +941,4 @@ grub-net: $(COMBINED) tools/pxe/grub.cfg
 pxe-push-grub: grub-net
 	@bash tools/pxe/push-grub.sh
 
-.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined usb-image check-coverage check-kernel-size test test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-grub-cfg test-g6
+.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined usb-image check-coverage desk-hashes check-kernel-size test test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-grub-cfg test-g6
