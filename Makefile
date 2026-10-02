@@ -390,6 +390,23 @@ test-gui: $(COMBINED)
 		if [ $$STATUS -ne 0 ]; then exit $$STATUS; fi; \
 	done
 
+# LOG-HARNESS Phase 1 smoke test. Needs $(COMBINED) because the vocab
+# is block-loaded off the catalog (not embedded), and because
+# LOG-DUMP-TO-BLOCK writes to the TELEMETRY-reserved blocks and we
+# read them back. Owns offset +45 on both axes.
+test-log-harness: $(COMBINED)
+	@cp $(COMBINED) $(COMBINED_IDE)
+	@echo "Running LOG-HARNESS smoke test..."
+	@PORT=$$(($(TEST_PORT_BASE)+45)); \
+	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null; sleep 1; \
+	$(QEMU) -drive file=$(COMBINED),format=raw,if=floppy \
+		-drive file=$(COMBINED_IDE),format=raw,if=ide,index=1 \
+		-serial tcp::$$PORT,server=on,wait=off \
+		-display none -daemonize; \
+	sleep 2; \
+	python3 tests/test_log_harness.py $$PORT; \
+	STATUS=$$?; pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null; exit $$STATUS
+
 # Run the INSTALL write-allowlist gate (Piece 1).
 # Needs $(COMBINED): INSTALL is block-loaded off the catalog, not
 # embedded, so the block store has to be attached.
@@ -920,7 +937,7 @@ test-meta: $(COMBINED)
 #     its output as evidence, and it never gates a build.  If it must ever
 #     gate something, the gate goes on a deterministic artefact derived from
 #     it and pinned -- the treatment the Ghidra oracle already has.
-test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-squote-laydown test-install test-vbr test-grub-cfg test-uefi-boot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-g6 test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
+test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-squote-laydown test-install test-log-harness test-vbr test-grub-cfg test-uefi-boot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-g6 test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)
@@ -1005,4 +1022,4 @@ grub-net: $(COMBINED) tools/pxe/grub.cfg
 pxe-push-grub: grub-net
 	@bash tools/pxe/push-grub.sh
 
-.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined usb-image check-coverage desk-hashes check-kernel-size test test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-grub-cfg test-g6
+.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined usb-image check-coverage desk-hashes check-kernel-size test test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream test-log-harness pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-grub-cfg test-g6
