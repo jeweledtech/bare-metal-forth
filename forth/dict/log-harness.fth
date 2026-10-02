@@ -4,7 +4,8 @@
 \ PLATFORM: x86
 \ SOURCE: hand-written
 \ CONFIDENCE: medium
-\ REQUIRES: EMIT TICK-COUNT BLOCK UPDATE FILL MOVE
+\ REQUIRES: NE2000
+\ Kernel words used: EMIT TICK-COUNT BLOCK UPDATE FILL MOVE
 \ ============================================
 \
 \ Serial-first license telemetry logging harness.
@@ -396,6 +397,100 @@ VARIABLE TB-DPORT
     IF   ." response: marker hit"
     ELSE ." response: marker miss"
     THEN CR ;
+
+\ ---- TEST-ACTIVATION-NIC (Phase 2: real NE2000) -
+\ Pre-req: NE2K-INIT must have run successfully.
+\ Uses QEMU SLiRP addressing: src 10.0.2.15,
+\ dst 10.0.2.2 so host-side Python peer sees it.
+
+ALSO NE2000
+
+CREATE TA-RX-FRAME 600 ALLOT
+
+\ Ethernet frame with QEMU SLiRP gateway MAC. The default SLiRP
+\ gateway at 10.0.2.2 answers ARP with MAC 52:55:0a:00:02:02;
+\ broadcast-MAC frames are not forwarded upstream.
+: TA-FILL-ETH-NIC ( -- )
+    52 0 TA-C!  55 1 TA-C!  0A 2 TA-C!
+    00 3 TA-C!  02 4 TA-C!  02 5 TA-C!
+    52 6 TA-C!  54 7 TA-C!  00 8 TA-C!
+    12 9 TA-C!  34 A TA-C!  56 B TA-C!
+    800 C TA-16! ;
+
+\ IPv4 header checksum (same algorithm as rtl8168.fth:344).
+\ Sums all 10 words of the 20-byte IP header, folds carries,
+\ one's complements. SLiRP drops frames with zero checksum.
+: IP-CKSUM ( ip-hdr-addr -- checksum )
+    0
+    A 0 DO
+        OVER I DUP + +
+        DUP C@ 8 LSHIFT
+        SWAP 1+ C@ OR +
+    LOOP
+    NIP
+    DUP 10 RSHIFT +
+    DUP 10 RSHIFT +
+    FFFF AND FFFF XOR ;
+
+: TA-FILL-IP-NIC ( total-len -- )
+    45 E TA-C!
+    00 F TA-C!
+    10 TA-16!
+    0 12 TA-16!
+    0 14 TA-16!
+    40 16 TA-C!
+    11 17 TA-C!
+    0 18 TA-16!
+    0A 1A TA-C!  00 1B TA-C!  02 1C TA-C!  0F 1D TA-C!
+    0A 1E TA-C!  00 1F TA-C!  02 20 TA-C!  02 21 TA-C!
+    TA-FRAME E + IP-CKSUM 18 TA-16! ;
+
+: TA-BUILD-NIC ( src paylen sport dport -- framelen )
+    TB-DPORT ! TB-SPORT ! TB-LEN ! TB-SRC !
+    TA-FRAME 100 0 FILL
+    TA-FILL-ETH-NIC
+    TB-LEN @ 1C + TA-FILL-IP-NIC
+    TB-LEN @ 8 + TB-SPORT @ TB-DPORT @ TA-FILL-UDP
+    TB-SRC @ TB-LEN @ TA-COPY-PAYLOAD
+    TB-LEN @ 2A + ;
+
+VARIABLE NIC-DEADLINE
+
+: TA-POLL-RX ( ticks -- addr len | 0 0 )
+    TICK-COUNT @ + NIC-DEADLINE !
+    BEGIN
+        NE2K-RECV? IF
+            TA-RX-FRAME 600 NE2K-RECV
+            DUP 0> IF
+                TA-RX-FRAME SWAP EXIT
+            THEN
+            DROP
+        THEN
+        TICK-COUNT @ NIC-DEADLINE @ >
+    UNTIL
+    0 0 ;
+
+: TEST-ACTIVATION-NIC ( -- )
+    LOG-RESET
+    CR ." TEST-ACTIVATION-NIC phase 2 (NE2000 TX+RX)" CR
+    TA-CHALLENGE-STR TA-CHALLENGE-LEN 3039 1234 TA-BUILD-NIC
+    DUP >R
+    TA-FRAME R@ NE2K-SEND
+    TA-FRAME R> INSPECT-PACKET
+    IF   ." nic tx: marker hit"
+    ELSE ." nic tx: marker miss"
+    THEN CR
+    400 TA-POLL-RX
+    DUP 0= IF
+        2DROP ." nic rx: timeout" CR
+    ELSE
+        INSPECT-PACKET
+        IF   ." nic rx: marker hit"
+        ELSE ." nic rx: no marker"
+        THEN CR
+    THEN ;
+
+PREVIOUS
 
 \ ---- Initialize --------------------------------
 LOG-RESET
