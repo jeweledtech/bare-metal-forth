@@ -28,8 +28,9 @@ readings are QEMU's; the expectations below are the HP's.
 ```bash
 git status --porcelain          # clean, or explain before proceeding
 git remote -v                   # verified, not assumed
-make build/combined.img
-sha256sum build/combined.img    # BUILD: ______  (expect 51cad6cf5080f770...)
+git rev-parse HEAD              # RECORD this — it says which tree ran: ____
+make desk-hashes               # builds images, writes build/desk-hashes.txt
+cat build/desk-hashes.txt      # GENERATED: image hashes + every vocab's range
 ```
 **The image changed since HDA-2** (`840696e3…` → `51cad6cf…`). The
 catalog gained pci-bar.fth, xhci.fth lost PCI-BAR64@, and hdaudbus.fth
@@ -55,9 +56,11 @@ sudo umount /mnt/fb        # the listener keeps running; move the stick to the H
 ```
 BUILD == STICK: ____
 
-The block ranges below are this build's: PCI-BAR 878–884, HDAUDBUS
-579–603. If BUILD is not `51cad6cf…`, STOP. The ranges may have
-moved.
+The block ranges in §2 come from `build/desk-hashes.txt` — this build's
+`PCI-BAR` and `HDAUDBUS` lines. Type each vocab's two numbers into the
+THRU lines. They are derived from the built image (via
+`tools/catalog_layout.py`), so a catalog shift re-derives them here
+instead of staling this card.
 
 **Typing:** fix typos with backspace as usual. The log's echo shows two
 stray spaces per erased character ((by)); the line typed is still what
@@ -72,8 +75,8 @@ NONCE / banner line: ______________________
 ```forth
 ONLY FORTH DEFINITIONS
 DECIMAL
-878 884 THRU
-579 603 THRU
+878 884 THRU                   \ PCI-BAR: <first> <last> from desk-hashes.txt
+579 603 THRU                   \ HDAUDBUS: <first> <last> from desk-hashes.txt
 ONLY FORTH DEFINITIONS
 ALSO PCI-ENUM
 : DEF? WORD FIND NIP ;

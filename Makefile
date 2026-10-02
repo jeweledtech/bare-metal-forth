@@ -239,22 +239,20 @@ check-coverage:
 	@bash tools/check-coverage.sh
 
 # desk-hashes — write the CURRENT build's trip parameters to
-# build/desk-hashes.txt at desk-prep time: the two image hashes AND the
-# PCI-BAR catalog block range (derived from the built blocks image via
-# catalog_layout.py, the same parser the G6 harness and completeness gate
-# use). Desk cards point at this file instead of pinning either inline, so a
-# catalog shift (CARRIER-0b, the firstboot-wizard merge, ...) cannot silently
-# invalidate a trip document: the shift moves PCI-BAR's blocks off 878-884 and
-# changes combined.img together, and both re-derive here. The operator
-# compares the stick against the combined.img line and types the PCI-BAR range
-# into the THRU line.
+# build/desk-hashes.txt at desk-prep time: the two image hashes AND every
+# vocabulary's catalog block range (the full layout from catalog_layout.py,
+# the same parser the G6 harness and completeness gate use). Desk cards point
+# at this file instead of pinning hashes or `N M THRU` ranges inline, so a
+# catalog shift (CARRIER-0b, the firstboot-wizard merge, a vocab that grew)
+# cannot silently invalidate a trip document: the shift moves a vocab's blocks
+# and changes combined.img together, and both re-derive here. The operator
+# compares the stick against the combined.img line and reads each card's
+# vocab (PCI-BAR, HDAUDBUS, XHCI, ...) off its line for the THRU range.
 desk-hashes: $(IMAGE) $(COMBINED) $(BLOCKS)
 	@printf 'bmforth.img  %s\ncombined.img %s\n' \
 	  "$$(sha256sum $(IMAGE) | cut -d' ' -f1)" \
 	  "$$(sha256sum $(COMBINED) | cut -d' ' -f1)" | tee $(BUILD)/desk-hashes.txt
-	@printf 'PCI-BAR %s\n' \
-	  "$$(python3 tools/catalog_layout.py PCI-BAR | sed 's/ THRU//')" \
-	  | tee -a $(BUILD)/desk-hashes.txt
+	@python3 tools/catalog_layout.py | tee -a $(BUILD)/desk-hashes.txt
 
 # QEMU IDE copy: avoids file lock conflict when same data is both floppy and IDE
 $(COMBINED_IDE): $(COMBINED)

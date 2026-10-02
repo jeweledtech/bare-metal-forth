@@ -64,8 +64,8 @@ git status --porcelain          # clean, or explain before proceeding
 git remote -v                   # verified, not assumed
 git log --oneline -1            # commit: ______________________ (expect ce2ff55 or later)
 make                            # rebuild; the sweep is on record (ce2ff55: 1386/31 sum, 1374 lines)
-sha256sum build/combined.img    # BUILD: a68b406be0526186bb13d0b820e0b826fbadf0fa90a5ffdfe41e323e53333036
-python3 tools/catalog_layout.py XHCI   # THRU: 1724 1782 THRU (the vocab GREW in step 4; verify, do not copy 3D's 1771)
+make desk-hashes                # writes build/desk-hashes.txt (combined hash; compare the stick to it below)
+python3 tools/catalog_layout.py XHCI   # THRU for THIS build (also the XHCI line of desk-hashes.txt); do NOT copy an older card's numbers
 ```
 
 Refresh FORTHBOOT (memdisk boot REQUIRED — Section 5.5 kills the
@@ -112,7 +112,7 @@ NONCE / banner line: ______________________
 ## 2. Load + gate
 
 ```forth
-DECIMAL ______ ______ THRU     \ XHCI range from Section 0, THIS build (expect 1724 1782)
+DECIMAL ______ ______ THRU     \ XHCI range from Section 0 (desk-hashes.txt XHCI line), THIS build
 ONLY FORTH DEFINITIONS
 ALSO PCI-ENUM  ALSO XHCI  ALSO HARDWARE
 DECIMAL

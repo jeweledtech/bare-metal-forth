@@ -44,8 +44,8 @@ git status --porcelain          # clean, or explain before proceeding
 git remote -v                   # verified, not assumed
 git log --oneline -1            # commit: ______________________ (expect c660e6b or later)
 make                            # rebuild; the sweep is already on record (c660e6b, 1319/31)
-sha256sum build/combined.img    # BUILD:  1787cdbf114b1e5b670bd31478f644684cb3964dc30c5072d4d6fe14cafba4bb
-python3 tools/catalog_layout.py XHCI   # THRU: 1724 1771 THRU (expect 1724 1771, verify)
+make desk-hashes                # writes build/desk-hashes.txt (combined hash; compare the stick to it below)
+python3 tools/catalog_layout.py XHCI   # THRU for THIS build (also the XHCI line of desk-hashes.txt); do NOT copy an older card's numbers
 ```
 
 Refresh FORTHBOOT (memdisk boot REQUIRED — Section 5.5 kills the
