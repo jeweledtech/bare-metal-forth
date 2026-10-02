@@ -99,6 +99,34 @@ script-level timeout only ever fixes the one script you patch. Pick `N` from
 the recipe's observed runtime with headroom, and keep it as a named
 `T_<NAME>` variable so the budgets are greppable and tunable in one place.
 
+### 3c. Connect before the guest boots (the banner race)
+
+A second defect sits upstream of the timeout, found running §3b down
+(`docs/evidence/finding-qemu-test-no-serial-output-2026-10-02.md`). The recipe
+launches QEMU with `-serial tcp::PORT,server=on,wait=off`, which boots
+immediately and does **not** buffer serial output produced before a client
+connects. The guest prints its banner at ~0.25s; the test connects ~2s later
+and reads; on a **fast** QEMU start the banner is already gone and the test's
+banner-drain blocks on an idle `ok` → zero bytes → hang. It is a
+**startup-speed race**: a busy machine starts QEMU slowly enough that the
+banner lands *after* the connect (green); a quiet/fast machine loses it (red).
+Measured: banner at 0.25s, image byte-identical across green and red.
+
+The fix is to make the guest **wait for its reader** — `-serial
+tcp::PORT,server=on` (drop `wait=off`), so QEMU holds the CPU until the test
+attaches and the banner cannot be emitted into an empty socket. Verified in
+isolation to deliver the banner regardless of connect timing; a converted
+recipe reached `interpreter alive` + several checks where it had hung 3/3.
+
+**Open (not settled, verify in an exclusive worktree):** `server=on` (wait)
+**deadlocks with `-daemonize`** — QEMU will not detach until a client connects,
+and the client connects *after* the launch line. So the launch must change
+shape (background `&` + pidfile, or another mechanism that attaches a reader
+before boot). This is the "conversions may need to change shape" case, and it
+**cannot be verified while another session runs tests in this worktree**: the
+shared `build/` images collide (the very class §1 is about), which
+non-deterministically kills the guest mid-test and masquerades as a fix bug.
+
 ---
 
 ## 4. The gotcha that will bite during conversion
@@ -136,7 +164,10 @@ becomes an unbounded debugging session.
    pre-existing xHCI wedge); the conversion was exonerated by a differential
    probe (`test_xhci.py` hangs 3/3 against unmodified-arg QEMU — the hang is
    the test, not the recipe). Timeout (§3b) backfilled onto both so the
-   pattern is uniform from the start.
+   pattern is uniform from the start. **Still owed: §3c (connect-before-boot)**
+   — until it lands, a fast machine loses the banner race and both recipes
+   fail (bounded by §3b, not hanging). Verification is blocked while another
+   session runs tests in this worktree; finish in an exclusive worktree.
 2. **The `-daemonize` seventeen.** These are the ones that can orphan. Batch of
    ~6, `make test` between.
 3. **The remaining recipes.** Mechanical once the pattern is set.
@@ -160,6 +191,7 @@ becomes an unbounded debugging session.
 | H6 | `grep -c '^\t.*pkill' Makefile` → 0. Scoped to tab-indented recipe lines so it catches pattern kills in recipes and ignores the finding's filename cited in comments (a legitimate citation). Apply the same scoping to the 3 `.py` files — no `pkill` *invocation* remains; a citation in a comment is fine. |
 | H7 | **Red first.** A deliberately-hung test (a recipe whose test invocation blocks forever) must fail its recipe **within `N` seconds**, leave **no** orphaned QEMU, and **not** hold the image lock. Prove the hang-to-20-min red on the pre-timeout recipe first, then the bounded-fail green after. `test-xhci` is a live instance of the hung case today. |
 | H8 | Every converted recipe's test invocation carries `timeout $(T_<NAME>)` with a named budget. `grep -c 'python3 tests/' Makefile` equals the count of those lines also matching `timeout $(T_`. |
+| H9 | A converted recipe must pass against a deliberately **slowed** guest **and** a deliberately **fast** start (§3c). The race is lost on the *fast* side, so a slow-only gate would have shipped green all week; both twins are required. |
 
 ---
 
