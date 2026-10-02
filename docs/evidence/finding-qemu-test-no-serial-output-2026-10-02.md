@@ -20,10 +20,10 @@ until killed:
 
 **Yet both passed earlier the same day** — the firstboot merge-verify run
 (`661486c`, "All tests passed!") and the first batch-1 run both ran *through*
-`test-xhci` and `test-pci-bar` on the same image (combined `17e7da0f`). So it
-is timing / environment dependent, **not** a deterministic break from any
-image or code change. The THRU range is derived (`catalog_layout.py`), so the
-catalog shift is not the cause.
+`test-xhci` and `test-pci-bar` on the same image (combined `17e7da0f`). No
+image or code change explains it: the guest side is byte-identical to the
+green run (see **Measured**, below), and the THRU range is derived
+(`catalog_layout.py`), so the catalog shift is not the cause either.
 
 ## Why it hangs for ~20 minutes, not seconds
 
@@ -39,25 +39,41 @@ operations. The read loop is unbounded in aggregate.
 clean teardown (trap kills the QEMU, no orphan, no held image lock) — verified
 (H7). It does **not** make a no-output test *pass*; it stops the wedge.
 
-## Not diagnosed — candidates for the red-first gate when this is opened
+## Measured 2026-10-02 — the guest boots fine (host-side fault)
 
-The specific signature to explain is **zero bytes, not a partial capture** —
-the test connects but ForthOS emits nothing. Candidates, none investigated:
+Two discriminators were run before guessing (the earlier "environment /
+timing-looking" phrasing was a characterization that had not been measured —
+the same flag-not-reality error this project keeps catching):
 
-- QEMU running without KVM (TCG software emulation) booting far slower than
-  the recipe's `sleep 2`, so the test connects before ForthOS reaches `ok`.
-- `qemu-xhci` + `usb-kbd` enumeration timing (xHCI only — but `test-pci-bar`
-  uses `intel-hda`, so a shared cause is more likely than a device-specific
-  one).
-- Machine contention at test time (the earlier passes vs later hangs correlate
-  loosely with a busy vs quiet machine, but the quiet-machine run also hung).
-- A boot regression that only manifests under some timing.
+1. **Did the image change?** No. Current on-disk `combined.img`,
+   `combined-ide.img`, and `bmforth.img` are byte-identical to the hashes
+   recorded when these tests passed this morning (combined `17e7da0f`, bmforth
+   `b9593319`). The guest side is constant; the fault is host-side.
+2. **Does the guest boot?** Yes. A minimal `-serial file:` boot of
+   `combined.img` (no test client, no monitor, no pidfile, no device models)
+   produced 89 bytes — the banner and the `ok` prompt — within ~12s:
+   `Bare-Metal Forth v0.1 … / Type WORDS … / ok`.
 
-**Owed red-first:** capture `combined.img`'s serial boot directly
-(`-serial file:…`, no test client) and check whether it reaches `ok`, and how
-long it takes, to separate "ForthOS did not boot" from "the test connected too
-early." Open this with its own gate once the conversion lands; starting it
-mid-refactor turns a bounded mechanical task open-ended.
+So this is **outcome #1** of the capture: ForthOS boots to `ok`; the zero-byte
+hang is in **how the test connects to / reads from the serial port**, not the
+guest. "Guest never boots" and "boot regression" are ruled out.
+
+**Leading suspect (reasoned, not yet measured): the TCP serial discards the
+banner.** The recipes use `-serial tcp::PORT,server=on,wait=off`, which boots
+immediately and does **not** buffer output produced before a client connects.
+The guest prints banner + `ok` within ~1–2s; the test `sleep 2`s, then
+connects. If the banner is emitted before the connect, it is gone, and the
+test — if it reads expecting the banner/prompt first — then blocks on an idle
+`ok` prompt with nothing to read: **zero bytes, until killed.** That this is a
+connect-ordering race (stable within a machine-state window, flips when boot
+speed changes) is consistent with "green this morning, 3/3 red now" without
+being generic "flakiness."
+
+**Discriminator to confirm when opened:** connect a client to the TCP serial
+*before* the guest boots (or capture with a pre-connected reader) and check
+whether the banner arrives. If it does, the fix is in the test's
+connect/read ordering (connect-before-boot, or a read that tolerates a missing
+banner) rather than lengthening `sleep 2`.
 
 ## Status
 
