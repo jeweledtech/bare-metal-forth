@@ -396,40 +396,45 @@ test-gui: $(COMBINED)
 # (SLiRP's 10.0.2.2 gateway does not forward guest UDP to a host-side
 # loopback listener on arbitrary ports); the RX poll loop is still
 # exercised via its timeout path. Owns offset +46 on both axes.
+# Named timeout budgets (see docs/TASK_HARNESS_KILL_BY_PID.md §3b):
+# a hard upper bound in seconds for the test invocation. Observed
+# pass times: test-log-harness ~20s, test-log-harness-nic ~25s.
+T_LOG_HARNESS     ?= 60
+T_LOG_HARNESS_NIC ?= 90
+
 test-log-harness-nic: $(COMBINED)
-	@cp $(COMBINED) $(COMBINED_IDE)
-	@echo "Running LOG-HARNESS NIC smoke test..."
-	@PORT=$$(($(TEST_PORT_BASE)+46)); \
-	PCAP=/tmp/log-harness-nic-$$PORT.pcap; \
-	rm -f $$PCAP; \
-	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null; sleep 1; \
+	@PIDF=$(BUILD)/test-log-harness-nic.pid; $(QEMU_KILL); \
+	PCAP=$(BUILD)/log-harness-nic.pcap; rm -f $$PCAP; \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP; set -e; \
+	cp $(COMBINED) $(COMBINED_IDE); \
+	echo "Running LOG-HARNESS NIC smoke test..."; \
 	$(QEMU) -drive file=$(COMBINED),format=raw,if=floppy \
 		-drive file=$(COMBINED_IDE),format=raw,if=ide,index=1 \
 		-netdev user,id=u1 \
 		-device ne2k_pci,netdev=u1,mac=52:54:00:12:34:56 \
 		-object filter-dump,id=f1,netdev=u1,file=$$PCAP \
-		-serial tcp::$$PORT,server=on,wait=off \
-		-display none -daemonize; \
+		-serial tcp::$$(($(TEST_PORT_BASE)+46)),server=on,wait=off \
+		-display none -daemonize -pidfile $$PIDF; \
 	sleep 2; \
-	python3 tests/test_log_harness_nic.py $$PORT $$PCAP; \
-	STATUS=$$?; pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null; exit $$STATUS
+	timeout $(T_LOG_HARNESS_NIC) python3 tests/test_log_harness_nic.py \
+		$$(($(TEST_PORT_BASE)+46)) $$PCAP
 
 # LOG-HARNESS Phase 1 smoke test. Needs $(COMBINED) because the vocab
 # is block-loaded off the catalog (not embedded), and because
 # LOG-DUMP-TO-BLOCK writes to the TELEMETRY-reserved blocks and we
 # read them back. Owns offset +45 on both axes.
 test-log-harness: $(COMBINED)
-	@cp $(COMBINED) $(COMBINED_IDE)
-	@echo "Running LOG-HARNESS smoke test..."
-	@PORT=$$(($(TEST_PORT_BASE)+45)); \
-	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null; sleep 1; \
+	@PIDF=$(BUILD)/test-log-harness.pid; $(QEMU_KILL); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP; set -e; \
+	cp $(COMBINED) $(COMBINED_IDE); \
+	echo "Running LOG-HARNESS smoke test..."; \
 	$(QEMU) -drive file=$(COMBINED),format=raw,if=floppy \
 		-drive file=$(COMBINED_IDE),format=raw,if=ide,index=1 \
-		-serial tcp::$$PORT,server=on,wait=off \
-		-display none -daemonize; \
+		-serial tcp::$$(($(TEST_PORT_BASE)+45)),server=on,wait=off \
+		-display none -daemonize -pidfile $$PIDF; \
 	sleep 2; \
-	python3 tests/test_log_harness.py $$PORT; \
-	STATUS=$$?; pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null; exit $$STATUS
+	timeout $(T_LOG_HARNESS) python3 tests/test_log_harness.py \
+		$$(($(TEST_PORT_BASE)+45))
 
 # Run the INSTALL write-allowlist gate (Piece 1).
 # Needs $(COMBINED): INSTALL is block-loaded off the catalog, not
