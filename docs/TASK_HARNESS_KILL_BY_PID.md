@@ -82,6 +82,23 @@ not 55 copies to keep correct. Name pidfiles after the target
 (`$(BUILD)/<target>.pid`, and `<target>-<fixture>.pid` where a recipe runs
 more than one).
 
+### 3b. The test invocation carries its own timeout
+
+The per-operation timeouts inside the test scripts (`test_xhci.py`: 10s
+connect, 2s recv) are **not** a test timeout: a hundred individually-timely
+recvs is a twenty-minute hang built entirely out of compliant operations. The
+read loop is unbounded in aggregate — which is why the xHCI and vocab stages
+both wedge the same way, with different scripts.
+
+Fix it in the conversion, not in the scripts. Every converted recipe wraps its
+test invocation in `timeout $(T_<NAME>) python3 tests/...`. A hard kill at `N`
+seconds propagates cleanly: `set -e` trips, the `trap` fires, `QEMU_KILL` kills
+the QEMU by pidfile — no orphan, no held image lock, and the recipe fails in
+bounded time instead of hanging. One word per recipe fixes the whole class; a
+script-level timeout only ever fixes the one script you patch. Pick `N` from
+the recipe's observed runtime with headroom, and keep it as a named
+`T_<NAME>` variable so the budgets are greppable and tunable in one place.
+
 ---
 
 ## 4. The gotcha that will bite during conversion
@@ -114,8 +131,12 @@ Convert in batches, running `make test` between them. Fifty-five recipes
 changed in one pass with no intermediate verification is how a clean change
 becomes an unbounded debugging session.
 
-1. **Helper + two recipes.** Add `QEMU_KILL`; convert `test-xhci` and
-   `test-pci-bar` (both already hit by the orphan problem). Full `make test`.
+1. **Helper + two recipes — DONE (`058ea52`).** Added `QEMU_KILL`; converted
+   `test-xhci` and `test-pci-bar`. Both passed in a full run (before the
+   pre-existing xHCI wedge); the conversion was exonerated by a differential
+   probe (`test_xhci.py` hangs 3/3 against unmodified-arg QEMU — the hang is
+   the test, not the recipe). Timeout (§3b) backfilled onto both so the
+   pattern is uniform from the start.
 2. **The `-daemonize` seventeen.** These are the ones that can orphan. Batch of
    ~6, `make test` between.
 3. **The remaining recipes.** Mechanical once the pattern is set.
@@ -137,6 +158,8 @@ becomes an unbounded debugging session.
 | H4 | `make test` green after every batch. Read `MAKE_TEST_EXIT` from the log, not the harness's exit code. |
 | H5 | A deliberately failing step inside a converted single-shell recipe fails the recipe (§4). |
 | H6 | `grep -c '^\t.*pkill' Makefile` → 0. Scoped to tab-indented recipe lines so it catches pattern kills in recipes and ignores the finding's filename cited in comments (a legitimate citation). Apply the same scoping to the 3 `.py` files — no `pkill` *invocation* remains; a citation in a comment is fine. |
+| H7 | **Red first.** A deliberately-hung test (a recipe whose test invocation blocks forever) must fail its recipe **within `N` seconds**, leave **no** orphaned QEMU, and **not** hold the image lock. Prove the hang-to-20-min red on the pre-timeout recipe first, then the bounded-fail green after. `test-xhci` is a live instance of the hung case today. |
+| H8 | Every converted recipe's test invocation carries `timeout $(T_<NAME>)` with a named budget. `grep -c 'python3 tests/' Makefile` equals the count of those lines also matching `timeout $(T_`. |
 
 ---
 

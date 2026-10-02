@@ -525,7 +525,7 @@ test-xhci: $(COMBINED)
 		-monitor tcp:127.0.0.1:$$(($(TEST_PORT_BASE)+93)),server=on,wait=off \
 		-display none -daemonize -pidfile $$PIDF; \
 	sleep 2; \
-	python3 tests/test_xhci.py $$(($(TEST_PORT_BASE)+94)) $(COMBINED) $$(($(TEST_PORT_BASE)+93))
+	timeout $(T_XHCI) python3 tests/test_xhci.py $$(($(TEST_PORT_BASE)+94)) $(COMBINED) $$(($(TEST_PORT_BASE)+93))
 
 # PCI-BAR gate, (bz) R2 (docs/evidence/bz-base-finding-prereg-2026-09-27.md):
 # block-loaded pci-bar.fth, instances of a class in scan order.  TWO
@@ -542,7 +542,7 @@ test-pci-bar: $(COMBINED)
 		-serial tcp::$$(($(TEST_PORT_BASE)+87)),server=on,wait=off \
 		-display none -daemonize -pidfile $$PIDF; \
 	sleep 2; \
-	python3 tests/test_pci_bar.py $$(($(TEST_PORT_BASE)+87)) $(COMBINED)
+	timeout $(T_PCI_BAR) python3 tests/test_pci_bar.py $$(($(TEST_PORT_BASE)+87)) $(COMBINED)
 
 # FIRSTBOOT wizard gate, docs/TASK_FORTHOS_FIRSTBOOT.md s.8 steps 1-3:
 # block-loaded firstboot.fth, screens read through the monitor
@@ -554,6 +554,15 @@ test-pci-bar: $(COMBINED)
 # exit, INT, TERM or HUP.  SIGKILL cannot be trapped, so each run also
 # first kills a QEMU left by a killed previous run (an orphan held the
 # monitor port during development, 2026-09-29).
+# Per-recipe test-invocation timeouts (seconds). A hung test is killed at its
+# budget so the recipe fails in BOUNDED time instead of wedging (a per-recv
+# timeout is not a test timeout — see §3b of docs/TASK_HARNESS_KILL_BY_PID.md).
+# The hard kill propagates through `set -e` to the trap, which kills the QEMU
+# by pidfile: no orphan, no held image lock. Derive each from the recipe's
+# observed pass time with headroom; tune here, one greppable place.
+T_XHCI ?= 120
+T_PCI_BAR ?= 90
+
 # QEMU_KILL — shared teardown for every daemonized test recipe: kill the PID
 # in this recipe's pidfile (never a name pattern, which reaches other trees
 # and other sessions — finding-harness-pkill-cross-worktree). Used via a trap
