@@ -175,12 +175,18 @@ changing anything, record exactly:
 Its job is to make a *future* firmware-settings change diagnosable as a
 settings change, not a code regression. Photo the screen too.
 
-**R2 — `efibootmgr -v`, verbatim (UEFI-booted dev-box sessions only).**
-On the dev box, only if this session came up UEFI-booted:
+**R2 — `efibootmgr -v` on the HP, the G4 equality baseline.** R2 is the
+**HP's own** NVRAM boot-entry list, read **on the HP**, UEFI-booted,
+**before and after an install** — the G4 equality gate checks that an
+install leaves the HP's firmware boot variables unchanged. A dev-box
+`efibootmgr -v` is a *different machine's* NVRAM and **cannot** serve this
+baseline; do not substitute one (caught 2026-10-01 — a dev-box capture was
+recorded as R2 and had to be withdrawn).
 ```bash
+# ON THE HP, only when it came up UEFI-booted (not legacy/CSM):
 [ -d /sys/firmware/efi ] && efibootmgr -v \
-  || echo "legacy/CSM session — R2 skipped (cannot capture from here)"
+  || echo "legacy/CSM boot — R2 not capturable (needs a UEFI boot)"
 ```
-It is the G4 equality baseline and **cannot** be captured from a
-legacy/CSM session. If legacy, skip it and write "legacy — skipped"
-rather than improvising: ____
+This UEFI-2 trip is read-only and boots legacy PXE, so R2 is not
+capturable here by construction — the log records "legacy — skipped". It
+is owed from a UEFI-booted HP install trip, before and after: ____
