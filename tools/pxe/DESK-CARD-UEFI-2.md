@@ -62,13 +62,16 @@ expectations below are the HP's.
 git status --porcelain          # clean, or explain before proceeding
 git remote -v                   # destination verified, not assumed
 git rev-parse HEAD              # RECORD this — it says which tree ran: ____
-make desk-hashes               # builds the images, writes build/desk-hashes.txt
-cat build/desk-hashes.txt      # the two lines are GENERATED for this build
+make desk-hashes               # builds images, writes build/desk-hashes.txt
+cat build/desk-hashes.txt      # GENERATED for this build: 2 hashes + PCI-BAR range
 ```
-No hashes are pinned on this card. `build/desk-hashes.txt` carries the
-`bmforth.img` and `combined.img` hashes for the tree you just recorded; the
-stick is checked against that file, below, not against a literal printed
-here that could go stale (it went stale once at CARRIER-0b).
+Nothing build-derived is pinned on this card. `build/desk-hashes.txt`
+carries, for the tree you just recorded, the `bmforth.img` and
+`combined.img` hashes **and** the `PCI-BAR` catalog block range. The stick is
+checked against the combined.img line (below); the THRU line in §2 uses the
+PCI-BAR range. Neither is a literal printed here that could go stale — a
+pinned hash went stale once at CARRIER-0b, and the firstboot-wizard merge
+moves the PCI-BAR range the same way.
 
 **The image changed at CARRIER-0b** (and will change again on the wizard
 branch), so the stick must be refreshed with the usual file copy, **NOT**
@@ -105,12 +108,16 @@ discrepancy — no hand-written correction note needed. Then:
 sudo umount /mnt/fb
 ```
 
-**Block range.** `878 884 THRU` is PCI-BAR on this image. It was
-checked two ways:
-- the host resolver places PCI-BAR at 878–884;
-- in the image's own bytes, block 878 begins `\ CATALOG: PCI-BAR`,
-  block 884 holds PCI-BAR's last lines, and block 885 begins
-  `\ CATALOG: PCI-ENUM`.
+**Block range.** The THRU range for PCI-BAR is the `PCI-BAR` line of
+`build/desk-hashes.txt` (e.g. `PCI-BAR 878 884` on the pre-wizard image) —
+type those two numbers into §2. It is derived from the built blocks image by
+`tools/catalog_layout.py`, the same parser the G6 harness and the catalog
+completeness gate read, so a catalog shift re-derives here instead of
+silently invalidating the card: the firstboot-wizard merge inserts FIRSTBOOT
+ahead of PCI-BAR and moves it off 878–884. Cross-check in the image's own
+bytes if in doubt — the first block of the range begins `\ CATALOG: PCI-BAR`,
+and the block just past the range begins the next vocab's `\ CATALOG:`
+banner.
 
 **Typing.** Erased characters echo as two stray spaces ((by)). The line
 typed is what counts, and the outcome replays the bytes.
@@ -129,7 +136,7 @@ MBR/NTFS, then `ok`.
 ```forth
 ONLY FORTH DEFINITIONS
 DECIMAL
-878 884 THRU
+878 884 THRU                   \ <first> <last> from desk-hashes.txt PCI-BAR line
 ALSO PCI-ENUM
 : DEF? WORD FIND NIP ;
 DEF? DEF? .                    \ large nonzero
