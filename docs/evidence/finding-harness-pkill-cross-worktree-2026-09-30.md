@@ -72,9 +72,47 @@ something."
    worktree path, or a small per-worktree override file. `?=` still lets
    CI/the user pin it.
 
-Either fix alone reduces the collisions; **both** removes the class:
-kill-by-PID stops the cross-kill, per-worktree ports stop the
-launch-time port clash.
+Either fix alone reduces the collisions; **both** removes the
+*port-collision* class: kill-by-PID stops the cross-kill, per-worktree
+ports stop the launch-time port clash. It does **not** close the
+image-lock class below — a separate dimension the port fix never touched.
+
+## An adjacent class the port fix does not close (2026-10-01)
+
+Per-worktree `TEST_PORT_BASE` isolates **ports**, not the **image**. QEMU
+takes a write lock on `build/bmforth.img`, and that file is shared by every
+run in the same worktree. So two `make test` in one tree still collide — at
+`test-smoke`, the first QEMU test:
+```
+qemu-system-i386: Failed to get "write" lock
+Is another process using the image [build/bmforth.img]?
+make: *** [Makefile:280: test-smoke] Error 1
+```
+A `-daemonize` QEMU **orphaned** by a killed run holds the lock
+indefinitely (e.g. a `timeout` SIGTERM landing mid-`test-xhci`, before its
+teardown line runs). Diagnose with `fuser build/bmforth.img` → PID; confirm
+the holder's `tcp::PORT` is in **this** worktree's range (`TEST_PORT_BASE` +
+offset; xhci = base+94) before killing it by PID — it may be your own
+orphan, or another session's live run, and only the first is yours to kill.
+The real cure is the same as the port class: kill-by-PID teardown that
+cannot leave a daemonized survivor.
+
+Two verification traps seen running this down, each of which makes a green
+tree look red or a red look green:
+
+- **`make -n test` inverts the corpus-absent gate.** `test-corpus-absent`
+  shells out to `make <subtest>` with an empty `CORPUS_ROOT` and expects
+  each to *refuse*. Under `-n`, every child dry-run-exits 0 **without
+  running**, so the gate reports its own failure condition — "3 passed
+  without inputs", `Error 1` — precisely because nothing ran. `make -n test`
+  is therefore not a valid pre-flight; verify with a real invocation
+  (`make -C tools/translator test-corpus-absent` → "3 refused, 0 passed
+  without inputs").
+- **A wrapper's exit code is not make's.** `make test | tail` or
+  `make test; echo done` reports the *wrapper's* status; a `make test` that
+  exited 2 showed through as "exit 0". Capture `MAKE_TEST_EXIT=$?` into the
+  log and read that, plus the suite's own `All tests passed!` marker — never
+  the harness's status line.
 
 ## Related
 
