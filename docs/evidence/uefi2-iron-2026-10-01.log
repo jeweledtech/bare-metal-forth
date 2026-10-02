@@ -81,43 +81,7 @@ above) and PXE image are both 6fac2873 == build/combined.img.
 Stick history: held 51cad6cf (HDA-3) before this session's rewrite to 6fac2873.
 Card results (sections 1-3): ok reached; DEF? PCI-BAR 375788 (nonzero);
 DEF? NO-SUCH-WORD 0; 0 1F 3 0 PCI-BAR64@ .H8 = B1228000; DEPTH 0 / 0. PASS.
-R6 (F10 CSM / Secure Boot): ____   R2 (efibootmgr -v): ____
-
---- correction note, 2026-10-01 (appended; captured lines above are unedited) ---
-Boot path: PXE (inferred). The capture header line 9 reads "boot path: usb"
-because the tool recorded the --boot-path flag it was handed, not what
-happened (this is the field-proves-what-it-was-told bug; the detection fix
-is tracked separately). What actually happened:
-  - /srv/tftp/forth.img = 6fac2873... pushed 2026-10-01 14:36:19
-  - tftpd served it           2026-10-01 14:37:52
-  - net-console banner         2026-10-01 14:38:03 (log l.12)
-  - USB was NOT offered at F9; the operator fell back to PXE.
-The eleven-second gap (fetch 14:37:52 -> banner 14:38:03) is strong, but it
-rests on nothing else PXE-booting from that server, so this stays
-"(inferred)" until the DHCPACK is in hand. Settle with:
-  sudo grep -E "Oct  1 14:3[5-9]" /var/log/forthos-pxe.log | grep -iE "ac:e2:d3|DHCPACK|bootfile"
-(not runnable from this session: the log is nobody:root mode 640 and there is
-no passwordless sudo here.) Drop "(inferred)" once the DHCPACK/bootfile line
-for the HP's MAC is confirmed.
-
-Ports tried at F9: ____ (operator to record which HP USB ports; the HDA-3
-addendum flagged this stick/port combination marginal — see the USB-failure
-finding).
-
-Result (checks hold): blocks loaded (DEF? PCI-BAR = 375788, l.49), the gate
-control DEF? NO-SUCH-WORD = 0 (l.47), and the config-space read through the
-kernel's own GDT returned B1228000 (l.59, check 3). Every garbled line
-replays byte-for-byte to the card's text. UEFI-2 passed on iron.
-
-R6 (F10 firmware state: CSM/Legacy, Secure Boot): NOT captured this trip
-(opportunistic; a skip, not a failure). Owed on the next HP trip.
-
-R2 (efibootmgr -v, dev box, captured 2026-10-01; the box is UEFI-booted so
-R2 applies) -- G4 equality baseline:
-  BootCurrent: 0000
-  Timeout: 1 seconds
-  BootOrder: 0000,0001,0002,0003
-  Boot0000* Ubuntu  HD(1,GPT,0d4644f3-8472-4d02-a1e0-d88604b1af5e,0x800,0x219800)/File(\EFI\ubuntu\shimx64.efi)
-  Boot0001* UEFI:CD/DVD Drive  BBS(129,,0x0)
-  Boot0002* UEFI:Removable Device  BBS(130,,0x0)
-  Boot0003* UEFI:Network Device  BBS(131,,0x0)
+R6 (F10 CSM / Secure Boot): ____   R2 (efibootmgr -v): legacy -- skipped. The PXE boot is legacy by the
+firmware's own labeling, so efibootmgr -v was uncapturable this trip by
+construction (it needs a UEFI-booted session). The G4 equality baseline is
+owed from a UEFI boot, not this one.
