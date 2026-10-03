@@ -280,61 +280,77 @@ check-kernel-size: $(IMAGE)
 # `make ... TEST_PORT_BASE=NNNN`.
 TEST_PORT_BASE ?= $(shell b=$$(printf '%s' "$(CURDIR)" | cksum | cut -d' ' -f1); echo $$(( 2200 + (b % 34) * 200 )))
 
+# Named timeout budgets for the batch-2 recipes (TASK_HARNESS_KILL_BY_PID
+# §3b): hard upper bounds in seconds, about 2x the observed recipe time
+# (2026-10-03, quiet machine): smoke 34s, loops 48s, abort 95s,
+# dict-bounds 114s, phys-alloc 181s, pci-typing 172s.
+T_SMOKE       ?= 90
+T_LOOPS       ?= 120
+T_ABORT       ?= 240
+T_DICT_BOUNDS ?= 240
+T_PHYS_ALLOC  ?= 360
+T_PCI_TYPING  ?= 360
+
 # Run smoke test (no block storage needed)
 test-smoke: $(ACTIVE_IMAGE)
-	@echo "Running smoke test..."
-	@$(QEMU) -drive file=$(ACTIVE_IMAGE),format=raw,if=floppy \
+	@PIDF=$(BUILD)/test-smoke.pid; $(QEMU_KILL); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP; set -e; \
+	echo "Running smoke test..."; \
+	$(QEMU) -drive file=$(ACTIVE_IMAGE),format=raw,if=floppy \
 		-serial tcp::$(TEST_PORT_BASE),server=on,wait=off \
-		-display none -daemonize
-	@sleep 2
-	@python3 tests/smoke_test.py $(TEST_PORT_BASE); \
-		STATUS=$$?; pkill -9 -f "[q]emu.*$(TEST_PORT_BASE)" 2>/dev/null; exit $$STATUS
+		-display none -daemonize -pidfile $$PIDF; \
+	sleep 2; \
+	timeout --foreground $(T_SMOKE) python3 tests/smoke_test.py $(TEST_PORT_BASE)
 
 # Run BEGIN/WHILE/REPEAT test (no block storage needed)
 test-loops: $(ACTIVE_IMAGE)
-	@echo "Running loop control flow test..."
-	@$(QEMU) -drive file=$(ACTIVE_IMAGE),format=raw,if=floppy \
+	@PIDF=$(BUILD)/test-loops.pid; $(QEMU_KILL); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP; set -e; \
+	echo "Running loop control flow test..."; \
+	$(QEMU) -drive file=$(ACTIVE_IMAGE),format=raw,if=floppy \
 		-serial tcp::$$(($(TEST_PORT_BASE)+1)),server=on,wait=off \
-		-display none -daemonize
-	@sleep 2
-	@python3 tests/test_begin_while.py $$(($(TEST_PORT_BASE)+1)); \
-		STATUS=$$?; pkill -9 -f "[q]emu.*$$(($(TEST_PORT_BASE)+1))" 2>/dev/null; exit $$STATUS
+		-display none -daemonize -pidfile $$PIDF; \
+	sleep 2; \
+	timeout --foreground $(T_LOOPS) python3 tests/test_begin_while.py $$(($(TEST_PORT_BASE)+1))
 
 # Run ABORT / ABORT" kernel gate (no block storage needed).
 # ABORT" is the substrate the INSTALL allowlist binds its refusal
 # to, so this is a kernel-tier gate, not a vocabulary one.
 test-abort: $(ACTIVE_IMAGE)
-	@echo "Running ABORT/ABORT\" kernel test..."
-	@$(QEMU) -drive file=$(ACTIVE_IMAGE),format=raw,if=floppy \
+	@PIDF=$(BUILD)/test-abort.pid; $(QEMU_KILL); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP; set -e; \
+	echo "Running ABORT/ABORT\" kernel test..."; \
+	$(QEMU) -drive file=$(ACTIVE_IMAGE),format=raw,if=floppy \
 		-serial tcp::$$(($(TEST_PORT_BASE)+2)),server=on,wait=off \
-		-display none -daemonize
-	@sleep 2
-	@python3 tests/test_abort.py $$(($(TEST_PORT_BASE)+2)); \
-		STATUS=$$?; pkill -9 -f "[q]emu.*$$(($(TEST_PORT_BASE)+2))" 2>/dev/null; exit $$STATUS
+		-display none -daemonize -pidfile $$PIDF; \
+	sleep 2; \
+	timeout --foreground $(T_ABORT) python3 tests/test_abort.py $$(($(TEST_PORT_BASE)+2))
 
 # Dictionary bounds gate (no block storage needed). Kernel-tier:
 # proves HERE cannot silently cross DICT_START+DICT_SIZE, and that
 # interpret mode stays usable as the recovery hatch when it would.
 test-dict-bounds: $(ACTIVE_IMAGE)
-	@echo "Running dictionary bounds test..."
-	@$(QEMU) -drive file=$(ACTIVE_IMAGE),format=raw,if=floppy \
+	@PIDF=$(BUILD)/test-dict-bounds.pid; $(QEMU_KILL); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP; set -e; \
+	echo "Running dictionary bounds test..."; \
+	$(QEMU) -drive file=$(ACTIVE_IMAGE),format=raw,if=floppy \
 		-serial tcp::$$(($(TEST_PORT_BASE)+97)),server=on,wait=off \
-		-display none -daemonize
-	@sleep 2
-	@python3 tests/test_dict_bounds.py $$(($(TEST_PORT_BASE)+97)) $(ACTIVE_IMAGE); \
-		STATUS=$$?; pkill -9 -f "[q]emu.*$$(($(TEST_PORT_BASE)+97))" 2>/dev/null; exit $$STATUS
+		-display none -daemonize -pidfile $$PIDF; \
+	sleep 2; \
+	timeout --foreground $(T_DICT_BOUNDS) python3 tests/test_dict_bounds.py $$(($(TEST_PORT_BASE)+97)) $(ACTIVE_IMAGE)
 
 # Physical allocator gate: PHYS-RELEASE/PHYS-AUDIT/owner tags.
 # Boot allocations come from embedded AHCI/RTL8168/NTFS vocabs,
 # so the plain kernel image suffices (no block storage).
 test-phys-alloc: $(ACTIVE_IMAGE)
-	@echo "Running physical allocator test..."
-	@$(QEMU) -drive file=$(ACTIVE_IMAGE),format=raw,if=floppy \
+	@PIDF=$(BUILD)/test-phys-alloc.pid; $(QEMU_KILL); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP; set -e; \
+	echo "Running physical allocator test..."; \
+	$(QEMU) -drive file=$(ACTIVE_IMAGE),format=raw,if=floppy \
 		-serial tcp::$$(($(TEST_PORT_BASE)+98)),server=on,wait=off \
-		-display none -daemonize
-	@sleep 2
-	@python3 tests/test_phys_alloc.py $$(($(TEST_PORT_BASE)+98)) $(ACTIVE_IMAGE); \
-		STATUS=$$?; pkill -9 -f "[q]emu.*$$(($(TEST_PORT_BASE)+98))" 2>/dev/null; exit $$STATUS
+		-display none -daemonize -pidfile $$PIDF; \
+	sleep 2; \
+	timeout --foreground $(T_PHYS_ALLOC) python3 tests/test_phys_alloc.py $$(($(TEST_PORT_BASE)+98)) $(ACTIVE_IMAGE)
 
 # PCI class-code typing gate: PCI-PROGIF@/PCI-FIND-CLASS/
 # PCI-FIND-TYPE/FIND-XHCI/PCI-TYPES (docket step 1).
@@ -344,14 +360,15 @@ test-phys-alloc: $(ACTIVE_IMAGE)
 # machine type so a future QEMU default flip to q35 cannot
 # silently change the bus the suite characterizes.
 test-pci-typing: $(ACTIVE_IMAGE)
-	@echo "Running PCI class-code typing test..."
-	@$(QEMU) -M pc -device qemu-xhci \
+	@PIDF=$(BUILD)/test-pci-typing.pid; $(QEMU_KILL); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP; set -e; \
+	echo "Running PCI class-code typing test..."; \
+	$(QEMU) -M pc -device qemu-xhci \
 		-drive file=$(ACTIVE_IMAGE),format=raw,if=floppy \
 		-serial tcp::$$(($(TEST_PORT_BASE)+96)),server=on,wait=off \
-		-display none -daemonize
-	@sleep 2
-	@python3 tests/test_pci_typing.py $$(($(TEST_PORT_BASE)+96)) $(ACTIVE_IMAGE); \
-		STATUS=$$?; pkill -9 -f "[q]emu.*$$(($(TEST_PORT_BASE)+96))" 2>/dev/null; exit $$STATUS
+		-display none -daemonize -pidfile $$PIDF; \
+	sleep 2; \
+	timeout --foreground $(T_PCI_TYPING) python3 tests/test_pci_typing.py $$(($(TEST_PORT_BASE)+96)) $(ACTIVE_IMAGE)
 
 # Run all vocabulary tests (need block storage)
 test-vocabs: $(COMBINED)
@@ -421,7 +438,7 @@ test-log-harness-nic: $(COMBINED)
 		-serial tcp::$$(($(TEST_PORT_BASE)+46)),server=on,wait=off \
 		-display none -daemonize -pidfile $$PIDF; \
 	sleep 2; \
-	timeout $(T_LOG_HARNESS_NIC) python3 tests/test_log_harness_nic.py \
+	timeout --foreground $(T_LOG_HARNESS_NIC) python3 tests/test_log_harness_nic.py \
 		$$(($(TEST_PORT_BASE)+46)) $$PCAP $$(($(TEST_PORT_BASE)+48))
 
 test-log-harness: $(COMBINED)
@@ -440,7 +457,7 @@ test-log-harness: $(COMBINED)
 		-serial tcp::$$(($(TEST_PORT_BASE)+45)),server=on,wait=off \
 		-display none -daemonize -pidfile $$PIDF; \
 	sleep 2; \
-	timeout $(T_LOG_HARNESS) python3 tests/test_log_harness.py \
+	timeout --foreground $(T_LOG_HARNESS) python3 tests/test_log_harness.py \
 		$$(($(TEST_PORT_BASE)+45))
 
 # Run the INSTALL write-allowlist gate (Piece 1).
@@ -578,7 +595,7 @@ test-xhci: $(COMBINED)
 		-monitor tcp:127.0.0.1:$$(($(TEST_PORT_BASE)+93)),server=on,wait=off \
 		-display none -daemonize -pidfile $$PIDF; \
 	sleep 2; \
-	timeout $(T_XHCI) python3 tests/test_xhci.py $$(($(TEST_PORT_BASE)+94)) $(COMBINED) $$(($(TEST_PORT_BASE)+93))
+	timeout --foreground $(T_XHCI) python3 tests/test_xhci.py $$(($(TEST_PORT_BASE)+94)) $(COMBINED) $$(($(TEST_PORT_BASE)+93))
 
 # PCI-BAR gate, (bz) R2 (docs/evidence/bz-base-finding-prereg-2026-09-27.md):
 # block-loaded pci-bar.fth, instances of a class in scan order.  TWO
@@ -595,7 +612,7 @@ test-pci-bar: $(COMBINED)
 		-serial tcp::$$(($(TEST_PORT_BASE)+87)),server=on,wait=off \
 		-display none -daemonize -pidfile $$PIDF; \
 	sleep 2; \
-	timeout $(T_PCI_BAR) python3 tests/test_pci_bar.py $$(($(TEST_PORT_BASE)+87)) $(COMBINED)
+	timeout --foreground $(T_PCI_BAR) python3 tests/test_pci_bar.py $$(($(TEST_PORT_BASE)+87)) $(COMBINED)
 
 # FIRSTBOOT wizard gate, docs/TASK_FORTHOS_FIRSTBOOT.md s.8 steps 1-3:
 # block-loaded firstboot.fth, screens read through the monitor
