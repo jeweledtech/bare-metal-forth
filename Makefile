@@ -290,6 +290,13 @@ T_ABORT       ?= 240
 T_DICT_BOUNDS ?= 240
 T_PHYS_ALLOC  ?= 360
 T_PCI_TYPING  ?= 360
+# Batch 2b, about 2x observed (2026-10-03): squote-laydown 567s,
+# backstop0 219s, flush 151s, file-stream 161s, integration 90s.
+T_SQUOTE_LAYDOWN   ?= 1200
+T_SQUOTE_BACKSTOP0 ?= 480
+T_FLUSH            ?= 360
+T_FILE_STREAM      ?= 360
+T_INTEGRATION      ?= 240
 
 # Run smoke test (no block storage needed)
 test-smoke: $(ACTIVE_IMAGE)
@@ -525,15 +532,16 @@ test-g6: grub-net $(VBR) $(KERNEL)
 # Run full integration test
 test-integration: $(COMBINED)
 	@cp $(COMBINED) $(COMBINED_IDE)
-	@echo "Running full integration test..."
-	@PORT=$$(($(TEST_PORT_BASE)+20)); \
+	@PIDF=$(BUILD)/test-integration.pid; $(QEMU_KILL); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP; set -e; \
+	PORT=$$(($(TEST_PORT_BASE)+20)); \
+	echo "Running full integration test..."; \
 	$(QEMU) -drive file=$(COMBINED),format=raw,if=floppy \
 		-drive file=$(COMBINED_IDE),format=raw,if=ide,index=1 \
 		-serial tcp::$$PORT,server=on,wait=off \
-		-display none -daemonize; \
+		-display none -daemonize -pidfile $$PIDF; \
 	sleep 2; \
-	python3 tests/test_full_integration.py $$PORT; \
-	STATUS=$$?; pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null; exit $$STATUS
+	timeout --foreground $(T_INTEGRATION) python3 tests/test_full_integration.py $$PORT
 
 # Run NE2000 network test (two QEMU instances)
 test-network: $(COMBINED)
@@ -684,24 +692,28 @@ test-firstboot: $(COMBINED)
 # S"/."/ABORT" laydown suite (crafts blocks in buffer memory; no
 # block storage image needed, same tier as test-dict-bounds).
 test-squote-laydown: $(ACTIVE_IMAGE)
-	@echo "Running S\"-laydown test..."
-	@$(QEMU) -drive file=$(ACTIVE_IMAGE),format=raw,if=floppy \
-		-serial tcp::$$(($(TEST_PORT_BASE)+98)),server=on,wait=off \
-		-display none -daemonize
-	@sleep 2
-	@python3 tests/test_squote_laydown.py $$(($(TEST_PORT_BASE)+98)) $(ACTIVE_IMAGE); \
-		STATUS=$$?; pkill -9 -f "[q]emu.*$$(($(TEST_PORT_BASE)+98))" 2>/dev/null; exit $$STATUS
+	@PIDF=$(BUILD)/test-squote-laydown.pid; $(QEMU_KILL); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP; set -e; \
+	PORT=$$(($(TEST_PORT_BASE)+98)); \
+	echo "Running S\"-laydown test..."; \
+	$(QEMU) -drive file=$(ACTIVE_IMAGE),format=raw,if=floppy \
+		-serial tcp::$$PORT,server=on,wait=off \
+		-display none -daemonize -pidfile $$PIDF; \
+	sleep 2; \
+	timeout --foreground $(T_SQUOTE_LAYDOWN) python3 tests/test_squote_laydown.py $$PORT $(ACTIVE_IMAGE)
 
 # Same suite against the defeated-backstop image: observes the
 # in-loop DICT_LIMIT guard firing (unreachable in normal builds).
 test-squote-laydown-backstop0: $(BACKSTOP0_IMAGE)
-	@echo "Running S\"-laydown --backstop0 test..."
-	@$(QEMU) -drive file=$(BACKSTOP0_IMAGE),format=raw,if=floppy \
-		-serial tcp::$$(($(TEST_PORT_BASE)+99)),server=on,wait=off \
-		-display none -daemonize
-	@sleep 2
-	@python3 tests/test_squote_laydown.py $$(($(TEST_PORT_BASE)+99)) $(BACKSTOP0_IMAGE) --backstop0; \
-		STATUS=$$?; pkill -9 -f "[q]emu.*$$(($(TEST_PORT_BASE)+99))" 2>/dev/null; exit $$STATUS
+	@PIDF=$(BUILD)/test-squote-laydown-backstop0.pid; $(QEMU_KILL); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP; set -e; \
+	PORT=$$(($(TEST_PORT_BASE)+99)); \
+	echo "Running S\"-laydown --backstop0 test..."; \
+	$(QEMU) -drive file=$(BACKSTOP0_IMAGE),format=raw,if=floppy \
+		-serial tcp::$$PORT,server=on,wait=off \
+		-display none -daemonize -pidfile $$PIDF; \
+	sleep 2; \
+	timeout --foreground $(T_SQUOTE_BACKSTOP0) python3 tests/test_squote_laydown.py $$PORT $(BACKSTOP0_IMAGE) --backstop0
 
 # --- Debug flush targets ---
 
@@ -720,16 +732,16 @@ DEBUG_COMBINED_IDE = $(BUILD)/combined-debug-ide.img
 test-flush: $(DEBUG_IMAGE) $(BUILD)/.catalog.stamp
 	@cat $(DEBUG_IMAGE) $(BLOCKS) > $(DEBUG_COMBINED)
 	@cp $(DEBUG_COMBINED) $(DEBUG_COMBINED_IDE)
-	@echo "Running flush stress test..."
-	@PORT=$$(($(TEST_PORT_BASE)+50)); \
-	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null; sleep 1; \
+	@PIDF=$(BUILD)/test-flush.pid; $(QEMU_KILL); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP; set -e; \
+	PORT=$$(($(TEST_PORT_BASE)+50)); \
+	echo "Running flush stress test..."; \
 	$(QEMU) -drive file=$(DEBUG_COMBINED),format=raw,if=floppy \
 		-drive file=$(DEBUG_COMBINED_IDE),format=raw,if=ide,index=1 \
 		-serial tcp::$$PORT,server=on,wait=off \
-		-display none -daemonize; \
+		-display none -daemonize -pidfile $$PIDF; \
 	sleep 2; \
-	python3 tests/test_flush_stress.py $$PORT; \
-	STATUS=$$?; pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null; exit $$STATUS
+	timeout --foreground $(T_FLUSH) python3 tests/test_flush_stress.py $$PORT
 
 # Lint Forth source (vocabulary files + kernel assembly)
 lint:
@@ -862,19 +874,15 @@ ubt-llm-validate-prefilter:
 		--binary $(CORPUS_ROOT)/hp_i3/i8042prt.sys --prefilter
 
 test-file-stream: $(IMAGE)
-	@PORT=$$(($(TEST_PORT_BASE)+55)); \
+	@PIDF=$(BUILD)/test-file-stream.pid; $(QEMU_KILL); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP; set -e; \
+	PORT=$$(($(TEST_PORT_BASE)+55)); \
 	echo "=== FILE-STREAM helpers (port $$PORT) ==="; \
-	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null || true; \
-	sleep 0.5; \
-	qemu-system-i386 \
-		-drive file=build/bmforth.img,format=raw,if=floppy \
+	$(QEMU) -drive file=build/bmforth.img,format=raw,if=floppy \
 		-serial tcp::$$PORT,server=on,wait=off \
-		-display none -daemonize; \
+		-display none -daemonize -pidfile $$PIDF; \
 	sleep 2; \
-	python3 tests/test_file_stream_helpers.py $$PORT; \
-	RESULT=$$?; \
-	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null || true; \
-	exit $$RESULT
+	timeout --foreground $(T_FILE_STREAM) python3 tests/test_file_stream_helpers.py $$PORT
 
 # DISK-SURVEY placement gate: adversarial GPT layouts.
 # The test authors each disk with sgdisk and launches its
