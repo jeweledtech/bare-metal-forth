@@ -36,7 +36,7 @@ The cost is not the lost minutes. It is that a red suite stops meaning
 |---|---|---|
 | `Makefile` recipes using `pkill -9 -f "[q]emu.*<port>"` | 55 | kill by PID from a pidfile |
 | `-daemonize` launches without `-pidfile` | 17 | add `-pidfile` |
-| `tests/iv_roundtrip_test.py:13`, `tests/test_meta_b6b.py:133`, `tests/synced_revert*.py` | 3 | kill the `Popen` handle they already own |
+| Tracked `.py` files invoking `pkill -9 -f "[q]emu.*<port>"` (census 2026-10-02, `git ls-files '*.py' \| xargs grep -nE '^[^#]*pkill'`): `eviction_flush_test.py:25`, `iv_roundtrip_test.py:13`, `test_ahci_blk_reader.py:47`, `test_ahci_blk_writer.py:35`, `test_arm64_boot.py:125`, `test_asm_vocab.py:88,128,179`, `test_blk_writer_vector.py:27`, `test_carrier_write_safe.py:45,59,106`, `test_g6_chain.py:542`, `test_memdisk_blk_writer.py:39`, `test_ne2000_network.py:198,203`, `test_persist_quick.py:12`, `test_shutdown.py:24`, `test_survey_layouts.py:170,240,524`, `test_vbr_boot.py:168,200` (all under `tests/`) | 15 files, 23 sites | kill by the PID the script launched; where it holds a `Popen`, kill that handle in a `finally` (not verified per file — check each) |
 | `TEST_PORT_BASE` | — | done (`65a5cdd`), no change |
 
 Out of scope: the three translator corpus suites, anything under
@@ -50,8 +50,16 @@ Out of scope: the three translator corpus suites, anything under
 verified across normal exit, SIGINT, SIGTERM and SIGKILL on 2026-09-29. Copy
 its shape; do not invent a second one.
 
+**Do not copy the kill helper from `661486c`.** Its `FB_KILL` (and the first
+`QEMU_KILL` derived from it) ran `kill -9 $$(cat $$PIDF)` unchecked: a stale
+pidfile whose PID has been reused kills an unrelated process (shown red on
+2026-10-02: a decoy `sleep` was killed and the recipe still passed 13/13).
+Use the `QEMU_KILL` in the `Makefile`, which kills only a `$(QEMU)` holding
+this tree's pidfile open, and see its comment for the two cases it refuses.
+The recipe shape below is unchanged:
+
 ```make
-QEMU_KILL = if [ -f $$PIDF ]; then kill -9 $$(cat $$PIDF) 2>/dev/null; rm -f $$PIDF; fi
+QEMU_KILL = ...   # see Makefile; never the bare kill -9 $$(cat $$PIDF)
 
 test-firstboot: $(COMBINED)
     @PIDF=$(BUILD)/firstboot-lan.pid; $(QEMU_KILL); \
@@ -69,8 +77,10 @@ Four properties, all load-bearing:
 2. **Pre-clean before launch.** SIGKILL cannot be trapped, so a previous run
    killed hard leaves both a QEMU and its pidfile. Clearing the pidfile's PID
    first is what makes the *next* run succeed.
-3. **Pidfile under this tree's `build/`.** A tree can then only ever kill its
-   own QEMUs, by construction rather than by careful pattern-writing.
+3. **Pidfile under this tree's `build/`, and verify before killing.** The
+   pidfile path alone does not confine the kill: the PID it names can die and
+   be reused. `QEMU_KILL` kills only if `/proc/PID/exe` is `$(QEMU)` and the
+   process holds `$(CURDIR)/<pidfile>` open (gate H11).
 4. **Fail the recipe if the launch fails.** A QEMU that fails to start must
    fail the recipe (via `set -e` or `|| exit 1`), not fall through to a test
    that then times out mysteriously.
@@ -159,6 +169,12 @@ Convert in batches, running `make test` between them. Fifty-five recipes
 changed in one pass with no intermediate verification is how a clean change
 becomes an unbounded debugging session.
 
+**Sequencing (owner, 2026-10-02).** Batch 1 (steps 1 below, plus
+`test-log-harness` and `test-log-harness-nic`) lands on its own. Batches 2–3
+and the `.py` files wait until LOG-HARNESS Phase 2.5 is underway. H6 is the
+gate for the whole task, not for a batch. From here on, every new recipe that
+launches QEMU uses `QEMU_KILL` from the start; none adds a `pkill`.
+
 1. **Helper + two recipes — DONE (`058ea52`).** Added `QEMU_KILL`; converted
    `test-xhci` and `test-pci-bar`. Both passed in a full run (before the
    pre-existing xHCI wedge); the conversion was exonerated by a differential
@@ -171,8 +187,8 @@ becomes an unbounded debugging session.
 2. **The `-daemonize` seventeen.** These are the ones that can orphan. Batch of
    ~6, `make test` between.
 3. **The remaining recipes.** Mechanical once the pattern is set.
-4. **The three `.py` files.** Each already holds a `Popen`; kill that handle in
-   a `finally`, drop the `pkill`.
+4. **The 15 `.py` files (§2 census).** Kill the PID each script launched (its
+   `Popen` handle in a `finally`, where it holds one), drop the `pkill`.
 5. **Optional, recommended:** have a recipe refuse to start when its serial
    port is already bound (`ss -tlnp`), so a collision fails loudly instead of
    hijacking or killing. Costs one check, removes the remaining ambiguity.
@@ -188,11 +204,12 @@ becomes an unbounded debugging session.
 | H3 | After SIGKILL, the next run's pre-clean clears the orphan and starts cleanly. |
 | H4 | `make test` green after every batch. Read `MAKE_TEST_EXIT` from the log, not the harness's exit code. |
 | H5 | A deliberately failing step inside a converted single-shell recipe fails the recipe (§4). |
-| H6 | `grep -c '^\t.*pkill' Makefile` → 0. Scoped to tab-indented recipe lines so it catches pattern kills in recipes and ignores the finding's filename cited in comments (a legitimate citation). Apply the same scoping to the 3 `.py` files — no `pkill` *invocation* remains; a citation in a comment is fine. |
+| H6 | `grep -c '^\t.*pkill' Makefile` → 0. Scoped to tab-indented recipe lines so it catches pattern kills in recipes and ignores the finding's filename cited in comments (a legitimate citation). Apply the same scoping to the 15 tracked `.py` files of §2 (`git ls-files '*.py' \| xargs grep -lE '^[^#]*pkill'` → empty) — no `pkill` *invocation* remains; a citation in a comment is fine. |
 | H7 | **Red first.** A deliberately-hung test (a recipe whose test invocation blocks forever) must fail its recipe **within `N` seconds**, leave **no** orphaned QEMU, and **not** hold the image lock. Prove the hang-to-20-min red on the pre-timeout recipe first, then the bounded-fail green after. `test-xhci` is a live instance of the hung case today. |
 | H8 | Every converted recipe's test invocation carries `timeout $(T_<NAME>)` with a named budget. `grep -c 'python3 tests/' Makefile` equals the count of those lines also matching `timeout $(T_`. |
 | H9 | A converted recipe must pass against a deliberately **slowed** guest **and** a deliberately **fast** start (§3c). The race is lost on the *fast* side, so a slow-only gate would have shipped green all week; both twins are required. |
 | H10 | A converted recipe must **fail within its budget** when QEMU is prevented from starting at all (port already bound, or a bad `-drive`), proving `-daemonize`'s post-init return + `|| exit 1` still report a dead *launch* — rather than the test connecting to nothing and hanging on a guest that never came up. |
+| H11 | **Red first.** A live non-QEMU PID placed in a recipe's pidfile survives a run of that recipe. Start a decoy (`sleep 987 &`), write its PID into the pidfile, run the recipe: the decoy must still be alive, the recipe must pass, and the pidfile must be gone. Red on `64aee8e` (decoy killed, exit 137, recipe still 13/13); green after the guarded `QEMU_KILL`. |
 
 ---
 

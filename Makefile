@@ -614,9 +614,20 @@ T_PCI_BAR ?= 90
 # and other sessions — finding-harness-pkill-cross-worktree). Used via a trap
 # so it fires on normal exit and on INT/TERM/HUP, plus once before launch to
 # pre-clean a pidfile left by a SIGKILL'd previous run (SIGKILL can't be
-# trapped). Pidfiles live under this tree's $(BUILD)/, so a tree only ever
-# kills its own QEMUs. See docs/TASK_HARNESS_KILL_BY_PID.md.
-QEMU_KILL = if [ -f $$PIDF ]; then kill -9 $$(cat $$PIDF) 2>/dev/null; rm -f $$PIDF; fi
+# trapped). A stale pidfile names a dead PID that may since have been reused
+# by an unrelated process, so the PID is killed only if it is a $(QEMU) that
+# holds this tree's pidfile open (QEMU keeps it open and locked while alive;
+# /proc/PID/fd shows the absolute path, which is unique per tree). Must stay
+# free of single quotes: it is expanded inside trap '...'.
+# Known refusals (not fixed): the guard then deletes the pidfile but leaves a
+# real QEMU running, (1) when $(QEMU) resolves through a symlink, so
+# `command -v` and /proc/PID/exe name different paths, and (2) when $(BUILD)
+# is an absolute path, so "$(CURDIR)/$$PIDF" is not the path QEMU holds open.
+# See docs/TASK_HARNESS_KILL_BY_PID.md.
+QEMU_KILL = if [ -f $$PIDF ]; then QPID=$$(cat $$PIDF); \
+	if [ "$$(readlink /proc/$$QPID/exe)" = "$$(command -v $(QEMU))" ] && \
+	   readlink /proc/$$QPID/fd/* 2>/dev/null | grep -qxF "$(CURDIR)/$$PIDF"; \
+	then kill -9 $$QPID 2>/dev/null; fi; rm -f $$PIDF; fi
 test-firstboot: $(COMBINED)
 	@PIDF=$(BUILD)/firstboot-lan.pid; $(QEMU_KILL); \
 	trap '$(QEMU_KILL)' EXIT INT TERM HUP; \
