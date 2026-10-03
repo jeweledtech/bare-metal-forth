@@ -108,7 +108,7 @@ run-free: $(IMAGE_FREE)
 
 # --- Sync check (paid files vs private repo) ---
 PRIVATE_REPO = ../forthos-vocabularies
-PAID_VOCABS = ahci rtl8168 ntfs auto-detect fat32 surveyor file-editor-disk
+PAID_VOCABS = ahci rtl8168 ntfs auto-detect fat32 surveyor file-editor-disk log-harness
 
 check-sync:
 	@if [ ! -d "$(PRIVATE_REPO)/forth/dict" ]; then \
@@ -390,12 +390,11 @@ test-gui: $(COMBINED)
 		if [ $$STATUS -ne 0 ]; then exit $$STATUS; fi; \
 	done
 
-# LOG-HARNESS Phase 2 NIC test. Boots QEMU with a real NE2000 and a
-# filter-dump pcap capture; test asserts the TX frame left the NIC
-# with correct IP+UDP+payload. RX round-trip verification is deferred
-# (SLiRP's 10.0.2.2 gateway does not forward guest UDP to a host-side
-# loopback listener on arbitrary ports); the RX poll loop is still
-# exercised via its timeout path. Owns offset +46 on both axes.
+# LOG-HARNESS: private licensing/telemetry infrastructure. The vocab and
+# both test scripts are canonical in the private repo
+# (forthos-vocabularies); without them each recipe prints SKIPPED and
+# exits 0. Offsets: +45 (test-log-harness), +46/+47/+48 (-nic: serial,
+# QEMU's dgram end, the test's peer).
 # Named timeout budgets (see docs/TASK_HARNESS_KILL_BY_PID.md §3b):
 # a hard upper bound in seconds for the test invocation. Observed
 # pass times: test-log-harness ~20s, test-log-harness-nic ~25s.
@@ -403,28 +402,36 @@ T_LOG_HARNESS     ?= 60
 T_LOG_HARNESS_NIC ?= 90
 
 test-log-harness-nic: $(COMBINED)
-	@PIDF=$(BUILD)/test-log-harness-nic.pid; $(QEMU_KILL); \
+	@for f in forth/dict/log-harness.fth tests/test_log_harness_nic.py; do \
+		if [ ! -f $$f ]; then \
+			echo "SKIPPED: test-log-harness-nic: private vocab absent ($$f)"; \
+			exit 0; \
+		fi; \
+	done; \
+	PIDF=$(BUILD)/test-log-harness-nic.pid; $(QEMU_KILL); \
 	PCAP=$(BUILD)/log-harness-nic.pcap; rm -f $$PCAP; \
 	trap '$(QEMU_KILL)' EXIT INT TERM HUP; set -e; \
 	cp $(COMBINED) $(COMBINED_IDE); \
 	echo "Running LOG-HARNESS NIC smoke test..."; \
 	$(QEMU) -drive file=$(COMBINED),format=raw,if=floppy \
 		-drive file=$(COMBINED_IDE),format=raw,if=ide,index=1 \
-		-netdev user,id=u1 \
+		-netdev dgram,id=u1,local.type=inet,local.host=127.0.0.1,local.port=$$(($(TEST_PORT_BASE)+47)),remote.type=inet,remote.host=127.0.0.1,remote.port=$$(($(TEST_PORT_BASE)+48)) \
 		-device ne2k_pci,netdev=u1,mac=52:54:00:12:34:56 \
 		-object filter-dump,id=f1,netdev=u1,file=$$PCAP \
 		-serial tcp::$$(($(TEST_PORT_BASE)+46)),server=on,wait=off \
 		-display none -daemonize -pidfile $$PIDF; \
 	sleep 2; \
 	timeout $(T_LOG_HARNESS_NIC) python3 tests/test_log_harness_nic.py \
-		$$(($(TEST_PORT_BASE)+46)) $$PCAP
+		$$(($(TEST_PORT_BASE)+46)) $$PCAP $$(($(TEST_PORT_BASE)+48))
 
-# LOG-HARNESS Phase 1 smoke test. Needs $(COMBINED) because the vocab
-# is block-loaded off the catalog (not embedded), and because
-# LOG-DUMP-TO-BLOCK writes to the TELEMETRY-reserved blocks and we
-# read them back. Owns offset +45 on both axes.
 test-log-harness: $(COMBINED)
-	@PIDF=$(BUILD)/test-log-harness.pid; $(QEMU_KILL); \
+	@for f in forth/dict/log-harness.fth tests/test_log_harness.py; do \
+		if [ ! -f $$f ]; then \
+			echo "SKIPPED: test-log-harness: private vocab absent ($$f)"; \
+			exit 0; \
+		fi; \
+	done; \
+	PIDF=$(BUILD)/test-log-harness.pid; $(QEMU_KILL); \
 	trap '$(QEMU_KILL)' EXIT INT TERM HUP; set -e; \
 	cp $(COMBINED) $(COMBINED_IDE); \
 	echo "Running LOG-HARNESS smoke test..."; \

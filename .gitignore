@@ -95,6 +95,13 @@ forth/dict/arm64-asm.fth
 forth/dict/thumb2-asm.fth
 forth/dict/target-cortex-m.fth
 
+# Private infrastructure, not a tier: licensing/telemetry. Canonical in
+# forthos-vocabularies; the test-log-harness* recipes stay public and
+# print SKIPPED when these are absent.
+forth/dict/log-harness.fth
+tests/test_log_harness.py
+tests/test_log_harness_nic.py
+
 # Paid tests
 tests/test_disk_survey.py
 tests/test_disk_survey_phase2.py

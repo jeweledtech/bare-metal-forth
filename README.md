@@ -53,6 +53,8 @@ Subscription tiers bundle these plus the metacompiler, which self-hosts
 on x86 and cross-compiles a complete bootable kernel. ARM64, Cortex-M,
 and RISC-V targets are on the roadmap.
 
+Paid packs will ship with a private activation component; it is not published.
+
 ## Building
 
 You need NASM, GNU Make, Python 3, and QEMU (for testing).
