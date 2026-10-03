@@ -35,7 +35,7 @@ The cost is not the lost minutes. It is that a red suite stops meaning
 | Surface | Count | Change |
 |---|---|---|
 | `Makefile` recipes using `pkill -9 -f "[q]emu.*<port>"` | 55 | kill by PID from a pidfile |
-| `-daemonize` launches without `-pidfile` | 17 | add `-pidfile` |
+| `-daemonize` launches without `-pidfile` | 15 recipes (recount 2026-10-03; 17 counted launch lines, and test-vocabs/test-gui launch in a loop) | add `-pidfile` |
 | Tracked `.py` files invoking `pkill -9 -f "[q]emu.*<port>"` (census 2026-10-02, `git ls-files '*.py' \| xargs grep -nE '^[^#]*pkill'`): `eviction_flush_test.py:25`, `iv_roundtrip_test.py:13`, `test_ahci_blk_reader.py:47`, `test_ahci_blk_writer.py:35`, `test_arm64_boot.py:125`, `test_asm_vocab.py:88,128,179`, `test_blk_writer_vector.py:27`, `test_carrier_write_safe.py:45,59,106`, `test_g6_chain.py:542`, `test_memdisk_blk_writer.py:39`, `test_ne2000_network.py:198,203`, `test_persist_quick.py:12`, `test_shutdown.py:24`, `test_survey_layouts.py:170,240,524`, `test_vbr_boot.py:168,200` (all under `tests/`) | 15 files, 23 sites | kill by the PID the script launched; where it holds a `Popen`, kill that handle in a `finally` (not verified per file — check each) |
 | `TEST_PORT_BASE` | — | done (`65a5cdd`), no change |
 
@@ -153,7 +153,7 @@ problem being fixed.
 **`set -e` has blind spots.** It does *not* fire for a command inside an `if`
 condition, on the left of `||`/`&&`, or (in default bash) for a non-final
 command in a pipeline. Batch 1's recipes (`test-xhci`, `test-pci-bar`) are
-linear, so `set -e` holds there. For each of the 17 in batch 2, check for
+linear, so `set -e` holds there. For each of the 15 in batch 2, check for
 those shapes as you convert; where one appears, add an explicit `|| exit 1` on
 that step rather than trusting `set -e`. A failed step sailing past silently is
 exactly what this section exists to stop, and in those shapes it would do so
@@ -184,8 +184,21 @@ launches QEMU uses `QEMU_KILL` from the start; none adds a `pkill`.
    — until it lands, a fast machine loses the banner race and both recipes
    fail (bounded by §3b, not hanging). Verification is blocked while another
    session runs tests in this worktree; finish in an exclusive worktree.
-2. **The `-daemonize` seventeen.** These are the ones that can orphan. Batch of
+2. **The `-daemonize` fifteen.** These are the ones that can orphan. Batch of
    ~6, `make test` between.
+   - **2a: DONE (`bd2aee7`, 2026-10-03).** test-smoke, test-loops,
+     test-abort, test-dict-bounds, test-phys-alloc, test-pci-typing. All
+     gates per recipe: H1 red 6/6 on `cd5998a` (decoy QEMUs from another
+     tree killed), then green; H11; H2 (exit 0-1s after the signal); H3;
+     H5 early and late; H8. H4 `make -k test`: MAKE_TEST_EXIT=2 with only the
+     known reds (xhci, pci-bar, and the untracked-file suites in a worktree).
+   - **`timeout --foreground` everywhere.** Without it, `timeout` puts the
+     test in its own process group, so a Ctrl-C to make never reaches it and
+     the recipe runs out its budget first. All converted recipes use
+     `timeout --foreground $(T_<NAME>)`.
+   - 2b next: test-squote-laydown, test-squote-laydown-backstop0,
+     test-flush, test-file-stream, test-integration, test-meta. 2c: the loop
+     recipes (test-vocabs, test-gui) and test-install.
 3. **The remaining recipes.** Mechanical once the pattern is set.
 4. **The 15 `.py` files (§2 census).** Kill the PID each script launched (its
    `Popen` handle in a `finally`, where it holds one), drop the `pkill`.
@@ -224,6 +237,21 @@ Both cost a diagnosis cycle on 2026-09-30/10-01. Do not re-derive them:
 - **The harness's exit code is not make's.** A trailing `tail` or `echo` in the
   wrapper returns 0 while `make test` exited 2. Capture `MAKE_TEST_EXIT` into
   the log and read the log.
+
+Three more for the signal gates (H2/H3/H11), learned 2026-10-02/03:
+
+- **Never take a kill target from a daemonized QEMU's parent PID.** After
+  `-daemonize` its parent is the subreaper (`systemd --user`), not the recipe
+  shell. Killing that parent takes down the user session. Start make under
+  `setsid`, record its PID, check that PID's command line and process group,
+  and signal that group.
+- **`kill -0` succeeds on a zombie.** A QEMU killed a moment ago still exists
+  until it is reaped, so an immediate `kill -0` reads "alive". Read the state
+  in `/proc/PID/stat` (`Z`, or no such file, means dead), or wait first.
+- **A signal harness must not delete a recipe's pidfile, and must wait for
+  make to exit between cases.** Deleting a live pidfile (`/proc/PID/fd` then
+  shows `<path> (deleted)`) blinds the guarded `QEMU_KILL`, and the QEMU is
+  orphaned.
 
 ---
 
