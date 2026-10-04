@@ -818,9 +818,17 @@ $(AHCI_SCRATCH): | $(BUILD)
 	dd if=/dev/zero of=$(AHCI_SCRATCH) bs=512 count=2048 2>/dev/null
 
 test-ahci-write: $(COMBINED) $(AHCI_SCRATCH)
-	@cp $(COMBINED) $(COMBINED_IDE)
-	@echo "Running AHCI write test..."
-	@PORT=$$(($(TEST_PORT_BASE)+75)); \
+	@if [ ! -f tests/test_ahci_write.py ]; then \
+		echo "SKIPPED: test-ahci-write: private test absent (tests/test_ahci_write.py)"; \
+		exit 0; \
+	fi; \
+	if [ ! -f forth/dict/ahci.fth ]; then \
+		echo "SKIPPED: test-ahci-write: private vocab absent (forth/dict/ahci.fth)"; \
+		exit 0; \
+	fi; \
+	cp $(COMBINED) $(COMBINED_IDE) || exit 1; \
+	echo "Running AHCI write test..."; \
+	PORT=$$(($(TEST_PORT_BASE)+75)); \
 	$(QEMU) \
 		-drive file=$(COMBINED),format=raw,if=floppy \
 		-drive file=$(COMBINED_IDE),format=raw,if=ide,index=1 \

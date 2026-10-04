@@ -103,6 +103,7 @@ tests/test_log_harness.py
 tests/test_log_harness_nic.py
 
 # Paid tests
+tests/test_ahci_write.py
 tests/test_disk_survey.py
 tests/test_disk_survey_phase2.py
 tests/test_audio.py

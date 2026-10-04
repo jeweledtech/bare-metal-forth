@@ -48,8 +48,10 @@ test_disk_survey_phase2, test_graphics, test_target_x86, test_thumb2_asm,
 test_video. None is reached by `make test`, and there is no record of any
 running since the 2026-07-04 catalog-layout change.
 
-Open, owner's call: `tests/test_ahci_write.py` is tracked in both repos (it
-has been public since `24442cf`, 2026-04-16). It names three internal test
-variables of the private AHCI vocab (TST-LBA, WR-TST, SEC-BUF), but no
-implementation. Untracking it in private (making it public-owned) is held
-pending that call.
+~~Open, owner's call: `tests/test_ahci_write.py` is tracked in both repos.~~
+Resolved 2026-10-04: **private-owned** (tests for paid vocabs are private).
+It is untracked here and listed under "Paid tests"; its history since
+`24442cf` stays. Private `9b4394f` holds it, synced to the current copy (the
+April private copy predated the catalog-layout change). test-ahci-write
+prints `SKIPPED: test-ahci-write: private test absent (...)` without it and
+passes 13/13 with it. check-sync compares it.
