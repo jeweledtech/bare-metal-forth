@@ -813,6 +813,8 @@ test-cortexm: $(COMBINED)
 		exit $$STATUS
 
 # Run AHCI write test (ICH9-AHCI + scratch disk)
+# Timeout budget: about 2x the observed 129s (2026-10-04).
+T_AHCI_WRITE ?= 260
 AHCI_SCRATCH = $(BUILD)/ahci-scratch.img
 $(AHCI_SCRATCH): | $(BUILD)
 	dd if=/dev/zero of=$(AHCI_SCRATCH) bs=512 count=2048 2>/dev/null
@@ -826,7 +828,9 @@ test-ahci-write: $(COMBINED) $(AHCI_SCRATCH)
 		echo "SKIPPED: test-ahci-write: private vocab absent (forth/dict/ahci.fth)"; \
 		exit 0; \
 	fi; \
-	cp $(COMBINED) $(COMBINED_IDE) || exit 1; \
+	PIDF=$(BUILD)/test-ahci-write.pid; $(QEMU_KILL); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP; set -e; \
+	cp $(COMBINED) $(COMBINED_IDE); \
 	echo "Running AHCI write test..."; \
 	PORT=$$(($(TEST_PORT_BASE)+75)); \
 	$(QEMU) \
@@ -836,10 +840,9 @@ test-ahci-write: $(COMBINED) $(AHCI_SCRATCH)
 		-device ich9-ahci,id=ahci0 \
 		-device ide-hd,drive=sata0,bus=ahci0.0 \
 		-serial tcp::$$PORT,server=on,wait=off \
-		-display none & \
+		-display none -daemonize -pidfile $$PIDF; \
 	sleep 3; \
-	python3 tests/test_ahci_write.py $$PORT; \
-	STATUS=$$?; pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null; exit $$STATUS
+	timeout --foreground $(T_AHCI_WRITE) python3 tests/test_ahci_write.py $$PORT
 
 # Run pipeline integration test (offline)
 test-pipeline:
