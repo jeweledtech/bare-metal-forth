@@ -196,9 +196,23 @@ launches QEMU uses `QEMU_KILL` from the start; none adds a `pkill`.
      test in its own process group, so a Ctrl-C to make never reaches it and
      the recipe runs out its budget first. All converted recipes use
      `timeout --foreground $(T_<NAME>)`.
-   - 2b next: test-squote-laydown, test-squote-laydown-backstop0,
-     test-flush, test-file-stream, test-integration, test-meta. 2c: the loop
-     recipes (test-vocabs, test-gui) and test-install.
+   - **2b: DONE (`cba87aa`).** test-squote-laydown, -backstop0, test-flush,
+     test-file-stream, test-integration. Same gates, all green. test-flush
+     (not in `make test`) already failed 8/17 before conversion and fails the
+     same 9 checks after.
+   - **2c: DONE.** test-vocabs, test-gui (loops), test-install, and test-meta's
+     one recipe-level launch. Each loop fixture has its own pidfile
+     (`$(BUILD)/<target>-<fixture>.pid`). The pre-clean and the trap walk the
+     full `*_TESTS_ALL` list; `*_TESTS` may name a subset and a fixture keeps
+     its port. Gates cover every QEMU in the loops: H2 on each of the 13
+     fixtures plus SIGINT at fixture 4 of a full run; H3 SIGKILL at each
+     fixture, cleared by a run of a *different* fixture. test-meta's other
+     five QEMUs are started by its .py scripts and stay with step 4.
+   - SIGINT reaches the test under `--foreground`, but five scripts swallow
+     it some of the time (a bare `except:` around `recv` catches
+     KeyboardInterrupt): smoke_test.py, test_file_stream_helpers.py,
+     test_flush_stress.py, test_editor.py, test_x86_asm.py. The trap still
+     cleans up; only promptness suffers. Fix belongs with step 4.
 3. **The remaining recipes.** Mechanical once the pattern is set.
 4. **The 15 `.py` files (§2 census).** Kill the PID each script launched (its
    `Popen` handle in a `finally`, where it holds one), drop the `pkill`.
@@ -252,6 +266,15 @@ Three more for the signal gates (H2/H3/H11), learned 2026-10-02/03:
   make to exit between cases.** Deleting a live pidfile (`/proc/PID/fd` then
   shows `<path> (deleted)`) blinds the guarded `QEMU_KILL`, and the QEMU is
   orphaned.
+- **An unanchored pattern kill matches more than QEMUs.** `pkill -f
+  "[q]emu.*<port>"` matched a harness shell whose argv held a heredoc that
+  mentioned `qemu-system-i386` and then the port, and killed it. Write
+  harness scripts to a file and run `bash <file>`; wait on an exact PID via
+  `/proc/<pid>`, since `pgrep -f` also matches the shell running it.
+- **One harness at a time, and a refused launch must stop what it started.**
+  Two overlapping harnesses (a surviving script plus a rerun, or a launch
+  that gave up but left its make running) share ports, image locks and
+  pidfiles, and every result in the overlap is invalid.
 
 ---
 

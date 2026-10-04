@@ -378,40 +378,60 @@ test-pci-typing: $(ACTIVE_IMAGE)
 	timeout --foreground $(T_PCI_TYPING) python3 tests/test_pci_typing.py $$(($(TEST_PORT_BASE)+96)) $(ACTIVE_IMAGE)
 
 # Run all vocabulary tests (need block storage)
+# Loop recipes (batch 2c): one pidfile per fixture,
+# $(BUILD)/<target>-<fixture>.pid (TASK_HARNESS_KILL_BY_PID §3a). The
+# pre-clean and the trap walk the full *_ALL list, so a leftover from
+# any fixture is cleared whichever fixtures the next run selects.
+# *_TESTS may be overridden to run a subset; a fixture keeps its port.
+VOCAB_TESTS_ALL = test_editor test_x86_asm test_driver_vocabs test_disasm test_port_mapper test_echoport test_catalog_complete
+VOCAB_TESTS ?= $(VOCAB_TESTS_ALL)
+VOCABS_KILL_ALL = for f in $(VOCAB_TESTS_ALL); do PIDF=$(BUILD)/test-vocabs-$$f.pid; $(QEMU_KILL); done
+GUI_TESTS_ALL = test_stub_dispatch test_ui_core test_gui_harvest test_ui_parser test_ui_events test_fe_strip_cr
+GUI_TESTS ?= $(GUI_TESTS_ALL)
+GUI_KILL_ALL = for f in $(GUI_TESTS_ALL); do PIDF=$(BUILD)/test-gui-$$f.pid; $(QEMU_KILL); done
+T_VOCAB_FIXTURE ?= 480
+T_GUI_FIXTURE   ?= 300
+T_INSTALL       ?= 4200
+T_METACOMPILER  ?= 600
+
 test-vocabs: $(COMBINED)
 	@cp $(COMBINED) $(COMBINED_IDE)
 	@echo "Running vocabulary tests..."
-	@PORT_BASE=$$(($(TEST_PORT_BASE)+10)); \
-	for test in test_editor test_x86_asm test_driver_vocabs test_disasm test_port_mapper test_echoport test_catalog_complete; do \
-		PORT=$$PORT_BASE; PORT_BASE=$$((PORT_BASE+1)); \
+	@$(VOCABS_KILL_ALL); \
+	trap '$(VOCABS_KILL_ALL)' EXIT INT TERM HUP; set -e; \
+	for test in $(VOCAB_TESTS); do \
+		I=0; for a in $(VOCAB_TESTS_ALL); do [ $$a = $$test ] && break; I=$$((I+1)); done; \
+		PORT=$$(($(TEST_PORT_BASE)+10+I)); \
+		PIDF=$(BUILD)/test-vocabs-$$test.pid; \
 		echo "  $$test (port $$PORT)..."; \
 		$(QEMU) -drive file=$(COMBINED),format=raw,if=floppy \
 			-drive file=$(COMBINED_IDE),format=raw,if=ide,index=1 \
 			-nic model=ne2k_pci \
 			-serial tcp::$$PORT,server=on,wait=off \
-			-display none -daemonize; \
+			-display none -daemonize -pidfile $$PIDF; \
 		sleep 2; \
-		python3 tests/$$test.py $$PORT; \
-		STATUS=$$?; pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null; sleep 1; \
-		if [ $$STATUS -ne 0 ]; then exit $$STATUS; fi; \
+		timeout --foreground $(T_VOCAB_FIXTURE) python3 tests/$$test.py $$PORT; \
+		$(QEMU_KILL); \
 	done
 
 # Run GUI vocabulary tests (paid tier — skipped if files absent)
 test-gui: $(COMBINED)
 	@cp $(COMBINED) $(COMBINED_IDE)
-	@PORT_BASE=$$(($(TEST_PORT_BASE)+30)); \
-	for test in test_stub_dispatch test_ui_core test_gui_harvest test_ui_parser test_ui_events test_fe_strip_cr; do \
+	@$(GUI_KILL_ALL); \
+	trap '$(GUI_KILL_ALL)' EXIT INT TERM HUP; set -e; \
+	for test in $(GUI_TESTS); do \
 		if [ ! -f tests/$$test.py ]; then continue; fi; \
-		PORT=$$PORT_BASE; PORT_BASE=$$((PORT_BASE+1)); \
+		I=0; for a in $(GUI_TESTS_ALL); do [ $$a = $$test ] && break; I=$$((I+1)); done; \
+		PORT=$$(($(TEST_PORT_BASE)+30+I)); \
+		PIDF=$(BUILD)/test-gui-$$test.pid; \
 		echo "  $$test (port $$PORT)..."; \
 		$(QEMU) -drive file=$(COMBINED),format=raw,if=floppy \
 			-drive file=$(COMBINED_IDE),format=raw,if=ide,index=1 \
 			-serial tcp::$$PORT,server=on,wait=off \
-			-display none -daemonize; \
+			-display none -daemonize -pidfile $$PIDF; \
 		sleep 2; \
-		python3 tests/$$test.py $$PORT; \
-		STATUS=$$?; pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null; sleep 1; \
-		if [ $$STATUS -ne 0 ]; then exit $$STATUS; fi; \
+		timeout --foreground $(T_GUI_FIXTURE) python3 tests/$$test.py $$PORT; \
+		$(QEMU_KILL); \
 	done
 
 # LOG-HARNESS: private licensing/telemetry infrastructure. The vocab and
@@ -472,16 +492,16 @@ test-log-harness: $(COMBINED)
 # embedded, so the block store has to be attached.
 test-install: $(COMBINED) $(BOOTLOADER) $(VBR)
 	@cp $(COMBINED) $(COMBINED_IDE)
-	@echo "Running INSTALL allowlist test..."
-	@PORT=$$(($(TEST_PORT_BASE)+3)); \
-	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null; sleep 1; \
+	@PIDF=$(BUILD)/test-install.pid; $(QEMU_KILL); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP; set -e; \
+	PORT=$$(($(TEST_PORT_BASE)+3)); \
+	echo "Running INSTALL allowlist test..."; \
 	$(QEMU) -drive file=$(COMBINED),format=raw,if=floppy \
 		-drive file=$(COMBINED_IDE),format=raw,if=ide,index=1 \
 		-serial tcp::$$PORT,server=on,wait=off \
-		-display none -daemonize; \
+		-display none -daemonize -pidfile $$PIDF; \
 	sleep 2; \
-	python3 tests/test_install.py $$PORT; \
-	STATUS=$$?; pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null; exit $$STATUS
+	timeout --foreground $(T_INSTALL) python3 tests/test_install.py $$PORT
 
 # VBR variant boot smoke (test manages its own QEMU; monitor on port+1)
 test-vbr: $(VBR) $(KERNEL) $(IMAGE)
@@ -928,15 +948,15 @@ test-meta: $(COMBINED)
 	@set -e; \
 	PORT=$$(($(TEST_PORT_BASE)+80)); \
 	echo "  test_metacompiler (port $$PORT)..."; \
-	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null || true; \
-	sleep 0.5; \
+	PIDF=$(BUILD)/test-meta-metacompiler.pid; $(QEMU_KILL); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP; \
 	$(QEMU) -drive file=$(COMBINED),format=raw,if=floppy \
 		-drive file=$(COMBINED_IDE),format=raw,if=ide,index=1 \
 		-serial tcp::$$PORT,server=on,wait=off \
-		-display none -daemonize; \
+		-display none -daemonize -pidfile $$PIDF; \
 	sleep 2; \
-	python3 tests/test_metacompiler.py $$PORT; \
-	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null || true; sleep 1; \
+	timeout --foreground $(T_METACOMPILER) python3 tests/test_metacompiler.py $$PORT; \
+	$(QEMU_KILL); sleep 1; \
 	PORT=$$(($(TEST_PORT_BASE)+81)); \
 	echo "  test_meta_compile (port $$PORT)..."; \
 	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null || true; \
