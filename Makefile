@@ -107,12 +107,21 @@ run-free: $(IMAGE_FREE)
 	$(QEMU) -drive file=$(IMAGE_FREE),format=raw,if=floppy -nographic
 
 # --- Sync check (paid files vs private repo) ---
-PRIVATE_REPO = ../forthos-vocabularies
+# Compares, against the private repo:
+#   - forth/dict/<v>.fth for each v in PAID_VOCABS (when present locally);
+#   - every tests/*.py the private repo tracks, when present locally
+#     (DIVERGED). A script tracked here too is public-owned: reported as
+#     SHARED and not compared;
+#   - every tests/*.py this repo ignores and that is on disk must be tracked
+#     in the private repo (MISSING), so a private-only script cannot live
+#     in one working tree alone.
+# With no private repo it prints SKIPPED and exits 0; never a silent pass.
+PRIVATE_REPO ?= ../forthos-vocabularies
 PAID_VOCABS = ahci rtl8168 ntfs auto-detect fat32 surveyor file-editor-disk log-harness
 
 check-sync:
 	@if [ ! -d "$(PRIVATE_REPO)/forth/dict" ]; then \
-		echo "Private vocab repo not present at $(PRIVATE_REPO) — skipping sync check"; \
+		echo "SKIPPED: private repo not found at $(PRIVATE_REPO)"; \
 		exit 0; \
 	fi; \
 	FAIL=0; \
@@ -126,6 +135,21 @@ check-sync:
 		if ! diff -q "$$LOCAL" "$$REMOTE" >/dev/null 2>&1; then \
 			echo "DIVERGED: $$v.fth"; \
 			FAIL=1; \
+		fi; \
+	done; \
+	for f in $$(git -C "$(PRIVATE_REPO)" ls-files -- 'tests/*.py' | grep -E '^tests/[^/]+\.py$$'); do \
+		if git ls-files --error-unmatch -- "$$f" >/dev/null 2>&1; then \
+			echo "SHARED (tracked in both repos; public-owned, not compared): $$f"; \
+			continue; \
+		fi; \
+		if [ ! -f "$$f" ]; then continue; fi; \
+		if ! cmp -s "$$f" "$(PRIVATE_REPO)/$$f"; then \
+			echo "DIVERGED: $$f"; FAIL=1; \
+		fi; \
+	done; \
+	for f in $$(git ls-files --others --ignored --exclude-standard -- 'tests/*.py' | grep -E '^tests/[^/]+\.py$$'); do \
+		if ! git -C "$(PRIVATE_REPO)" ls-files --error-unmatch -- "$$f" >/dev/null 2>&1; then \
+			echo "MISSING in private repo: $$f"; FAIL=1; \
 		fi; \
 	done; \
 	if [ $$FAIL -ne 0 ]; then \

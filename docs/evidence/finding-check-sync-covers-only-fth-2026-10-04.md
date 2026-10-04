@@ -28,7 +28,28 @@ scripts are outside its scope. On 2026-10-03:
 Private `dc043a8` syncs the 11 scripts from the public working tree
 (byte-identical) and adds `test_fe_strip_cr.py`.
 
-## Owed (next task)
+## ~~Owed (next task)~~ Resolved 2026-10-04
 
-Extend check-sync to the private-owned test scripts, so a drifted or missing
-copy fails the check rather than passing it.
+~~Extend check-sync to the private-owned test scripts, so a drifted or
+missing copy fails the check rather than passing it.~~
+
+check-sync now also compares every `tests/*.py` the private repo tracks
+(DIVERGED), and requires every ignored top-level `tests/*.py` on disk to be
+tracked there (MISSING). A script tracked in both repos is reported SHARED
+and not compared. `PRIVATE_REPO ?=`; with no private repo it prints
+`SKIPPED: private repo not found at <path>`. Shown red on the pre-sync tree
+(10 DIVERGED, while the old recipe said OK), green after private `7465df0`,
+red on a deliberately changed copy, and MISSING for `test_fe_strip_cr.py`
+against private `ed98837`.
+
+The 10 scripts synced in private `7465df0`: test_arm64_asm,
+test_arm64_target, test_audio, test_cortexm_boot, test_cortexm_target,
+test_disk_survey_phase2, test_graphics, test_target_x86, test_thumb2_asm,
+test_video. None is reached by `make test`, and there is no record of any
+running since the 2026-07-04 catalog-layout change.
+
+Open, owner's call: `tests/test_ahci_write.py` is tracked in both repos (it
+has been public since `24442cf`, 2026-04-16). It names three internal test
+variables of the private AHCI vocab (TST-LBA, WR-TST, SEC-BUF), but no
+implementation. Untracking it in private (making it public-owned) is held
+pending that call.
