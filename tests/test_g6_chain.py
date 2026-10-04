@@ -28,8 +28,9 @@ sys.stdout.reconfigure(line_buffering=True)
 # irrelevant -- but on 3.8 a RELATIVE __file__ resolved after a
 # chdir resolves against the NEW cwd, and would only HAPPEN to be
 # right when invoked from ROOT.  Same "safe by accident of
-# environment" shape as qemu_kill's pkill bracket, and cheaper to
-# remove by ordering than to document and hope someone reads it.
+# environment" shape as the pkill bracket qemu_kill used to rely
+# on, and cheaper to remove by ordering than to document and hope
+# someone reads it.
 _SELF = os.path.abspath(__file__)
 ROOT = os.path.dirname(os.path.dirname(_SELF))
 os.chdir(ROOT)
@@ -42,6 +43,9 @@ TREE = 'build/tftp'
 DISK = 'build/g6-disk.img'
 PRISTINE = 'build/g6-disk-pristine.img'
 QEMU = 'qemu-system-i386'
+
+import qemu_pid  # tests/qemu_pid.py: pidfile-based QEMU cleanup
+G6_PIDFILE = qemu_pid.pidfile('g6')
 
 PASS = FAIL = 0
 
@@ -510,37 +514,15 @@ def qemu_kill():
     # Graceful monitor quit FIRST: SIGKILL on a daemonized QEMU
     # holding the raw .img open can drop in-flight AHCI writes,
     # and the stage 2->3 boundary reads that image as the second
-    # authority. pkill stays as the fallback, not a replacement.
+    # authority. The pidfile kill below is the fallback.
     try:
         mon_cmd('quit', wait=1)
     except Exception:
         pass
-    # WHY THIS PATTERN IS CURRENTLY SAFE -- it is a property of how
-    # this harness happens to be LAUNCHED, not of the pattern.
-    # `pkill -f` matches whole command lines, and the [q] bracket
-    # only stops the pattern matching pkill/grep itself; it does NOT
-    # stop it matching the INVOKING shell, whose argv contains the
-    # pattern text verbatim when a probe is run inline via `bash -c`.
-    # Measured 2026-08-11 while writing the appendices in
-    # docs/finding-hmp-echo-phantom-bytes-2026-08-11.md: a
-    # `pkill -9 -f "[q]emu.*hmpmon"` killed the calling shell.
-    # We are safe here only because every launch line
-    # ("python3 tests/test_g6_chain.py 4590", and shells wrapping
-    # it) contains no "qemu" substring, so `[q]emu.*PORT` cannot
-    # match them -- verified 2026-08-11. Wrap this run in a script
-    # whose name or path contains "qemu" and the bracket protects
-    # nothing. The real fix is PID-based cleanup (no -daemonize,
-    # keep the Popen, call .kill()). Left as a carried item, and the
-    # earlier justification for deferring it was wrong: checked
-    # 2026-08-11, -daemonize appears at exactly ONE site
-    # (qemu_net_boot), so there is no "elsewhere" it is load-bearing.
-    # All it buys there is that subprocess.run(check=True) returns
-    # once QEMU forks and surfaces a launch failure synchronously;
-    # dropping it costs a Popen plus an explicit readiness poll.
-    # That is a small refactor, not a blocker -- see the carried
-    # items in the task doc.
-    subprocess.run(['pkill', '-9', '-f', f'[q]emu.*{PORT}'],
-                   capture_output=True)
+    # Then kill by pidfile (never a pattern kill: `pkill -f` matched
+    # the calling shell on 2026-08-11 and other trees' QEMUs since).
+    # The recipe also clears QEMU_PIDDIR from its trap.
+    qemu_pid.kill_pidfile(G6_PIDFILE)
     time.sleep(1)
 
 
@@ -570,7 +552,8 @@ def qemu_net_boot(disk, tree=TREE):
         '-device', 'ide-hd,drive=sata0,bus=ahci0.0',
         '-serial', f'tcp::{PORT},server=on,wait=off',
         '-monitor', f'tcp:127.0.0.1:{MON},server=on,wait=off',
-        '-display', 'none', '-daemonize'], check=True)
+        '-display', 'none', '-daemonize', '-pidfile', G6_PIDFILE],
+        check=True)
     time.sleep(2)
 
 

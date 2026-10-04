@@ -30,6 +30,8 @@ import subprocess
 import sys
 import time
 
+import qemu_pid  # tests/qemu_pid.py: pidfile-based QEMU cleanup
+
 # ---- self-describing log: hash the inputs BEFORE running them ----
 # Any transcript quoting "Passed: N/N" must carry proof of WHICH
 # bytes produced it; see tests/test_g6_chain.py for the long-form
@@ -165,15 +167,14 @@ def read_vga_text():
 
 def boot_capture(image, seconds, want_vga=False):
     """Boot image as hd; return (serial_output, vga_text)."""
-    subprocess.run(['pkill', '-9', '-f', f'[q]emu.*{PORT}'],
-                   capture_output=True)
-    time.sleep(1)
+    pf = qemu_pid.pidfile('vbr')
+    qemu_pid.kill_pidfile(pf)
     subprocess.run(
         ['qemu-system-i386', '-drive',
          f'file={image},format=raw',
          '-serial', f'tcp::{PORT},server=on,wait=off',
          '-monitor', f'tcp:127.0.0.1:{MON_PORT},server=on,wait=off',
-         '-display', 'none', '-daemonize'], check=True)
+         '-display', 'none', '-daemonize', '-pidfile', pf], check=True)
     time.sleep(2)
     s = socket.socket()
     s.settimeout(10)
@@ -197,8 +198,7 @@ def boot_capture(image, seconds, want_vga=False):
         pass
     s.close()
     vga = read_vga_text() if want_vga else ''
-    subprocess.run(['pkill', '-9', '-f', f'[q]emu.*{PORT}'],
-                   capture_output=True)
+    qemu_pid.kill_pidfile(pf)
     return out.decode('ascii', errors='replace'), vga
 
 

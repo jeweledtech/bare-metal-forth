@@ -19,6 +19,8 @@ import os
 import re
 import shutil
 
+import qemu_pid  # tests/qemu_pid.py: pidfile-based QEMU cleanup
+
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 4590
 MON_PORT = PORT + 1
 BOOT_PORT = PORT + 2
@@ -121,10 +123,10 @@ def drain(s, wait=2.0):
 
 
 def kill_qemu(port_pattern):
-    subprocess.run(
-        ['pkill', '-9', '-f',
-         f'[q]emu.*{port_pattern}'],
-        capture_output=True)
+    # Kill by pidfile, not by pattern: the builder QEMU owns PORT and
+    # the ARM64 QEMU owns BOOT_PORT.
+    role = {str(PORT): 'builder', str(BOOT_PORT): 'boot'}[port_pattern]
+    qemu_pid.kill_pidfile(qemu_pid.pidfile(role))
     time.sleep(1)
 
 
@@ -217,6 +219,7 @@ cmd = [
     '-serial', f'tcp::{PORT},server=on,wait=off',
     '-monitor', f'tcp::{MON_PORT},server=on,wait=off',
     '-display', 'none',
+    '-pidfile', qemu_pid.pidfile('builder'),
 ]
 builder_proc = subprocess.Popen(
     cmd,
@@ -429,6 +432,7 @@ boot_cmd = [
     '-serial',
     f'tcp::{BOOT_PORT},server=on,wait=on,nodelay=on',
     '-display', 'none',
+    '-pidfile', qemu_pid.pidfile('boot'),
 ]
 print(f"  CMD: {' '.join(boot_cmd)}")
 

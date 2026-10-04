@@ -63,6 +63,8 @@ import subprocess
 import sys
 import time
 
+import qemu_pid  # tests/qemu_pid.py: pidfile-based QEMU cleanup
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from kernel_constants import BLOCK_SIZE, BLK_BUF_DATA, BLK_NUM_BUFFERS
 
@@ -171,6 +173,7 @@ proc = subprocess.Popen([
     '-drive', f'file={SCRATCH_IDE},format=raw,if=ide,index=1',
     '-serial', f'tcp::{PORT},server=on,wait=off',
     '-display', 'none',
+    '-pidfile', qemu_pid.pidfile('block-reload'),
 ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 try:
     time.sleep(2)
@@ -256,6 +259,7 @@ try:
 finally:
     proc.kill()
     proc.wait()
+    qemu_pid.kill_pidfile(qemu_pid.pidfile('block-reload'))
 
 print('=' * 60)
 print(f'Passed: {checks - len(failures)}/{checks}')

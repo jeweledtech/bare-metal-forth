@@ -213,7 +213,21 @@ launches QEMU uses `QEMU_KILL` from the start; none adds a `pkill`.
      KeyboardInterrupt): smoke_test.py, test_file_stream_helpers.py,
      test_flush_stress.py, test_editor.py, test_x86_asm.py. The trap still
      cleans up; only promptness suffers. Fix belongs with step 4.
-3. **The remaining recipes.** Mechanical once the pattern is set.
+3. **The remaining recipes.** Not mechanical after all: only one started its
+   QEMU in the recipe.
+   - **3a: DONE.** test-ahci-write: `&` + pkill → -daemonize -pidfile, with the
+     "private test absent" SKIPPED check first. (No "vocab absent" check:
+     ahci.fth is embedded, so without it the image build fails first.)
+   - **3b: DONE.** test-vbr, test-g6, test-block-reload, test-arm64-boot,
+     test-cortexm. Their **scripts** start the QEMUs, so recipe and script
+     change together. The recipe sets `QPIDDIR=$(BUILD)/<target>.d`, exports it
+     as `QEMU_PIDDIR`, and runs `QEMU_KILL_DIR` (QEMU_KILL over every `*.pid`
+     there) at pre-clean and from the trap. Each script passes `-pidfile` for
+     every QEMU it starts and stops it with `tests/qemu_pid.py`'s
+     `kill_pidfile`; no script pkills any more. test-g6 keeps its graceful
+     monitor `quit` first. `QEMU_KILL`'s exe check widened to any
+     `qemu-system-*` (aarch64/arm); the pidfile-held-open check is unchanged.
+   - Remaining pkill: only test-meta's 22 lines (its .py scripts), step 4.
 4. **The 15 `.py` files (§2 census).** Kill the PID each script launched (its
    `Popen` handle in a `finally`, where it holds one), drop the `pkill`.
 5. **Optional, recommended:** have a recipe refuse to start when its serial
@@ -275,6 +289,13 @@ Three more for the signal gates (H2/H3/H11), learned 2026-10-02/03:
   Two overlapping harnesses (a surviving script plus a rerun, or a launch
   that gave up but left its make running) share ports, image locks and
   pidfiles, and every result in the overlap is invalid.
+- **Before every merge to master, list what the merge would delete:**
+  `git diff --name-status master <branch> | grep '^D'`. Confirm none of
+  it is an ignored file present on disk. A branch that untracks a
+  private-owned file deletes the working copy when master is checked out
+  and fast-forwarded (it happened to tests/test_ahci_write.py on
+  2026-10-04). If any is, move master with `git fetch . <branch>:master`
+  from the branch instead, then re-verify the files on disk.
 
 ---
 

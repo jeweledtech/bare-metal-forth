@@ -529,10 +529,11 @@ test-install: $(COMBINED) $(BOOTLOADER) $(VBR)
 
 # VBR variant boot smoke (test manages its own QEMU; monitor on port+1)
 test-vbr: $(VBR) $(KERNEL) $(IMAGE)
-	@echo "Running VBR variant boot smoke..."
-	@PORT=$$(($(TEST_PORT_BASE)+8)); \
-	python3 tests/test_vbr_boot.py $$PORT; \
-	STATUS=$$?; pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null; exit $$STATUS
+	@QPIDDIR=$(BUILD)/test-vbr.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
+	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP; set -e; \
+	echo "Running VBR variant boot smoke..."; \
+	PORT=$$(($(TEST_PORT_BASE)+8)); \
+	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_VBR) python3 tests/test_vbr_boot.py $$PORT
 
 # G6 chain harness: live install + 4-leg boot matrix.
 # Manages its own QEMU; monitor on port+1, so this target OWNS the
@@ -562,16 +563,11 @@ test-vbr: $(VBR) $(KERNEL) $(IMAGE)
 # Known gap: nothing asserts WHICH tree booted; make ordering is
 # the guarantee. See the docket's carried items.
 test-g6: grub-net $(VBR) $(KERNEL)
-	@echo "Running G6 chain harness..."
-	@PORT=$$(($(TEST_PORT_BASE)+95)); \
-	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null || true; \
-	pkill -9 -f "[q]emu.*$$((PORT+1))" 2>/dev/null || true; \
-	sleep 1; \
-	python3 tests/test_g6_chain.py $$PORT; \
-	STATUS=$$?; \
-	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null || true; \
-	pkill -9 -f "[q]emu.*$$((PORT+1))" 2>/dev/null || true; \
-	exit $$STATUS
+	@QPIDDIR=$(BUILD)/test-g6.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
+	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP; set -e; \
+	echo "Running G6 chain harness..."; \
+	PORT=$$(($(TEST_PORT_BASE)+95)); \
+	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_G6) python3 tests/test_g6_chain.py $$PORT
 
 # Run full integration test
 test-integration: $(COMBINED)
@@ -617,11 +613,11 @@ backstop0: $(BACKSTOP0_IMAGE)
 # blocks into scratch copies of $(COMBINED) and launches QEMU
 # itself (it must poke the image BEFORE boot).
 test-block-reload: $(COMBINED)
-	@echo "Running block-cache reload test (Bug #34)..."
-	@PORT=$$(($(TEST_PORT_BASE)+95)); \
-	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null; sleep 1; \
-	python3 tests/test_block_reload.py $$PORT $(COMBINED); \
-	STATUS=$$?; pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null; exit $$STATUS
+	@QPIDDIR=$(BUILD)/test-block-reload.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
+	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP; set -e; \
+	echo "Running block-cache reload test (Bug #34)..."; \
+	PORT=$$(($(TEST_PORT_BASE)+95)); \
+	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_BLOCK_RELOAD) python3 tests/test_block_reload.py $$PORT $(COMBINED)
 
 # xHCI vocab gate (docket step 2a): BAR64-MASK + PCI-BAR64@,
 # block-loaded from forth/dict/xhci.fth via catalog THRU.  Needs
@@ -695,15 +691,30 @@ T_PCI_BAR ?= 90
 # holds this tree's pidfile open (QEMU keeps it open and locked while alive;
 # /proc/PID/fd shows the absolute path, which is unique per tree). Must stay
 # free of single quotes: it is expanded inside trap '...'.
-# Known refusals (not fixed): the guard then deletes the pidfile but leaves a
-# real QEMU running, (1) when $(QEMU) resolves through a symlink, so
-# `command -v` and /proc/PID/exe name different paths, and (2) when $(BUILD)
-# is an absolute path, so "$(CURDIR)/$$PIDF" is not the path QEMU holds open.
+# The exe check accepts any qemu-system-* binary (batch 3b: test scripts
+# start aarch64/arm QEMUs too); the pidfile-held-open check is what ties the
+# PID to this tree and is unchanged.
+# Known refusal (not fixed): the guard deletes the pidfile but leaves a real
+# QEMU running when $(BUILD) (or QEMU_PIDDIR) is an absolute path, since
+# "$(CURDIR)/$$PIDF" is then not the path QEMU holds open.
 # See docs/TASK_HARNESS_KILL_BY_PID.md.
 QEMU_KILL = if [ -f $$PIDF ]; then QPID=$$(cat $$PIDF); \
-	if [ "$$(readlink /proc/$$QPID/exe)" = "$$(command -v $(QEMU))" ] && \
-	   readlink /proc/$$QPID/fd/* 2>/dev/null | grep -qxF "$(CURDIR)/$$PIDF"; \
-	then kill -9 $$QPID 2>/dev/null; fi; rm -f $$PIDF; fi
+	case "$$(readlink /proc/$$QPID/exe)" in */qemu-system-*) \
+	  if readlink /proc/$$QPID/fd/* 2>/dev/null | grep -qxF "$(CURDIR)/$$PIDF"; \
+	  then kill -9 $$QPID 2>/dev/null; fi;; esac; rm -f $$PIDF; fi
+# QEMU_KILL_DIR: for recipes whose test SCRIPT starts the QEMU(s) (batch 3b).
+# The recipe sets QPIDDIR=$(BUILD)/<target>.d and exports it as QEMU_PIDDIR;
+# the script passes -pidfile $QEMU_PIDDIR/<role>.pid for every QEMU it starts
+# (tests/qemu_pid.py). Pre-clean and trap run QEMU_KILL over each one.
+QEMU_KILL_DIR = for PIDF in $$QPIDDIR/*.pid; do [ -e "$$PIDF" ] || continue; $(QEMU_KILL); done
+# Budgets for the batch-3b recipes, about 2x observed (2026-10-04): vbr 39s,
+# g6 613s, block-reload 64s, arm64-boot 354s. cortexm is provisional: its
+# baseline fails before the ARM phase (2/5), so its full time is unknown.
+T_VBR ?= 90
+T_G6 ?= 1200
+T_BLOCK_RELOAD ?= 150
+T_ARM64_BOOT ?= 720
+T_CORTEXM ?= 600
 test-firstboot: $(COMBINED)
 	@PIDF=$(BUILD)/firstboot-lan.pid; $(QEMU_KILL); \
 	trap '$(QEMU_KILL)' EXIT INT TERM HUP; \
@@ -795,26 +806,25 @@ lint:
 # Run ARM64 boot test (cross-compile + QEMU raspi3b)
 test-arm64-boot: $(COMBINED)
 	@cp $(COMBINED) $(COMBINED_IDE)
-	@echo "Running ARM64 boot test..."
-	@python3 tests/test_arm64_boot.py $$(($(TEST_PORT_BASE)+50)); \
-		STATUS=$$?; \
-		pkill -9 -f "[q]emu.*$$(($(TEST_PORT_BASE)+50))" 2>/dev/null; \
-		pkill -9 -f "[q]emu.*$$(($(TEST_PORT_BASE)+52))" 2>/dev/null; \
-		exit $$STATUS
+	@QPIDDIR=$(BUILD)/test-arm64-boot.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
+	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP; set -e; \
+	echo "Running ARM64 boot test..."; \
+	PORT=$$(($(TEST_PORT_BASE)+50)); \
+	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_ARM64_BOOT) python3 tests/test_arm64_boot.py $$PORT
 
 # Run Cortex-M33 boot test (cross-compile + QEMU mps2-an505)
 test-cortexm: $(COMBINED)
 	@cp $(COMBINED) $(COMBINED_IDE)
-	@echo "Running Cortex-M33 boot test..."
-	@python3 tests/test_cortexm_boot.py $$(($(TEST_PORT_BASE)+60)); \
-		STATUS=$$?; \
-		pkill -9 -f "[q]emu.*$$(($(TEST_PORT_BASE)+60))" 2>/dev/null; \
-		pkill -9 -f "[q]emu.*$$(($(TEST_PORT_BASE)+62))" 2>/dev/null; \
-		exit $$STATUS
+	@QPIDDIR=$(BUILD)/test-cortexm.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
+	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP; set -e; \
+	echo "Running Cortex-M33 boot test..."; \
+	PORT=$$(($(TEST_PORT_BASE)+60)); \
+	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_CORTEXM) python3 tests/test_cortexm_boot.py $$PORT
 
 # Run AHCI write test (ICH9-AHCI + scratch disk)
 # Timeout budget: about 2x the observed 129s (2026-10-04).
 T_AHCI_WRITE ?= 260
+# No "vocab absent" check: without ahci.fth the image build fails first, which is the intended loud failure.
 AHCI_SCRATCH = $(BUILD)/ahci-scratch.img
 $(AHCI_SCRATCH): | $(BUILD)
 	dd if=/dev/zero of=$(AHCI_SCRATCH) bs=512 count=2048 2>/dev/null
@@ -822,10 +832,6 @@ $(AHCI_SCRATCH): | $(BUILD)
 test-ahci-write: $(COMBINED) $(AHCI_SCRATCH)
 	@if [ ! -f tests/test_ahci_write.py ]; then \
 		echo "SKIPPED: test-ahci-write: private test absent (tests/test_ahci_write.py)"; \
-		exit 0; \
-	fi; \
-	if [ ! -f forth/dict/ahci.fth ]; then \
-		echo "SKIPPED: test-ahci-write: private vocab absent (forth/dict/ahci.fth)"; \
 		exit 0; \
 	fi; \
 	PIDF=$(BUILD)/test-ahci-write.pid; $(QEMU_KILL); \
