@@ -230,6 +230,15 @@ launches QEMU uses `QEMU_KILL` from the start; none adds a `pkill`.
    - Remaining pkill: only test-meta's 22 lines (its .py scripts), step 4.
 4. **The 15 `.py` files (§2 census).** Kill the PID each script launched (its
    `Popen` handle in a `finally`, where it holds one), drop the `pkill`.
+4b. **After the .py step: replace fixed sleeps with bounded reads.** Most test
+   scripts send a command, `time.sleep()` a fixed 1–2s, then read until a
+   2–5s timeout, so each check costs ~3–5s whatever the guest does. That is
+   why `make -k test` takes about 2h (measured 2026-10-04: test-install ~35
+   min for 454 checks, vocabs ~14, gui ~12, firstboot ~11, g6 ~10,
+   squote-laydown ~9.5). Use the `tests/serial.py` pattern: read until the
+   guest answers `ok`, with an overall budget. Start with test-install.
+   Each script keeps its check count and results; only the wait changes.
+
 5. **Optional, recommended:** have a recipe refuse to start when its serial
    port is already bound (`ss -tlnp`), so a collision fails loudly instead of
    hijacking or killing. Costs one check, removes the remaining ambiguity.
