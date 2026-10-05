@@ -36,16 +36,20 @@ import shutil
 import socket
 import subprocess
 import sys
+
+import qemu_pid  # tests/qemu_pid.py: pidfile-based QEMU cleanup
 import time
 
-PORT = 4485
+PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 4485
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCRATCH = os.path.join(ROOT, 'build', 'ahci-blkr-scratch.img')
 IDE_COPY = os.path.join(ROOT, 'build', 'ahci-blkr-ide.img')
 
+PIDFILE = os.path.join(ROOT, qemu_pid.pidfile('ahci-blk-reader'))
+
+
 def kill():
-    subprocess.run(['pkill', '-9', '-f', f'[q]emu.*{PORT}'],
-                   capture_output=True)
+    qemu_pid.kill_pidfile(PIDFILE)
     time.sleep(0.3)
 
 def start(zero_scratch):
@@ -64,6 +68,7 @@ def start(zero_scratch):
         '-device', 'ide-hd,drive=sata0,bus=ahci0.0',
         '-serial', f'tcp::{PORT},server=on,wait=off',
         '-display', 'none',
+        '-pidfile', PIDFILE,
     ], cwd=ROOT, stdout=subprocess.DEVNULL,
        stderr=subprocess.DEVNULL)
     for _ in range(20):
