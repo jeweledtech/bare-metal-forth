@@ -11,6 +11,8 @@ import socket
 import time
 import sys
 import subprocess
+
+import qemu_pid  # tests/qemu_pid.py: pidfile-based QEMU cleanup
 import os
 
 PORT_A = int(sys.argv[1]) if len(sys.argv) > 1 else 4750
@@ -90,7 +92,8 @@ def start_qemu_pair(zero_range=None):
         '-device', 'ne2k_pci,netdev=net0',
         '-serial',
         f'tcp::{PORT_A},server=on,wait=off',
-        '-display', 'none', '-daemonize'
+        '-display', 'none', '-daemonize',
+        '-pidfile', qemu_pid.pidfile('net-a'),
     ]
     subprocess.run(cmd_a, capture_output=True)
     time.sleep(2)
@@ -107,7 +110,8 @@ def start_qemu_pair(zero_range=None):
         '-device', 'ne2k_pci,netdev=net0',
         '-serial',
         f'tcp::{PORT_B},server=on,wait=off',
-        '-display', 'none', '-daemonize'
+        '-display', 'none', '-daemonize',
+        '-pidfile', qemu_pid.pidfile('net-b'),
     ]
     subprocess.run(cmd_b, capture_output=True)
     time.sleep(2)
@@ -194,16 +198,8 @@ def check(name, ok, detail=''):
 
 def cleanup():
     """Kill both QEMU instances and temp files."""
-    subprocess.run(
-        ['pkill', '-9', '-f',
-         f'[q]emu.*{PORT_A}'],
-        capture_output=True
-    )
-    subprocess.run(
-        ['pkill', '-9', '-f',
-         f'[q]emu.*{PORT_B}'],
-        capture_output=True
-    )
+    qemu_pid.kill_pidfile(qemu_pid.pidfile('net-a'))
+    qemu_pid.kill_pidfile(qemu_pid.pidfile('net-b'))
     for f in [COMBINED + '.b', COMBINED_IDE + '.b']:
         if os.path.exists(f):
             os.unlink(f)

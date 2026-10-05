@@ -29,6 +29,8 @@ import subprocess
 import sys
 import time
 
+import qemu_pid  # tests/qemu_pid.py: pidfile-based QEMU cleanup
+
 # red removed after its XPASS gate fired on exactly this name
 # (fix-carrier0b-xpass-gate-2026-09-29.log); a clobber is now a plain FAIL.
 CARRIER_REDS = []
@@ -36,13 +38,14 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FLOPPY = os.path.join(ROOT, 'build', 'bmforth.img')
 SCRATCH = os.path.join(ROOT, 'build', 'carrier-write-scratch.img')
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 4585
+CARRIER_PIDFILE = qemu_pid.pidfile('carrier')
 BLK = 199
 LBA = 225 + 2 * BLK                 # 623: where block 199 would be written
 SENTINEL = b'\x5a' * 512            # 0x5A, distinct from the guest's fill (0x41)
 
 
 def die(code, msg):
-    subprocess.run(['pkill', '-9', '-f', f'[q]emu.*{PORT}'], capture_output=True)
+    qemu_pid.kill_pidfile(CARRIER_PIDFILE)
     print(msg)
     sys.exit(code)
 
@@ -56,12 +59,13 @@ with open(SCRATCH, 'wb') as f:
     f.seek(LBA * 512)
     f.write(SENTINEL + SENTINEL)
 
-subprocess.run(['pkill', '-9', '-f', f'[q]emu.*{PORT}'], capture_output=True)
+qemu_pid.kill_pidfile(CARRIER_PIDFILE)
 q = subprocess.Popen(
     ['qemu-system-i386',
      '-drive', f'file={FLOPPY},format=raw,if=floppy,readonly=on',
      '-drive', f'file={SCRATCH},format=raw,if=ide,index=1',
-     '-serial', f'tcp::{PORT},server=on,wait=off', '-display', 'none', '-no-reboot'],
+     '-serial', f'tcp::{PORT},server=on,wait=off', '-display', 'none', '-no-reboot',
+     '-pidfile', CARRIER_PIDFILE],
     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 try:
     s = None
@@ -103,7 +107,7 @@ try:
     cmd('DEPTH .')
 finally:
     q.kill(); q.wait()
-    subprocess.run(['pkill', '-9', '-f', f'[q]emu.*{PORT}'], capture_output=True)
+    qemu_pid.kill_pidfile(CARRIER_PIDFILE)
 
 with open(SCRATCH, 'rb') as f:
     f.seek(LBA * 512)

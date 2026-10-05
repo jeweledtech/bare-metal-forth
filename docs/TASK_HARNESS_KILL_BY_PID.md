@@ -241,6 +241,24 @@ launches QEMU uses `QEMU_KILL` from the start; none adds a `pkill`.
    - Still to do in step 4: the .py files outside any converted recipe
      (§2 census, less those converted in 3b and here).
 
+**Order after step 4:** 4a, then 4c, then 4b (owner, 2026-10-04).
+
+4a. **test-network fix** (its own small task). It crashes on a NameError
+   (`blocks_b` in `start_qemu_pair`) about 5s in, so no NE2000 check has run
+   (finding-test-network-crashes-nameerror-2026-10-04). The current crash is
+   the failing case. Then fix it, then set the real `T_NETWORK` from a
+   measured run (now 300, provisional).
+
+4c. **Refuse to start on a bound port** (§5 step 5, now required). Every
+   QEMU recipe checks its ports when it starts and fails loudly with the
+   port number if one is taken. Skipping a busy base when TEST_PORT_BASE is
+   chosen is optional, a convenience on top: a base that is clear when
+   chosen can be taken by the time a test runs, because host services start
+   and stop. Motivation: on 2026-10-03/04 seven candidate worktree names
+   landed on five busy bases (5400 x2, 5600 x2, 3000, 4000, 8000; held by
+   the container runtime and velociraptor.service)
+   (finding-test-port-base-collides-host-service-2026-10-02).
+
 4b. **After the .py step: replace fixed sleeps with bounded reads.** Most test
    scripts send a command, `time.sleep()` a fixed 1–2s, then read until a
    2–5s timeout, so each check costs ~3–5s whatever the guest does. That is

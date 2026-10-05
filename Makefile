@@ -599,8 +599,10 @@ test-integration: $(COMBINED)
 # Run NE2000 network test (two QEMU instances)
 test-network: $(COMBINED)
 	@cp $(COMBINED) $(COMBINED_IDE)
-	@echo "Running NE2000 network test..."
-	@python3 tests/test_ne2000_network.py $$(($(TEST_PORT_BASE)+40))
+	@QPIDDIR=$(BUILD)/test-network.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
+	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP; set -e; \
+	echo "Running NE2000 network test..."; \
+	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_NETWORK) python3 tests/test_ne2000_network.py $$(($(TEST_PORT_BASE)+40))
 
 # --- Defeated-backstop experiment build ---
 # DICT_BACKSTOP=0 via -D so the in-loop string-laydown guard can be
@@ -724,6 +726,13 @@ QEMU_KILL_DIR = for PIDF in $$QPIDDIR/*.pid; do [ -e "$$PIDF" ] || continue; $(Q
 # g6 613s, block-reload 64s, arm64-boot 354s. cortexm is provisional: its
 # baseline fails before the ARM phase (2/5), so its full time is unknown.
 T_VBR ?= 90
+# .py step, py-a (about 2x observed 2026-10-04): carrier 37s, memdisk 122s,
+# survey 554s. network is provisional: it crashes at start on master
+# (NameError in start_qemu_pair), so its full time is unknown.
+T_CARRIER ?= 90
+T_MEMDISK ?= 260
+T_SURVEY ?= 1100
+T_NETWORK ?= 300
 T_G6 ?= 1200
 T_BLOCK_RELOAD ?= 150
 T_ARM64_BOOT ?= 720
@@ -898,8 +907,10 @@ test-uefi2-gdt: $(IMAGE) $(COMBINED)
 # boot must NOT write blocks to a fixed disk by default. Floppy (cell-0) + a
 # scratch IDE disk with a sentinel; a SAVE-BUFFERS must leave it intact.
 test-carrier-write-safe: $(IMAGE)
-	@echo "Running CARRIER-0b write-safety gate..."
-	@python3 tests/test_carrier_write_safe.py $$(($(TEST_PORT_BASE)+79))
+	@QPIDDIR=$(BUILD)/test-carrier-write-safe.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
+	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP; set -e; \
+	echo "Running CARRIER-0b write-safety gate..."; \
+	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_CARRIER) python3 tests/test_carrier_write_safe.py $$(($(TEST_PORT_BASE)+79))
 
 # M1 of the UEFI stages (uefi-1-prereg-2026-09-28.md): the HP's BIOS boot
 # chain in QEMU -- pxelinux -> memdisk -> combined.img -- reaches ok,
@@ -907,8 +918,10 @@ test-carrier-write-safe: $(IMAGE)
 # was never wired and no reason was recorded; ~2 min.  Port 4483 is its
 # own; it prints SKIP and exits 0 if pxelinux/memdisk are not installed.
 test-memdisk: $(COMBINED)
-	@echo "Running memdisk boot test (pxelinux -> memdisk)..."
-	@python3 tests/test_memdisk_blk_writer.py
+	@QPIDDIR=$(BUILD)/test-memdisk.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
+	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP; set -e; \
+	echo "Running memdisk boot test (pxelinux -> memdisk)..."; \
+	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_MEMDISK) python3 tests/test_memdisk_blk_writer.py $$(($(TEST_PORT_BASE)+65))
 
 # UEFI-1 red (docs/evidence/uefi-1-prereg-2026-09-28.md): a rootless replica
 # of the make-uefi-usb.sh stick booted under OVMF (no CSM) must reach the
@@ -990,9 +1003,11 @@ test-survey: $(SURVEY_DEPS)
 		echo "########################################"; \
 		exit 0; \
 	fi; \
+	QPIDDIR=$(BUILD)/test-survey.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
+	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP; set -e; \
 	PORT=$$(($(TEST_PORT_BASE)+100)); \
 	echo "=== DISK-SURVEY layouts (ports $$PORT-$$((PORT+5))) ==="; \
-	python3 tests/test_survey_layouts.py $$PORT
+	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_SURVEY) python3 tests/test_survey_layouts.py $$PORT
 
 # Run metacompiler tests (5 files, x86 self-hosting verification)
 # NOT included in 'make test' — slow, boots multiple QEMU instances.

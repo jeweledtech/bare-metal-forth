@@ -57,6 +57,8 @@ import sys
 import tempfile
 import time
 
+import qemu_pid  # tests/qemu_pid.py: pidfile-based QEMU cleanup
+
 PORT_BASE = int(sys.argv[1]) if len(sys.argv) > 1 else 4590
 PROJECT = os.path.dirname(os.path.dirname(
     os.path.abspath(__file__)))
@@ -166,9 +168,7 @@ class Session:
         USED_PORTS.append(port)
         self.combined_ide = os.path.join(
             BUILD, f'combined-ide-survey-{port}.img')
-        subprocess.run(
-            ['pkill', '-9', '-f', f'[q]emu.*{port}'],
-            capture_output=True)
+        qemu_pid.kill_pidfile(qemu_pid.pidfile(f'survey-{port}'))
         time.sleep(1)
         shutil.copyfile(COMBINED, self.combined_ide)
         cmd = [
@@ -185,6 +185,7 @@ class Session:
             '-serial', f'tcp::{port},server=on,wait=off',
             '-display', 'none',
             '-daemonize',
+            '-pidfile', qemu_pid.pidfile(f'survey-{port}'),
         ]
         r = subprocess.run(cmd, capture_output=True)
         if r.returncode != 0:
@@ -236,9 +237,7 @@ class Session:
             self.s.close()
         except Exception:
             pass
-        subprocess.run(
-            ['pkill', '-9', '-f', f'[q]emu.*{self.port}'],
-            capture_output=True)
+        qemu_pid.kill_pidfile(qemu_pid.pidfile(f'survey-{self.port}'))
         try:
             os.remove(self.combined_ide)
         except OSError:
@@ -520,9 +519,7 @@ try:
 
 finally:
     for p in USED_PORTS:
-        subprocess.run(
-            ['pkill', '-9', '-f', f'[q]emu.*{p}'],
-            capture_output=True)
+        qemu_pid.kill_pidfile(qemu_pid.pidfile(f'survey-{p}'))
     shutil.rmtree(tmpdir, ignore_errors=True)
 
 print(f'\nPassed: {PASS}/{PASS + FAIL}')

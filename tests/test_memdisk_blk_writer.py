@@ -27,7 +27,9 @@ import sys
 import tempfile
 import time
 
-PORT = 4483
+import qemu_pid  # tests/qemu_pid.py: pidfile-based QEMU cleanup
+
+PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 4483
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCRATCH = os.path.join(ROOT, 'build', 'memdisk-ahci-scratch.img')
 
@@ -35,9 +37,10 @@ PXELINUX = '/usr/lib/PXELINUX/pxelinux.0'
 LDLINUX = '/usr/lib/syslinux/modules/bios/ldlinux.c32'
 MEMDISK = '/usr/lib/syslinux/memdisk'
 
+MEMDISK_PIDFILE = os.path.join(ROOT, qemu_pid.pidfile('memdisk'))
+
 def kill():
-    subprocess.run(['pkill', '-9', '-f', f'[q]emu.*{PORT}'],
-                   capture_output=True)
+    qemu_pid.kill_pidfile(MEMDISK_PIDFILE)
     time.sleep(0.3)
 
 def make_tftp_root():
@@ -69,6 +72,7 @@ def start(tftp_root, with_ahci):
         '-boot', 'n',
         '-serial', f'tcp::{PORT},server=on,wait=off',
         '-display', 'none',
+        '-pidfile', MEMDISK_PIDFILE,
     ]
     if with_ahci:
         with open(SCRATCH, 'wb') as f:
