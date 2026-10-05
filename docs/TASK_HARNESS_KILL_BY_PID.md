@@ -230,6 +230,17 @@ launches QEMU uses `QEMU_KILL` from the start; none adds a `pkill`.
    - Remaining pkill: only test-meta's 22 lines (its .py scripts), step 4.
 4. **The 15 `.py` files (§2 census).** Kill the PID each script launched (its
    `Popen` handle in a `finally`, where it holds one), drop the `pkill`.
+   - **test-meta: DONE.** Its five script fixtures (test_meta_compile, _b6,
+     _boot, _b6b, _does; all private) start their QEMUs with -pidfile via
+     tests/qemu_pid.py and stop them with kill_pidfile (private 039150d).
+     The recipe keeps one pidfile dir, build/test-meta.d (fixture 1's
+     pidfile moved into it), swept at start, after every fixture, and from
+     the trap. META_FIXTURES may name a subset; a fixture keeps its port.
+     With this, **no recipe pkills**: `grep -c '^\t.*pkill' Makefile` → 0
+     (the Makefile half of H6).
+   - Still to do in step 4: the .py files outside any converted recipe
+     (§2 census, less those converted in 3b and here).
+
 4b. **After the .py step: replace fixed sleeps with bounded reads.** Most test
    scripts send a command, `time.sleep()` a fixed 1–2s, then read until a
    2–5s timeout, so each check costs ~3–5s whatever the guest does. That is

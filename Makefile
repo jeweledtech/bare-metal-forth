@@ -417,6 +417,19 @@ T_VOCAB_FIXTURE ?= 480
 T_GUI_FIXTURE   ?= 300
 T_INSTALL       ?= 4200
 T_METACOMPILER  ?= 600
+# test-meta fixtures 2-6 (scripts start their own QEMUs, pidfiles in
+# $(BUILD)/test-meta.d). About 2x the slowest fixture, measured 2026-10-04:
+# compile 171s, b6 334s, boot 672s, b6b 220s, does 241s
+# (fixture 1, metacompiler: 248s).
+T_META_FIXTURE  ?= 1400
+# test-meta fixtures: name:port-offset. Fixture 1 (test_metacompiler) is
+# started by the recipe; fixtures 2-6 start their own QEMUs. All pidfiles go
+# in $(BUILD)/test-meta.d, swept at start, after each fixture, and by the
+# trap. META_FIXTURES may name a subset; a fixture keeps its port.
+META_FIXTURES_ALL = test_metacompiler:80 test_meta_compile:81 test_meta_b6:82 \
+                    test_meta_boot:83 test_meta_b6b:86 test_meta_does:90
+META_FIXTURES ?= test_metacompiler test_meta_compile test_meta_b6 \
+                 test_meta_boot test_meta_b6b test_meta_does
 
 test-vocabs: $(COMBINED)
 	@cp $(COMBINED) $(COMBINED_IDE)
@@ -986,62 +999,26 @@ test-survey: $(SURVEY_DEPS)
 test-meta: $(COMBINED)
 	@cp $(COMBINED) $(COMBINED_IDE)
 	@echo "Running metacompiler tests..."
-	@set -e; \
-	PORT=$$(($(TEST_PORT_BASE)+80)); \
-	echo "  test_metacompiler (port $$PORT)..."; \
-	PIDF=$(BUILD)/test-meta-metacompiler.pid; $(QEMU_KILL); \
-	trap '$(QEMU_KILL)' EXIT INT TERM HUP; \
-	$(QEMU) -drive file=$(COMBINED),format=raw,if=floppy \
-		-drive file=$(COMBINED_IDE),format=raw,if=ide,index=1 \
-		-serial tcp::$$PORT,server=on,wait=off \
-		-display none -daemonize -pidfile $$PIDF; \
-	sleep 2; \
-	timeout --foreground $(T_METACOMPILER) python3 tests/test_metacompiler.py $$PORT; \
-	$(QEMU_KILL); sleep 1; \
-	PORT=$$(($(TEST_PORT_BASE)+81)); \
-	echo "  test_meta_compile (port $$PORT)..."; \
-	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null || true; \
-	sleep 0.5; \
-	python3 tests/test_meta_compile.py $$PORT; \
-	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null || true; sleep 1; \
-	PORT=$$(($(TEST_PORT_BASE)+82)); \
-	echo "  test_meta_b6 (port $$PORT)..."; \
-	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null || true; \
-	sleep 0.5; \
-	python3 tests/test_meta_b6.py $$PORT; \
-	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null || true; sleep 1; \
-	PORT=$$(($(TEST_PORT_BASE)+83)); \
-	echo "  test_meta_boot (port $$PORT)..."; \
-	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null || true; \
-	pkill -9 -f "[q]emu.*$$((PORT+1))" 2>/dev/null || true; \
-	pkill -9 -f "[q]emu.*$$((PORT+2))" 2>/dev/null || true; \
-	sleep 0.5; \
-	python3 tests/test_meta_boot.py $$PORT; \
-	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null || true; \
-	pkill -9 -f "[q]emu.*$$((PORT+1))" 2>/dev/null || true; \
-	pkill -9 -f "[q]emu.*$$((PORT+2))" 2>/dev/null || true; \
-	sleep 1; \
-	PORT=$$(($(TEST_PORT_BASE)+86)); \
-	echo "  test_meta_b6b (port $$PORT)..."; \
-	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null || true; \
-	pkill -9 -f "[q]emu.*$$((PORT+1))" 2>/dev/null || true; \
-	pkill -9 -f "[q]emu.*$$((PORT+2))" 2>/dev/null || true; \
-	sleep 0.5; \
-	python3 tests/test_meta_b6b.py $$PORT; \
-	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null || true; \
-	pkill -9 -f "[q]emu.*$$((PORT+1))" 2>/dev/null || true; \
-	pkill -9 -f "[q]emu.*$$((PORT+2))" 2>/dev/null || true; \
-	sleep 1; \
-	PORT=$$(($(TEST_PORT_BASE)+90)); \
-	echo "  test_meta_does (port $$PORT)..."; \
-	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null || true; \
-	pkill -9 -f "[q]emu.*$$((PORT+1))" 2>/dev/null || true; \
-	pkill -9 -f "[q]emu.*$$((PORT+2))" 2>/dev/null || true; \
-	sleep 0.5; \
-	python3 tests/test_meta_does.py $$PORT; \
-	pkill -9 -f "[q]emu.*$$PORT" 2>/dev/null || true; \
-	pkill -9 -f "[q]emu.*$$((PORT+1))" 2>/dev/null || true; \
-	pkill -9 -f "[q]emu.*$$((PORT+2))" 2>/dev/null || true
+	@QPIDDIR=$(BUILD)/test-meta.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
+	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP; set -e; \
+	export QEMU_PIDDIR=$$QPIDDIR; \
+	for spec in $(META_FIXTURES_ALL); do \
+		name=$${spec%:*}; off=$${spec#*:}; \
+		case " $(META_FIXTURES) " in *" $$name "*) ;; *) continue;; esac; \
+		PORT=$$(($(TEST_PORT_BASE)+$$off)); \
+		echo "  $$name (port $$PORT)..."; \
+		if [ $$name = test_metacompiler ]; then \
+			$(QEMU) -drive file=$(COMBINED),format=raw,if=floppy \
+				-drive file=$(COMBINED_IDE),format=raw,if=ide,index=1 \
+				-serial tcp::$$PORT,server=on,wait=off \
+				-display none -daemonize -pidfile $$QPIDDIR/metacompiler.pid; \
+			sleep 2; \
+			timeout --foreground $(T_METACOMPILER) python3 tests/$$name.py $$PORT; \
+		else \
+			timeout --foreground $(T_META_FIXTURE) python3 tests/$$name.py $$PORT; \
+		fi; \
+		$(QEMU_KILL_DIR); \
+	done
 	@echo "Metacompiler tests complete!"
 
 # Run all tests (lint first, then functional tests)
