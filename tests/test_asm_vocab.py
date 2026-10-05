@@ -20,12 +20,24 @@ import shutil
 import socket
 import subprocess
 import sys
+
+import atexit
+import signal
+
+import qemu_pid  # tests/qemu_pid.py: pidfile-based QEMU cleanup
 import time
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 4580
 PROJECT = os.path.dirname(os.path.dirname(
     os.path.abspath(__file__)))
 BUILD = os.path.join(PROJECT, 'build')
+ASM_PIDFILE = os.path.join(PROJECT, qemu_pid.pidfile('asm-vocab'))
+# The QEMU is -daemonize'd (its own session), so a signal to this script
+# does not reach it, and there is no recipe trap. Kill it by pidfile on every
+# exit, including SIGINT (KeyboardInterrupt unwinds through atexit) and
+# SIGTERM (turned into a normal exit so atexit runs).
+atexit.register(qemu_pid.kill_pidfile, ASM_PIDFILE)
+signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit(128 + signum))
 
 PASS = FAIL = 0
 
@@ -84,9 +96,7 @@ print(f"ASM-VOCAB blocks: {BLK_START}-{BLK_END}")
 
 # ---- Launch QEMU ----
 
-subprocess.run(
-    ['pkill', '-9', '-f', f'[q]emu.*{PORT}'],
-    capture_output=True)
+qemu_pid.kill_pidfile(ASM_PIDFILE)
 time.sleep(1)
 
 combined = os.path.join(BUILD, 'combined.img')
@@ -105,6 +115,7 @@ qemu_cmd = [
     '-serial', f'tcp::{PORT},server=on,wait=off',
     '-display', 'none',
     '-daemonize',
+    '-pidfile', ASM_PIDFILE,
 ]
 
 print(f'Launching QEMU (port {PORT})...')
@@ -124,9 +135,7 @@ for _ in range(20):
         time.sleep(0.5)
 else:
     print('FAIL: Could not connect to QEMU')
-    subprocess.run(
-        ['pkill', '-9', '-f', f'[q]emu.*{PORT}'],
-        capture_output=True)
+    qemu_pid.kill_pidfile(ASM_PIDFILE)
     sys.exit(1)
 
 time.sleep(2)
@@ -175,9 +184,7 @@ def alive():
 
 def cleanup():
     s.close()
-    subprocess.run(
-        ['pkill', '-9', '-f', f'[q]emu.*{PORT}'],
-        capture_output=True)
+    qemu_pid.kill_pidfile(ASM_PIDFILE)
 
 
 def extract_decimal(resp):

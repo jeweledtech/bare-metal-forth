@@ -4,13 +4,15 @@
 import socket
 import subprocess
 import sys
+
+import qemu_pid  # tests/qemu_pid.py: pidfile-based QEMU cleanup
 import time
 
-PORT = 4473
+PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 4473
+PIDFILE = qemu_pid.pidfile('persist-quick')
 
 def kill():
-    subprocess.run(['pkill', '-9', '-f', f'[q]emu.*{PORT}'],
-                   capture_output=True)
+    qemu_pid.kill_pidfile(PIDFILE)
     time.sleep(0.3)
 
 def start():
@@ -22,6 +24,7 @@ def start():
         '-drive', 'file=build/combined-ide.img,format=raw,if=ide,index=1',
         '-serial', f'tcp::{PORT},server=on,wait=off',
         '-display', 'none',
+        '-pidfile', PIDFILE,
     ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     # Wait for TCP listener
     for _ in range(20):

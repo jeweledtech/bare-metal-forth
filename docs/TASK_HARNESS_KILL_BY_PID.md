@@ -327,6 +327,12 @@ Three more for the signal gates (H2/H3/H11), learned 2026-10-02/03:
   Two overlapping harnesses (a surviving script plus a rerun, or a launch
   that gave up but left its make running) share ports, image locks and
   pidfiles, and every result in the overlap is invalid.
+- **A harness started with `setsid … &` from a non-interactive script inherits
+  SIGINT/SIGQUIT as ignored; reset SIGINT to default and check SigIgn before
+  trusting any SIGINT result.** (2026-10-05: every H2 SIGINT case in batches
+  2a-3b, test-meta and py-a/b/c was sent to processes ignoring SIGINT. See
+  docs/evidence/correction-sigint-results-2026-10-05.md once the re-run
+  sweep lands.)
 - **Before every merge to master, list what the merge would delete:**
   `git diff --name-status master <branch> | grep '^D'`. Confirm none of
   it is an ignored file present on disk. A branch that untracks a

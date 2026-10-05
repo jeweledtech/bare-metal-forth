@@ -1,7 +1,7 @@
 """Pidfile-based QEMU cleanup for test scripts (TASK_HARNESS_KILL_BY_PID).
 
 A script that starts QEMU itself passes `-pidfile pidfile(role)` and stops
-it with `kill_pidfile(...)`. Never a pattern kill: `pkill -f "[q]emu.*PORT"`
+it with `kill_pidfile(...)`. Never a pattern kill (match on the command line):
 matches any process whose argv holds that text (other trees, other
 sessions, the calling shell).
 

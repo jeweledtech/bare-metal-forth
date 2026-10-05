@@ -64,7 +64,7 @@ const BUGS = [
   { label:'Bug #28 — ModR/M reg/rm swap', body:'Swapped reg and rm fields caused <code>add ebp,4</code> to emit as <code>sub eax,4</code> across 12 instructions. Fixed by changing SWAP to ROT in the MODRM encoding word.' },
   { label:'Bug #29 — META-TRANSFER CMOVE', body:'CMOVE self-destructed during metacompiler transfer because source and destination overlapped. Fixed by setting <code>T-ORG = T-IMAGE</code> for in-place execution.' },
   { label:'PRDT DBAU garbage (AHCI)', body:'PXE boot left garbage in the upper 32-bit DMA address word of the PRDT. Fixed by zeroing DBAU explicitly on every AHCI command. PxIS now cleared before each command.' },
-  { label:'QEMU kill pattern', body:'<code>pkill -f "qemu.*PORT"</code> matched the parent shell cmdline and killed it. Fix: use <code>[q]emu.*PORT</code> bracket trick in all 5 Makefile test targets to exclude the shell process.' },
+  { label:'QEMU kill pattern', body:'Never kill QEMU by pattern (<code>pkill -f "qemu.*PORT"</code>, with or without the <code>[q]</code> bracket): it matches other trees\' QEMUs and any shell whose command line holds that text. Kill by pidfile: recipes use <code>QEMU_KILL</code> / <code>QEMU_KILL_DIR</code>, scripts use <code>tests/qemu_pid.py</code>. See docs/TASK_HARNESS_KILL_BY_PID.md.' },
   { label:'NEXT encoding', body:'NEXT is <code>AD FF 20</code> (LODSD + JMP [EAX]) — not <code>FF E0</code> (JMP EAX). This is the DTC inner interpreter loop. Getting this wrong breaks every word execution.' },
 ];
 
