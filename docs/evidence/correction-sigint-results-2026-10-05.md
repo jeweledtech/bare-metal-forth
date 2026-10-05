@@ -76,9 +76,14 @@ five pre-fix scripts swallowed it and ran to completion (smoke 25s, flush
 
 ## The sweep
 
-Harness: a local script, not committed; sha256 `63ba6e48dec493b6` for the
-69-case run, `5740cbe711fe2423` for the control-2 run (adds control 2
-and the corrected NOT RUN label). Rules:
+Harness: sha256 `63ba6e48dec493b6` for the 69-case run, `5740cbe711fe2423`
+for the control-2 run (adds control 2 and the corrected NOT RUN label).
+Committed afterwards as `tools/sigint_sweep.py`, sha256 `2dd0b7892950f302`.
+It differs from the control-2 copy only in its docstring, its log directory
+(`build/sigint-sweep/`, was an absolute temp path), its ports (derived from
+TEST_PORT_BASE, were literals for base 7400), and one unused variable
+removed. With TEST_PORT_BASE=7400 its 70-case list is identical to the run
+copy's (compared programmatically). Rules:
 
 - Each case is launched with SIGINT and SIGQUIT reset to default (what a
   terminal Ctrl-C finds), in its own session and process group.
