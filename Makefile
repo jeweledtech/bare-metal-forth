@@ -114,7 +114,10 @@ run-free: $(IMAGE_FREE)
 #     SHARED and not compared;
 #   - every tests/*.py this repo ignores and that is on disk must be tracked
 #     in the private repo (MISSING), so a private-only script cannot live
-#     in one working tree alone.
+#     in one working tree alone;
+#   - every file the private repo tracks that is on disk here and not
+#     tracked here must be ignored here (LEAK RISK), so one `git add`
+#     cannot publish it. Files tracked in both repos are not checked here.
 # With no private repo it prints SKIPPED and exits 0; never a silent pass.
 PRIVATE_REPO ?= ../forthos-vocabularies
 PAID_VOCABS = ahci rtl8168 ntfs auto-detect fat32 surveyor file-editor-disk log-harness
@@ -152,8 +155,17 @@ check-sync:
 			echo "MISSING in private repo: $$f"; FAIL=1; \
 		fi; \
 	done; \
+	LEAK=$$(git -C "$(PRIVATE_REPO)" ls-files | while IFS= read -r f; do \
+		[ -e "$$f" ] || continue; \
+		git ls-files --error-unmatch -- "$$f" >/dev/null 2>&1 && continue; \
+		git check-ignore -q -- "$$f" || echo "$$f"; \
+	done); \
+	if [ -n "$$LEAK" ]; then \
+		printf '%s\n' "$$LEAK" | sed 's/^/LEAK RISK (tracked in private, on disk here, not ignored here): /'; \
+		FAIL=1; \
+	fi; \
 	if [ $$FAIL -ne 0 ]; then \
-		echo "check-sync FAILED: paid files have diverged"; \
+		echo "check-sync FAILED: paid files diverged, missing, or at leak risk"; \
 		exit 1; \
 	fi; \
 	echo "check-sync OK: all paid files in sync"
