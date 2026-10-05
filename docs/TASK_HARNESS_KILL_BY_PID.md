@@ -212,7 +212,9 @@ launches QEMU uses `QEMU_KILL` from the start; none adds a `pkill`.
      it some of the time (a bare `except:` around `recv` catches
      KeyboardInterrupt): smoke_test.py, test_file_stream_helpers.py,
      test_flush_stress.py, test_editor.py, test_x86_asm.py. The trap still
-     cleans up; only promptness suffers. Fix belongs with step 4.
+     cleans up; only promptness suffers. ~~Fix belongs with step 4.~~
+     Resolved 2026-10-05: fixed in py-d (`c4938d4`). Thirteen other scripts
+     keep the pattern (correction-sigint-results-2026-10-05.md).
 3. **The remaining recipes.** Not mechanical after all: only one started its
    QEMU in the recipe.
    - **3a: DONE.** test-ahci-write: `&` + pkill → -daemonize -pidfile, with the
@@ -238,8 +240,26 @@ launches QEMU uses `QEMU_KILL` from the start; none adds a `pkill`.
      the trap. META_FIXTURES may name a subset; a fixture keeps its port.
      With this, **no recipe pkills**: `grep -c '^\t.*pkill' Makefile` → 0
      (the Makefile half of H6).
-   - Still to do in step 4: the .py files outside any converted recipe
-     (§2 census, less those converted in 3b and here).
+   - ~~Still to do in step 4: the .py files outside any converted recipe
+     (§2 census, less those converted in 3b and here).~~ Resolved
+     2026-10-05:
+   - **py-a: DONE (`939a7ce`).** Four recipe-run scripts (carrier, memdisk,
+     survey, network) by pidfile directory; memdisk's port from
+     TEST_PORT_BASE.
+   - **py-b, py-c: DONE (`3731373`, `f0fc329`).** The last eight scripts
+     outside any recipe, port from argv. test_asm_vocab.py (and private
+     test_mft_bounds.py) register `kill_pidfile` with atexit and turn
+     SIGTERM into an exit, since no recipe trap backs them. **H6 empty in
+     both repos:** `git ls-files '*.py' | xargs grep -lE '^[^#]*pkill'`
+     prints nothing, public and private.
+   - **py-d: DONE (`c4938d4`).** Bare `except:` → `except Exception:` in the
+     five scripts below.
+   - **check-sync LEAK RISK (`e155185`).** A file the private repo tracks
+     that is on disk here, untracked and not ignored, fails check-sync.
+   - **SIGINT sweep (2026-10-05):** every converted recipe, role and script,
+     with SIGINT deliverable and shown so first; no QEMU or pidfile left in
+     any of the 64 measured cases. Results and what they correct:
+     docs/evidence/correction-sigint-results-2026-10-05.md.
 
 **Order after step 4:** 4a, then 4c, then 4b (owner, 2026-10-04).
 
@@ -329,10 +349,17 @@ Three more for the signal gates (H2/H3/H11), learned 2026-10-02/03:
   pidfiles, and every result in the overlap is invalid.
 - **A harness started with `setsid … &` from a non-interactive script inherits
   SIGINT/SIGQUIT as ignored; reset SIGINT to default and check SigIgn before
-  trusting any SIGINT result.** (2026-10-05: every H2 SIGINT case in batches
+  trusting any SIGINT result.** ~~(2026-10-05: every H2 SIGINT case in batches
   2a-3b, test-meta and py-a/b/c was sent to processes ignoring SIGINT. See
   docs/evidence/correction-sigint-results-2026-10-05.md once the re-run
-  sweep lands.)
+  sweep lands.)~~ Resolved 2026-10-05: that over-stated it. make and the
+  recipe shell ignored SIGINT, but `timeout` un-ignores it for its child, so
+  the test got it; a `KeyboardInterrupt` in a log proves delivery to the
+  test only. Re-measured: docs/evidence/correction-sigint-results-2026-10-05.md.
+- **Under `timeout --foreground`, one group SIGINT reaches the test twice**
+  (directly, and forwarded by `timeout`), so a group Ctrl-C cannot show
+  whether a script handles SIGINT. To test that, send one SIGINT to the test
+  process only, aimed while it is blocked in `poll` (`/proc/PID/syscall`).
 - **Before every merge to master, list what the merge would delete:**
   `git diff --name-status master <branch> | grep '^D'`. Confirm none of
   it is an ignored file present on disk. A branch that untracks a

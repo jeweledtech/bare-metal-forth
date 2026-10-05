@@ -1,7 +1,12 @@
 # FINDING — five test scripts swallow SIGINT through a bare `except:` (2026-10-04)
 
-Recorded against master (`17c912f`). Not fixed here; it belongs with the
-`.py` step of TASK_HARNESS_KILL_BY_PID.
+Recorded against master (`17c912f`). ~~Not fixed here; it belongs with the
+`.py` step of TASK_HARNESS_KILL_BY_PID.~~ Resolved 2026-10-05: fixed in
+`c4938d4` (py-d). Mechanism confirmed by a red: one SIGINT sent to the test
+only, aimed while it was blocked in `poll`, was swallowed by all five
+pre-fix scripts. The times below came from a harness whose make and shell
+ignored SIGINT; see correction-sigint-results-2026-10-05.md, which also
+lists thirteen other scripts with the pattern.
 
 ## Observed
 
@@ -43,7 +48,7 @@ test_flush_stress.py happened to be interrupted during a sleep in the gate
 runs, so they exited fast. They are listed because they have the same
 pattern.
 
-## Fix (not applied)
+## ~~Fix (not applied)~~ Fix (applied in c4938d4)
 
 `except:` → `except Exception:` at each site, which lets KeyboardInterrupt
 through. Ten sites in five files.
