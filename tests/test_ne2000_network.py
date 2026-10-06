@@ -95,7 +95,8 @@ def start_qemu_pair(zero_range=None):
         '-display', 'none', '-daemonize',
         '-pidfile', qemu_pid.pidfile('net-a'),
     ]
-    subprocess.run(cmd_a, capture_output=True)
+    ra = subprocess.run(cmd_a, capture_output=True)
+    qemu_pid.check_launch(ra, qemu_pid.pidfile('net-a'), [PORT_A, NET_PORT], 'instance A')
     time.sleep(2)
 
     # Instance B: connect side
@@ -113,7 +114,8 @@ def start_qemu_pair(zero_range=None):
         '-display', 'none', '-daemonize',
         '-pidfile', qemu_pid.pidfile('net-b'),
     ]
-    subprocess.run(cmd_b, capture_output=True)
+    rb = subprocess.run(cmd_b, capture_output=True)
+    qemu_pid.check_launch(rb, qemu_pid.pidfile('net-b'), PORT_B, 'instance B')
     time.sleep(2)
     return combined_ide_b
 

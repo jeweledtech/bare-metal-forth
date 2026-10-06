@@ -83,8 +83,10 @@ def start(tftp_root, with_ahci):
             '-device', 'ich9-ahci,id=ahci0',
             '-device', 'ide-hd,drive=sata0,bus=ahci0.0',
         ]
-    subprocess.Popen(args, cwd=ROOT, stdout=subprocess.DEVNULL,
-                     stderr=subprocess.DEVNULL)
+    err = os.path.join(ROOT, 'build', 'memdisk-qemu.err')
+    proc = subprocess.Popen(args, cwd=ROOT, stdout=subprocess.DEVNULL,
+                            stderr=open(err, 'w'))
+    qemu_pid.wait_started(proc, MEMDISK_PIDFILE, PORT, 'memdisk', err)
     for _ in range(30):
         time.sleep(0.5)
         try:

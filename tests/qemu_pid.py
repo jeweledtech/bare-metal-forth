@@ -17,6 +17,8 @@ acted on.
 """
 import os
 import signal
+import subprocess
+import sys
 import time
 
 PIDDIR = os.environ.get('QEMU_PIDDIR') or os.path.join('build', 'qemu-pids')
@@ -76,3 +78,79 @@ def kill_pidfile(path, wait=5.0):
         os.remove(path)
     except OSError:
         pass
+
+
+# --- Did the QEMU we launched start, and is it the one on the port? -------
+# (TASK_PORT_REFUSAL_4C §4.) The recipe checks its ports before launching,
+# but a port can be taken between that check and the launch. These make a
+# script fail at once, naming the port, instead of connecting to whatever
+# else holds it.
+
+def _ports(port):
+    return list(port) if isinstance(port, (list, tuple)) else [port]
+
+
+def _owns_listener(pid, port):
+    """True if QEMU `pid` owns the listening socket on every port given."""
+    for p in _ports(port):
+        out = subprocess.run(['ss', '-Htlnp', f'( sport = :{p} )'],
+                             capture_output=True, text=True).stdout
+        if f'pid={pid},' not in out:
+            return False
+    return True
+
+
+def _fail(what, port, why):
+    ps = _ports(port)
+    print(f'FAIL: {what} QEMU did not start on port{"s" if len(ps) > 1 else ""} '
+          f'{", ".join(map(str, ps))}: {why}', flush=True)
+    sys.exit(1)
+
+
+def _last_line(text):
+    if isinstance(text, bytes):
+        text = text.decode(errors='replace')
+    lines = (text or '').strip().splitlines()
+    return lines[-1] if lines else '(no error output)'
+
+
+def check_launch(result, path, port, what, wait=5.0):
+    """After subprocess.run([QEMU, ..., '-daemonize', '-pidfile', path], capture_output=True).
+
+    Exits at once if QEMU exited non-zero, or if the QEMU in `path` does not
+    own the listening socket on `port` (an int or a list of the ports it
+    listens on). path=None checks the exit only."""
+    if result.returncode != 0:
+        _fail(what, port, _last_line(result.stderr))
+    if path is None:
+        return
+    deadline = time.time() + wait
+    while time.time() < deadline:
+        try:
+            pid = int(open(path).read().split()[0])
+        except (OSError, ValueError, IndexError):
+            pid = None
+        if pid and _is_ours(pid, path) and _owns_listener(pid, port):
+            return pid
+        time.sleep(0.1)
+    _fail(what, port, f'no QEMU from {path} is listening on it')
+
+
+def wait_started(proc, path, port, what, stderr_path=None, wait=15.0):
+    """After proc = subprocess.Popen([QEMU, ..., '-pidfile', path], ...).
+
+    Waits until that QEMU holds its pidfile and owns the listening socket on
+    `port`. Exits at once, naming the port, if the process exits first."""
+    deadline = time.time() + wait
+    while time.time() < deadline:
+        if proc.poll() is not None:
+            err = open(stderr_path).read() if stderr_path and os.path.exists(stderr_path) else ''
+            _fail(what, port, f'exit {proc.returncode}: {_last_line(err)}')
+        try:
+            pid = int(open(path).read().split()[0])
+        except (OSError, ValueError, IndexError):
+            pid = None
+        if pid and _is_ours(pid, path) and _owns_listener(pid, port):
+            return pid
+        time.sleep(0.1)
+    _fail(what, port, f'not listening after {wait:.0f}s')
