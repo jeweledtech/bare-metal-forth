@@ -266,6 +266,11 @@ takes the 13 scripts that still have a bare `except:`, then the LOG-HARNESS
 validation pass, then **NET-DATA** (test-network's 6/52 reds), all before
 Phase 3 (owner, 2026-10-05).
 
+Kernel item, queued 2026-10-06 (owner places it): interactive `(` reads keys
+until `)` instead of scanning the TIB, so `(` typed over serial wedges the
+interpreter and swallows the next commands
+(finding-serial-paren-comment-wedges-2026-10-06).
+
 4a. **test-network fix** (its own small task). It crashes on a NameError
    (`blocks_b` in `start_qemu_pair`) about 5s in, so no NE2000 check has run
    (finding-test-network-crashes-nameerror-2026-10-04). The current crash is
