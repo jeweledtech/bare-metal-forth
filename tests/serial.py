@@ -11,6 +11,7 @@ test (TASK_HARNESS_KILL_BY_PID §3a/§3c).
 The recipe's `timeout $(T_<NAME>)` is the hard outer cap; these budgets keep
 any single step from consuming it.
 """
+import os
 import socket
 import time
 
@@ -86,3 +87,63 @@ def send_expect(sock, cmd, expect=None, budget=15.0, settle=1.0, gap=2.0):
         raise TimeoutError(
             f'{cmd!r}: {expect!r} not seen within {budget}s; got {resp[:160]!r}')
     return resp
+
+
+PROMPT = b'ok '
+
+
+def send_until_prompt(sock, cmd, budget=15.0, quiet=0.3):
+    """Send `cmd` (CR appended) and read until the guest has answered every line.
+
+    End-of-reply rule (measured, TASK_BOUNDED_READS_4B §3a, 2026-10-06): the
+    guest ends each reply with the prompt `ok ` (lowercase, then a space) and
+    sends nothing after it. A word's own output can also contain `ok `, and
+    no text separates it from the prompt, so the rule is: N = the number of
+    CR-terminated lines sent; the reply ends when at least N prompts have
+    arrived (prompts = `ok ` occurrences received minus those in the echoed
+    command text), the buffer ends with `ok `, and then `quiet` seconds pass
+    with no byte. Otherwise it ends when the peer closes or `budget` runs out.
+
+    KNOWN LIMIT: output containing `ok ` followed by more than `quiet`
+    seconds of silent work ends the read early (measured: a 60M-iteration
+    loop after a printed `x ok ` was silent 0.48s). Gate G1 (transcript
+    equivalence) is what catches that in a real script.
+
+    Returns (reply, how): reply decoded as before; how in
+    {'prompt', 'closed', 'budget'}. Catches only socket timeouts and OSError,
+    so KeyboardInterrupt passes through. With SERIAL_TRACE=<file> in the
+    environment, appends one JSON line per call (for gate G1).
+    """
+    data = (cmd + '\r').encode()
+    n = data.count(b'\r')
+    echoed_oks = data.count(PROMPT)
+    deadline = time.time() + budget
+    sock.sendall(data)
+    sock.settimeout(0.05)
+    buf = b''
+    last = time.time()
+    how = 'budget'
+    while time.time() < deadline:
+        try:
+            d = sock.recv(65536)
+        except socket.timeout:
+            if (buf.endswith(PROMPT) and buf.count(PROMPT) - echoed_oks >= n
+                    and time.time() - last >= quiet):
+                how = 'prompt'
+                break
+            continue
+        except OSError:
+            how = 'closed'
+            break
+        if not d:
+            how = 'closed'
+            break
+        buf += d
+        last = time.time()
+    reply = buf.decode('ascii', errors='replace')
+    trace = os.environ.get('SERIAL_TRACE')
+    if trace:
+        import json
+        with open(trace, 'a') as f:
+            f.write(json.dumps({'cmd': cmd, 'reply': reply, 'how': how}) + '\n')
+    return reply, how
