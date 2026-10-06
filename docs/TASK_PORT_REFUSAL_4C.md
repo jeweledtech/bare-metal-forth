@@ -166,6 +166,22 @@ rows, and the recipe proceeds into the hijack. Read as "the tests reach
 QEMU", the probe agrees in all 18. The gate now exits non-zero on the
 second reading; the table carries both.
 
+## 6a. Gate results (2026-10-05/06, branch refuse-bound-port)
+
+| Gate | Result |
+|---|---|
+| P, probe vs QEMU | Green after option (a): forms in use are `tcp:127.0.0.1:P` and `listen=:P`; 0 rows where QEMU starts but 127.0.0.1 does not reach it; the probe agrees with "reaches" in 18/18 rows. Red before (e127ecf): 2 hijack rows, `tcp::P`. |
+| Red (§5a/§5b) | 7 cases on master's recipes; serial `tcp::P` and the unchecked scripts were hijacked (the holder received the tests' Forth commands). |
+| Inventory | `tools/port_inventory.py`, committed table 31 recipes / 71 listen entries. `test-port-inventory` in `make test`; red on a moved offset (DRIFT), a `tcp::` serial put back (DRIFT + TCP-ANY), a literal port and a `%`-formatted address (UNRESOLVED), a recipe without its probe (UNGUARDED). |
+| Refusal sweep | 71/71: `PORT BUSY: <port>`, exit in 0.1s, 0 bytes to the holder, no QEMU or pidfile left (this is also "teardown after a refusal"). |
+| Race | First pass 62/71. Eight failures in **five scripts §4 did not list** (arm64-boot builder and boot, block-reload, carrier-write-safe, g6's pre-clean monitor `quit`, uefi2-gdt): the §4 list of three came from a grep that counted any `returncode`/`.wait(` in a file as checking the launch. All eight fixed with the same helpers; rerun all PASS. test-cortexm +62 is NOT REACHED (the test stops before its ARM phase, 1d74586). So §4 covers eight scripts, not three. |
+| Own orphan | smoke, network (pidfile dir), vocabs fixture: the stale QEMU is cleared by the pre-clean, no refusal, the recipe runs (7/7, 46/52 as in 4a, 7/7). |
+| Normal run, exempt recipe | test-arm64-boot 40/40 in 355s (batch-3b baseline 40/40, 354s). |
+| Full `make -k test` | Only the known five red (xhci, pci-bar, doc-drift, translator, pipeline); MAKE_TEST_EXIT=2; no `PORT BUSY` and no "did not start" anywhere; tree `51ccbb0f`. |
+
+Not covered: UDP ports (test-log-harness-nic's `-netdev dgram` +47/+48)
+are outside a TCP probe; recorded, not gated.
+
 ## 7. Overlaps (recorded, left as they are)
 
 Several offsets are shared by two recipes in one tree. Harmless under a
