@@ -141,9 +141,16 @@ def send_until_prompt(sock, cmd, budget=15.0, quiet=0.3):
         buf += d
         last = time.time()
     reply = buf.decode('ascii', errors='replace')
-    trace = os.environ.get('SERIAL_TRACE')
-    if trace:
-        import json
-        with open(trace, 'a') as f:
-            f.write(json.dumps({'cmd': cmd, 'reply': reply, 'how': how}) + '\n')
+    trace(cmd, reply, how)
     return reply, how
+
+
+def trace(cmd, reply, how):
+    """With SERIAL_TRACE=<file> set, append one exchange as a JSON line
+    (gate G1). Scripts that keep a fixed wait for a listed exception call
+    this with how='fixed', so the exchange stays in the trace."""
+    path = os.environ.get('SERIAL_TRACE')
+    if path:
+        import json
+        with open(path, 'a') as f:
+            f.write(json.dumps({'cmd': cmd, 'reply': reply, 'how': how}) + '\n')
