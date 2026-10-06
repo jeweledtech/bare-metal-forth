@@ -263,7 +263,8 @@ launches QEMU uses `QEMU_KILL` from the start; none adds a `pkill`.
 
 **Order after step 4:** 4a, then 4c, then 4b (owner, 2026-10-04); 4b also
 takes the 13 scripts that still have a bare `except:`, then the LOG-HARNESS
-validation pass (owner, 2026-10-05).
+validation pass, then **NET-DATA** (test-network's 6/52 reds), all before
+Phase 3 (owner, 2026-10-05).
 
 4a. **test-network fix** (its own small task). It crashes on a NameError
    (`blocks_b` in `start_qemu_pair`) about 5s in, so no NE2000 check has run
@@ -277,6 +278,8 @@ validation pass (owner, 2026-10-05).
      900 (439.5s measured twice, about 2x). Teardown clean on normal exit,
      SIGINT and SIGTERM. test-network moves from BROKEN to GRANDFATHERED in
      test_make_wiring.py.
+   - **Merged as "crash fixed, 6/52 recorded"** (owner, 2026-10-05). The six
+     reds are NET-DATA, its own task.
 
 4c. **Refuse to start on a bound port** (§5 step 5, now required). Every
    QEMU recipe checks its ports when it starts and fails loudly with the

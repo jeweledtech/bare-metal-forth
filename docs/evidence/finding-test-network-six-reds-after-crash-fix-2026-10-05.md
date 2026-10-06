@@ -50,17 +50,30 @@ still held block 900's data.
   The ring is pages 0x46-0x80 (58 pages); a 1050-byte frame takes 5 pages,
   so no frame should wrap before about the 12th. Frames 2 and 4 failing does
   not fit; kept as a weak candidate.
+- **(d) The test side: B's readback runs before the receive has finished
+  writing the block.** The script reads `N BLOCK C@` on B as soon as
+  `BLOCK-RECV` has printed the block number. **Unexamined:** not ruled in
+  or out; only the probe below can.
 - Ruled out by reading: truncation. `RX-FRM` and `TX-FRM` are
   `600 ALLOT` and receives use `600` as the limit, but BASE is HEX there
   (0x600 = 1536 bytes, frame 1046).
 
-## The discriminating probe (next step, not run)
+## Owned by NET-DATA
+
+These six reds are their own task, **NET-DATA** (owner, 2026-10-05), queued
+after the LOG-HARNESS validation pass and before Phase 3. 4a merged as
+"crash fixed, 6/52 recorded"; the probe was deliberately not run in 4a.
+
+## The discriminating probe (NET-DATA's first step, not run)
 
 On B, right after `BLOCK-RECV` returns 902, read the payload in the frame
 buffer itself: `RX-FRM FRM-HDR + C@ .` (with NET-DICT in the search order).
 
-- 170 → the frame carried the right data; the fault is on B, (a).
+- 170 → the frame carried the right data; the fault is on B, (a) or (d).
 - 66 → A sent stale data; the fault is on A, (b).
+
+To separate (a) from (d), repeat B's readback after a delay and see whether
+the value changes.
 
 Then, on one instance with no network, `902 BUFFER DUP 1024 170 FILL DROP
 UPDATE 902 BLOCK C@ .` separates the block cache from the NIC entirely.
