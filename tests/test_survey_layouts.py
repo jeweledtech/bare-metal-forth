@@ -59,6 +59,8 @@ import time
 
 import qemu_pid  # tests/qemu_pid.py: pidfile-based QEMU cleanup
 
+import serial as ser  # tests/serial.py: bounded reads ending at the prompt (4b)
+
 PORT_BASE = int(sys.argv[1]) if len(sys.argv) > 1 else 4590
 PROJECT = os.path.dirname(os.path.dirname(
     os.path.abspath(__file__)))
@@ -212,19 +214,10 @@ class Session:
             pass
 
     def send(self, cmd, wait=2.0):
-        self.s.sendall((cmd + '\r').encode())
-        time.sleep(wait)
-        self.s.settimeout(3)
-        resp = b''
-        while True:
-            try:
-                d = self.s.recv(8192)
-                if not d:
-                    break
-                resp += d
-            except Exception:
-                break
-        return resp.decode('ascii', errors='replace')
+        # Ends at the guest's prompt (tests/serial.py); `wait` no longer
+        # sleeps, it widens the budget for commands that legitimately take long.
+        reply, _how = ser.send_until_prompt(self.s, cmd, budget=max(15.0, 5 * wait))
+        return reply
 
     def clear_stack(self):
         # BEGIN..WHILE..REPEAT, not DO..LOOP: this kernel's
