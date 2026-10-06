@@ -221,10 +221,13 @@ cmd = [
     '-display', 'none',
     '-pidfile', qemu_pid.pidfile('builder'),
 ]
+BUILDER_ERR = os.path.join('build', 'arm64-builder-qemu.err')
 builder_proc = subprocess.Popen(
     cmd,
     stdout=subprocess.DEVNULL,
-    stderr=subprocess.DEVNULL)
+    stderr=open(BUILDER_ERR, 'w'))
+qemu_pid.wait_started(builder_proc, qemu_pid.pidfile('builder'), [PORT, MON_PORT],
+                      'x86 builder', BUILDER_ERR)
 
 time.sleep(4)
 
@@ -436,10 +439,12 @@ boot_cmd = [
 ]
 print(f"  CMD: {' '.join(boot_cmd)}")
 
+BOOT_ERR = os.path.join('build', 'arm64-boot-qemu.err')
 qemu_proc = subprocess.Popen(
     boot_cmd,
     stdout=subprocess.DEVNULL,
-    stderr=subprocess.DEVNULL)
+    stderr=open(BOOT_ERR, 'w'))
+qemu_pid.wait_started(qemu_proc, qemu_pid.pidfile('boot'), BOOT_PORT, 'aarch64 boot', BOOT_ERR)
 
 # Connect — QEMU waits for us, then starts executing
 time.sleep(1)

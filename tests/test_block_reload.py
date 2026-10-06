@@ -174,7 +174,9 @@ proc = subprocess.Popen([
     '-serial', f'tcp:127.0.0.1:{PORT},server=on,wait=off',
     '-display', 'none',
     '-pidfile', qemu_pid.pidfile('block-reload'),
-], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+], stdout=subprocess.DEVNULL, stderr=open(os.path.join('build', 'block-reload-qemu.err'), 'w'))
+qemu_pid.wait_started(proc, qemu_pid.pidfile('block-reload'), PORT, 'block-reload',
+                      os.path.join('build', 'block-reload-qemu.err'))
 try:
     time.sleep(2)
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

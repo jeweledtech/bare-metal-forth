@@ -29,6 +29,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import qemu_pid  # tests/qemu_pid.py: did our QEMU start, on its own ports?
 
 # The red was removed after its XPASS gate fired on exactly its name
 # (fix-uefi2-xpass-gate-2026-09-28.log); a failure is now a plain FAIL.
@@ -73,7 +74,8 @@ q = subprocess.Popen(
      '-serial', f'tcp:127.0.0.1:{PORT},server=on,wait=on',
      '-monitor', f'tcp:127.0.0.1:{MON},server=on,wait=off',
      '-display', 'none', '-no-reboot'],
-    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    stdout=subprocess.DEVNULL, stderr=open(os.path.join(work, 'qemu.err'), 'w'))
+qemu_pid.wait_started(q, None, [PORT, MON], 'uefi2-gdt', os.path.join(work, 'qemu.err'))
 try:
     for _ in range(40):
         try:

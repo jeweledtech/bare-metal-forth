@@ -515,10 +515,13 @@ def qemu_kill():
     # holding the raw .img open can drop in-flight AHCI writes,
     # and the stage 2->3 boundary reads that image as the second
     # authority. The pidfile kill below is the fallback.
-    try:
-        mon_cmd('quit', wait=1)
-    except Exception:
-        pass
+    # Only to our own QEMU: with the port taken by someone else, `quit` would
+    # go to them (TASK_PORT_REFUSAL_4C race gate).
+    if qemu_pid.owns(G6_PIDFILE, MON):
+        try:
+            mon_cmd('quit', wait=1)
+        except Exception:
+            pass
     # Then kill by pidfile (never a pattern kill: `pkill -f` matched
     # the calling shell on 2026-08-11 and other trees' QEMUs since).
     # The recipe also clears QEMU_PIDDIR from its trap.
@@ -541,7 +544,7 @@ def qemu_net_boot(disk, tree=TREE):
     # -daemonize chdirs QEMU to / AFTER drive open but BEFORE
     # the first TFTP request (os_setup_post), so the tftp=
     # prefix must be absolute or iPXE gets ENOENT.
-    subprocess.run([
+    r = subprocess.run([
         QEMU,
         '-netdev', f'user,id=n0,tftp={os.path.abspath(tree)},'
                    'bootfile=/grub/i386-pc/core.0',
@@ -553,7 +556,8 @@ def qemu_net_boot(disk, tree=TREE):
         '-serial', f'tcp:127.0.0.1:{PORT},server=on,wait=off',
         '-monitor', f'tcp:127.0.0.1:{MON},server=on,wait=off',
         '-display', 'none', '-daemonize', '-pidfile', G6_PIDFILE],
-        check=True)
+        capture_output=True)
+    qemu_pid.check_launch(r, G6_PIDFILE, [PORT, MON], 'g6')
     time.sleep(2)
 
 

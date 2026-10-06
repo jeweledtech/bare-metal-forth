@@ -37,7 +37,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 52,
-    "source": "tests/test_arm64_boot.py:433"
+    "source": "tests/test_arm64_boot.py:436"
    }
   ]
  },
@@ -147,13 +147,13 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 95,
-    "source": "tests/test_g6_chain.py:553"
+    "source": "tests/test_g6_chain.py:556"
    },
    {
     "form": "tcp:127.0.0.1:P",
     "kind": "monitor",
     "offset": 96,
-    "source": "tests/test_g6_chain.py:554"
+    "source": "tests/test_g6_chain.py:557"
    }
   ]
  },
@@ -481,13 +481,13 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 77,
-    "source": "tests/test_uefi2_gdt.py:73"
+    "source": "tests/test_uefi2_gdt.py:74"
    },
    {
     "form": "tcp:127.0.0.1:P",
     "kind": "monitor",
     "offset": 78,
-    "source": "tests/test_uefi2_gdt.py:74"
+    "source": "tests/test_uefi2_gdt.py:75"
    }
   ]
  },

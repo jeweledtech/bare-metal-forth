@@ -66,7 +66,8 @@ q = subprocess.Popen(
      '-drive', f'file={SCRATCH},format=raw,if=ide,index=1',
      '-serial', f'tcp:127.0.0.1:{PORT},server=on,wait=off', '-display', 'none', '-no-reboot',
      '-pidfile', CARRIER_PIDFILE],
-    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    stdout=subprocess.DEVNULL, stderr=open(os.path.join('build', 'carrier-qemu.err'), 'w'))
+qemu_pid.wait_started(q, CARRIER_PIDFILE, PORT, 'carrier', os.path.join('build', 'carrier-qemu.err'))
 try:
     s = None
     for _ in range(40):

@@ -136,16 +136,33 @@ def check_launch(result, path, port, what, wait=5.0):
     _fail(what, port, f'no QEMU from {path} is listening on it')
 
 
+def owns(path, port):
+    """True if the QEMU named by pidfile `path` is alive and owns the
+    listening socket on `port` (int or list). Use before talking to a port
+    you expect to be your own QEMU's, e.g. a monitor `quit` in a pre-clean."""
+    try:
+        pid = int(open(path).read().split()[0])
+    except (OSError, ValueError, IndexError):
+        return False
+    return _is_ours(pid, path) and _owns_listener(pid, port)
+
+
 def wait_started(proc, path, port, what, stderr_path=None, wait=15.0):
     """After proc = subprocess.Popen([QEMU, ..., '-pidfile', path], ...).
 
     Waits until that QEMU holds its pidfile and owns the listening socket on
-    `port`. Exits at once, naming the port, if the process exits first."""
+    `port` (int or list). path=None: the Popen'd process itself must own it.
+    Exits at once, naming the port, if the process exits first."""
     deadline = time.time() + wait
     while time.time() < deadline:
         if proc.poll() is not None:
             err = open(stderr_path).read() if stderr_path and os.path.exists(stderr_path) else ''
             _fail(what, port, f'exit {proc.returncode}: {_last_line(err)}')
+        if path is None:
+            if _owns_listener(proc.pid, port):
+                return proc.pid
+            time.sleep(0.1)
+            continue
         try:
             pid = int(open(path).read().split()[0])
         except (OSError, ValueError, IndexError):
