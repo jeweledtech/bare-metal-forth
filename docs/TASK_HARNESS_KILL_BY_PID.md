@@ -261,13 +261,22 @@ launches QEMU uses `QEMU_KILL` from the start; none adds a `pkill`.
      any of the 64 measured cases. Results and what they correct:
      docs/evidence/correction-sigint-results-2026-10-05.md.
 
-**Order after step 4:** 4a, then 4c, then 4b (owner, 2026-10-04).
+**Order after step 4:** 4a, then 4c, then 4b (owner, 2026-10-04); 4b also
+takes the 13 scripts that still have a bare `except:`, then the LOG-HARNESS
+validation pass (owner, 2026-10-05).
 
 4a. **test-network fix** (its own small task). It crashes on a NameError
    (`blocks_b` in `start_qemu_pair`) about 5s in, so no NE2000 check has run
    (finding-test-network-crashes-nameerror-2026-10-04). The current crash is
    the failing case. Then fix it, then set the real `T_NETWORK` from a
    measured run (now 300, provisional).
+   - **Crash fixed, not green (2026-10-05).** Red reproduced on `416af55`
+     (NameError, script exit 1, make exit 2, 6s). One-line fix at the cause.
+     The test then runs and fails 6/52, the same six in two runs:
+     finding-test-network-six-reds-after-crash-fix-2026-10-05. T_NETWORK =
+     900 (439.5s measured twice, about 2x). Teardown clean on normal exit,
+     SIGINT and SIGTERM. test-network moves from BROKEN to GRANDFATHERED in
+     test_make_wiring.py.
 
 4c. **Refuse to start on a bound port** (§5 step 5, now required). Every
    QEMU recipe checks its ports when it starts and fails loudly with the

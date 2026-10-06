@@ -115,7 +115,7 @@ def start_qemu_pair(zero_range=None):
     ]
     subprocess.run(cmd_b, capture_output=True)
     time.sleep(2)
-    return blocks_b
+    return combined_ide_b
 
 
 def connect(port):

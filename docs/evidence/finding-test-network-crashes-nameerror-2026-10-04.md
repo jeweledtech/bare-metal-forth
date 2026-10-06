@@ -1,7 +1,12 @@
 # FINDING — test-network crashes on a NameError 5s in; the NE2000 network test measures nothing (2026-10-04)
 
-Recorded against master (`9eacc8b`). Not fixed here; queued as its own task
-right after the kill-by-PID .py step (TASK_HARNESS_KILL_BY_PID §5, 4a).
+Recorded against master (`9eacc8b`). ~~Not fixed here; queued as its own task
+right after the kill-by-PID .py step (TASK_HARNESS_KILL_BY_PID §5, 4a).~~
+Resolved 2026-10-05 (4a): `return blocks_b` -> `return combined_ide_b`, the
+name 22aefd9 gave that variable. 22aefd9 changed nothing else in this
+function that the rename missed. The test now runs and fails 6/52 on real
+checks: finding-test-network-six-reds-after-crash-fix-2026-10-05.md.
+T_NETWORK set to 900 from two measured runs (439.5s each).
 
 ## Observed
 

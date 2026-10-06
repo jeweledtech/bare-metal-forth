@@ -739,12 +739,12 @@ QEMU_KILL_DIR = for PIDF in $$QPIDDIR/*.pid; do [ -e "$$PIDF" ] || continue; $(Q
 # baseline fails before the ARM phase (2/5), so its full time is unknown.
 T_VBR ?= 90
 # .py step, py-a (about 2x observed 2026-10-04): carrier 37s, memdisk 122s,
-# survey 554s. network is provisional: it crashes at start on master
-# (NameError in start_qemu_pair), so its full time is unknown.
+# survey 554s. network: 439.5s in each of two full runs (2026-10-05,
+# after its start_qemu_pair NameError was fixed).
 T_CARRIER ?= 90
 T_MEMDISK ?= 260
 T_SURVEY ?= 1100
-T_NETWORK ?= 300
+T_NETWORK ?= 900
 T_G6 ?= 1200
 T_BLOCK_RELOAD ?= 150
 T_ARM64_BOOT ?= 720
@@ -1058,8 +1058,9 @@ test-meta: $(COMBINED)
 # EXEMPT from this list, with reasons (same document):
 #   QEMU trips (test-network, test-arm64-boot, test-cortexm, test-meta,
 #     test-flush, test-ahci-write, test-squote-laydown-backstop0, run*) --
-#     emulator trips, and QEMU is not a truth source.  test-network is
-#     separately DEAD-PENDING-REPAIR, broken since 2026-08-30.
+#     emulator trips, and QEMU is not a truth source.  test-network runs
+#     again since 2026-10-05 but fails 6/52 (block data on B is the
+#     previous block's); see finding-test-network-six-reds-after-crash-fix.
 #   Outward-facing or destructive (pxe-*, write-block, write-catalog, iso,
 #     combined, backstop0, blocks, free) -- these write boot media or push
 #     to a network host and must never run automatically.

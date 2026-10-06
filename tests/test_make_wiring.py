@@ -70,6 +70,10 @@ GRANDFATHERED = {
         'needs ARM Cortex-M QEMU',
     'test-flush':
         'bulk SAVE-BUFFERS known issue (bug #21 family)',
+    'test-network':
+        'runs since 2026-10-05 (NameError fixed) but fails 6/52: B reads'
+        ' the previous block\'s data (finding-test-network-six-reds-after-'
+        'crash-fix-2026-10-05)',
     'test-ahci-write':
         'needs AHCI scratch disk',
     'test-meta':
@@ -79,10 +83,6 @@ GRANDFATHERED = {
 # the breakage -- a suite outside the aggregate never runs, so it
 # rots silently.
 BROKEN = {
-    'test-network':
-        'NameError blocks_b in start_qemu_pair (stale return from a'
-        ' refactor), observed 2026-08-30 -- make test-network cannot'
-        ' run at all',
 }
 ALL_EXEMPT = {**EXEMPT, **GRANDFATHERED, **BROKEN}
 if len(ALL_EXEMPT) != len(EXEMPT) + len(GRANDFATHERED) + len(BROKEN):
