@@ -69,6 +69,8 @@ import sys
 import tempfile
 import time
 
+import serial as ser  # tests/serial.py: bounded reads ending at the prompt (4b)
+
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 4588
 IMG = sys.argv[2] if len(sys.argv) > 2 else 'build/combined.img'
 MON_PORT = int(sys.argv[3]) if len(sys.argv) > 3 else 4589
@@ -119,23 +121,11 @@ for v in vocabs:
     return (int(parts[0]), int(parts[1])) if len(parts) == 2 else (None, None)
 
 
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.settimeout(10)
-for _ in range(20):
-    try:
-        s.connect(('127.0.0.1', PORT))
-        break
-    except OSError:
-        time.sleep(0.5)
-else:
-    print('FAIL: connect')
-    sys.exit(1)
-time.sleep(2)
 try:
-    while True:
-        s.recv(4096)
-except Exception:
-    pass
+    s = ser.connect_and_sync(PORT, budget=60)
+except TimeoutError as e:
+    print(f"FAIL: connect: {e}")
+    sys.exit(1)
 
 
 def drain(wait):
@@ -153,9 +143,19 @@ def drain(wait):
     return resp.decode('ascii', errors='replace')
 
 
-def send(cmd, wait=1.0):
-    s.sendall((cmd + '\r').encode())
-    return drain(wait)
+def send(cmd, wait=1.0, prompt=True):
+    # Ends at the guest's prompt (tests/serial.py); `wait` no longer sleeps,
+    # it widens the budget for commands that legitimately take long.
+    # prompt=False keeps the fixed wait: FIRSTBOOT-RUN hands the keyboard to
+    # the wizard, which prints no `ok ` until it exits (its reply is the echo
+    # alone, 'FIRSTBOOT-RUN\r\n'; TASK_BOUNDED_READS_4B §3d).
+    if not prompt:
+        s.sendall((cmd + '\r').encode())
+        reply = drain(wait)
+        ser.trace(cmd, reply, 'fixed')
+        return reply
+    reply, _how = ser.send_until_prompt(s, cmd, budget=max(15.0, 5 * wait))
+    return reply
 
 
 def keys(raw, wait=1.5):
@@ -456,7 +456,7 @@ check(f'footer counts: {want}',                                    # 24
       s2_up and row_with(s2, want) is not None)
 
 print('\n=== Phase 5: the loop, driven by keystrokes ===')
-send('FIRSTBOOT-RUN', 3)
+send('FIRSTBOOT-RUN', 3, prompt=False)
 a = screen()
 check('FIRSTBOOT-RUN shows screen 1',                             # 25
       row_with(a, 'Try or Install') == 0, dump(a))
@@ -508,7 +508,7 @@ check('Try-path headline does not claim an installation',         # 31
 keys('\r', 3)
 check('ENTER on screen 4 returns to the interpreter',             # 32
       on4 and alive())
-send('FIRSTBOOT-RUN', 3)
+send('FIRSTBOOT-RUN', 3, prompt=False)
 f = screen()
 up1 = row_with(f, 'Try or Install') == 0
 keys('\x1b', 3)
