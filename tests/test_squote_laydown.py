@@ -304,6 +304,8 @@ DICT_START = 0x30000
 # image the caller passes and the source on disk are separate
 # artifacts.
 import kernel_constants
+
+import serial as ser  # tests/serial.py: bounded reads ending at the prompt (4b)
 kernel_constants.check_backstop_derivation()
 kernel_constants.check_pool_bounds()
 kernel_constants.check_phys_table()
@@ -326,40 +328,18 @@ if BACKSTOP0:
     print('MODE: --backstop0 (DICT_BACKSTOP defeated to 0; this run '
           'exists to observe the in-loop guard firing)')
 
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.settimeout(10)
-for attempt in range(20):
-    try:
-        s.connect(('127.0.0.1', PORT))
-        break
-    except (ConnectionRefusedError, OSError):
-        time.sleep(0.5)
-else:
-    print("FAIL: connect")
-    sys.exit(1)
-
-time.sleep(2)
 try:
-    while True:
-        s.recv(4096)
-except Exception:
-    pass
+    s = ser.connect_and_sync(PORT, budget=60)
+except TimeoutError as e:
+    print(f"FAIL: connect: {e}")
+    sys.exit(1)
 
 
 def send(cmd, wait=1.0):
-    s.sendall((cmd + '\r').encode())
-    time.sleep(wait)
-    s.settimeout(2)
-    resp = b''
-    while True:
-        try:
-            d = s.recv(4096)
-            if not d:
-                break
-            resp += d
-        except Exception:
-            break
-    return resp.decode('ascii', errors='replace')
+    # Ends at the guest's prompt (tests/serial.py); `wait` no longer sleeps,
+    # it widens the budget for commands that legitimately take long.
+    reply, _how = ser.send_until_prompt(s, cmd, budget=max(15.0, 5 * wait))
+    return reply
 
 
 def body_of(raw):
