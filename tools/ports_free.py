@@ -35,3 +35,38 @@ def _binds(fam, host, port, v6only=None):
 
 def free(port, form='tcp::P'):
     return _binds(socket.AF_INET, '0.0.0.0', port)
+
+
+def holder(port):
+    """Who listens on port (best effort, from ss -tlnp; empty if not visible)."""
+    import subprocess
+    out = subprocess.run(['ss', '-Htlnp', f'( sport = :{port} )'], capture_output=True, text=True).stdout
+    users = sorted({u for ln in out.splitlines() for u in __import__('re').findall(r'\("([^"]+)",pid=(\d+)', ln)})
+    return ', '.join(f'pid {p} {c}' for c, p in users) or 'holder not visible (another user, or TIME_WAIT)'
+
+
+def main(argv):
+    """ports_free.py --recipe R [--fixture F] --base B : exit 1 naming the first busy port."""
+    import json, os, sys
+    a = dict(zip(argv[1::2], argv[2::2]))
+    recipe, fixture, base = a['--recipe'], a.get('--fixture', '-'), int(a['--base'])
+    table = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'qemu_ports.json')))
+    if recipe not in table or fixture not in table[recipe]:
+        print(f'ports_free: {recipe}{"/" + fixture if fixture != "-" else ""} is not in tools/qemu_ports.json '
+              f'(regenerate: python3 tools/port_inventory.py > tools/qemu_ports.json)', file=sys.stderr)
+        return 2
+    busy = 0
+    for e in table[recipe][fixture]:
+        if 'offset' not in e:
+            continue
+        port = base + e['offset']
+        if not free(port, e['form']):
+            print(f'PORT BUSY: {port} ({recipe}{"/" + fixture if fixture != "-" else ""} {e["kind"]} '
+                  f'+{e["offset"]}) held by {holder(port)}', file=sys.stderr)
+            busy += 1
+    return 1 if busy else 0
+
+
+if __name__ == '__main__':
+    import sys
+    sys.exit(main(sys.argv))

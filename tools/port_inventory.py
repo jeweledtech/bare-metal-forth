@@ -17,8 +17,10 @@ an offset from TEST_PORT_BASE, with its listen form and where it comes from.
 Fails closed: a listen address it cannot resolve is an error.
 
   port_inventory.py            print the inventory as JSON
-  port_inventory.py --check F  exit 1 if it differs from F (drift), or if
-                               any serial or monitor uses the tcp::P form
+  port_inventory.py --check F  exit 1 if it differs from F (drift), if any
+                               serial or monitor uses the tcp::P form, or
+                               if a recipe in the table does not run
+                               $(PORTS_FREE) --recipe <itself> (UNGUARDED)
 A script that is absent (a private-owned script in a public clone) is
 reported as SKIPPED and its committed entries are not compared.
 """
@@ -373,6 +375,14 @@ def main():
                 if e.get('form') == 'tcp::P' and e.get('kind') in ('serial', 'monitor'):
                     print(f'TCP-ANY: {r}/{f}: {e["kind"]} +{e["offset"]} listens on every interface (tcp::P) at {e["source"]}')
                     bad += 1
+    _, recipes = makefile()
+    for r, fx in inv.items():
+        body = '\n'.join(ln for _, ln in recipes.get(r, []))
+        loop = any(f != '-' for f in fx)
+        if not re.search(r'\$\(PORTS_FREE\) --recipe ' + re.escape(r) + (r' --fixture ' if loop else r' --base'), body):
+            print(f'UNGUARDED: {r} starts QEMU but does not run $(PORTS_FREE) --recipe {r}'
+                  + (' --fixture <fixture>' if loop else ''))
+            bad += 1
     n = sum(len([e for e in ents if 'offset' in e]) for fx in inv.values() for ents in fx.values())
     print(f'port inventory: {len(inv)} recipes, {n} listen entries; {bad} problem(s)')
     sys.exit(1 if bad else 0)
