@@ -59,7 +59,7 @@ hang is in **how the test connects to / reads from the serial port**, not the
 guest. "Guest never boots" and "boot regression" are ruled out.
 
 **Leading suspect (reasoned, not yet measured): the TCP serial discards the
-banner.** The recipes use `-serial tcp::PORT,server=on,wait=off`, which boots
+banner.** The recipes use `-serial tcp::PORT,server=on,wait=off` (`tcp:127.0.0.1:PORT` since 4c), which boots
 immediately and does **not** buffer output produced before a client connects.
 The guest prints banner + `ok` within ~1–2s; the test `sleep 2`s, then
 connects. If the banner is emitted before the connect, it is gone, and the

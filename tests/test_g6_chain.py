@@ -550,7 +550,7 @@ def qemu_net_boot(disk, tree=TREE):
         '-drive', f'file={disk},format=raw,if=none,id=sata0',
         '-device', 'ich9-ahci,id=ahci0',
         '-device', 'ide-hd,drive=sata0,bus=ahci0.0',
-        '-serial', f'tcp::{PORT},server=on,wait=off',
+        '-serial', f'tcp:127.0.0.1:{PORT},server=on,wait=off',
         '-monitor', f'tcp:127.0.0.1:{MON},server=on,wait=off',
         '-display', 'none', '-daemonize', '-pidfile', G6_PIDFILE],
         check=True)

@@ -172,7 +172,7 @@ def boot_capture(image, seconds, want_vga=False):
     subprocess.run(
         ['qemu-system-i386', '-drive',
          f'file={image},format=raw',
-         '-serial', f'tcp::{PORT},server=on,wait=off',
+         '-serial', f'tcp:127.0.0.1:{PORT},server=on,wait=off',
          '-monitor', f'tcp:127.0.0.1:{MON_PORT},server=on,wait=off',
          '-display', 'none', '-daemonize', '-pidfile', pf], check=True)
     time.sleep(2)

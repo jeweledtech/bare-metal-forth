@@ -66,7 +66,7 @@ def start(zero_scratch):
         '-drive', f'file={SCRATCH},format=raw,if=none,id=sata0',
         '-device', 'ich9-ahci,id=ahci0',
         '-device', 'ide-hd,drive=sata0,bus=ahci0.0',
-        '-serial', f'tcp::{PORT},server=on,wait=off',
+        '-serial', f'tcp:127.0.0.1:{PORT},server=on,wait=off',
         '-display', 'none',
         '-pidfile', PIDFILE,
     ], cwd=ROOT, stdout=subprocess.DEVNULL,

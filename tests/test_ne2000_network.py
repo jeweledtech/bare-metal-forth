@@ -91,7 +91,7 @@ def start_qemu_pair(zero_range=None):
         '-netdev', f'socket,id=net0,listen=:{NET_PORT}',
         '-device', 'ne2k_pci,netdev=net0',
         '-serial',
-        f'tcp::{PORT_A},server=on,wait=off',
+        f'tcp:127.0.0.1:{PORT_A},server=on,wait=off',
         '-display', 'none', '-daemonize',
         '-pidfile', qemu_pid.pidfile('net-a'),
     ]
@@ -109,7 +109,7 @@ def start_qemu_pair(zero_range=None):
         f'socket,id=net0,connect=127.0.0.1:{NET_PORT}',
         '-device', 'ne2k_pci,netdev=net0',
         '-serial',
-        f'tcp::{PORT_B},server=on,wait=off',
+        f'tcp:127.0.0.1:{PORT_B},server=on,wait=off',
         '-display', 'none', '-daemonize',
         '-pidfile', qemu_pid.pidfile('net-b'),
     ]

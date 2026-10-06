@@ -171,7 +171,7 @@ proc = subprocess.Popen([
     'qemu-system-i386',
     '-drive', f'file={SCRATCH},format=raw,if=floppy',
     '-drive', f'file={SCRATCH_IDE},format=raw,if=ide,index=1',
-    '-serial', f'tcp::{PORT},server=on,wait=off',
+    '-serial', f'tcp:127.0.0.1:{PORT},server=on,wait=off',
     '-display', 'none',
     '-pidfile', qemu_pid.pidfile('block-reload'),
 ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

@@ -182,7 +182,7 @@ class Session:
             f'file={disk_img},format=raw,if=none,id=sata0',
             '-device', 'ich9-ahci,id=ahci0',
             '-device', 'ide-hd,drive=sata0,bus=ahci0.0',
-            '-serial', f'tcp::{port},server=on,wait=off',
+            '-serial', f'tcp:127.0.0.1:{port},server=on,wait=off',
             '-display', 'none',
             '-daemonize',
             '-pidfile', qemu_pid.pidfile(f'survey-{port}'),

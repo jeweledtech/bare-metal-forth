@@ -22,7 +22,7 @@ def start():
         'qemu-system-i386',
         '-drive', 'file=build/combined.img,format=raw,if=floppy',
         '-drive', 'file=build/combined-ide.img,format=raw,if=ide,index=1',
-        '-serial', f'tcp::{PORT},server=on,wait=off',
+        '-serial', f'tcp:127.0.0.1:{PORT},server=on,wait=off',
         '-display', 'none',
         '-pidfile', PIDFILE,
     ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

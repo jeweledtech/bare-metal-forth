@@ -64,7 +64,7 @@ q = subprocess.Popen(
     ['qemu-system-i386',
      '-drive', f'file={FLOPPY},format=raw,if=floppy,readonly=on',
      '-drive', f'file={SCRATCH},format=raw,if=ide,index=1',
-     '-serial', f'tcp::{PORT},server=on,wait=off', '-display', 'none', '-no-reboot',
+     '-serial', f'tcp:127.0.0.1:{PORT},server=on,wait=off', '-display', 'none', '-no-reboot',
      '-pidfile', CARRIER_PIDFILE],
     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 try:

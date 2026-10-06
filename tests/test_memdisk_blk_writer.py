@@ -70,7 +70,7 @@ def start(tftp_root, with_ahci):
                    'bootfile=pxelinux.0',
         '-device', 'e1000,netdev=n0',
         '-boot', 'n',
-        '-serial', f'tcp::{PORT},server=on,wait=off',
+        '-serial', f'tcp:127.0.0.1:{PORT},server=on,wait=off',
         '-display', 'none',
         '-pidfile', MEMDISK_PIDFILE,
     ]

@@ -216,8 +216,8 @@ cmd = [
     '-drive', f'file={COMBINED},format=raw,if=floppy',
     '-drive',
     f'file={COMBINED_IDE},format=raw,if=ide,index=1',
-    '-serial', f'tcp::{PORT},server=on,wait=off',
-    '-monitor', f'tcp::{MON_PORT},server=on,wait=off',
+    '-serial', f'tcp:127.0.0.1:{PORT},server=on,wait=off',
+    '-monitor', f'tcp:127.0.0.1:{MON_PORT},server=on,wait=off',
     '-display', 'none',
     '-pidfile', qemu_pid.pidfile('builder'),
 ]
@@ -430,7 +430,7 @@ boot_cmd = [
                f'addr={LOAD_ADDR}',
     '-device', f'loader,addr={LOAD_ADDR},cpu-num=0',
     '-serial',
-    f'tcp::{BOOT_PORT},server=on,wait=on,nodelay=on',
+    f'tcp:127.0.0.1:{BOOT_PORT},server=on,wait=on,nodelay=on',
     '-display', 'none',
     '-pidfile', qemu_pid.pidfile('boot'),
 ]

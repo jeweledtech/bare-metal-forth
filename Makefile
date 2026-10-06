@@ -340,7 +340,7 @@ test-smoke: $(ACTIVE_IMAGE)
 	trap '$(QEMU_KILL)' EXIT INT TERM HUP; set -e; \
 	echo "Running smoke test..."; \
 	$(QEMU) -drive file=$(ACTIVE_IMAGE),format=raw,if=floppy \
-		-serial tcp::$(TEST_PORT_BASE),server=on,wait=off \
+		-serial tcp:127.0.0.1:$(TEST_PORT_BASE),server=on,wait=off \
 		-display none -daemonize -pidfile $$PIDF; \
 	sleep 2; \
 	timeout --foreground $(T_SMOKE) python3 tests/smoke_test.py $(TEST_PORT_BASE)
@@ -351,7 +351,7 @@ test-loops: $(ACTIVE_IMAGE)
 	trap '$(QEMU_KILL)' EXIT INT TERM HUP; set -e; \
 	echo "Running loop control flow test..."; \
 	$(QEMU) -drive file=$(ACTIVE_IMAGE),format=raw,if=floppy \
-		-serial tcp::$$(($(TEST_PORT_BASE)+1)),server=on,wait=off \
+		-serial tcp:127.0.0.1:$$(($(TEST_PORT_BASE)+1)),server=on,wait=off \
 		-display none -daemonize -pidfile $$PIDF; \
 	sleep 2; \
 	timeout --foreground $(T_LOOPS) python3 tests/test_begin_while.py $$(($(TEST_PORT_BASE)+1))
@@ -364,7 +364,7 @@ test-abort: $(ACTIVE_IMAGE)
 	trap '$(QEMU_KILL)' EXIT INT TERM HUP; set -e; \
 	echo "Running ABORT/ABORT\" kernel test..."; \
 	$(QEMU) -drive file=$(ACTIVE_IMAGE),format=raw,if=floppy \
-		-serial tcp::$$(($(TEST_PORT_BASE)+2)),server=on,wait=off \
+		-serial tcp:127.0.0.1:$$(($(TEST_PORT_BASE)+2)),server=on,wait=off \
 		-display none -daemonize -pidfile $$PIDF; \
 	sleep 2; \
 	timeout --foreground $(T_ABORT) python3 tests/test_abort.py $$(($(TEST_PORT_BASE)+2))
@@ -377,7 +377,7 @@ test-dict-bounds: $(ACTIVE_IMAGE)
 	trap '$(QEMU_KILL)' EXIT INT TERM HUP; set -e; \
 	echo "Running dictionary bounds test..."; \
 	$(QEMU) -drive file=$(ACTIVE_IMAGE),format=raw,if=floppy \
-		-serial tcp::$$(($(TEST_PORT_BASE)+97)),server=on,wait=off \
+		-serial tcp:127.0.0.1:$$(($(TEST_PORT_BASE)+97)),server=on,wait=off \
 		-display none -daemonize -pidfile $$PIDF; \
 	sleep 2; \
 	timeout --foreground $(T_DICT_BOUNDS) python3 tests/test_dict_bounds.py $$(($(TEST_PORT_BASE)+97)) $(ACTIVE_IMAGE)
@@ -390,7 +390,7 @@ test-phys-alloc: $(ACTIVE_IMAGE)
 	trap '$(QEMU_KILL)' EXIT INT TERM HUP; set -e; \
 	echo "Running physical allocator test..."; \
 	$(QEMU) -drive file=$(ACTIVE_IMAGE),format=raw,if=floppy \
-		-serial tcp::$$(($(TEST_PORT_BASE)+98)),server=on,wait=off \
+		-serial tcp:127.0.0.1:$$(($(TEST_PORT_BASE)+98)),server=on,wait=off \
 		-display none -daemonize -pidfile $$PIDF; \
 	sleep 2; \
 	timeout --foreground $(T_PHYS_ALLOC) python3 tests/test_phys_alloc.py $$(($(TEST_PORT_BASE)+98)) $(ACTIVE_IMAGE)
@@ -408,7 +408,7 @@ test-pci-typing: $(ACTIVE_IMAGE)
 	echo "Running PCI class-code typing test..."; \
 	$(QEMU) -M pc -device qemu-xhci \
 		-drive file=$(ACTIVE_IMAGE),format=raw,if=floppy \
-		-serial tcp::$$(($(TEST_PORT_BASE)+96)),server=on,wait=off \
+		-serial tcp:127.0.0.1:$$(($(TEST_PORT_BASE)+96)),server=on,wait=off \
 		-display none -daemonize -pidfile $$PIDF; \
 	sleep 2; \
 	timeout --foreground $(T_PCI_TYPING) python3 tests/test_pci_typing.py $$(($(TEST_PORT_BASE)+96)) $(ACTIVE_IMAGE)
@@ -456,7 +456,7 @@ test-vocabs: $(COMBINED)
 		$(QEMU) -drive file=$(COMBINED),format=raw,if=floppy \
 			-drive file=$(COMBINED_IDE),format=raw,if=ide,index=1 \
 			-nic model=ne2k_pci \
-			-serial tcp::$$PORT,server=on,wait=off \
+			-serial tcp:127.0.0.1:$$PORT,server=on,wait=off \
 			-display none -daemonize -pidfile $$PIDF; \
 		sleep 2; \
 		timeout --foreground $(T_VOCAB_FIXTURE) python3 tests/$$test.py $$PORT; \
@@ -476,7 +476,7 @@ test-gui: $(COMBINED)
 		echo "  $$test (port $$PORT)..."; \
 		$(QEMU) -drive file=$(COMBINED),format=raw,if=floppy \
 			-drive file=$(COMBINED_IDE),format=raw,if=ide,index=1 \
-			-serial tcp::$$PORT,server=on,wait=off \
+			-serial tcp:127.0.0.1:$$PORT,server=on,wait=off \
 			-display none -daemonize -pidfile $$PIDF; \
 		sleep 2; \
 		timeout --foreground $(T_GUI_FIXTURE) python3 tests/$$test.py $$PORT; \
@@ -511,7 +511,7 @@ test-log-harness-nic: $(COMBINED)
 		-netdev dgram,id=u1,local.type=inet,local.host=127.0.0.1,local.port=$$(($(TEST_PORT_BASE)+47)),remote.type=inet,remote.host=127.0.0.1,remote.port=$$(($(TEST_PORT_BASE)+48)) \
 		-device ne2k_pci,netdev=u1,mac=52:54:00:12:34:56 \
 		-object filter-dump,id=f1,netdev=u1,file=$$PCAP \
-		-serial tcp::$$(($(TEST_PORT_BASE)+46)),server=on,wait=off \
+		-serial tcp:127.0.0.1:$$(($(TEST_PORT_BASE)+46)),server=on,wait=off \
 		-display none -daemonize -pidfile $$PIDF; \
 	sleep 2; \
 	timeout --foreground $(T_LOG_HARNESS_NIC) python3 tests/test_log_harness_nic.py \
@@ -530,7 +530,7 @@ test-log-harness: $(COMBINED)
 	echo "Running LOG-HARNESS smoke test..."; \
 	$(QEMU) -drive file=$(COMBINED),format=raw,if=floppy \
 		-drive file=$(COMBINED_IDE),format=raw,if=ide,index=1 \
-		-serial tcp::$$(($(TEST_PORT_BASE)+45)),server=on,wait=off \
+		-serial tcp:127.0.0.1:$$(($(TEST_PORT_BASE)+45)),server=on,wait=off \
 		-display none -daemonize -pidfile $$PIDF; \
 	sleep 2; \
 	timeout --foreground $(T_LOG_HARNESS) python3 tests/test_log_harness.py \
@@ -547,7 +547,7 @@ test-install: $(COMBINED) $(BOOTLOADER) $(VBR)
 	echo "Running INSTALL allowlist test..."; \
 	$(QEMU) -drive file=$(COMBINED),format=raw,if=floppy \
 		-drive file=$(COMBINED_IDE),format=raw,if=ide,index=1 \
-		-serial tcp::$$PORT,server=on,wait=off \
+		-serial tcp:127.0.0.1:$$PORT,server=on,wait=off \
 		-display none -daemonize -pidfile $$PIDF; \
 	sleep 2; \
 	timeout --foreground $(T_INSTALL) python3 tests/test_install.py $$PORT
@@ -603,7 +603,7 @@ test-integration: $(COMBINED)
 	echo "Running full integration test..."; \
 	$(QEMU) -drive file=$(COMBINED),format=raw,if=floppy \
 		-drive file=$(COMBINED_IDE),format=raw,if=ide,index=1 \
-		-serial tcp::$$PORT,server=on,wait=off \
+		-serial tcp:127.0.0.1:$$PORT,server=on,wait=off \
 		-display none -daemonize -pidfile $$PIDF; \
 	sleep 2; \
 	timeout --foreground $(T_INTEGRATION) python3 tests/test_full_integration.py $$PORT
@@ -666,7 +666,7 @@ test-xhci: $(COMBINED)
 	$(QEMU) -M pc -device qemu-xhci -device usb-kbd,id=kbd \
 		-drive file=$(COMBINED),format=raw,if=floppy \
 		-drive file=$(COMBINED_IDE),format=raw,if=ide,index=1 \
-		-serial tcp::$$(($(TEST_PORT_BASE)+94)),server=on,wait=off \
+		-serial tcp:127.0.0.1:$$(($(TEST_PORT_BASE)+94)),server=on,wait=off \
 		-monitor tcp:127.0.0.1:$$(($(TEST_PORT_BASE)+93)),server=on,wait=off \
 		-display none -daemonize -pidfile $$PIDF; \
 	sleep 2; \
@@ -684,7 +684,7 @@ test-pci-bar: $(COMBINED)
 	$(QEMU) -M pc -device intel-hda -device intel-hda \
 		-drive file=$(COMBINED),format=raw,if=floppy \
 		-drive file=$(COMBINED_IDE),format=raw,if=ide,index=1 \
-		-serial tcp::$$(($(TEST_PORT_BASE)+87)),server=on,wait=off \
+		-serial tcp:127.0.0.1:$$(($(TEST_PORT_BASE)+87)),server=on,wait=off \
 		-display none -daemonize -pidfile $$PIDF; \
 	sleep 2; \
 	timeout --foreground $(T_PCI_BAR) python3 tests/test_pci_bar.py $$(($(TEST_PORT_BASE)+87)) $(COMBINED)
@@ -758,7 +758,7 @@ test-firstboot: $(COMBINED)
 		-device ahci,id=ahci0 \
 		-drive file=$(COMBINED),format=raw,if=floppy \
 		-drive file=$(COMBINED_IDE),format=raw,if=ide,index=1 \
-		-serial tcp::$$(($(TEST_PORT_BASE)+88)),server=on,wait=off \
+		-serial tcp:127.0.0.1:$$(($(TEST_PORT_BASE)+88)),server=on,wait=off \
 		-monitor tcp:127.0.0.1:$$(($(TEST_PORT_BASE)+89)),server=on,wait=off \
 		-display none -daemonize -pidfile $$PIDF || exit 1; \
 	sleep 2; \
@@ -771,7 +771,7 @@ test-firstboot: $(COMBINED)
 	$(QEMU) -M pc -nic none \
 		-drive file=$(COMBINED),format=raw,if=floppy \
 		-drive file=$(COMBINED_IDE),format=raw,if=ide,index=1 \
-		-serial tcp::$$(($(TEST_PORT_BASE)+84)),server=on,wait=off \
+		-serial tcp:127.0.0.1:$$(($(TEST_PORT_BASE)+84)),server=on,wait=off \
 		-monitor tcp:127.0.0.1:$$(($(TEST_PORT_BASE)+85)),server=on,wait=off \
 		-display none -daemonize -pidfile $$PIDF || exit 1; \
 	sleep 2; \
@@ -786,7 +786,7 @@ test-squote-laydown: $(ACTIVE_IMAGE)
 	PORT=$$(($(TEST_PORT_BASE)+98)); \
 	echo "Running S\"-laydown test..."; \
 	$(QEMU) -drive file=$(ACTIVE_IMAGE),format=raw,if=floppy \
-		-serial tcp::$$PORT,server=on,wait=off \
+		-serial tcp:127.0.0.1:$$PORT,server=on,wait=off \
 		-display none -daemonize -pidfile $$PIDF; \
 	sleep 2; \
 	timeout --foreground $(T_SQUOTE_LAYDOWN) python3 tests/test_squote_laydown.py $$PORT $(ACTIVE_IMAGE)
@@ -799,7 +799,7 @@ test-squote-laydown-backstop0: $(BACKSTOP0_IMAGE)
 	PORT=$$(($(TEST_PORT_BASE)+99)); \
 	echo "Running S\"-laydown --backstop0 test..."; \
 	$(QEMU) -drive file=$(BACKSTOP0_IMAGE),format=raw,if=floppy \
-		-serial tcp::$$PORT,server=on,wait=off \
+		-serial tcp:127.0.0.1:$$PORT,server=on,wait=off \
 		-display none -daemonize -pidfile $$PIDF; \
 	sleep 2; \
 	timeout --foreground $(T_SQUOTE_BACKSTOP0) python3 tests/test_squote_laydown.py $$PORT $(BACKSTOP0_IMAGE) --backstop0
@@ -827,7 +827,7 @@ test-flush: $(DEBUG_IMAGE) $(BUILD)/.catalog.stamp
 	echo "Running flush stress test..."; \
 	$(QEMU) -drive file=$(DEBUG_COMBINED),format=raw,if=floppy \
 		-drive file=$(DEBUG_COMBINED_IDE),format=raw,if=ide,index=1 \
-		-serial tcp::$$PORT,server=on,wait=off \
+		-serial tcp:127.0.0.1:$$PORT,server=on,wait=off \
 		-display none -daemonize -pidfile $$PIDF; \
 	sleep 2; \
 	timeout --foreground $(T_FLUSH) python3 tests/test_flush_stress.py $$PORT
@@ -879,7 +879,7 @@ test-ahci-write: $(COMBINED) $(AHCI_SCRATCH)
 		-drive file=$(AHCI_SCRATCH),format=raw,if=none,id=sata0 \
 		-device ich9-ahci,id=ahci0 \
 		-device ide-hd,drive=sata0,bus=ahci0.0 \
-		-serial tcp::$$PORT,server=on,wait=off \
+		-serial tcp:127.0.0.1:$$PORT,server=on,wait=off \
 		-display none -daemonize -pidfile $$PIDF; \
 	sleep 3; \
 	timeout --foreground $(T_AHCI_WRITE) python3 tests/test_ahci_write.py $$PORT
@@ -978,7 +978,7 @@ test-file-stream: $(IMAGE)
 	PORT=$$(($(TEST_PORT_BASE)+55)); \
 	echo "=== FILE-STREAM helpers (port $$PORT) ==="; \
 	$(QEMU) -drive file=build/bmforth.img,format=raw,if=floppy \
-		-serial tcp::$$PORT,server=on,wait=off \
+		-serial tcp:127.0.0.1:$$PORT,server=on,wait=off \
 		-display none -daemonize -pidfile $$PIDF; \
 	sleep 2; \
 	timeout --foreground $(T_FILE_STREAM) python3 tests/test_file_stream_helpers.py $$PORT
@@ -1037,7 +1037,7 @@ test-meta: $(COMBINED)
 		if [ $$name = test_metacompiler ]; then \
 			$(QEMU) -drive file=$(COMBINED),format=raw,if=floppy \
 				-drive file=$(COMBINED_IDE),format=raw,if=ide,index=1 \
-				-serial tcp::$$PORT,server=on,wait=off \
+				-serial tcp:127.0.0.1:$$PORT,server=on,wait=off \
 				-display none -daemonize -pidfile $$QPIDDIR/metacompiler.pid; \
 			sleep 2; \
 			timeout --foreground $(T_METACOMPILER) python3 tests/$$name.py $$PORT; \

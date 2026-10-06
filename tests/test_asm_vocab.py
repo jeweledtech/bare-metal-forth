@@ -112,7 +112,7 @@ qemu_cmd = [
     'qemu-system-i386',
     '-drive', f'file={combined},format=raw,if=floppy',
     '-drive', f'file={combined_ide},format=raw,if=ide,index=1',
-    '-serial', f'tcp::{PORT},server=on,wait=off',
+    '-serial', f'tcp:127.0.0.1:{PORT},server=on,wait=off',
     '-display', 'none',
     '-daemonize',
     '-pidfile', ASM_PIDFILE,

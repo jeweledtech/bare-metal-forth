@@ -113,7 +113,7 @@ the recipe's observed runtime with headroom, and keep it as a named
 
 A second defect sits upstream of the timeout, found running §3b down
 (`docs/evidence/finding-qemu-test-no-serial-output-2026-10-02.md`). The recipe
-launches QEMU with `-serial tcp::PORT,server=on,wait=off`, which boots
+launches QEMU with `-serial tcp:127.0.0.1:PORT,server=on,wait=off` (4c; was `tcp::PORT`), which boots
 immediately and does **not** buffer serial output produced before a client
 connects. The guest prints its banner at ~0.25s; the test connects ~2s later
 and reads; on a **fast** QEMU start the banner is already gone and the test's
