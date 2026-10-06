@@ -101,6 +101,26 @@ Predictions are written in §5a **before** the red runs.
 | 4 | Loop fixture | test-vocabs, fixture k | as 1, at fixture k only |
 | 5 | Script-derived port, exit checked by `-daemonize` | test-meta, meta-boot booted +84 | the script sees the launch fail; how it reports it is not predicted |
 
+### 5b. Red outcomes (recorded 2026-10-05 after the run; §5a above is unchanged)
+
+Branch HEAD `a3046bb`, recipes as on master. The holder was a plain IPv4
+listener on 0.0.0.0 that accepted connections and recorded what it was
+sent. Base 7800.
+
+| # | Held port | make exit, time | What the holder received | Port named? | Prediction |
+|---|---|---|---|---|---|
+| 1 | smoke serial 7800 | 2, 34s, `Passed: 0/7` | 114 bytes: `WORDS\r1 2 + .\rS" hello" TYPE ...` (**hijack**) | no | **wrong**: QEMU did not fail; it started on `[::]` only (Gate P) |
+| 2 | firstboot monitor 7889 | 2, 0s | nothing | yes, QEMU's error: `-monitor tcp:127.0.0.1:7889 ... Address already in use` | right for the failure; QEMU's own line names the port |
+| 3a | network B serial 7841 | 2, 41s, `FAIL: Instance B alive` | `1 2 + .\r1 2 + .\r` (**hijack**) | no | right |
+| 3b | network netdev 7940 | 2, 27s, `Could not connect to QEMU instances` | 1 connection, 0 bytes: A's QEMU never started (exit unchecked) and B's netdev connected to the holder | no | right (misleading failure) |
+| 3c | memdisk serial 7865 | 2, 33s, `no ok prompt after PXE boot` | 2 connections (**hijack**) | no | right |
+| 4 | vocabs fixture 2 (test_x86_asm) 7811 | 2, 114s, fixture 2 `Passed: 0/8` | `1798 1821 THRU\rUSING X86-ASM\rHEX HERE @ ...` (**hijack**) | no | **wrong** like 1; it did happen at fixture k only |
+| 5 | meta-boot booted serial **7885** (+85) | 2, 673s, `Passed: 15/20` | `\r3 4 + .\r: SQ DUP * ; 5 SQ .\r1 IF 42 ELS...` (**hijack**) | no | **wrong**: the launch did not fail |
+
+§5a row 5 says "+84"; in test_meta_boot.py +84 is the monitor and the
+booted serial is +85, which is the port held here. No QEMU was left after
+any case.
+
 ## 6. Gate P table (measured 2026-10-05)
 
 QEMU 8.2.2 (Debian 1:8.2.2+ds-0ubuntu1.18), port 7990, one QEMU per row

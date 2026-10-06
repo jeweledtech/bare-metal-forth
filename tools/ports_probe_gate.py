@@ -7,7 +7,8 @@ listen (and on what address), next to what the probe says. With --measure
 it also prints every candidate bind, which is how the probe's rule was
 chosen. "Reaches" is observed: the gate connects to 127.0.0.1:P as the
 tests do and checks that QEMU owns the accepted connection. Exit 1 if the
-probe disagrees with "reaches" in any row.
+probe disagrees with "reaches" in any row, or if, for a listen form the
+tree still uses, QEMU starts but is not reached (a hijack) in any row.
 
 Run from the tree root. Starts one QEMU at a time, pidfile under
 build/ports-gate.d, killed by that pidfile. Port: GATE_PORT (default
@@ -28,6 +29,20 @@ FORMS = {
     'tcp:127.0.0.1:P': lambda p: ['-nic', 'none', '-monitor', f'tcp:127.0.0.1:{p},server=on,wait=off'],
     'listen=:P':       lambda p: ['-netdev', f'socket,id=n0,listen=:{p}', '-device', 'ne2k_pci,netdev=n0'],
 }
+
+
+def forms_in_use():
+    """QEMU listen forms that appear in the Makefile and tests/*.py."""
+    import glob, re
+    text = open('Makefile').read() + ''.join(open(f).read() for f in glob.glob('tests/*.py'))
+    use = set()
+    if re.search(r"tcp::[0-9$({]", text):
+        use.add('tcp::P')
+    if 'tcp:127.0.0.1:' in text:
+        use.add('tcp:127.0.0.1:P')
+    if 'listen=:' in text:
+        use.add('listen=:P')
+    return use
 
 
 def base():
@@ -181,8 +196,13 @@ def main():
     for hk, form, q_ok, q_detail, q_reach, pf, agree, agree_reach, cand in rows:
         c = (' ' + ', '.join(f'{k}={v}' for k, v in cand.items()) + ' |') if measure else ''
         print(f'| {hk} | `{form}` | {yn(q_ok)} | {q_detail} | {yn(q_reach)} | {yn(pf)} | {yn(agree) if agree else "**no**"} | {yn(agree_reach) if agree_reach else "**no**"} |' + c)
+    use = forms_in_use()
+    # a form in use where QEMU starts but the tests do not reach it is a hijack
+    hijack = [(r[0], r[1]) for r in rows if r[1] in use and r[2] != r[4]]
     print(f'rows={len(rows)} disagree_with_starts={sum(not r[6] for r in rows)} disagree_with_reaches={bad}')
-    sys.exit(1 if bad else 0)
+    print(f'forms in use: {sorted(use)}; starts-but-not-reached rows in a form in use: {len(hijack)}'
+          + ''.join(f'\n  HIJACK: holder {h}, form {f}' for h, f in hijack))
+    sys.exit(1 if bad or hijack else 0)
 
 
 if __name__ == '__main__':
