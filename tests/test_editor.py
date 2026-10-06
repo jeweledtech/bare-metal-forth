@@ -13,6 +13,8 @@ import sys
 import subprocess
 import os
 
+import serial as ser  # tests/serial.py: bounded reads ending at the prompt (4b)
+
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 4477
 
 PROJECT_DIR = os.path.dirname(os.path.dirname(
@@ -57,42 +59,19 @@ if ED_START is None:
     sys.exit(1)
 print(f"EDITOR blocks: {ED_START}-{ED_END}")
 
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.settimeout(10)
-
-for attempt in range(20):
-    try:
-        s.connect(('127.0.0.1', PORT))
-        break
-    except (ConnectionRefusedError, OSError):
-        time.sleep(0.5)
-else:
-    print("FAIL: Could not connect to QEMU on port", PORT)
-    sys.exit(1)
-
-time.sleep(2)
 try:
-    while True:
-        s.recv(4096)
-except Exception:
-    pass
+    s = ser.connect_and_sync(PORT, budget=60)
+except TimeoutError as e:
+    print(f"FAIL: connect: {e}")
+    sys.exit(1)
 
 
 def send(cmd, wait=1.0):
     """Send a Forth command and collect the response."""
-    s.sendall((cmd + '\r').encode())
-    time.sleep(wait)
-    s.settimeout(2)
-    resp = b''
-    while True:
-        try:
-            d = s.recv(4096)
-            if not d:
-                break
-            resp += d
-        except Exception:
-            break
-    return resp.decode('ascii', errors='replace')
+    # Ends at the guest's prompt (tests/serial.py); `wait` no longer sleeps,
+    # it widens the budget for commands that legitimately take long.
+    reply, _how = ser.send_until_prompt(s, cmd, budget=max(15.0, 5 * wait))
+    return reply
 
 
 def extract_number(text):

@@ -37,6 +37,8 @@ import socket
 import sys
 import time
 
+import serial as ser  # tests/serial.py: bounded reads ending at the prompt (4b)
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(ROOT)
 
@@ -130,19 +132,12 @@ if not entries:
     sys.exit(1)
 
 # ---- serial ----
-s = socket.socket()
-s.settimeout(10)
-for _ in range(20):
-    try:
-        s.connect(('127.0.0.1', PORT))
-        break
-    except OSError:
-        time.sleep(0.5)
-else:
-    check('serial connect', False, f'port {PORT}')
+try:
+    s = ser.connect_and_sync(PORT, budget=60)
+except TimeoutError as e:
+    check('serial connect', False, f'port {PORT}: {e}')
     print(f'\nPassed: {PASS}/{PASS + FAIL}')
     sys.exit(1)
-time.sleep(2)
 s.settimeout(2)
 
 
@@ -163,9 +158,10 @@ drain()
 
 
 def send(cmd, wait=0.4):
-    s.sendall((cmd + '\r').encode())
-    time.sleep(wait)
-    return drain()
+    # Ends at the guest's prompt (tests/serial.py); `wait` no longer sleeps,
+    # it widens the budget for commands that legitimately take long.
+    reply, _how = ser.send_until_prompt(s, cmd, budget=max(15.0, 5 * wait))
+    return reply
 
 
 check('system alive before sweep', '3' in send('1 2 + .', 1))
