@@ -179,8 +179,16 @@ second reading; the table carries both.
 | Normal run, exempt recipe | test-arm64-boot 40/40 in 355s (batch-3b baseline 40/40, 354s). |
 | Full `make -k test` | Only the known five red (xhci, pci-bar, doc-drift, translator, pipeline); MAKE_TEST_EXIT=2; no `PORT BUSY` and no "did not start" anywhere; tree `51ccbb0f`. |
 
-Not covered: UDP ports (test-log-harness-nic's `-netdev dgram` +47/+48)
-are outside a TCP probe; recorded, not gated.
+### Owed (owner, 2026-10-06; neither blocks the merge)
+
+1. **test-cortexm +62.** Its race case cannot be reached until cortexm's
+   Phase 2 failure is fixed (the test stops at "No kernel to boot",
+   1d74586), so the launch check on the ARM boot QEMU
+   (`wait_started(..., 'ARM boot', ...)`) is unverified. Rerun that one case,
+   `tools/ports_race_gate.py --mode race test-cortexm:+62`, when cortexm is
+   fixed.
+2. **test-log-harness-nic UDP +47/+48** (`-netdev dgram`) are outside the
+   TCP probe. Left for the LOG-HARNESS validation pass to decide.
 
 ## 7. Overlaps (recorded, left as they are)
 
