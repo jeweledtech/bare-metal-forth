@@ -130,4 +130,76 @@ if any (recorded, not fixed).
 
 ## 8. Results
 
-(filled as the steps land)
+### Step 0: what the guest sends (2026-10-06, QEMU 8.2.2, combined image)
+
+| Sent | Received (echo, then reply) | Last byte |
+|---|---|---|
+| `1 2 + .` | `...\r\n3 ok ` | 36 ms |
+| `5 DROP` (prints nothing) | `...\r\nok ` | 16 ms |
+| `NOSUCHWORD` | `...\r\nNOSUCHWORD ? \r\nok ` | 17 ms |
+| `: T1 1 ABORT" boom" ; T1` | `...\r\nboom\r\nok ` | 16 ms |
+| `: PROBE-TWO` (compile state) | `...\r\nok ` | 17 ms |
+| blank line | `\r\nok ` | 16 ms |
+| `979 983 THRU` (5 blocks) | `...\r\nok ` | 19 ms |
+| `WORDS` (2,264 bytes) | `... DROP \r\nok ` | 33 ms |
+| `20000000 SPIN 8 .` | 161 ms silent, then `8 ok ` | 176 ms |
+| `: look 2 ; look .` (`ok ` in the echo) | `...\r\n2 ok ` | 20 ms |
+| `: P3 ." a ok " CR ." b ok ok " CR ." c" ; P3` | ends `\r\ncok `; reply-so-far ended with `ok ` 3 times before the end | 52 ms |
+| `: P6 ." x ok " 60000000 SPIN ." y" ; P6` | `x ok ` then 0.481 s silent, then `yok ` | 502 ms |
+| `( c ) 9 .` | echo only, then nothing; see the finding below | - |
+
+Nothing arrived after the final `ok ` within 3 s in any case. Rule and limit:
+tests/serial.py `send_until_prompt` docstring (owner's N-prompts rule).
+`MS-DELAY` is not in the kernel and `MS-WAIT` needs `ALSO PIT-TIMER`; the
+busy loop stood in for a slow command.
+
+The `( c )` wedge: finding-serial-paren-comment-wedges-2026-10-06.md
+(queued as a kernel item).
+
+### B1: per target, 0bad084 (= 127baa3 + this plan), total 7,622 s
+
+Only the known five red (xhci, pci-bar, doc-drift, translator, pipeline).
+Top seven = 6,051 s (79%): test-install 2,087.7; test-vocabs 842.5;
+test-gui 710.3; test-firstboot 677.5; test-g6 611.4; test-squote-laydown
+567.5; test-survey 554.0. test-firstboot reports its own summary,
+`FIRSTBOOT (lan): 38/38 passed` and `FIRSTBOOT (offline): 38/38 passed`
+(76 checks), and passes on exit status (`sys.exit(0 if FAIL == 0 else 1)`).
+
+Short-list (owner, 2026-10-06), after test-install, in order: test-vocabs,
+test-gui, test-squote-laydown, test-firstboot, test-g6, test-survey; each
+one's share of time in `send` is measured and reported first, and it is
+dropped if the gain is small.
+
+### B2: test-install before the change
+
+2,087.7 s and 2,087.7 s (n=2; spread 0%, no third run). B1 also 2,087.7 s.
+
+### test-install (step 2)
+
+| Gate | Result |
+|---|---|
+| G1 | 972 commands traced before and after, 0 differing replies |
+| G2 | 454 checks before and after, 0 differing PASS/FAIL |
+| G3 | 972/972 reads ended at the prompt |
+| G4 | 2,087.7 s -> 337.8 / 337.9 / 337.8 s (n=3), 6.18x |
+| G5 | one SIGINT aimed in `poll`: KeyboardInterrupt, 0 s, nothing left |
+
+972 x the 0.3 s quiet window = 291.6 s, 86% of what is left. No exceptions
+(no read kept a fixed delay).
+
+### The eight bare-`except:` scripts no recipe runs, one run on master
+
+Fixture: the test-vocabs QEMU line (combined image, `-nic model=ne2k_pci`,
+serial on 127.0.0.1), fresh per script. All pass today, so each gets the
+fixture sweep case and its aimed red/green (step 4).
+
+| Script | Result | Time |
+|---|---|---|
+| test_catalog_registry.py | 4/4 | 59 s |
+| test_dump.py | 7/7 | 20 s |
+| test_ne2000.py | 7/7 | 58 s |
+| test_pci_enum.py | 7/7 | 47 s |
+| test_pit_timer.py | 8/8 | 50 s |
+| test_ps2_keyboard.py | 7/7 | 44 s |
+| test_ps2_mouse.py | 7/7 | 49 s |
+| test_vga_graphics.py | 7/7 | 63 s |
