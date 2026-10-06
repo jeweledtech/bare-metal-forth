@@ -65,7 +65,7 @@ KERNEL_FREE = $(BUILD)/kernel-free.bin
 
 # For tools/evidence-snapshot.sh: make expands its own variable
 # (continuations and all), so no external parser exists to drift.
-.PHONY: print-embed-vocabs
+.PHONY: print-embed-vocabs test-port-inventory
 print-embed-vocabs:
 	@echo $(EMBED_VOCABS)
 
@@ -959,6 +959,15 @@ test-make-wiring:
 	@echo "Running Makefile wiring gate..."
 	@python3 tests/test_make_wiring.py
 
+# QEMU port inventory drift check (TASK_PORT_REFUSAL_4C §3): the ports every
+# recipe and its scripts listen on, regenerated from the Makefile and
+# tests/*.py, must equal the committed tools/qemu_ports.json, and no serial
+# or monitor may use tcp::PORT (every interface). Regenerate with
+#   python3 tools/port_inventory.py > tools/qemu_ports.json
+test-port-inventory:
+	@echo "Running QEMU port inventory check..."
+	@python3 tools/port_inventory.py --check tools/qemu_ports.json
+
 # UBT LLM validation (single-binary, requires NVIDIA_API_KEY)
 # The driver corpus is read from CORPUS_ROOT and never copied into this repo.
 CORPUS_ROOT ?= $(HOME)/corpus
@@ -1075,7 +1084,7 @@ test-meta: $(COMBINED)
 #     its output as evidence, and it never gates a build.  If it must ever
 #     gate something, the gate goes on a deterministic artefact derived from
 #     it and pinned -- the treatment the Ghidra oracle already has.
-test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-squote-laydown test-install test-log-harness test-log-harness-nic test-vbr test-grub-cfg test-uefi-boot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-g6 test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
+test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-squote-laydown test-install test-log-harness test-log-harness-nic test-vbr test-grub-cfg test-uefi-boot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-g6 test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)

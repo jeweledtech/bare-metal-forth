@@ -1,0 +1,584 @@
+{
+ "test-abort": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 2,
+    "source": "Makefile:363"
+   }
+  ]
+ },
+ "test-ahci-write": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 75,
+    "source": "Makefile:867"
+   }
+  ]
+ },
+ "test-arm64-boot": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 50,
+    "source": "tests/test_arm64_boot.py:219"
+   },
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "monitor",
+    "offset": 51,
+    "source": "tests/test_arm64_boot.py:220"
+   },
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 52,
+    "source": "tests/test_arm64_boot.py:433"
+   }
+  ]
+ },
+ "test-block-reload": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 95,
+    "source": "tests/test_block_reload.py:174"
+   }
+  ]
+ },
+ "test-carrier-write-safe": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 79,
+    "source": "tests/test_carrier_write_safe.py:67"
+   }
+  ]
+ },
+ "test-cortexm": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 60,
+    "source": "tests/test_cortexm_boot.py:211"
+   },
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "monitor",
+    "offset": 61,
+    "source": "tests/test_cortexm_boot.py:213"
+   },
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 62,
+    "source": "tests/test_cortexm_boot.py:320"
+   }
+  ]
+ },
+ "test-dict-bounds": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 97,
+    "source": "Makefile:376"
+   }
+  ]
+ },
+ "test-file-stream": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 55,
+    "source": "Makefile:976"
+   }
+  ]
+ },
+ "test-firstboot": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 84,
+    "source": "Makefile:767"
+   },
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "monitor",
+    "offset": 85,
+    "source": "Makefile:767"
+   },
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 88,
+    "source": "Makefile:753"
+   },
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "monitor",
+    "offset": 89,
+    "source": "Makefile:753"
+   }
+  ]
+ },
+ "test-flush": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 50,
+    "source": "Makefile:824"
+   }
+  ]
+ },
+ "test-g6": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 95,
+    "source": "tests/test_g6_chain.py:553"
+   },
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "monitor",
+    "offset": 96,
+    "source": "tests/test_g6_chain.py:554"
+   }
+  ]
+ },
+ "test-gui": {
+  "test_fe_strip_cr": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 35,
+    "source": "Makefile:469"
+   }
+  ],
+  "test_gui_harvest": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 32,
+    "source": "Makefile:469"
+   }
+  ],
+  "test_stub_dispatch": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 30,
+    "source": "Makefile:469"
+   }
+  ],
+  "test_ui_core": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 31,
+    "source": "Makefile:469"
+   }
+  ],
+  "test_ui_events": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 34,
+    "source": "Makefile:469"
+   }
+  ],
+  "test_ui_parser": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 33,
+    "source": "Makefile:469"
+   }
+  ]
+ },
+ "test-install": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 3,
+    "source": "Makefile:544"
+   }
+  ]
+ },
+ "test-integration": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 20,
+    "source": "Makefile:600"
+   }
+  ]
+ },
+ "test-log-harness": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 45,
+    "source": "Makefile:521"
+   }
+  ]
+ },
+ "test-log-harness-nic": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 46,
+    "source": "Makefile:498"
+   }
+  ]
+ },
+ "test-loops": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 1,
+    "source": "Makefile:350"
+   }
+  ]
+ },
+ "test-memdisk": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 65,
+    "source": "tests/test_memdisk_blk_writer.py:73"
+   }
+  ]
+ },
+ "test-meta": {
+  "test_meta_b6": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 82,
+    "source": "tests/test_meta_b6.py:144"
+   }
+  ],
+  "test_meta_b6b": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 86,
+    "source": "tests/test_meta_b6b.py:202"
+   },
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "monitor",
+    "offset": 87,
+    "source": "tests/test_meta_b6b.py:203"
+   },
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 88,
+    "source": "tests/test_meta_b6b.py:379"
+   }
+  ],
+  "test_meta_boot": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 83,
+    "source": "tests/test_meta_boot.py:164"
+   },
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "monitor",
+    "offset": 84,
+    "source": "tests/test_meta_boot.py:165"
+   },
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 85,
+    "source": "tests/test_meta_boot.py:181"
+   }
+  ],
+  "test_meta_compile": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 81,
+    "source": "tests/test_meta_compile.py:150"
+   }
+  ],
+  "test_meta_does": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 90,
+    "source": "tests/test_meta_does.py:193"
+   },
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "monitor",
+    "offset": 91,
+    "source": "tests/test_meta_does.py:194"
+   },
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 92,
+    "source": "tests/test_meta_does.py:315"
+   }
+  ],
+  "test_metacompiler": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 80,
+    "source": "Makefile:1029"
+   }
+  ]
+ },
+ "test-network": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 40,
+    "source": "tests/test_ne2000_network.py:94"
+   },
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 41,
+    "source": "tests/test_ne2000_network.py:112"
+   },
+   {
+    "form": "listen=:P",
+    "kind": "netdev",
+    "offset": 140,
+    "source": "tests/test_ne2000_network.py:91"
+   }
+  ]
+ },
+ "test-pci-bar": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 87,
+    "source": "Makefile:680"
+   }
+  ]
+ },
+ "test-pci-typing": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 96,
+    "source": "Makefile:406"
+   }
+  ]
+ },
+ "test-phys-alloc": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 98,
+    "source": "Makefile:389"
+   }
+  ]
+ },
+ "test-smoke": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 0,
+    "source": "Makefile:339"
+   }
+  ]
+ },
+ "test-squote-laydown": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 98,
+    "source": "Makefile:784"
+   }
+  ]
+ },
+ "test-squote-laydown-backstop0": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 99,
+    "source": "Makefile:797"
+   }
+  ]
+ },
+ "test-survey": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 100,
+    "source": "tests/test_survey_layouts.py:185"
+   },
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 101,
+    "source": "tests/test_survey_layouts.py:185"
+   },
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 102,
+    "source": "tests/test_survey_layouts.py:185"
+   },
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 103,
+    "source": "tests/test_survey_layouts.py:185"
+   },
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 104,
+    "source": "tests/test_survey_layouts.py:185"
+   },
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 105,
+    "source": "tests/test_survey_layouts.py:185"
+   }
+  ]
+ },
+ "test-uefi2-gdt": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 77,
+    "source": "tests/test_uefi2_gdt.py:73"
+   },
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "monitor",
+    "offset": 78,
+    "source": "tests/test_uefi2_gdt.py:74"
+   }
+  ]
+ },
+ "test-vbr": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 8,
+    "source": "tests/test_vbr_boot.py:175"
+   },
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "monitor",
+    "offset": 9,
+    "source": "tests/test_vbr_boot.py:176"
+   }
+  ]
+ },
+ "test-vocabs": {
+  "test_catalog_complete": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 16,
+    "source": "Makefile:449"
+   }
+  ],
+  "test_disasm": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 13,
+    "source": "Makefile:449"
+   }
+  ],
+  "test_driver_vocabs": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 12,
+    "source": "Makefile:449"
+   }
+  ],
+  "test_echoport": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 15,
+    "source": "Makefile:449"
+   }
+  ],
+  "test_editor": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 10,
+    "source": "Makefile:449"
+   }
+  ],
+  "test_port_mapper": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 14,
+    "source": "Makefile:449"
+   }
+  ],
+  "test_x86_asm": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 11,
+    "source": "Makefile:449"
+   }
+  ]
+ },
+ "test-xhci": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "monitor",
+    "offset": 93,
+    "source": "Makefile:662"
+   },
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 94,
+    "source": "Makefile:662"
+   }
+  ]
+ }
+}
