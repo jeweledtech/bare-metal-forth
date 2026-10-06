@@ -45,6 +45,8 @@ PRISTINE = 'build/g6-disk-pristine.img'
 QEMU = 'qemu-system-i386'
 
 import qemu_pid  # tests/qemu_pid.py: pidfile-based QEMU cleanup
+
+import serial as ser  # tests/serial.py: bounded reads ending at the prompt (4b)
 G6_PIDFILE = qemu_pid.pidfile('g6')
 
 PASS = FAIL = 0
@@ -579,10 +581,10 @@ SER = None
 
 
 def send(cmd, wait=1.0):
-    SER.sendall((cmd + '\r').encode())
-    time.sleep(wait)
-    SER.settimeout(1)
-    return drain(SER).decode('ascii', errors='replace')
+    # Ends at the guest's prompt (tests/serial.py); `wait` no longer sleeps,
+    # it widens the budget for commands that legitimately take long.
+    reply, _how = ser.send_until_prompt(SER, cmd, budget=max(15.0, 5 * wait))
+    return reply
 
 
 def body_of(raw):
