@@ -270,12 +270,12 @@ def run_case(name, argv, pidfile, script, env_extra=None, ignore=False, wait_s=2
             os.kill(leftover, signal.SIGKILL)
         except OSError:
             pass
-    return head + res
     if fixture:
         try:
             os.remove(os.path.join(WT, pidfile))
         except OSError:
             pass
+    return head + res
 
 
 VOC = 'test_editor test_x86_asm test_driver_vocabs test_disasm test_port_mapper test_echoport test_catalog_complete'.split()
