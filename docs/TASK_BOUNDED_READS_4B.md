@@ -203,3 +203,85 @@ fixture sweep case and its aimed red/green (step 4).
 | test_ps2_keyboard.py | 7/7 | 44 s |
 | test_ps2_mouse.py | 7/7 | 49 s |
 | test_vga_graphics.py | 7/7 | 63 s |
+
+### test-vocabs, test-gui, test-squote-laydown, test-firstboot, test-g6, test-survey (step 3)
+
+Each one's share of time in `send` was measured first, from a traced run
+of the unchanged script under its recipe (the same trace is G1's "before").
+All six were kept: the share was large in each.
+
+| Target | Share in `send` | Before (B1, B2) | After (n=3) | Speedup | G1 | G2 | G3 | G5 |
+|---|---|---|---|---|---|---|---|---|
+| test-vocabs (7 fixtures) | 89.9% | 842.5, 842.5 s | 92.4, 92.4, 92.4 s | 9.12x | 206/208 identical; see note 1 | 102/102 | 208/208 | 7/7, 0 s |
+| test-gui (6 fixtures, private-owned) | 89.4% | 710.3, 710.3 s | 64.2, 64.1, 64.1 s | 11.08x | 138/138 | 60/60 | 138/138 | 6/6, 0 s |
+| test-squote-laydown | 97.8% | 567.5, 567.5 s | 59.8, 59.8, 59.9 s | 9.49x | 172/172 | 63/63 | 172/172 | 0 s |
+| test-firstboot (lan + offline) | 84.3% (keys 9.7%, mon 2.4%) | 677.5, 677.5 s | 159.0, 159.0, 159.2 s | 4.26x | 160/160 | 76/76 | 156 + 4 listed | 2/2, 0 s |
+| test-g6 | 59.5% (mon_cmd 9.4%) | 611.4, 611.5 s | 276.3, 276.4, 276.4 s | 2.21x | 58/58 | 77/77 | 58/58 | see note 2 |
+| test-survey | 78.2% | 554.0, 553.9 s | 150.3, 150.3, 150.2 s | 3.69x | 78/78 | 38/38 | 78/78 | 0 s |
+
+Note 1, test-vocabs G1: the two differing replies are test_port_mapper's
+`CMOS-DUMP` and `PIT-STATUS`. They differ only in the RTC seconds/minutes/
+hours bytes (CMOS 0x00/0x02/0x04) and the free-running PIT count. Two runs
+of the **unchanged** fixture differ in the same bytes (old vs old,
+observed), so this is live hardware state, not the change.
+
+Note 2, test-g6 G5: the aimed SIGINT was delivered at once
+(KeyboardInterrupt) but landed in `mon_cmd`'s monitor drain during GRUB
+polling, before any serial `send`. The process exits 13 s later, in g6's
+own atexit cleanup (close_channels, then qemu_kill's graceful monitor
+`quit`, kill_pidfile, sleep 1). The pre-4b SIGINT sweep measured the same
+13 s. The "0-1 s" criterion is not met, for a reason unrelated to `send`;
+a G5 aimed inside one of g6's sends would need a delayed-aim option in the
+sweep tool (not built).
+
+Scope notes: in test-g6 and test-survey only `send` changed; boot waits,
+GRUB polling, the monitor and `Session.__init__` are unchanged. In
+test-firstboot `keys()` (wizard keystrokes) and `mon()` (monitor) are
+unchanged.
+
+### Listed exceptions (§3d): reads that keep a fixed delay
+
+| Script | Call | Why (transcript) |
+|---|---|---|
+| test_firstboot.py | `send('FIRSTBOOT-RUN', 3, prompt=False)`, 2 call sites (4 calls per run) | it hands the keyboard to the wizard, which prints no `ok ` until it exits; the reply is the echo alone, `'FIRSTBOOT-RUN\r\n'`. Without it each call ran to the 15 s budget (G3 caught all 4). |
+
+No other read in any converted script keeps a fixed delay.
+
+### Step 4: the 13 bare-`except:` scripts
+
+26 sites in 13 scripts (10 were one-line `except: pass`); none left in any
+tracked .py. tools/sigint_sweep.py gained a fixture case kind for the eight
+that start no QEMU (they all passed on master first).
+
+- Red, before: one SIGINT aimed in `poll`, to the test only, SigIgn clear
+  shown first: all 13 swallowed it and ran to completion (14-225 s, no
+  traceback).
+- Green, after: all 13 died by KeyboardInterrupt in 0-1 s; nothing left.
+- Normal runs after match before: the eight 4/4, 7/7 x6, 8/8;
+  ahci_blk_reader 25/25, ahci_blk_writer 18/18, blk_writer_vector 14/15 and
+  persist_quick 6/10 (both known pre-existing reds).
+
+### Errors of mine during 4b, all caught before a commit
+
+- The first old-vs-old check for test-vocabs ran the wrong fixture
+  (driver_vocabs; the two commands are port_mapper's); discarded and rerun.
+- pipe.sh deleted the wrong trace file before an after-run, so firstboot's
+  second pass appended to the first; the comparison used the second pass's
+  own 160 records, and the script was fixed.
+- G2's check-line pattern missed firstboot's `PASS  1:` (two spaces); fixed;
+  the other targets' counts already matched their reported totals.
+
+### Step 5: full `make -k test` (e6c9aaf)
+
+Only the known five red (xhci, pci-bar, doc-drift, translator, pipeline);
+MAKE_TEST_EXIT=2; check-sync OK; no QEMU or pidfile left by the run. Every
+`Passed:` line equals the 4a full run's, except test-make-wiring 46 -> 47
+(4c's added target).
+
+**Wall time 2,709 s, against B1's 7,622 s: 2.81x, -64.5%.** (Full
+`make -k test` runs before 4b took the same as B1's per-target total, e.g.
+the 4a run, 7,622 s.)
+
+A tools/sigint_sweep.py bug found after the run: the fixture-pidfile
+cleanup sat after a `return` and never ran, leaving the step-4 sweeps'
+eight fixture pidfiles (dead PIDs) in build/sweep.d. Fixed and checked.
