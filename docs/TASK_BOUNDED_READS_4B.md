@@ -230,9 +230,9 @@ Note 2, test-g6 G5: the aimed SIGINT was delivered at once
 polling, before any serial `send`. The process exits 13 s later, in g6's
 own atexit cleanup (close_channels, then qemu_kill's graceful monitor
 `quit`, kill_pidfile, sleep 1). The pre-4b SIGINT sweep measured the same
-13 s. The "0-1 s" criterion is not met, for a reason unrelated to `send`;
-a G5 aimed inside one of g6's sends would need a delayed-aim option in the
-sweep tool (not built).
+13 s. The "0-1 s" criterion is not met, for a reason unrelated to `send`.
+Recorded as **pre-existing** (owner, 2026-10-06): no delayed-aim option is
+built to aim inside one of g6's sends.
 
 Scope notes: in test-g6 and test-survey only `send` changed; boot waits,
 GRUB polling, the monitor and `Session.__init__` are unchanged. In
