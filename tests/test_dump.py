@@ -12,7 +12,7 @@ time.sleep(1.5)
 try:
     while True:
         s.recv(4096)
-except:
+except Exception:
     pass
 
 def send(cmd, wait=1.5):
@@ -26,7 +26,7 @@ def send(cmd, wait=1.5):
             if not d:
                 break
             resp += d
-        except:
+        except Exception:
             break
     return resp.decode('ascii', errors='replace')
 

@@ -90,7 +90,7 @@ def conn():
     s.connect(('127.0.0.1', PORT))
     time.sleep(0.5)
     try: s.recv(4096)
-    except: pass
+    except Exception: pass
     return s
 
 def cmd(s, c, t=1.5):
@@ -103,7 +103,7 @@ def cmd(s, c, t=1.5):
             if not chunk:
                 break
             d += chunk
-    except: pass
+    except Exception: pass
     return d.decode('ascii', errors='replace')
 
 def main():

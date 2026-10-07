@@ -113,7 +113,7 @@ def wait_boot(s):
     while time.time() < deadline:
         try:
             seen += s.recv(4096)
-        except: pass
+        except Exception: pass
         if b'ok' in seen:
             return True
         time.sleep(0.5)
@@ -129,7 +129,7 @@ def cmd(s, c, t=1.5):
             if not chunk:
                 break
             d += chunk
-    except: pass
+    except Exception: pass
     return d.decode('ascii', errors='replace')
 
 def main():
