@@ -166,11 +166,28 @@ def run_case(name, argv, pidfile, script, env_extra=None, ignore=False, wait_s=2
     """argv: what the wrapper execs (['make', target, ...] or ['python3', 'tests/x.py', port])."""
     if tree_qemus():
         return f'{name}: NOT RUN (a tree QEMU is already running: {tree_qemus()})'
-    env = dict(os.environ, **(env_extra or {}))
-    try:
-        os.remove(os.path.join(WT, pidfile))
-    except OSError:
-        pass
+    env_extra = dict(env_extra or {})
+    fixture = env_extra.pop('_FIXTURE', False)
+    env = dict(os.environ, **env_extra)
+    if fixture:
+        # The script starts no QEMU: the harness starts the test-vocabs
+        # fixture line on the script's port, by pidfile, before the script.
+        port = int(argv[2])
+        fpf = os.path.join(WT, pidfile)
+        os.makedirs(os.path.dirname(fpf), exist_ok=True)
+        subprocess.run(['cp', 'build/combined.img', 'build/combined-ide.img'], check=True, cwd=WT)
+        r = subprocess.run(['qemu-system-i386', '-drive', 'file=build/combined.img,format=raw,if=floppy',
+                            '-drive', 'file=build/combined-ide.img,format=raw,if=ide,index=1',
+                            '-nic', 'model=ne2k_pci', '-serial', f'tcp:127.0.0.1:{port},server=on,wait=off',
+                            '-display', 'none', '-daemonize', '-pidfile', fpf], capture_output=True, cwd=WT)
+        if r.returncode != 0:
+            return f'{name}: NOT RUN (fixture QEMU did not start: {r.stderr.decode().strip()[-120:]})'
+        time.sleep(2)
+    if not fixture:
+        try:
+            os.remove(os.path.join(WT, pidfile))
+        except OSError:
+            pass
     LOG = f"{S}/{name.replace('/', '__')}.log"
     log = open(LOG, 'w')
     pr = subprocess.Popen([sys.executable, '-c', LAUNCH_IGN if ignore else LAUNCH_DFL] + argv,
@@ -239,7 +256,9 @@ def run_case(name, argv, pidfile, script, env_extra=None, ignore=False, wait_s=2
     tst = ('' if not test or test == lead else
            (f'test exit after {t_test:.0f}s; ' if t_test is not None else f'test STILL ALIVE 120s after make (!); '))
     res = (f' -> SIGINT{" (CONTROL, ignored)" if ignore else ""}: launcher exit {rc} after {dt:.0f}s; ' + tst +
-           f'QEMU {"gone" if not alive(q) else "LEFT(!)"}; pidfile {"LEFT(!)" if left_pf else "gone"}; '
+           (f'fixture QEMU (harness-owned) {"alive, stopped by the harness" if alive(q) else "gone"}; '
+            if fixture else
+            f'QEMU {"gone" if not alive(q) else "LEFT(!)"}; pidfile {"LEFT(!)" if left_pf else "gone"}; ') +
            f'tree QEMU={tree_qemus()}; {cause}' + (f'; {passed[0]}' if passed else ''))
     if test and alive(test):
         try:
@@ -252,6 +271,11 @@ def run_case(name, argv, pidfile, script, env_extra=None, ignore=False, wait_s=2
         except OSError:
             pass
     return head + res
+    if fixture:
+        try:
+            os.remove(os.path.join(WT, pidfile))
+        except OSError:
+            pass
 
 
 VOC = 'test_editor test_x86_asm test_driver_vocabs test_disasm test_port_mapper test_echoport test_catalog_complete'.split()
@@ -308,6 +332,12 @@ CASES = [
         ('test_asm_vocab', 'asm-vocab', BASE + 64), ('test_blk_writer_vector', 'blk-writer-vector', BASE + 66),
         ('test_persist_quick', 'persist-quick', BASE + 67), ('test_shutdown', 'shutdown', BASE + 68),
         ('test_mft_bounds', 'mft-bounds', BASE + 69))],
+    # bare-except scripts that start no QEMU (4b step 4): the harness starts the
+    # test-vocabs fixture line for them
+    *[(f'fixture/{s}', ['python3', f'tests/{s}.py', str(BASE + 150 + i)], f'{SWEEP_DIR}/fixture-{s}.pid', f'{s}.py',
+       {'_FIXTURE': True}, False) for i, s in enumerate((
+        'test_catalog_registry', 'test_dump', 'test_ne2000', 'test_pci_enum',
+        'test_pit_timer', 'test_ps2_keyboard', 'test_ps2_mouse', 'test_vga_graphics'))],
 ]
 
 if __name__ == '__main__':
