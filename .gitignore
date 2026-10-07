@@ -101,6 +101,9 @@ forth/dict/target-cortex-m.fth
 forth/dict/log-harness.fth
 tests/test_log_harness.py
 tests/test_log_harness_nic.py
+tests/test_log_validation.py
+tools/log_decode.py
+tools/log_hp_dryrun.py
 
 # Paid tests
 tests/test_ahci_write.py
