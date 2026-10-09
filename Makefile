@@ -708,7 +708,9 @@ test-pci-bar: $(COMBINED)
 # by pidfile: no orphan, no held image lock. Derive each from the recipe's
 # observed pass time with headroom; tune here, one greppable place.
 T_XHCI ?= 120
-T_PCI_BAR ?= 90
+# pci-bar: about 2x observed (2026-10-08): 223s, 224s and 223s in three
+# runs on two builds; 16/16 on both builds at a 300s budget.
+T_PCI_BAR ?= 450
 
 # QEMU_KILL — shared teardown for every daemonized test recipe: kill the PID
 # in this recipe's pidfile (never a name pattern, which reaches other trees
