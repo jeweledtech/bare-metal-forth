@@ -267,6 +267,39 @@ VARIABLE CF-BLK
   REPEAT
   FALSE ;
 
+\ ---- Already in the dictionary? ----
+\ TRUE if the FORTH chain holds a
+\ vocabulary word of this name: an
+\ embedded or loaded vocab is not
+\ compiled again. Walked directly: kernel
+\ FIND reads the word buffer, not its
+\ argument. Vocabulary word = code field
+\ is DOVOC's (any vocab's code field).
+28048 CONSTANT FORTH-LATEST
+' CATALOG-RESOLVER @ CONSTANT DOVOC-CODE
+VARIABLE VP-A
+VARIABLE VP-L
+
+: HDR-CFA ( hdr -- cfa )
+    DUP 4 + C@ 3F AND SWAP 5 + +
+    3 + -4 AND ;
+
+: VOCAB-PRESENT? ( addr len -- flag )
+    VP-L ! VP-A !
+    FORTH-LATEST @
+    BEGIN DUP WHILE
+        DUP 4 + C@ DUP 40 AND 0=
+        SWAP 3F AND VP-L @ = AND IF
+            DUP 5 + VP-L @ VP-A @ VP-L @
+            STR= IF
+                DUP HDR-CFA @ DOVOC-CODE = IF
+                    DROP TRUE EXIT
+                THEN
+            THEN
+        THEN
+        @
+    REPEAT ;
+
 \ ---- Core vocab loading (recursive) ----
 \ Defined BEFORE RESOLVE-DEPS so it can
 \ be referenced. Uses 'RESOLVE-DEPS
@@ -274,6 +307,10 @@ VARIABLE CF-BLK
 : LOAD-VOCAB-INNER  ( addr len -- )
     2DUP LOADING-PUSH 0= IF
         DROP DROP EXIT
+    THEN
+    2DUP VOCAB-PRESENT? IF
+        2DUP TYPE SPACE ." present, skipped" CR
+        DROP DROP LOADING-POP EXIT
     THEN
     2DUP CATALOG-FIND IF
         CATALOG-MEM @ IF
@@ -305,7 +342,10 @@ CREATE RD-BUF 42 ALLOT
         RD-BUFP @ I 40 * +
         DUP 40 + SWAP
         FALSE
-        2 PICK 40 + 2 PICK DO
+        \ This line only: end + 40 also
+        \ scanned the next line, so each
+        \ REQUIRES was found twice.
+        2 PICK 2 PICK DO
             I     C@ 52 = IF
             I 1 + C@ 45 = IF
             I 2 + C@ 51 = IF
