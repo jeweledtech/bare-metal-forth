@@ -79,9 +79,15 @@ HEADER = equ('BOOT_SECTOR_SIZE') + equ('KERNEL_PADDED_SIZE')
 STRAY = DATA + 0x720 * BSIZE
 SENTINEL = 0x5AA5C33C
 
+# The test's blocks: the image's last 64 (35 used), past the code store,
+# so no packed source is involved even on the IDE scratch copy.  Derived,
+# with a fatal control below that the catalog really ends before them.
+NBLK = (os.path.getsize(COMBINED) - HEADER) // BSIZE
+B0 = NBLK - 64
+
 
 def PAT(b):
-    return 0x30 + (b - 2000)
+    return 0x30 + (b - B0)
 
 
 failures = []
@@ -99,6 +105,14 @@ def check(label, cond, detail='', fatal=False):
             sys.exit(2)
 
 
+_lay = subprocess.run([sys.executable, os.path.join(os.path.dirname(ASM), '..', '..',
+                                                   'tools', 'catalog_layout.py')],
+                      capture_output=True, text=True).stdout.splitlines()
+_ends = [int(p[2]) for p in (l.split() for l in _lay)
+         if len(p) == 3 and p[1].isdigit() and p[2].isdigit()]
+check(f'C0 test blocks {B0}-{B0 + 34} lie past the code store (ends {max(_ends, default=None)}) '
+      f'and inside the image ({NBLK} blocks)',
+      bool(_ends) and max(_ends) < B0 and B0 + 34 < NBLK, fatal=True)
 shutil.copyfile(COMBINED, FLOPPY)
 shutil.copyfile(COMBINED, IDE)
 IDE_BEFORE = open(IDE, 'rb').read()
@@ -169,19 +183,19 @@ try:
     send('0 WN ! EMPTY-BUFFERS')
 
     # --- L: LRU ---
-    for b in (2000, 2001, 2002, 2003, 2000, 2001, 2003, 2004):
+    for b in [B0 + i for i in (0, 1, 2, 3, 0, 1, 3, 4)]:
         send(f'DECIMAL {b} BLOCK DROP')
     h, cur = headers()
     blocks = [b for b, _ in h]
-    check('L1 LRU: the untouched slot (2002) is replaced by 2004',
-          blocks == [2000, 2001, 2004, 2003], f'(slots {blocks})')
+    check('L1 LRU: the untouched slot (B0+2) is replaced by B0+4',
+          blocks == [B0, B0 + 1, B0 + 4, B0 + 3], f'(slots {blocks}, B0 {B0})')
 
     # --- S: eviction whose flush succeeds (fixture writer, ior 0) ---
     send("' FIXW BLK-WRITER! EMPTY-BUFFERS 0 WN !")
-    for b in (2005, 2006, 2007, 2008):
+    for b in range(B0 + 5, B0 + 9):
         send(fills(b))
-    send('DECIMAL 2005 BLOCK DROP')
-    send(fills(2009))
+    send(f'DECIMAL {B0 + 5} BLOCK DROP')
+    send(fills(B0 + 9))
     h, cur = headers()
     sb = slot_bytes()
     ev = wlog()
@@ -194,14 +208,14 @@ try:
           len(ev) == 1 and ev[0][1] == PAT(ev[0][0]), f'(writes {ev})')
     send('SAVE-BUFFERS')
     ws = wlog()
-    want = sorted((b, PAT(b)) for b in range(2005, 2010))
-    check('S4 after SAVE-BUFFERS, 2005-2009 each written once with its own bytes',
+    want = sorted((b, PAT(b)) for b in range(B0 + 5, B0 + 10))
+    check('S4 after SAVE-BUFFERS, B0+5..B0+9 each written once with its own bytes',
           sorted(ws) == want, f'(writes {ws})')
 
     # --- R: refusing writer ---
-    send(f'EMPTY-BUFFERS 0 WN ! DECIMAL 2014 REFUSE ! HEX {SENTINEL:X} {STRAY:X} ! DECIMAL')
+    send(f'EMPTY-BUFFERS 0 WN ! DECIMAL {B0 + 14} REFUSE ! HEX {SENTINEL:X} {STRAY:X} ! DECIMAL')
     curs, sents, fails = [], [], []
-    for b in range(2010, 2026):
+    for b in range(B0 + 10, B0 + 26):
         body = send(fills(b) + ' SAVE-BUFFERS')
         fails += [int(x) for x in re.findall(r'BLOCK WRITE FAIL (\d+)', body)]
         v = nums(send(f'HEX {CUR:X} @ . {STRAY:X} @ . DECIMAL'), 16)
@@ -216,24 +230,25 @@ try:
     got = {}
     for b, byte in ws:
         got.setdefault(b, []).append(byte)
-    others = {b: got.get(b, []) for b in range(2010, 2026) if b != 2014}
+    others = {b: got.get(b, []) for b in range(B0 + 10, B0 + 26) if b != B0 + 14}
     bad = {b: v for b, v in others.items() if v != [PAT(b)]}
-    check('R3 every block but 2014 reaches the writer exactly once, own bytes',
+    check('R3 every block but B0+14 reaches the writer exactly once, own bytes',
           not bad, f'(wrong: {bad})')
-    # 2014 lands in slot 0 and stays dirty: refused by the SAVE-BUFFERS of
+    # B0+14 lands in slot 0 and stays dirty: refused by the SAVE-BUFFERS of
     # its own step and of the three steps that fill slots 1-3, then once
-    # more when 2018 evicts it (slot 0 is then least recently used): 5.
-    check('R4 2014 refused 5 times, named 5 times, nothing else named',
-          got.get(2014) == [PAT(2014)] * 5 and fails == [2014] * 5,
-          f'(writer saw 2014 {len(got.get(2014, []))}x; FAIL lines {fails})')
+    # more when B0+18 evicts it (slot 0 is then least recently used): 5.
+    R = B0 + 14
+    check('R4 B0+14 refused 5 times, named 5 times, nothing else named',
+          got.get(R) == [PAT(R)] * 5 and fails == [R] * 5,
+          f'(writer saw {R} {len(got.get(R, []))}x; FAIL lines {fails})')
     check('R5 DEPTH 0', nums(send('DEPTH .')) == [0])
 
     # --- A: the real ATA writer, eviction that succeeds ---
     send("' (BLK-WRITE-ATA) BLK-WRITER! EMPTY-BUFFERS")
-    for b in (2030, 2031, 2032, 2033):
+    for b in range(B0 + 30, B0 + 34):
         send(fills(b))
-    send('DECIMAL 2030 BLOCK DROP')
-    send(fills(2034))
+    send(f'DECIMAL {B0 + 30} BLOCK DROP')
+    send(fills(B0 + 34))
     h, cur = headers()
     sb = slot_bytes()
     check('A1 BLK_BUF_CUR in 0-3 after an ATA eviction', 0 <= cur < NBUF,
@@ -250,13 +265,13 @@ finally:
 time.sleep(0.5)
 after = open(IDE, 'rb').read()
 bad = []
-for b in range(2030, 2035):
+for b in range(B0 + 30, B0 + 35):
     blk = after[HEADER + b * BSIZE:HEADER + (b + 1) * BSIZE]
     if blk != bytes([PAT(b)]) * BSIZE:
         bad.append((b, sorted(set(blk))[:4]))
-check('A3 on disk, blocks 2030-2034 each hold their own bytes', not bad,
+check('A3 on disk, blocks B0+30..B0+34 each hold their own bytes', not bad,
       f'(wrong: {bad})')
-lo, hi = HEADER + 2030 * BSIZE, HEADER + 2035 * BSIZE
+lo, hi = HEADER + (B0 + 30) * BSIZE, HEADER + (B0 + 35) * BSIZE
 check('A4 the rest of the IDE copy is unchanged',
       after[:lo] == IDE_BEFORE[:lo] and after[hi:] == IDE_BEFORE[hi:])
 

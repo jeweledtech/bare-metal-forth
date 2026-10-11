@@ -194,10 +194,12 @@ run-serial: $(ACTIVE_IMAGE)
 VOCAB_SOURCES := $(wildcard forth/dict/*.fth) \
                  $(wildcard ../forthos-vocabularies/forth/dict/*.fth)
 
-# Create blank 2MB blocks disk (2048 x 1K blocks)
+# Create blank 2.5MB blocks disk (2560 x 1K blocks): code store above the
+# 320-block MIRROR reservation (216-535) ends past block 2048
+BLOCKS_COUNT = 2560
 $(BLOCKS): | $(BUILD)
-	dd if=/dev/zero of=$(BLOCKS) bs=1024 count=2048
-	@echo "Block disk created: $(BLOCKS) (2MB, 2048 blocks)"
+	dd if=/dev/zero of=$(BLOCKS) bs=1024 count=$(BLOCKS_COUNT)
+	@echo "Block disk created: $(BLOCKS) (2.5MB, $(BLOCKS_COUNT) blocks)"
 blocks: $(BLOCKS)
 
 # Stamp file proves the catalog has been written into $(BLOCKS)
@@ -212,6 +214,10 @@ blocks: $(BLOCKS)
 # far worse attribution.
 $(BUILD)/.catalog.stamp: $(BLOCKS) $(VOCAB_SOURCES) tools/write-catalog.py $(VBR)
 	@echo "Populating catalog into $(BLOCKS)..."
+	@# Zeroed first, every time: write-catalog writes only the blocks it
+	@# places, so a reused image kept old source in reserved ranges and its
+	@# old size; the image now depends on the sources, not on build history.
+	dd if=/dev/zero of=$(BLOCKS) bs=1024 count=$(BLOCKS_COUNT) 2>/dev/null
 	$(MAKE) write-catalog && touch $@
 
 # Run with block storage attached (combined image)
@@ -443,7 +449,20 @@ META_FIXTURES_ALL = test_metacompiler:80 test_meta_compile:81 test_meta_b6:82 \
 META_FIXTURES ?= test_metacompiler test_meta_compile test_meta_b6 \
                  test_meta_boot test_meta_b6b test_meta_does
 
-test-vocabs: $(COMBINED)
+# MIRROR gate (TASK_MIRROR_FIX): refusals naming every overlap, honest
+# failure, readback through the persistent reader, LOOKINGGLASS after a
+# reboot, on scratch copies with the ATA writer and on the HP-549 fixture
+# with AHCI-RW (SKIPPED without ahci.fth).  It launches its own QEMUs (two
+# configurations and a reboot), so it is its own recipe; test-vocabs
+# depends on it.
+test-mirror: $(COMBINED)
+	@QPIDDIR=$(BUILD)/test-mirror.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
+	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-mirror --base $(TEST_PORT_BASE); \
+	echo "Running MIRROR test..."; \
+	PORT=$$(($(TEST_PORT_BASE)+67)); \
+	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_MIRROR) python3 tests/test_mirror.py $$PORT $(COMBINED)
+
+test-vocabs: $(COMBINED) test-mirror
 	@cp $(COMBINED) $(COMBINED_IDE)
 	@echo "Running vocabulary tests..."
 	@$(VOCABS_KILL_ALL); \
@@ -816,6 +835,7 @@ T_NETWORK ?= 900
 T_G6 ?= 1200
 T_BLOCK_RELOAD ?= 150
 T_BLK_EVICT ?= 150
+T_MIRROR ?= 150
 T_ARM64_BOOT ?= 720
 T_CORTEXM ?= 600
 test-firstboot: $(COMBINED)
@@ -1176,7 +1196,7 @@ test-meta: $(COMBINED)
 #     its output as evidence, and it never gates a build.  If it must ever
 #     gate something, the gate goes on a deterministic artefact derived from
 #     it and pinned -- the treatment the Ghidra oracle already has.
-test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-vbr test-grub-cfg test-uefi-boot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
+test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-vbr test-grub-cfg test-uefi-boot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-mirror test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)
@@ -1261,4 +1281,4 @@ grub-net: $(COMBINED) tools/pxe/grub.cfg
 pxe-push-grub: grub-net
 	@bash tools/pxe/push-grub.sh
 
-.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined usb-image check-coverage desk-hashes check-kernel-size test test-blk-evict test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-grub-cfg test-g6
+.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined usb-image check-coverage desk-hashes check-kernel-size test test-blk-evict test-mirror test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-grub-cfg test-g6

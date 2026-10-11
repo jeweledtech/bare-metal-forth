@@ -95,6 +95,10 @@ SETTINGS_RESERVED = range(192, 208)   # 16 blocks: settings + headroom
 SET_BLK = 199                         # settings.fth SET-BLK constant
 TELEMETRY_RESERVED = range(208, 216)  # 8 blocks: log-harness ring persistence
 LOG_BLK = 208                         # log-harness.fth LOG-BLOCK-FIRST constant
+MIRROR_RESERVED = range(216, 536)     # 320 blocks: one MIRROR image (header +
+                                      # the largest dictionary, 0x30000-0x7F800 =
+                                      # 318 blocks, + 1 spare); TASK_MIRROR_FIX
+MIRROR_BLK = 216                      # mirror.fth MIRROR-BLK constant
 HP_WRITE_CEILING = 910                # blocks 0-910 writable on HP (LBA < 2048)
 
 
@@ -149,7 +153,7 @@ def place_vocab(next_block, num_blocks):
     Reserved ranges are expected to be sorted and non-overlapping; we skip
     past each in turn so a vocab wider than one gap still lands cleanly."""
     start = next_block
-    for reserved in (SETTINGS_RESERVED, TELEMETRY_RESERVED):
+    for reserved in (SETTINGS_RESERVED, TELEMETRY_RESERVED, MIRROR_RESERVED):
         end = start + num_blocks - 1
         if start < reserved.stop and end >= reserved.start:
             start = reserved.stop
@@ -167,10 +171,14 @@ def check_reservation(vocabs, layout):
         ceiling (the settings data store is reachable through the guard).
     (3) LOG_BLK lies inside TELEMETRY_RESERVED AND at or below the HP
         write ceiling (the telemetry data store is reachable).
+    (4) MIRROR_BLK is MIRROR_RESERVED's first block and the whole range
+        lies at or below the HP write ceiling (every image block is
+        reachable through the guard).
     """
     reserved_ranges = [
         ('settings', SETTINGS_RESERVED),
         ('telemetry', TELEMETRY_RESERVED),
+        ('MIRROR', MIRROR_RESERVED),
     ]
     for v in vocabs:
         s = layout[v['name']]
@@ -186,6 +194,13 @@ def check_reservation(vocabs, layout):
         print(f"ERROR: LOG_BLK={LOG_BLK} outside reserved range "
               f"{TELEMETRY_RESERVED.start}-{TELEMETRY_RESERVED.stop - 1} "
               f"or above write ceiling {HP_WRITE_CEILING}.",
+              file=sys.stderr)
+        sys.exit(1)
+    if MIRROR_BLK != MIRROR_RESERVED.start or \
+            MIRROR_RESERVED.stop - 1 > HP_WRITE_CEILING:
+        print(f"ERROR: MIRROR_BLK={MIRROR_BLK} is not the first block of "
+              f"{MIRROR_RESERVED.start}-{MIRROR_RESERVED.stop - 1}, or the "
+              f"range ends above write ceiling {HP_WRITE_CEILING}.",
               file=sys.stderr)
         sys.exit(1)
     if SET_BLK not in SETTINGS_RESERVED or SET_BLK > HP_WRITE_CEILING:
@@ -372,10 +387,13 @@ def main():
         print(f"  Blocks {TELEMETRY_RESERVED.start}-"
               f"{TELEMETRY_RESERVED.stop - 1}: (reserved: telemetry, "
               f"LOG-BLK={LOG_BLK})")
+        print(f"  Blocks {MIRROR_RESERVED.start}-"
+              f"{MIRROR_RESERVED.stop - 1}: (reserved: MIRROR image, "
+              f"MIRROR-BLK={MIRROR_BLK})")
     for v in vocabs:
         start = layout[v['name']]
         end = start + v['blocks_needed'] - 1
-        if not reservations_printed and start >= TELEMETRY_RESERVED.stop:
+        if not reservations_printed and start >= MIRROR_RESERVED.stop:
             _print_reservations()
             reservations_printed = True
         if start == end:

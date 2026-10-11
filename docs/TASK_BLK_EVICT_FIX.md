@@ -154,3 +154,9 @@ blocks.img (2,048 blocks); only the IDE scratch copy is written.
   inventory 0 problems; kill traps 34/34; make-wiring 52/52; check-sync
   OK. The corpus-absent gate's three refusals are its expected output
   (same three in the layout-refactor baseline).
+
+Later change (MIRROR task, 2026-10-11): the code store moved up 320
+blocks, so blocks 2000-2034 became code store. The test now takes its
+35 blocks from the image's last 64 (2496-2530 in the 2,560-block image)
+and checks, as fatal control C0, that the catalog ends below them: 18
+checks.

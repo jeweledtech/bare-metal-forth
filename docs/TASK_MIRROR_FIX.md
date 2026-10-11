@@ -216,3 +216,80 @@ block is named exactly once (MIRROR no longer goes through the cache).
   line for the owner.
 - Order (ruled): kernel task (TASK_BLK_EVICT_FIX.md) -> MIRROR red ->
   fix -> gates -> report; one HP stick rebuild after both.
+
+## 5. Results (2026-10-11)
+
+Red on the fixed kernel (`fb505bf9`), predictions frozen first (revision
+2, after the owner's M1/M2 rulings: names derived from catalog_layout,
+every overlap required):
+
+- **20/35 against 22/35 predicted.** All 13 predicted reds came out red
+  (M6a-d, M1a, M1b, M3a, M4a, M2a, M2b, M4f, M4i, M4j).
+- In M3 the kernel named the refused block 221 five times, then MIRROR
+  printed "saved".
+- **Misses: M5b, M5c.** LOOKINGGLASS hangs after a reboot. The cause was
+  traced and observed: the restore loop's `OVER` reads below the stack
+  (finding-test-mirror-stale, "LOOKINGGLASS never worked"). M5 became a
+  real red, fixed here.
+- **Two runs were void, both instrument faults.** They are logged, and
+  no prediction moved:
+  - The load control expected the file's closing `."` banner, which
+    prints nothing when block-loaded.
+  - The MIRROR-BLK probe ran `.` after an undefined word. The rest of
+    the line still ran and underflowed the stack (its own finding).
+
+The fix, as built:
+
+- **write-catalog:**
+  - `MIRROR_RESERVED = range(216, 536)` and `MIRROR_BLK = 216`, placed,
+    checked and printed like settings and telemetry.
+  - The code store moved up 320 blocks and now ends at block 2266.
+- **blocks.img:**
+  - Grows to 2,560 blocks (`BLOCKS_COUNT`).
+  - It is zeroed before every catalog write. Before, a reused image kept
+    old source in reserved ranges, and kept its old size.
+- **Kernel:** `DISCARD-BLOCK ( blk -- )` drops one cached block without
+  writing it.
+- **ahci.fth** (both trees): `PG-WHICH ( lba -- first last -1 | 0 )`.
+  Refuse-all answers 0-7FFFFFFF.
+- **mirror.fth:**
+  - New constants `MIRROR-BLK`/`MIRROR-END`.
+  - Refusals come before any write, in this order:
+    1. size: an image starting inside 216-535 must end inside it;
+    2. the AHCI writer is active but has no `PG-WHICH` (looked up by name
+       on every call, never kept);
+    3. every overlap: each vocabulary in the catalog, each reserved data
+       range (settings, telemetry, and MIRROR's own range when the image
+       starts outside it), and each partition, all named in one
+       `MIRROR REFUSED: blocks a-b overlap ...` line.
+  - Then the range's cached buffers are discarded and each block is
+    written through `BLK-WRITER@`. The result is "saved" only if every
+    write succeeded, else `MIRROR FAILED: n of m blocks not written
+    (first b)`.
+  - `MIRROR?`, `MIRROR-INFO` and `LOOKINGGLASS` read through
+    `PBLK-READ`.
+  - LOOKINGGLASS reads each block into a kernel block buffer and checks
+    the whole image first (`DUP`, not `OVER`).
+  - The file now ends with `ONLY FORTH DEFINITIONS`.
+- **Kernel content:** 112,137 B, so 2,551 B are left. That is +259 B of
+  embedded stream for `PG-WHICH` and +64 B for `DISCARD-BLOCK`.
+
+Gates:
+
+- **tests/test_mirror.py: 36/36** (`38671d92…`).
+  - M2a was strengthened per the owner's ruling to require the settings,
+    telemetry and MIRROR reservations too. It was red first on the
+    previous image (35/36, the three names missing), then green.
+  - M6e checks mirror.fth's reserved ranges against write-catalog's.
+  - M3c compares the M3 and M4 images outside MIRROR's own state cells
+    (MIR-BUF and its MR- variables, addresses asked of the guest). For
+    the old MIRROR that is the same as the old check.
+- **`make test-mirror`:** 30.0 s measured; `T_MIRROR` is 150 s (5x). It
+  is in `test:` and is a prerequisite of test-vocabs (it launches its
+  own QEMUs, so it can't be a test-vocabs fixture). Port +67.
+- **test_blk_evict:** its blocks now come from the image's last 64,
+  past the moved code store, with a fatal control C0: 18/18.
+- **Installer and installed boot:** unaffected by the bigger image.
+  INSTALL writes `KERNEL-SECTORS` (224, the same as boot.asm and
+  vbr.asm) plus the VBR and no block store; the installed VBR reads
+  those 224 sectors. Stick tools are size-agnostic.

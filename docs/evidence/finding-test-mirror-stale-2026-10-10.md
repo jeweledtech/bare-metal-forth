@@ -104,3 +104,28 @@ writer) or destructive (any real writer). Options:
 - give the test its own writable scratch disk and an installed writer, so
   it exercises a real write without touching packed source;
 - then wire it into test-vocabs.
+
+## LOOKINGGLASS never worked (red run, 2026-10-11)
+
+The MIRROR fix's red run (tests/test_mirror.py M5, prediction written
+first) was the first test ever to run LOOKINGGLASS. After a reboot on
+the same disk, `216 LOOKINGGLASS` hung with no output. Predicted to work
+(a characterization case); the hang was the named alternative.
+
+- A probe, its prediction also written first, excluded stale state.
+  Boot 2's dictionary equals the image except MIRROR's staging buffer
+  and the words compiled after it. Copying the image back one block per
+  typed line finished, with the console alive.
+- Cause, observed: the restore loop ran `OVER 1+ I + BLOCK` with only
+  block# on the data stack (the `DO` had consumed the count and 0).
+  `OVER` read the cell below block#, past the bottom of an empty stack,
+  and `BLOCK` was asked for a garbage block. With a second `216`
+  underneath, `216 216 LOOKINGGLASS` restored and the word defined
+  before MIRROR answered 4242.
+- No prior record (memory, both repositories' docs, git log). The
+  defect has been there since the vocabulary landed (816ae4e). The March
+  test never called LOOKINGGLASS.
+- Fixed in the MIRROR task: `DUP`. LOOKINGGLASS also now reads through
+  the persistent reader, into a kernel block buffer outside the
+  dictionary it overwrites, and checks that every block is readable
+  before it restores anything.

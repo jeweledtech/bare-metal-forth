@@ -2950,6 +2950,25 @@ DEFCODE "EMPTY-BUFFERS", EMPTYBUFFERS, 0
     jnz .clear_loop
     NEXT
 
+; DISCARD-BLOCK - ( blk# -- ) Drop block blk#'s buffer if cached, dirty or
+; not, without writing it: a later BLOCK reads the medium again. For a
+; caller that has just written blk# around the cache (MIRROR writes
+; through the vector), so no stale copy is read or flushed over it.
+DEFCODE "DISCARD-BLOCK", DISCARDBLOCK, 0
+    pop eax
+    mov edi, BLK_BUF_HEADERS
+    mov ecx, BLK_NUM_BUFFERS
+.scan:
+    cmp [edi], eax
+    jne .next
+    mov dword [edi], 0xFFFFFFFF     ; block# = invalid
+    mov dword [edi + 4], 0          ; flags = 0
+.next:
+    add edi, BLK_HEADER_SIZE
+    dec ecx
+    jnz .scan
+    NEXT
+
 ; FLUSH - ( -- ) Save all dirty buffers then discard them
 DEFWORD "FLUSH", FLUSH, 0
     dd SAVEBUFFERS

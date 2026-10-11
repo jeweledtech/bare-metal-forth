@@ -4,21 +4,32 @@
 \ PLATFORM: x86
 \ SOURCE: hand-written
 \ CONFIDENCE: high
+\ REQUIRES: CATALOG-RESOLVER ( VOC-WORD )
 \ ============================================
 \
 \ Execution context serialization.
 \ MIRROR saves the complete Forth environment
-\ (dictionary, variables, stacks) to ATA
-\ block storage. LOOKINGGLASS restores it.
+\ (dictionary, variables, stacks) through
+\ the block-write vector. LOOKINGGLASS
+\ restores it through the persistent reader.
 \
 \ Patterned after the VROOM mobile OS swap
 \ technique (mentor design, Brenden Brown).
 \
 \ Usage:
 \   USING MIRROR
-\   900 MIRROR         \ Save to block 900+
+\   MIRROR-BLK MIRROR        \ save
 \   ( power off, reboot, reload MIRROR )
-\   900 LOOKINGGLASS   \ Restore environment
+\   MIRROR-BLK LOOKINGGLASS  \ restore
+\
+\ MIRROR-BLK..MIRROR-END (216-535) is the
+\ range write-catalog reserves for it. Any
+\ block# is allowed, but MIRROR refuses one
+\ whose image would overlap the code store
+\ or a disk partition, naming each overlap,
+\ and writes nothing. It writes around the
+\ block cache, one vector call per block,
+\ and says MIRROR FAILED if any write did.
 \
 \ Saves: dictionary, kernel vars, search
 \ order, data stack. Restores environment
@@ -28,7 +39,13 @@
 
 VOCABULARY MIRROR
 MIRROR DEFINITIONS
+ALSO CATALOG-RESOLVER
 HEX
+
+\ ---- Reserved range (write-catalog.py
+\ MIRROR_RESERVED, MIRROR_BLK) ----
+D8 CONSTANT MIRROR-BLK
+217 CONSTANT MIRROR-END
 
 \ ---- Magic and Version ----
 464F5254 CONSTANT MIR-MAGIC
@@ -114,12 +131,216 @@ CREATE MIR-BUF 400 ALLOT
     DEPTH 1-
 ;
 
+
+\ ---- Printing, base-independent ----
+\ u in decimal, no trailing space
+: MR-N.  ( u -- )
+    DUP 9 > IF DUP A / RECURSE THEN
+    A MOD 30 + EMIT
+;
+\ a-b
+: MR-RNG  ( a b -- )
+    SWAP MR-N. 2D EMIT MR-N.
+;
+\ u in hex, trailing space
+: MR-H.  ( u -- )
+    BASE @ SWAP HEX . BASE !
+;
+
+\ ---- Refusal ----
+\ The image's block range, the refusal
+\ header flag, and the partition-check
+\ xt: PG-WHICH, looked up on each call
+\ and never kept past it.
+VARIABLE MR-FIRST
+VARIABLE MR-LAST
+VARIABLE MR-HIT
+VARIABLE MR-PW
+VARIABLE MR-PF
+
+\ Header once, then each overlap after it
+: MR-REFUSE  ( -- )
+    MR-HIT @ 0= IF
+        ." MIRROR REFUSED: blocks "
+        MR-FIRST @ MR-LAST @ MR-RNG
+        ."  overlap"
+        -1 MR-HIT !
+    THEN
+;
+
+\ Size: an image starting inside the
+\ reserved range must end inside it.
+: MR-FITS?  ( -- flag )
+    MR-FIRST @ MIRROR-BLK < 0=
+    MR-FIRST @ MIRROR-END > 0= AND
+    MR-LAST @ MIRROR-END > AND IF
+        ." MIRROR REFUSED: image of "
+        MR-LAST @ MR-FIRST @ - 1+ MR-N.
+        ."  blocks does not fit blocks "
+        MIRROR-BLK MIRROR-END MR-RNG CR
+        FALSE EXIT
+    THEN
+    TRUE
+;
+
+\ ---- Code store: name every vocabulary
+\ whose catalog blocks overlap ----
+VARIABLE MC-WS
+VARIABLE MC-WL
+
+\ One catalog line: its name, first and
+\ last block and TRUE, or FALSE if blank.
+: MC-LINE  ( addr -- ws wl s e T | F )
+    DUP 40 + >R
+    BEGIN DUP C@ 20 = OVER R@ < AND
+    WHILE 1+ REPEAT
+    DUP R@ < 0= OVER C@ 20 < OR IF
+        DROP R> DROP FALSE EXIT
+    THEN
+    DUP MC-WS !
+    BEGIN DUP C@ 20 <> OVER R@ < AND
+    WHILE 1+ REPEAT
+    DUP MC-WS @ - MC-WL !
+    BEGIN DUP C@ 20 = WHILE 1+ REPEAT
+    CF-PARSE-NUM >R
+    BEGIN DUP C@ 20 = WHILE 1+ REPEAT
+    CF-PARSE-NUM NIP
+    R> SWAP R> DROP
+    MC-WS @ MC-WL @ 2SWAP TRUE
+;
+
+: MC-SCAN  ( -- )
+    CATALOG-BLK
+    BEGIN
+        DUP CATALOG-BLK - CAT-MAXBLKS <
+        IF DUP BLOCK CAT-HDR? ELSE FALSE THEN
+    WHILE
+        10 1 DO
+            DUP BLOCK I 40 * + MC-LINE IF
+                OVER MR-LAST @ > 0=
+                OVER MR-FIRST @ < 0= AND IF
+                    MR-REFUSE 20 EMIT
+                    2SWAP TYPE
+                    ."  (" MR-RNG ." )"
+                ELSE
+                    2DROP 2DROP
+                THEN
+            THEN
+        LOOP
+        1+
+    REPEAT
+    DROP
+;
+
+\ ---- Reserved data ranges: name each
+\ one the image overlaps (write-catalog
+\ SETTINGS_RESERVED, TELEMETRY_RESERVED;
+\ MIRROR's own range when the image
+\ starts outside it) ----
+C0 CONSTANT MR-SET-LO
+CF CONSTANT MR-SET-HI
+D0 CONSTANT MR-LOG-LO
+D7 CONSTANT MR-LOG-HI
+
+: MR-RES1  ( lo hi a l -- )
+    2SWAP
+    OVER MR-LAST @ > 0=
+    OVER MR-FIRST @ < 0= AND IF
+        MR-REFUSE 20 EMIT 2SWAP TYPE
+        ."  (" MR-RNG ." )"
+    ELSE
+        2DROP 2DROP
+    THEN
+;
+
+: MR-RES  ( -- )
+    MR-SET-LO MR-SET-HI S" settings" MR-RES1
+    MR-LOG-LO MR-LOG-HI S" telemetry" MR-RES1
+    MR-FIRST @ MIRROR-BLK <
+    MR-FIRST @ MIRROR-END > OR IF
+        MIRROR-BLK MIRROR-END
+        S" MIRROR-reserved" MR-RES1
+    THEN
+;
+
+\ ---- Partitions (AHCI's guard) ----
+\ False only when AHCI's writer is the
+\ active one and AHCI has no PG-WHICH.
+: MR-PG  ( -- flag )
+    0 MR-PW !
+    S" AHCI-WRITER-XT" S" AHCI" VOC-CONST
+    ?DUP 0= IF TRUE EXIT THEN
+    BLK-WRITER@ <> IF TRUE EXIT THEN
+    S" PG-WHICH" S" AHCI" VOC-WORD
+    DUP MR-PW ! 0<>
+;
+
+\ One LBA: name its partition once
+: MR-P1  ( lba -- )
+    MR-PW @ EXECUTE IF
+        OVER MR-PF @ = IF 2DROP EXIT THEN
+        OVER MR-PF !
+        MR-REFUSE ."  partition LBA " MR-RNG
+    THEN
+;
+
+: MR-PART  ( -- )
+    MR-PW @ 0= IF EXIT THEN
+    -1 MR-PF !
+    MR-LAST @ 1+ MR-FIRST @ DO
+        I DUP + BLOCKS-LBA-BASE +
+        DUP MR-P1 1+ MR-P1
+    LOOP
+;
+
+\ ---- Writes: around the cache ----
+VARIABLE MR-BAD
+VARIABLE MR-BAD1
+
+\ One block through the vector; count
+\ a nonzero ior, remember the first.
+: MR-W1  ( addr blk -- )
+    DUP >R BLK-WRITER@ EXECUTE IF
+        MR-BAD @ 0= IF R@ MR-BAD1 ! THEN
+        1 MR-BAD +!
+    THEN
+    R> DROP
+;
+
+\ Drop any cached copy of the range:
+\ a dirty one would be flushed over the
+\ image, a clean one read instead of it.
+: MR-DISCARD  ( -- )
+    MR-LAST @ 1+ MR-FIRST @ DO
+        I DISCARD-BLOCK
+    LOOP
+;
+
+: MR-WRITE  ( -- )
+    0 MR-BAD !
+    MIR-BUF MR-FIRST @ MR-W1
+    MR-LAST @ MR-FIRST @ - DUP 0> IF
+        0 DO
+            DICT-BASE I A LSHIFT +
+            MR-FIRST @ 1+ I + MR-W1
+        LOOP
+    ELSE
+        DROP
+    THEN
+;
+
 \ ============================================
 \ MIRROR - Save context to blocks
 \ ============================================
 \ Layout on disk:
 \   block#+0: header + stack data
 \   block#+1..N: dictionary data (1KB each)
+\ Checked before any write, in order:
+\ size, AHCI's partition check present,
+\ then code store, reserved data ranges
+\ and partitions (every overlap named). Then the range's cached
+\ buffers are dropped and each block is
+\ written through the vector.
 
 : MIRROR  ( block# -- )
     MIR-CLR
@@ -170,25 +391,57 @@ CREATE MIR-BUF 400 ALLOT
     THEN
     DROP
 
-    \ Write header block
-    DUP BUFFER
-    MIR-BUF SWAP 400 MOVE
-    UPDATE SAVE-BUFFERS
-
-    \ Write dictionary blocks
-    DICT-BLKS DUP 0> IF
-        0 DO
-            DUP 1+ I + BUFFER
-            DICT-BASE I A LSHIFT +
-            SWAP 400 MOVE
-            UPDATE SAVE-BUFFERS
-        LOOP
-    ELSE
-        DROP
+    \ Range: header + DICT-BLKS blocks
+    DUP MR-FIRST !
+    DICT-BLKS OVER + MR-LAST !
+    DROP
+    0 MR-HIT !
+    MR-FITS? 0= IF EXIT THEN
+    MR-PG 0= IF
+        ." MIRROR REFUSED: AHCI writer active, "
+        ." no PG-WHICH" CR EXIT
     THEN
+    MC-SCAN
+    MR-RES
+    MR-PART
+    MR-HIT @ IF CR EXIT THEN
 
-    ." MIRROR saved to block "
-    DECIMAL . HEX CR
+    MR-DISCARD
+    MR-WRITE
+    MR-BAD @ IF
+        ." MIRROR FAILED: " MR-BAD @ MR-N.
+        ."  of " MR-LAST @ MR-FIRST @ - 1+ MR-N.
+        ."  blocks not written (first "
+        MR-BAD1 @ MR-N. ." )" CR
+    ELSE
+        ." MIRROR saved to block "
+        MR-FIRST @ MR-N. CR
+    THEN
+;
+
+\ ============================================
+\ Reading back: the persistent reader
+\ ============================================
+\ On memdisk BLOCK reads the RAM image,
+\ never the disk MIRROR wrote, so every
+\ reader here goes through PBLK-READ.
+
+VARIABLE MR-IOR
+
+\ Header into MIR-BUF; TRUE if read
+: MR-READ  ( block# -- flag )
+    MIR-BUF SWAP PBLK-READ
+    DUP MR-IOR ! 0=
+;
+
+: MR-VALID?  ( -- flag )
+    0 MIR@ MIR-MAGIC =
+    4 MIR@ MIR-VER = AND
+;
+
+: MR-UNREAD  ( block# -- )
+    ." MIRROR: block " MR-N.
+    ."  unreadable, ior " MR-IOR @ MR-N. CR
 ;
 
 \ ============================================
@@ -196,12 +449,7 @@ CREATE MIR-BUF 400 ALLOT
 \ ============================================
 
 : MIRROR?  ( block# -- flag )
-    BLOCK
-    DUP @ MIR-MAGIC = IF
-        4 + @ MIR-VER =
-    ELSE
-        DROP FALSE
-    THEN
+    MR-READ IF MR-VALID? ELSE FALSE THEN
 ;
 
 \ ============================================
@@ -209,31 +457,21 @@ CREATE MIR-BUF 400 ALLOT
 \ ============================================
 
 : MIRROR-INFO  ( block# -- )
-    DUP MIRROR? 0= IF
-        DROP
-        ." No valid MIRROR image" CR
-        EXIT
+    DUP MR-READ 0= IF MR-UNREAD EXIT THEN
+    DROP
+    MR-VALID? 0= IF
+        ." No valid MIRROR image" CR EXIT
     THEN
-    BLOCK MIR-BUF 400 MOVE
     ." MIRROR snapshot info:" CR
-    ."   Saved to block: "
-    8 MIR@ DECIMAL . HEX CR
-    ."   Tick count:     "
-    C MIR@ DECIMAL . HEX CR
-    ."   HERE:           "
-    10 MIR@ . CR
-    ."   LATEST:         "
-    14 MIR@ . CR
-    ."   BASE:           "
-    1C MIR@ DECIMAL . HEX CR
-    ."   Stack depth:    "
-    20 MIR@ DECIMAL . HEX CR
-    ."   Dict size:      "
-    24 MIR@ DECIMAL . CR
-    ."   Dict blocks:    "
-    60 MIR@ . HEX CR
-    ."   Search depth:   "
-    2C MIR@ DECIMAL . HEX CR
+    ."   Saved to block: " 8 MIR@ MR-N. CR
+    ."   Tick count:     " C MIR@ MR-N. CR
+    ."   HERE:           " 10 MIR@ MR-H. CR
+    ."   LATEST:         " 14 MIR@ MR-H. CR
+    ."   BASE:           " 1C MIR@ MR-N. CR
+    ."   Stack depth:    " 20 MIR@ MR-N. CR
+    ."   Dict size:      " 24 MIR@ MR-N. CR
+    ."   Dict blocks:    " 60 MIR@ MR-N. CR
+    ."   Search depth:   " 2C MIR@ MR-N. CR
 ;
 
 \ ============================================
@@ -243,23 +481,58 @@ CREATE MIR-BUF 400 ALLOT
 \ order, and data stack from a snapshot.
 \ Returns to the interpreter loop after
 \ restoring (does NOT resume mid-word).
+\ Each block is read into a kernel block
+\ buffer (outside the dictionary it is
+\ overwriting), copied into place, and
+\ the buffer dropped. Every block is read
+\ once first: one unreadable block and
+\ nothing is restored.
+
+\ Block into a pool buffer: buf ior
+: MR-R1  ( blk -- buf ior )
+    DUP BUFFER
+    DUP ROT PBLK-READ
+;
+
+\ TRUE if every image block reads
+: MR-ALL?  ( block# -- flag )
+    60 MIR@ DUP 0> IF
+        0 DO
+            DUP 1+ I + DUP MR-R1 NIP
+            SWAP DISCARD-BLOCK IF
+                DROP FALSE UNLOOP EXIT
+            THEN
+        LOOP
+    ELSE
+        DROP
+    THEN
+    DROP TRUE
+;
 
 : LOOKINGGLASS  ( block# -- )
-    DUP MIRROR? 0= IF
+    DUP MR-READ 0= IF MR-UNREAD EXIT THEN
+    MR-VALID? 0= IF
         DROP
         ." No valid MIRROR image" CR
         EXIT
     THEN
+    DUP MR-ALL? 0= IF
+        DROP
+        ." LOOKINGGLASS: image unreadable, "
+        ." nothing restored" CR
+        EXIT
+    THEN
 
-    \ Read header into staging buffer
-    DUP BLOCK MIR-BUF 400 MOVE
-
-    \ Restore dictionary blocks first
+    \ Restore dictionary blocks first.
+    \ block# stays on the stack (DUP):
+    \ the variables live in the
+    \ dictionary being overwritten.
     60 MIR@ DUP 0> IF
         0 DO
-            OVER 1+ I + BLOCK
+            DUP 1+ I + DUP MR-R1 DROP
             DICT-BASE I A LSHIFT +
             400 MOVE
+            DISCARD-BLOCK
         LOOP
     ELSE
         DROP
@@ -309,5 +582,5 @@ CREATE MIR-BUF 400 ALLOT
 
 ." MIRROR vocabulary loaded" CR
 
-FORTH DEFINITIONS
+ONLY FORTH DEFINITIONS
 DECIMAL
