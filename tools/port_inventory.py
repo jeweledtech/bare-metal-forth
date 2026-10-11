@@ -7,7 +7,9 @@ an offset from TEST_PORT_BASE, with its listen form and where it comes from.
 
 - Recipe-launched QEMUs: from the recipe's -serial / -monitor / -netdev
   ...listen= text.
-- Script-launched QEMUs: from the script's f-strings (`tcp::{X}`,
+- Script-launched QEMUs (`python3 tests/X.py`, or
+  `python3 $(PRIVATE_REPO)/tests/X.py` for a private-owned script run in
+  place): from the script's f-strings (`tcp::{X}`,
   `tcp:127.0.0.1:{X}`, `listen=:{X}`), with X resolved by Python's ast to
   "the port the recipe passed in, plus a constant", through assignments,
   function parameters and call sites.
@@ -27,6 +29,9 @@ reported as SKIPPED and its committed entries are not compared.
 import ast, json, os, re, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# The Makefile's PRIVATE_REPO default (`?= ../forthos-vocabularies`),
+# relative to ROOT; the environment overrides it as make's ?= does.
+PRIVATE = os.path.normpath(os.path.join(ROOT, os.environ.get('PRIVATE_REPO', '../forthos-vocabularies')))
 FORMS = (('tcp:127.0.0.1:', 'tcp:127.0.0.1:P'), ('tcp::', 'tcp::P'), ('listen=:', 'listen=:P'))
 ARGV = 'ARGV'
 
@@ -305,23 +310,24 @@ def inventory():
                         ents.append(entry(mko(m.group(3), n), form, m.group(1), f'Makefile:{n}'))
                     for m in re.finditer(r'-netdev\s+\S*listen=:([^,\s]+)', ln):
                         ents.append(entry(mko(m.group(1), n), 'listen=:P', 'netdev', f'Makefile:{n}'))
-                for m in re.finditer(r'python3 tests/(\$\$\w+|\w+)\.py([^;]*)', ln):
-                    script = m.group(1)
+                for m in re.finditer(r'python3 (\$\(PRIVATE_REPO\)/)?tests/(\$\$\w+|\w+)\.py([^;]*)', ln):
+                    priv, script = m.group(1), m.group(2)
                     if script.startswith('$$'):
                         script = fx
                     argmap = {}
-                    for k, arg in enumerate(m.group(2).split(), 1):
+                    for k, arg in enumerate(m.group(3).split(), 1):
                         try:
                             argmap[k] = mko(arg, n)
                         except Unresolved:
                             argmap[k] = None      # not a port (an image path, a mode word, ...)
-                    path = os.path.join(ROOT, 'tests', script + '.py')
+                    rel = f'{"$(PRIVATE_REPO)/" if priv else ""}tests/{script}.py'
+                    path = os.path.join(PRIVATE if priv else ROOT, 'tests', script + '.py')
                     if not os.path.exists(path):
-                        skipped.append(f'{name}{"/" + fx if fx else ""}: tests/{script}.py absent')
-                        ents.append({'script': f'tests/{script}.py', 'absent': True})
+                        skipped.append(f'{name}{"/" + fx if fx else ""}: {rel} absent')
+                        ents.append({'script': rel, 'absent': True})
                         continue
                     for off, form, kind, line in Script(path, argmap).listens():
-                        ents.append(entry(off, form, kind, f'tests/{script}.py:{line}'))
+                        ents.append(entry(off, form, kind, f'{rel}:{line}'))
             # one row per (offset, form, kind); a port opened at two sites is still one port
             seen, uniq = set(), []
             for e in ents:

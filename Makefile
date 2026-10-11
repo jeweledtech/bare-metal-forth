@@ -538,6 +538,55 @@ test-log-harness: $(COMBINED)
 	timeout --foreground $(T_LOG_HARNESS) python3 tests/test_log_harness.py \
 		$$(($(TEST_PORT_BASE)+45))
 
+# LOG-HARNESS block header + LOG-RESTORE gates (60 checks) and the
+# disk-validation gates (17). Both scripts are private-owned.
+# test_log_validation runs from its ignored public copy (check-sync
+# keeps it equal to the private one): its root is its own parent.
+# test_log_restore runs in place from $(PRIVATE_REPO): it finds its
+# decoder and the HP telemetry file under its own root, and the
+# public tree under the working directory. Each launches its QEMUs
+# with a pidfile in build/<name>.d; the trap kills by that pidfile.
+# Together about 5 minutes (measured 2026-10-11).
+T_LOG_RESTORE    ?= 600
+T_LOG_VALIDATION ?= 400
+
+test-log-restore: $(COMBINED)
+	@for f in forth/dict/log-harness.fth \
+		$(PRIVATE_REPO)/tests/test_log_restore.py; do \
+		if [ ! -f $$f ]; then \
+			echo "SKIPPED: test-log-restore: private file absent ($$f)"; \
+			exit 0; \
+		fi; \
+	done; \
+	PIDF=$(BUILD)/log-restore.d/qemu.pid; $(QEMU_KILL); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-log-restore --base $(TEST_PORT_BASE); \
+	echo "Running LOG-RESTORE gates..."; \
+	timeout --foreground $(T_LOG_RESTORE) python3 $(PRIVATE_REPO)/tests/test_log_restore.py \
+		$$(($(TEST_PORT_BASE)+70)) all
+
+test-log-validation: $(COMBINED)
+	@for f in forth/dict/log-harness.fth tests/test_log_validation.py; do \
+		if [ ! -f $$f ]; then \
+			echo "SKIPPED: test-log-validation: private file absent ($$f)"; \
+			exit 0; \
+		fi; \
+	done; \
+	PIDF=$(BUILD)/log-validation.d/qemu.pid; $(QEMU_KILL); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-log-validation --base $(TEST_PORT_BASE); \
+	echo "Running LOG-HARNESS disk validation gates..."; \
+	timeout --foreground $(T_LOG_VALIDATION) python3 tests/test_log_validation.py \
+		$$(($(TEST_PORT_BASE)+73)) both
+
+# Host only: the decoder's image, header and dump are byte-identical
+# to the decoder before the layout refactor (TASK_LOG_LAYOUT_REFACTOR).
+test-log-decode-layout:
+	@if [ ! -f $(PRIVATE_REPO)/tests/test_log_decode_layout.py ]; then \
+		echo "SKIPPED: test-log-decode-layout: private test absent"; \
+	else \
+		echo "Running LOG decoder layout check..."; \
+		python3 $(PRIVATE_REPO)/tests/test_log_decode_layout.py; \
+	fi
+
 # Run the INSTALL write-allowlist gate (Piece 1).
 # Needs $(COMBINED): INSTALL is block-loaded off the catalog, not
 # embedded, so the block store has to be attached.
@@ -1115,7 +1164,7 @@ test-meta: $(COMBINED)
 #     its output as evidence, and it never gates a build.  If it must ever
 #     gate something, the gate goes on a deterministic artefact derived from
 #     it and pinned -- the treatment the Ghidra oracle already has.
-test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-squote-laydown test-install test-log-harness test-log-harness-nic test-vbr test-grub-cfg test-uefi-boot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
+test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-vbr test-grub-cfg test-uefi-boot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)
@@ -1200,4 +1249,4 @@ grub-net: $(COMBINED) tools/pxe/grub.cfg
 pxe-push-grub: grub-net
 	@bash tools/pxe/push-grub.sh
 
-.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined usb-image check-coverage desk-hashes check-kernel-size test test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream test-log-harness test-log-harness-nic pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-grub-cfg test-g6
+.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined usb-image check-coverage desk-hashes check-kernel-size test test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-grub-cfg test-g6

@@ -15,7 +15,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 75,
-    "source": "Makefile:874"
+    "source": "Makefile:923"
    }
   ]
  },
@@ -99,7 +99,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 55,
-    "source": "Makefile:993"
+    "source": "Makefile:1050"
    }
   ]
  },
@@ -109,25 +109,25 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 84,
-    "source": "Makefile:774"
+    "source": "Makefile:823"
    },
    {
     "form": "tcp:127.0.0.1:P",
     "kind": "monitor",
     "offset": 85,
-    "source": "Makefile:774"
+    "source": "Makefile:823"
    },
    {
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 88,
-    "source": "Makefile:759"
+    "source": "Makefile:808"
    },
    {
     "form": "tcp:127.0.0.1:P",
     "kind": "monitor",
     "offset": 89,
-    "source": "Makefile:759"
+    "source": "Makefile:808"
    }
   ]
  },
@@ -137,7 +137,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 50,
-    "source": "Makefile:831"
+    "source": "Makefile:880"
    }
   ]
  },
@@ -147,13 +147,13 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 95,
-    "source": "tests/test_g6_chain.py:556"
+    "source": "tests/test_g6_chain.py:558"
    },
    {
     "form": "tcp:127.0.0.1:P",
     "kind": "monitor",
     "offset": 96,
-    "source": "tests/test_g6_chain.py:557"
+    "source": "tests/test_g6_chain.py:559"
    }
   ]
  },
@@ -213,7 +213,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 3,
-    "source": "Makefile:546"
+    "source": "Makefile:593"
    }
   ]
  },
@@ -223,7 +223,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 20,
-    "source": "Makefile:602"
+    "source": "Makefile:649"
    }
   ]
  },
@@ -244,6 +244,26 @@
     "kind": "serial",
     "offset": 46,
     "source": "Makefile:500"
+   }
+  ]
+ },
+ "test-log-restore": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 70,
+    "source": "$(PRIVATE_REPO)/tests/test_log_restore.py:51"
+   }
+  ]
+ },
+ "test-log-validation": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 73,
+    "source": "$(PRIVATE_REPO)/tests/test_log_validation.py:47"
    }
   ]
  },
@@ -293,7 +313,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 88,
-    "source": "tests/test_meta_b6b.py:379"
+    "source": "tests/test_meta_b6b.py:383"
    }
   ],
   "test_meta_boot": [
@@ -341,7 +361,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 92,
-    "source": "tests/test_meta_does.py:315"
+    "source": "tests/test_meta_does.py:319"
    }
   ],
   "test_metacompiler": [
@@ -349,7 +369,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 80,
-    "source": "Makefile:1046"
+    "source": "Makefile:1115"
    }
   ]
  },
@@ -381,7 +401,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 87,
-    "source": "Makefile:682"
+    "source": "Makefile:729"
    }
   ]
  },
@@ -421,7 +441,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 98,
-    "source": "Makefile:791"
+    "source": "Makefile:840"
    }
   ]
  },
@@ -431,7 +451,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 99,
-    "source": "Makefile:804"
+    "source": "Makefile:853"
    }
   ]
  },
@@ -441,37 +461,37 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 100,
-    "source": "tests/test_survey_layouts.py:185"
+    "source": "tests/test_survey_layouts.py:187"
    },
    {
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 101,
-    "source": "tests/test_survey_layouts.py:185"
+    "source": "tests/test_survey_layouts.py:187"
    },
    {
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 102,
-    "source": "tests/test_survey_layouts.py:185"
+    "source": "tests/test_survey_layouts.py:187"
    },
    {
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 103,
-    "source": "tests/test_survey_layouts.py:185"
+    "source": "tests/test_survey_layouts.py:187"
    },
    {
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 104,
-    "source": "tests/test_survey_layouts.py:185"
+    "source": "tests/test_survey_layouts.py:187"
    },
    {
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 105,
-    "source": "tests/test_survey_layouts.py:185"
+    "source": "tests/test_survey_layouts.py:187"
    }
   ]
  },
@@ -571,13 +591,13 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "monitor",
     "offset": 93,
-    "source": "Makefile:664"
+    "source": "Makefile:711"
    },
    {
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 94,
-    "source": "Makefile:664"
+    "source": "Makefile:711"
    }
   ]
  }
