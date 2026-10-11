@@ -42,6 +42,7 @@ forth/dict/file-stream.fth
 
 # Tier 3: Full Hardware Pack (additional)
 forth/dict/atapi-ahci.fth
+forth/dict/cd-atapi.fth
 forth/dict/surveyor.fth
 forth/dict/graphics.fth
 forth/dict/audio.fth

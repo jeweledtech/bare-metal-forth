@@ -120,7 +120,7 @@ run-free: $(IMAGE_FREE)
 #     cannot publish it. Files tracked in both repos are not checked here.
 # With no private repo it prints SKIPPED and exits 0; never a silent pass.
 PRIVATE_REPO ?= ../forthos-vocabularies
-PAID_VOCABS = ahci rtl8168 ntfs auto-detect fat32 surveyor file-editor-disk log-harness
+PAID_VOCABS = ahci rtl8168 ntfs auto-detect fat32 surveyor file-editor-disk log-harness cd-atapi
 
 check-sync:
 	@if [ ! -d "$(PRIVATE_REPO)/forth/dict" ]; then \
