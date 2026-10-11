@@ -268,8 +268,8 @@ VARIABLE CF-BLK
   FALSE ;
 
 \ ---- Already in the dictionary? ----
-\ TRUE if the FORTH chain holds a
-\ vocabulary word of this name: an
+\ Its header (nonzero) if the FORTH chain
+\ holds a vocabulary word of this name: an
 \ embedded or loaded vocab is not
 \ compiled again. Walked directly: kernel
 \ FIND reads the word buffer, not its
@@ -284,7 +284,7 @@ VARIABLE VP-L
     DUP 4 + C@ 3F AND SWAP 5 + +
     3 + -4 AND ;
 
-: VOCAB-PRESENT? ( addr len -- flag )
+: VOCAB-PRESENT? ( addr len -- hdr|0 )
     VP-L ! VP-A !
     FORTH-LATEST @
     BEGIN DUP WHILE
@@ -293,7 +293,7 @@ VARIABLE VP-L
             DUP 5 + VP-L @ VP-A @ VP-L @
             STR= IF
                 DUP HDR-CFA @ DOVOC-CODE = IF
-                    DROP TRUE EXIT
+                    EXIT
                 THEN
             THEN
         THEN
@@ -392,6 +392,185 @@ CREATE RD-BUF 42 ALLOT
 \ Patch the forward reference
 ' RESOLVE-DEPS 'RESOLVE-DEPS !
 
+\ ---- RELOAD-VOCAB support ----
+\ Region to free: [RL-LO, RL-HI) =
+\ [NAME's header, HERE). Refused when
+\ anything but NAME's own words follows
+\ it, or a known vector points into it
+\ (docs/TASK_RELOAD_VOCAB.md 6.1).
+VARIABLE RL-LO
+VARIABLE RL-HI
+VARIABLE RL-WA
+VARIABLE RL-WL
+VARIABLE RL-WN
+VARIABLE RL-KIND
+VARIABLE RL-NA
+VARIABLE RL-NL
+VARIABLE RL-STEP
+
+: RL-IN? ( v -- flag )
+    DUP RL-LO @ < 0= SWAP RL-HI @ < AND ;
+
+\ First blocker wins: name a l, index n
+\ (-1 none), kind 1 after, 2 points in
+: RL-BLOCK ( a l n kind -- )
+    RL-WA @ IF DROP DROP DROP DROP EXIT THEN
+    RL-KIND ! RL-WN ! RL-WL ! RL-WA ! ;
+
+: RL-CHK ( v a l -- )
+    ROT RL-IN? IF -1 2 RL-BLOCK
+    ELSE DROP DROP THEN ;
+
+: RL-NAMEOF ( hdr -- a l )
+    DUP 5 + SWAP 4 + C@ 3F AND ;
+
+\ Header of name a l in a chain, or 0
+: HDR-FIND ( a l head -- hdr|0 )
+    >R VP-L ! VP-A ! R>
+    BEGIN DUP WHILE
+        DUP 4 + C@ DUP 40 AND 0=
+        SWAP 3F AND VP-L @ = AND IF
+            DUP 5 + VP-L @ VP-A @ VP-L @
+            STR= IF EXIT THEN
+        THEN
+        @
+    REPEAT ;
+
+\ Word wa wl of vocabulary va vl: its
+\ code field, 0 if either is absent
+: VOC-WORD ( wa wl va vl -- cfa|0 )
+    VOCAB-PRESENT? ?DUP 0= IF
+        DROP DROP 0 EXIT
+    THEN
+    HDR-CFA 4 + @ HDR-FIND
+    DUP IF HDR-CFA THEN ;
+
+: VOC-CONST ( wa wl va vl -- n|0 )
+    VOC-WORD DUP IF 4 + @ THEN ;
+
+\ A VARIABLE holding an xt
+: RL-VAR ( wa wl va vl -- )
+    2OVER RL-NL ! RL-NA !
+    VOC-WORD ?DUP IF
+        4 + @ RL-NA @ RL-NL @ RL-CHK
+    THEN ;
+
+\ n cells at base, base+step, ...
+: RL-TABLE ( base n step a l -- )
+    RL-NL ! RL-NA ! RL-STEP !
+    DUP 200 > IF DROP 200 THEN
+    DUP 0> IF
+        0 DO
+            DUP I RL-STEP @ * + @
+            RL-IN? IF
+                RL-NA @ RL-NL @ I 2 RL-BLOCK
+            THEN
+        LOOP
+    ELSE DROP THEN
+    DROP ;
+
+: RL-W@ ( a -- u )
+    DUP C@ SWAP 1 + C@ 8 LSHIFT OR ;
+
+\ IDT 29400: handler = bytes 0-1 | 6-7
+: RL-IDT ( -- )
+    100 0 DO
+        29400 I 8 * + DUP RL-W@
+        SWAP 6 + RL-W@ 10 LSHIFT OR
+        RL-IN? IF
+            S" IDT entry" I 2 RL-BLOCK
+        THEN
+    LOOP ;
+
+: RL-WIDGETS ( -- )
+    S" REG-XTS" S" GUI-HARVEST" VOC-CONST
+    S" REG-COUNT" S" GUI-HARVEST" VOC-WORD
+    DUP IF 4 + @ THEN
+    4 S" widget registry" RL-TABLE
+    S" WT-COUNT" S" UI-CORE" VOC-WORD
+    ?DUP IF
+        EXECUTE @
+        S" WT-BASE" S" UI-CORE" VOC-CONST
+        S" WTO-XT" S" UI-CORE" VOC-CONST +
+        SWAP
+        S" WT-ESIZE" S" UI-CORE" VOC-CONST
+        S" widget table" RL-TABLE
+    THEN ;
+
+: RL-VECTORS ( -- )
+    LOADING-DEPTH @ IF
+        S" a load in progress" -1 3 RL-BLOCK
+    THEN
+    BLK-WRITER@ S" BLK-WRITER@ vector" RL-CHK
+    BLK-READER@ S" BLK-READER@ vector" RL-CHK
+    29C00 10 4 S" IRQ hook" RL-TABLE
+    RL-IDT
+    CR-ADDRS CR-COUNT @ 4
+    S" catalog registry" RL-TABLE
+    'RESOLVE-DEPS @ S" 'RESOLVE-DEPS" RL-CHK
+    S" 'FILE-SINK" S" FILE-STREAM" RL-VAR
+    S" FE-SAVE-XT" S" FILE-EDITOR" RL-VAR
+    S" FE-OPEN-XT" S" FILE-EDITOR" RL-VAR
+    S" SEC-WRITE-VEC" S" INSTALL" RL-VAR
+    S" SEC-READ-VEC" S" INSTALL" RL-VAR
+    S" WZ-SPACE-XT" S" FIRSTBOOT" RL-VAR
+    RL-WIDGETS ;
+
+\ P1: FORTH's newest word is NAME, and
+\ every other vocabulary's head is below
+: RL-NEWEST ( -- )
+    FORTH-LATEST @ DUP RL-LO @ <> IF
+        RL-NAMEOF -1 1 RL-BLOCK EXIT
+    THEN
+    BEGIN DUP WHILE
+        DUP HDR-CFA @ DOVOC-CODE =
+        OVER RL-LO @ <> AND IF
+            DUP HDR-CFA 4 + @
+            DUP RL-LO @ < 0= IF
+                RL-NAMEOF -1 1 RL-BLOCK
+            ELSE DROP THEN
+        THEN
+        @
+    REPEAT DROP ;
+
+CREATE RL-NAME 40 ALLOT
+VARIABLE RL-NLEN
+VARIABLE RL-CELL
+\ copy of 28020-28047: search order,
+\ its depth, CURRENT
+CREATE RL-SO 28 ALLOT
+
+: RL-SAY ( -- )
+    RL-NAME RL-NLEN @ TYPE
+    ." : RELOAD-VOCAB refused," SPACE
+    RL-WA @ RL-WL @ TYPE
+    RL-WN @ DUP 0< IF DROP ELSE SPACE . THEN
+    RL-KIND @ 1 = IF SPACE ." compiled after it" THEN
+    RL-KIND @ 2 = IF SPACE ." points into it" THEN
+    CR ;
+
+\ Save the order; FORTH for NAME's cell
+: RL-UNPLUG ( -- )
+    28020 RL-SO 28 CMOVE
+    28040 @ 0 DO
+        28020 I 4 * + DUP @ RL-CELL @ = IF
+            28048 SWAP !
+        ELSE DROP THEN
+    LOOP
+    28044 @ RL-CELL @ = IF 28048 28044 ! THEN ;
+
+\ The new vocab word lands at the same
+\ header, so its cell has the same
+\ address: put the saved order back
+: RL-REPLUG ( -- )
+    RL-NAME RL-NLEN @ VOCAB-PRESENT? ?DUP IF
+        HDR-CFA 4 + RL-CELL @ = IF
+            RL-SO 28020 28 CMOVE EXIT
+        THEN
+    THEN
+    RL-NAME RL-NLEN @ TYPE
+    ." : search order left at FORTH" CR ;
+
 \ Switch compilation to FORTH but keep
 \ CATALOG-RESOLVER searchable so the
 \ compiler resolves LOADING-RESET and
@@ -403,6 +582,30 @@ ALSO CATALOG-RESOLVER
     LOADING-RESET
     LOAD-VOCAB-INNER
 ;
+
+\ Recompile an edited vocabulary in place
+\ (docs/TASK_RELOAD_VOCAB.md). Not loaded:
+\ as LOAD-VOCAB. Refusals change nothing.
+: RELOAD-VOCAB  ( addr len -- )
+    DUP 40 > IF
+        ." RELOAD-VOCAB: name too long" CR
+        DROP DROP EXIT
+    THEN
+    DUP RL-NLEN ! RL-NAME SWAP CMOVE
+    RL-NAME RL-NLEN @ VOCAB-PRESENT?
+    ?DUP 0= IF
+        RL-NAME RL-NLEN @ LOAD-VOCAB EXIT
+    THEN
+    DUP RL-LO ! HERE @ RL-HI !
+    HDR-CFA 4 + RL-CELL !
+    0 RL-WA !
+    RL-NEWEST RL-VECTORS
+    RL-WA @ IF RL-SAY EXIT THEN
+    RL-UNPLUG
+    RL-LO @ @ DUP FORTH-LATEST ! 28008 !
+    RL-LO @ HERE !
+    RL-NAME RL-NLEN @ LOAD-VOCAB
+    RL-REPLUG ;
 
 PREVIOUS
 DECIMAL

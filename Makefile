@@ -1056,10 +1056,12 @@ test-survey: $(SURVEY_DEPS)
 # smallest margin 39,204 B (test_meta_boot), 39,228 in four fixtures,
 # 66,388 in test_metacompiler.  test-meta, not the stream size, is the
 # dictionary's tightest consumer: dictionary added at boot raises its peak
-# one-for-one, while the stream alone does not move it (95,803 B, the most
-# the 0x1C000 pad holds, left the peak unchanged).  Embedded code costs
-# 0.7-2.4 dictionary bytes per stream byte, so the 6,124 B of pad left cost
-# at most ~15 KB; an ALLOT buffer is bounded only by this margin.
+# one-for-one, while the stream alone does not move it (a stream filling
+# the 0x1C000 pad left the peak unchanged).  Embedded code costs 0.7-2.4
+# dictionary bytes per stream byte; an ALLOT buffer is bounded only by
+# this margin.  After RELOAD-VOCAB (same day; stream 92,925 B, 2,879 B of
+# pad left): smallest margin 35,468 B (test_meta_boot), 35,492 in four,
+# 62,652 in test_metacompiler.
 test-meta: $(COMBINED)
 	@cp $(COMBINED) $(COMBINED_IDE)
 	@echo "Running metacompiler tests..."
