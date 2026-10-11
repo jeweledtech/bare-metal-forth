@@ -1042,6 +1042,16 @@ test-survey: $(SURVEY_DEPS)
 
 # Run metacompiler tests (5 files, x86 self-hosting verification)
 # NOT included in 'make test' — slow, boots multiple QEMU instances.
+# Each fixture prints "DICT MARGIN <fixture>: peak HERE ..., N bytes below
+# <ceiling>" at the end of its host phase (tests/meta_margin.py; reported,
+# not a check).  Measured 2026-10-10 (stream 89,679 B, boot HERE 0x5C7F4):
+# smallest margin 39,204 B (test_meta_boot), 39,228 in four fixtures,
+# 66,388 in test_metacompiler.  test-meta, not the stream size, is the
+# dictionary's tightest consumer: dictionary added at boot raises its peak
+# one-for-one, while the stream alone does not move it (95,803 B, the most
+# the 0x1C000 pad holds, left the peak unchanged).  Embedded code costs
+# 0.7-2.4 dictionary bytes per stream byte, so the 6,124 B of pad left cost
+# at most ~15 KB; an ALLOT buffer is bounded only by this margin.
 test-meta: $(COMBINED)
 	@cp $(COMBINED) $(COMBINED_IDE)
 	@echo "Running metacompiler tests..."
