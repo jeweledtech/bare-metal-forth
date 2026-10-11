@@ -65,7 +65,7 @@ KERNEL_FREE = $(BUILD)/kernel-free.bin
 
 # For tools/evidence-snapshot.sh: make expands its own variable
 # (continuations and all), so no external parser exists to drift.
-.PHONY: print-embed-vocabs test-port-inventory
+.PHONY: print-embed-vocabs test-port-inventory test-kill-traps
 print-embed-vocabs:
 	@echo $(EMBED_VOCABS)
 
@@ -337,7 +337,7 @@ T_INTEGRATION      ?= 240
 # Run smoke test (no block storage needed)
 test-smoke: $(ACTIVE_IMAGE)
 	@PIDF=$(BUILD)/test-smoke.pid; $(QEMU_KILL); \
-	trap '$(QEMU_KILL)' EXIT INT TERM HUP; set -e; $(PORTS_FREE) --recipe test-smoke --base $(TEST_PORT_BASE); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-smoke --base $(TEST_PORT_BASE); \
 	echo "Running smoke test..."; \
 	$(QEMU) -drive file=$(ACTIVE_IMAGE),format=raw,if=floppy \
 		-serial tcp:127.0.0.1:$(TEST_PORT_BASE),server=on,wait=off \
@@ -348,7 +348,7 @@ test-smoke: $(ACTIVE_IMAGE)
 # Run BEGIN/WHILE/REPEAT test (no block storage needed)
 test-loops: $(ACTIVE_IMAGE)
 	@PIDF=$(BUILD)/test-loops.pid; $(QEMU_KILL); \
-	trap '$(QEMU_KILL)' EXIT INT TERM HUP; set -e; $(PORTS_FREE) --recipe test-loops --base $(TEST_PORT_BASE); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-loops --base $(TEST_PORT_BASE); \
 	echo "Running loop control flow test..."; \
 	$(QEMU) -drive file=$(ACTIVE_IMAGE),format=raw,if=floppy \
 		-serial tcp:127.0.0.1:$$(($(TEST_PORT_BASE)+1)),server=on,wait=off \
@@ -361,7 +361,7 @@ test-loops: $(ACTIVE_IMAGE)
 # to, so this is a kernel-tier gate, not a vocabulary one.
 test-abort: $(ACTIVE_IMAGE)
 	@PIDF=$(BUILD)/test-abort.pid; $(QEMU_KILL); \
-	trap '$(QEMU_KILL)' EXIT INT TERM HUP; set -e; $(PORTS_FREE) --recipe test-abort --base $(TEST_PORT_BASE); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-abort --base $(TEST_PORT_BASE); \
 	echo "Running ABORT/ABORT\" kernel test..."; \
 	$(QEMU) -drive file=$(ACTIVE_IMAGE),format=raw,if=floppy \
 		-serial tcp:127.0.0.1:$$(($(TEST_PORT_BASE)+2)),server=on,wait=off \
@@ -374,7 +374,7 @@ test-abort: $(ACTIVE_IMAGE)
 # interpret mode stays usable as the recovery hatch when it would.
 test-dict-bounds: $(ACTIVE_IMAGE)
 	@PIDF=$(BUILD)/test-dict-bounds.pid; $(QEMU_KILL); \
-	trap '$(QEMU_KILL)' EXIT INT TERM HUP; set -e; $(PORTS_FREE) --recipe test-dict-bounds --base $(TEST_PORT_BASE); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-dict-bounds --base $(TEST_PORT_BASE); \
 	echo "Running dictionary bounds test..."; \
 	$(QEMU) -drive file=$(ACTIVE_IMAGE),format=raw,if=floppy \
 		-serial tcp:127.0.0.1:$$(($(TEST_PORT_BASE)+97)),server=on,wait=off \
@@ -387,7 +387,7 @@ test-dict-bounds: $(ACTIVE_IMAGE)
 # so the plain kernel image suffices (no block storage).
 test-phys-alloc: $(ACTIVE_IMAGE)
 	@PIDF=$(BUILD)/test-phys-alloc.pid; $(QEMU_KILL); \
-	trap '$(QEMU_KILL)' EXIT INT TERM HUP; set -e; $(PORTS_FREE) --recipe test-phys-alloc --base $(TEST_PORT_BASE); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-phys-alloc --base $(TEST_PORT_BASE); \
 	echo "Running physical allocator test..."; \
 	$(QEMU) -drive file=$(ACTIVE_IMAGE),format=raw,if=floppy \
 		-serial tcp:127.0.0.1:$$(($(TEST_PORT_BASE)+98)),server=on,wait=off \
@@ -404,7 +404,7 @@ test-phys-alloc: $(ACTIVE_IMAGE)
 # silently change the bus the suite characterizes.
 test-pci-typing: $(ACTIVE_IMAGE)
 	@PIDF=$(BUILD)/test-pci-typing.pid; $(QEMU_KILL); \
-	trap '$(QEMU_KILL)' EXIT INT TERM HUP; set -e; $(PORTS_FREE) --recipe test-pci-typing --base $(TEST_PORT_BASE); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-pci-typing --base $(TEST_PORT_BASE); \
 	echo "Running PCI class-code typing test..."; \
 	$(QEMU) -M pc -device qemu-xhci \
 		-drive file=$(ACTIVE_IMAGE),format=raw,if=floppy \
@@ -447,7 +447,7 @@ test-vocabs: $(COMBINED)
 	@cp $(COMBINED) $(COMBINED_IDE)
 	@echo "Running vocabulary tests..."
 	@$(VOCABS_KILL_ALL); \
-	trap '$(VOCABS_KILL_ALL)' EXIT INT TERM HUP; set -e; \
+	trap '$(VOCABS_KILL_ALL)' EXIT INT TERM HUP PIPE; set -e; \
 	for test in $(VOCAB_TESTS); do \
 		I=0; for a in $(VOCAB_TESTS_ALL); do [ $$a = $$test ] && break; I=$$((I+1)); done; \
 		PORT=$$(($(TEST_PORT_BASE)+10+I)); \
@@ -468,7 +468,7 @@ test-vocabs: $(COMBINED)
 test-gui: $(COMBINED)
 	@cp $(COMBINED) $(COMBINED_IDE)
 	@$(GUI_KILL_ALL); \
-	trap '$(GUI_KILL_ALL)' EXIT INT TERM HUP; set -e; \
+	trap '$(GUI_KILL_ALL)' EXIT INT TERM HUP PIPE; set -e; \
 	for test in $(GUI_TESTS); do \
 		if [ ! -f tests/$$test.py ]; then continue; fi; \
 		I=0; for a in $(GUI_TESTS_ALL); do [ $$a = $$test ] && break; I=$$((I+1)); done; \
@@ -505,7 +505,7 @@ test-log-harness-nic: $(COMBINED)
 	done; \
 	PIDF=$(BUILD)/test-log-harness-nic.pid; $(QEMU_KILL); \
 	PCAP=$(BUILD)/log-harness-nic.pcap; rm -f $$PCAP; \
-	trap '$(QEMU_KILL)' EXIT INT TERM HUP; set -e; $(PORTS_FREE) --recipe test-log-harness-nic --base $(TEST_PORT_BASE); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-log-harness-nic --base $(TEST_PORT_BASE); \
 	cp $(COMBINED) $(COMBINED_IDE); \
 	echo "Running LOG-HARNESS NIC smoke test..."; \
 	$(QEMU) -drive file=$(COMBINED),format=raw,if=floppy \
@@ -527,7 +527,7 @@ test-log-harness: $(COMBINED)
 		fi; \
 	done; \
 	PIDF=$(BUILD)/test-log-harness.pid; $(QEMU_KILL); \
-	trap '$(QEMU_KILL)' EXIT INT TERM HUP; set -e; $(PORTS_FREE) --recipe test-log-harness --base $(TEST_PORT_BASE); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-log-harness --base $(TEST_PORT_BASE); \
 	cp $(COMBINED) $(COMBINED_IDE); \
 	echo "Running LOG-HARNESS smoke test..."; \
 	$(QEMU) -drive file=$(COMBINED),format=raw,if=floppy \
@@ -544,7 +544,7 @@ test-log-harness: $(COMBINED)
 test-install: $(COMBINED) $(BOOTLOADER) $(VBR)
 	@cp $(COMBINED) $(COMBINED_IDE)
 	@PIDF=$(BUILD)/test-install.pid; $(QEMU_KILL); \
-	trap '$(QEMU_KILL)' EXIT INT TERM HUP; set -e; $(PORTS_FREE) --recipe test-install --base $(TEST_PORT_BASE); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-install --base $(TEST_PORT_BASE); \
 	PORT=$$(($(TEST_PORT_BASE)+3)); \
 	echo "Running INSTALL allowlist test..."; \
 	$(QEMU) -drive file=$(COMBINED),format=raw,if=floppy \
@@ -557,7 +557,7 @@ test-install: $(COMBINED) $(BOOTLOADER) $(VBR)
 # VBR variant boot smoke (test manages its own QEMU; monitor on port+1)
 test-vbr: $(VBR) $(KERNEL) $(IMAGE)
 	@QPIDDIR=$(BUILD)/test-vbr.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
-	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP; set -e; $(PORTS_FREE) --recipe test-vbr --base $(TEST_PORT_BASE); \
+	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-vbr --base $(TEST_PORT_BASE); \
 	echo "Running VBR variant boot smoke..."; \
 	PORT=$$(($(TEST_PORT_BASE)+8)); \
 	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_VBR) python3 tests/test_vbr_boot.py $$PORT
@@ -591,7 +591,7 @@ test-vbr: $(VBR) $(KERNEL) $(IMAGE)
 # the guarantee. See the docket's carried items.
 test-g6: grub-net $(VBR) $(KERNEL)
 	@QPIDDIR=$(BUILD)/test-g6.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
-	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP; set -e; $(PORTS_FREE) --recipe test-g6 --base $(TEST_PORT_BASE); \
+	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-g6 --base $(TEST_PORT_BASE); \
 	echo "Running G6 chain harness..."; \
 	PORT=$$(($(TEST_PORT_BASE)+95)); \
 	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_G6) python3 tests/test_g6_chain.py $$PORT
@@ -600,7 +600,7 @@ test-g6: grub-net $(VBR) $(KERNEL)
 test-integration: $(COMBINED)
 	@cp $(COMBINED) $(COMBINED_IDE)
 	@PIDF=$(BUILD)/test-integration.pid; $(QEMU_KILL); \
-	trap '$(QEMU_KILL)' EXIT INT TERM HUP; set -e; $(PORTS_FREE) --recipe test-integration --base $(TEST_PORT_BASE); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-integration --base $(TEST_PORT_BASE); \
 	PORT=$$(($(TEST_PORT_BASE)+20)); \
 	echo "Running full integration test..."; \
 	$(QEMU) -drive file=$(COMBINED),format=raw,if=floppy \
@@ -614,7 +614,7 @@ test-integration: $(COMBINED)
 test-network: $(COMBINED)
 	@cp $(COMBINED) $(COMBINED_IDE)
 	@QPIDDIR=$(BUILD)/test-network.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
-	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP; set -e; $(PORTS_FREE) --recipe test-network --base $(TEST_PORT_BASE); \
+	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-network --base $(TEST_PORT_BASE); \
 	echo "Running NE2000 network test..."; \
 	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_NETWORK) python3 tests/test_ne2000_network.py $$(($(TEST_PORT_BASE)+40))
 
@@ -643,7 +643,7 @@ backstop0: $(BACKSTOP0_IMAGE)
 # itself (it must poke the image BEFORE boot).
 test-block-reload: $(COMBINED)
 	@QPIDDIR=$(BUILD)/test-block-reload.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
-	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP; set -e; $(PORTS_FREE) --recipe test-block-reload --base $(TEST_PORT_BASE); \
+	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-block-reload --base $(TEST_PORT_BASE); \
 	echo "Running block-cache reload test (Bug #34)..."; \
 	PORT=$$(($(TEST_PORT_BASE)+95)); \
 	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_BLOCK_RELOAD) python3 tests/test_block_reload.py $$PORT $(COMBINED)
@@ -662,7 +662,7 @@ test-block-reload: $(COMBINED)
 # (observed above); +93 is unused and one below the serial port.
 test-xhci: $(COMBINED)
 	@PIDF=$(BUILD)/test-xhci.pid; $(QEMU_KILL); \
-	trap '$(QEMU_KILL)' EXIT INT TERM HUP; set -e; $(PORTS_FREE) --recipe test-xhci --base $(TEST_PORT_BASE); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-xhci --base $(TEST_PORT_BASE); \
 	cp $(COMBINED) $(COMBINED_IDE); \
 	echo "Running xHCI vocab test..."; \
 	$(QEMU) -M pc -device qemu-xhci -device usb-kbd,id=kbd \
@@ -680,7 +680,7 @@ test-xhci: $(COMBINED)
 # instance (the HP has one).  Port +87 was unused.
 test-pci-bar: $(COMBINED)
 	@PIDF=$(BUILD)/test-pci-bar.pid; $(QEMU_KILL); \
-	trap '$(QEMU_KILL)' EXIT INT TERM HUP; set -e; $(PORTS_FREE) --recipe test-pci-bar --base $(TEST_PORT_BASE); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-pci-bar --base $(TEST_PORT_BASE); \
 	cp $(COMBINED) $(COMBINED_IDE); \
 	echo "Running PCI-BAR vocab test..."; \
 	$(QEMU) -M pc -device intel-hda -device intel-hda \
@@ -729,7 +729,7 @@ T_PCI_BAR ?= 450
 # QEMU running when $(BUILD) (or QEMU_PIDDIR) is an absolute path, since
 # "$(CURDIR)/$$PIDF" is then not the path QEMU holds open.
 # See docs/TASK_HARNESS_KILL_BY_PID.md.
-QEMU_KILL = if [ -f $$PIDF ]; then QPID=$$(cat $$PIDF); \
+QEMU_KILL = if [ -f $$PIDF ]; then QPID=$$(cat $$PIDF 2>/dev/null); \
 	case "$$(readlink /proc/$$QPID/exe)" in */qemu-system-*) \
 	  if readlink /proc/$$QPID/fd/* 2>/dev/null | grep -qxF "$(CURDIR)/$$PIDF"; \
 	  then kill -9 $$QPID 2>/dev/null; fi;; esac; rm -f $$PIDF; fi
@@ -759,7 +759,7 @@ T_ARM64_BOOT ?= 720
 T_CORTEXM ?= 600
 test-firstboot: $(COMBINED)
 	@PIDF=$(BUILD)/firstboot-lan.pid; $(QEMU_KILL); \
-	trap '$(QEMU_KILL)' EXIT INT TERM HUP; \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; \
 	$(PORTS_FREE) --recipe test-firstboot --base $(TEST_PORT_BASE) || exit 1; \
 	cp $(COMBINED) $(COMBINED_IDE); \
 	echo "Running FIRSTBOOT wizard test (lan)..."; \
@@ -774,7 +774,7 @@ test-firstboot: $(COMBINED)
 	python3 tests/test_firstboot.py $$(($(TEST_PORT_BASE)+88)) $(COMBINED) \
 		$$(($(TEST_PORT_BASE)+89)) lan $(COMBINED_IDE)
 	@PIDF=$(BUILD)/firstboot-offline.pid; $(QEMU_KILL); \
-	trap '$(QEMU_KILL)' EXIT INT TERM HUP; \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; \
 	cp $(COMBINED) $(COMBINED_IDE); \
 	echo "Running FIRSTBOOT wizard test (offline)..."; \
 	$(QEMU) -M pc -nic none \
@@ -791,7 +791,7 @@ test-firstboot: $(COMBINED)
 # block storage image needed, same tier as test-dict-bounds).
 test-squote-laydown: $(ACTIVE_IMAGE)
 	@PIDF=$(BUILD)/test-squote-laydown.pid; $(QEMU_KILL); \
-	trap '$(QEMU_KILL)' EXIT INT TERM HUP; set -e; $(PORTS_FREE) --recipe test-squote-laydown --base $(TEST_PORT_BASE); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-squote-laydown --base $(TEST_PORT_BASE); \
 	PORT=$$(($(TEST_PORT_BASE)+98)); \
 	echo "Running S\"-laydown test..."; \
 	$(QEMU) -drive file=$(ACTIVE_IMAGE),format=raw,if=floppy \
@@ -804,7 +804,7 @@ test-squote-laydown: $(ACTIVE_IMAGE)
 # in-loop DICT_LIMIT guard firing (unreachable in normal builds).
 test-squote-laydown-backstop0: $(BACKSTOP0_IMAGE)
 	@PIDF=$(BUILD)/test-squote-laydown-backstop0.pid; $(QEMU_KILL); \
-	trap '$(QEMU_KILL)' EXIT INT TERM HUP; set -e; $(PORTS_FREE) --recipe test-squote-laydown-backstop0 --base $(TEST_PORT_BASE); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-squote-laydown-backstop0 --base $(TEST_PORT_BASE); \
 	PORT=$$(($(TEST_PORT_BASE)+99)); \
 	echo "Running S\"-laydown --backstop0 test..."; \
 	$(QEMU) -drive file=$(BACKSTOP0_IMAGE),format=raw,if=floppy \
@@ -831,7 +831,7 @@ test-flush: $(DEBUG_IMAGE) $(BUILD)/.catalog.stamp
 	@cat $(DEBUG_IMAGE) $(BLOCKS) > $(DEBUG_COMBINED)
 	@cp $(DEBUG_COMBINED) $(DEBUG_COMBINED_IDE)
 	@PIDF=$(BUILD)/test-flush.pid; $(QEMU_KILL); \
-	trap '$(QEMU_KILL)' EXIT INT TERM HUP; set -e; $(PORTS_FREE) --recipe test-flush --base $(TEST_PORT_BASE); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-flush --base $(TEST_PORT_BASE); \
 	PORT=$$(($(TEST_PORT_BASE)+50)); \
 	echo "Running flush stress test..."; \
 	$(QEMU) -drive file=$(DEBUG_COMBINED),format=raw,if=floppy \
@@ -850,7 +850,7 @@ lint:
 test-arm64-boot: $(COMBINED)
 	@cp $(COMBINED) $(COMBINED_IDE)
 	@QPIDDIR=$(BUILD)/test-arm64-boot.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
-	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP; set -e; $(PORTS_FREE) --recipe test-arm64-boot --base $(TEST_PORT_BASE); \
+	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-arm64-boot --base $(TEST_PORT_BASE); \
 	echo "Running ARM64 boot test..."; \
 	PORT=$$(($(TEST_PORT_BASE)+50)); \
 	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_ARM64_BOOT) python3 tests/test_arm64_boot.py $$PORT
@@ -859,7 +859,7 @@ test-arm64-boot: $(COMBINED)
 test-cortexm: $(COMBINED)
 	@cp $(COMBINED) $(COMBINED_IDE)
 	@QPIDDIR=$(BUILD)/test-cortexm.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
-	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP; set -e; $(PORTS_FREE) --recipe test-cortexm --base $(TEST_PORT_BASE); \
+	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-cortexm --base $(TEST_PORT_BASE); \
 	echo "Running Cortex-M33 boot test..."; \
 	PORT=$$(($(TEST_PORT_BASE)+60)); \
 	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_CORTEXM) python3 tests/test_cortexm_boot.py $$PORT
@@ -878,7 +878,7 @@ test-ahci-write: $(COMBINED) $(AHCI_SCRATCH)
 		exit 0; \
 	fi; \
 	PIDF=$(BUILD)/test-ahci-write.pid; $(QEMU_KILL); \
-	trap '$(QEMU_KILL)' EXIT INT TERM HUP; set -e; $(PORTS_FREE) --recipe test-ahci-write --base $(TEST_PORT_BASE); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-ahci-write --base $(TEST_PORT_BASE); \
 	cp $(COMBINED) $(COMBINED_IDE); \
 	echo "Running AHCI write test..."; \
 	PORT=$$(($(TEST_PORT_BASE)+75)); \
@@ -930,7 +930,7 @@ test-uefi2-gdt: $(IMAGE) $(COMBINED)
 # scratch IDE disk with a sentinel; a SAVE-BUFFERS must leave it intact.
 test-carrier-write-safe: $(IMAGE)
 	@QPIDDIR=$(BUILD)/test-carrier-write-safe.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
-	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP; set -e; $(PORTS_FREE) --recipe test-carrier-write-safe --base $(TEST_PORT_BASE); \
+	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-carrier-write-safe --base $(TEST_PORT_BASE); \
 	echo "Running CARRIER-0b write-safety gate..."; \
 	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_CARRIER) python3 tests/test_carrier_write_safe.py $$(($(TEST_PORT_BASE)+79))
 
@@ -941,7 +941,7 @@ test-carrier-write-safe: $(IMAGE)
 # own; it prints SKIP and exits 0 if pxelinux/memdisk are not installed.
 test-memdisk: $(COMBINED)
 	@QPIDDIR=$(BUILD)/test-memdisk.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
-	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP; set -e; $(PORTS_FREE) --recipe test-memdisk --base $(TEST_PORT_BASE); \
+	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-memdisk --base $(TEST_PORT_BASE); \
 	echo "Running memdisk boot test (pxelinux -> memdisk)..."; \
 	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_MEMDISK) python3 tests/test_memdisk_blk_writer.py $$(($(TEST_PORT_BASE)+65))
 
@@ -978,6 +978,14 @@ test-port-inventory:
 	@echo "Running QEMU port inventory check..."
 	@python3 tools/port_inventory.py --check tools/qemu_ports.json
 
+# Every kill trap must include PIPE: under `make ... 2>&1 | grep`, a dead
+# pipe reader turns the recipe shell's next write into SIGPIPE, and without
+# PIPE in the list the shell dies before its trap runs, orphaning its QEMUs
+# (docs/TASK_TEST_META_ORPHAN_RACE.md; 0/31 before the fix, 2026-10-10).
+test-kill-traps:
+	@echo "Running kill-trap PIPE check..."
+	@python3 tools/check_kill_traps.py Makefile
+
 # UBT LLM validation (single-binary, requires NVIDIA_API_KEY)
 # The driver corpus is read from CORPUS_ROOT and never copied into this repo.
 CORPUS_ROOT ?= $(HOME)/corpus
@@ -993,7 +1001,7 @@ ubt-llm-validate-prefilter:
 
 test-file-stream: $(IMAGE)
 	@PIDF=$(BUILD)/test-file-stream.pid; $(QEMU_KILL); \
-	trap '$(QEMU_KILL)' EXIT INT TERM HUP; set -e; $(PORTS_FREE) --recipe test-file-stream --base $(TEST_PORT_BASE); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-file-stream --base $(TEST_PORT_BASE); \
 	PORT=$$(($(TEST_PORT_BASE)+55)); \
 	echo "=== FILE-STREAM helpers (port $$PORT) ==="; \
 	$(QEMU) -drive file=build/bmforth.img,format=raw,if=floppy \
@@ -1035,7 +1043,7 @@ test-survey: $(SURVEY_DEPS)
 		exit 0; \
 	fi; \
 	QPIDDIR=$(BUILD)/test-survey.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
-	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP; set -e; $(PORTS_FREE) --recipe test-survey --base $(TEST_PORT_BASE); \
+	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-survey --base $(TEST_PORT_BASE); \
 	PORT=$$(($(TEST_PORT_BASE)+100)); \
 	echo "=== DISK-SURVEY layouts (ports $$PORT-$$((PORT+5))) ==="; \
 	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_SURVEY) python3 tests/test_survey_layouts.py $$PORT
@@ -1056,7 +1064,7 @@ test-meta: $(COMBINED)
 	@cp $(COMBINED) $(COMBINED_IDE)
 	@echo "Running metacompiler tests..."
 	@QPIDDIR=$(BUILD)/test-meta.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
-	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP; set -e; \
+	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; \
 	export QEMU_PIDDIR=$$QPIDDIR; \
 	for spec in $(META_FIXTURES_ALL); do \
 		name=$${spec%:*}; off=$${spec#*:}; \
@@ -1105,7 +1113,7 @@ test-meta: $(COMBINED)
 #     its output as evidence, and it never gates a build.  If it must ever
 #     gate something, the gate goes on a deterministic artefact derived from
 #     it and pinned -- the treatment the Ghidra oracle already has.
-test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-squote-laydown test-install test-log-harness test-log-harness-nic test-vbr test-grub-cfg test-uefi-boot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-g6 test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
+test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-squote-laydown test-install test-log-harness test-log-harness-nic test-vbr test-grub-cfg test-uefi-boot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)
