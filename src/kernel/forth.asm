@@ -5562,7 +5562,7 @@ blk_find_buffer:
     ; Track LRU while searching
     mov ebx, [esi + 8]         ; age
     cmp ebx, edi
-    jge .not_older
+    jae .not_older             ; unsigned: the 0xFFFFFFFF start is the largest age
     mov edi, ebx               ; New lowest age
     mov eax, ecx               ; Remember this index
 .not_older:
@@ -5579,7 +5579,9 @@ blk_find_buffer:
     jz .setup_slot
     pop esi
     push edx                   ; Save requested block#
+    push eax                   ; Save victim index: blk_flush_one clobbers EAX
     call blk_flush_one
+    pop eax
     pop edx
     push esi                   ; Re-save
     jmp .setup_slot

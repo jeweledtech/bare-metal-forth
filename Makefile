@@ -697,6 +697,17 @@ test-block-reload: $(COMBINED)
 	PORT=$$(($(TEST_PORT_BASE)+95)); \
 	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_BLOCK_RELOAD) python3 tests/test_block_reload.py $$PORT $(COMBINED)
 
+# Block-cache eviction gate (TASK_BLK_EVICT_FIX): the LRU replaces the
+# least recently used slot, and an eviction flush keeps the victim's slot
+# index whether the writer refuses or succeeds.  A fixture writer and the
+# ATA writer on scratch copies of $(COMBINED); the script launches QEMU.
+test-blk-evict: $(COMBINED)
+	@QPIDDIR=$(BUILD)/test-blk-evict.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
+	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-blk-evict --base $(TEST_PORT_BASE); \
+	echo "Running block-cache eviction test..."; \
+	PORT=$$(($(TEST_PORT_BASE)+66)); \
+	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_BLK_EVICT) python3 tests/test_blk_evict.py $$PORT $(COMBINED)
+
 # xHCI vocab gate (docket step 2a): BAR64-MASK + PCI-BAR64@,
 # block-loaded from forth/dict/xhci.fth via catalog THRU.  Needs
 # block storage (combined image) AND the target device: -M pc
@@ -804,6 +815,7 @@ T_SURVEY ?= 1100
 T_NETWORK ?= 900
 T_G6 ?= 1200
 T_BLOCK_RELOAD ?= 150
+T_BLK_EVICT ?= 150
 T_ARM64_BOOT ?= 720
 T_CORTEXM ?= 600
 test-firstboot: $(COMBINED)
@@ -1164,7 +1176,7 @@ test-meta: $(COMBINED)
 #     its output as evidence, and it never gates a build.  If it must ever
 #     gate something, the gate goes on a deterministic artefact derived from
 #     it and pinned -- the treatment the Ghidra oracle already has.
-test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-vbr test-grub-cfg test-uefi-boot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
+test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-vbr test-grub-cfg test-uefi-boot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)
@@ -1249,4 +1261,4 @@ grub-net: $(COMBINED) tools/pxe/grub.cfg
 pxe-push-grub: grub-net
 	@bash tools/pxe/push-grub.sh
 
-.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined usb-image check-coverage desk-hashes check-kernel-size test test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-grub-cfg test-g6
+.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined usb-image check-coverage desk-hashes check-kernel-size test test-blk-evict test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-grub-cfg test-g6
