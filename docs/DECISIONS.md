@@ -43,9 +43,16 @@ parts exist). The gui-harvest.fth UBT stub marks the intended hook point.
 
 ## UEFI is out of scope (May 2026)
 
-**Decision:** UEFI support will not be implemented. ForthOS boots via
+**Superseded (2026-09-28, owner ruling; built 2026-10-12):** ForthOS
+boots under UEFI through GRUB EFI and multiboot2 (UEFI-3, UEFI-4:
+docs/TASK_UEFI_3_4.md), legacy BIOS where the machine offers it, from one
+stick; the kernel still makes no firmware calls once it runs. The
+"no abstraction layer" thesis below is restated by "Binding layer, not a
+HAL barrier (October 2026)".
+
+~~**Decision:** UEFI support will not be implemented. ForthOS boots via
 BIOS INT 13h/EDD by design. Future assessments should state "BIOS:
-working, UEFI: out of scope" — not "partial."
+working, UEFI: out of scope" — not "partial."~~
 
 **Reasoning:** UEFI is a giant firmware abstraction layer. "No HAL, no
 abstraction layer" is the project thesis. Implementing UEFI would
@@ -344,3 +351,27 @@ only starts the port FIND-PORT returns (the disk).
 **Evidence:** See private
 closure-atapi-ahci-phase1.md for raw SCAN-PORTS
 capture and the port-start transition proof.
+
+---
+
+## Binding layer, not a HAL barrier (October 2026)
+
+**Decision (owner, 2026-10-11; wording approved 2026-10-12):** Rejected:
+HAL as a privilege barrier or mandatory mediation layer. Adopted: HAL as
+a rebindable naming contract over direct access; direct register/memory
+access is never removed.
+
+**What it means:**
+- Every machine answers to the same contract words (FB-BASE, FB-FLUSH;
+  BLK-READ, BLK-WRITE next). Which driver answers each one is a cell you
+  can change at the ok prompt (`' NEW-WORD BIND FB-BASE`), taking effect on
+  the next call.
+- Nothing is mediated: @ ! C@ C! W@ W! and the port words INB INW INL OUTB
+  OUTW OUTL still reach any address or port directly. A binding is a
+  convenience you can bypass at any moment, never a wall.
+- Publicly it is the "binding layer", which keeps "no HAL" honest in the
+  sense the project always meant: no mediation layer. The vocabulary and
+  its words keep the design's HAL names (HAL-VECTOR, BIND, HAL-LIST).
+
+**Built:** slice 1 (the mechanism and the display contract), public
+ecfd978, docs/TASK_HAL_DISPLAY.md.

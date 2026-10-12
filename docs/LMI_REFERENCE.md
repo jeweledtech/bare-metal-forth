@@ -77,7 +77,8 @@ everything recoverable from public sources in the meantime.
       ↓
 
 2026  This project (bare-metal-forth / ForthOS)
-      Bare metal, no HAL, no OS layer, no Windows.
+      Bare metal, no HAL barrier, no OS layer, no Windows;
+      direct access is never removed.
       The answer to the problem that ended LMI's run.
       DISASM and ASM vocabularies to be implemented
       following the Duncan/LMI/PASM architectural lineage.

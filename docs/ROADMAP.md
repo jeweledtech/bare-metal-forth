@@ -134,7 +134,7 @@ Roadmap only — not started yet.
 │        Real Mode → Protected Mode → Load Kernel          │
 ├─────────────────────────────────────────────────────────┤
 │                     BARE METAL                           │
-│          x86 hardware, no HAL, no OS layer               │
+│          x86 hardware, no HAL barrier, no OS layer       │
 └─────────────────────────────────────────────────────────┘
 ```
 
