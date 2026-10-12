@@ -196,6 +196,8 @@ ATA_CTRL            equ 0x3F6
 
 ; VGA
 VGA_TEXT            equ 0xB8000
+FB_SHADOW           equ 0x80000         ; UEFI-4: the text buffer in RAM (no VGA text mode)
+FONT_BLK            equ 536             ; UEFI-4: write-catalog.py FONT_RESERVED.start
 VGA_WIDTH           equ 80
 VGA_HEIGHT          equ 25
 VGA_ATTR            equ 0x07        ; Light gray on black
@@ -540,6 +542,11 @@ mb2_header:
     dd 12
     dd 6
     dd 0                                ; pad to 8
+    ; framebuffer tag (5), optional (flags bit 0): any size, 32 bpp (UEFI-4)
+    dw 5, 1
+    dd 20
+    dd 0, 0, 32
+    dd 0                                ; pad to 8
     ; end tag
     dw 0, 0
     dd 8
@@ -558,6 +565,15 @@ mb2_mod_end:    dd 0
 mb2_mmap_tag:   dd 0                    ; the memory map tag in the MBI, 0 = none
 mb2_dest:       dd 0, 0                 ; [lo, hi) of the move target
 mb2_quiet:      db 0                    ; 1 = mb2_window prints nothing
+mb2_flags:      db 0                    ; bit 0 multiboot2 boot, bit 1 GRUB passed an EFI tag
+    align 4
+fb_addr:        dd 0                    ; UEFI-4 framebuffer (0 = none usable)
+fb_pitch:       dd 0
+fb_width:       dd 0
+fb_height:      dd 0
+fb_font:        dd 0                    ; first glyph (char 0x20), 16 B each; 0 = no font
+fb_on:          db 0                    ; 1 = print_char mirrors to the framebuffer
+fb_seen:        db 0, 0, 0              ; GRUB's framebuffer tag: bpp, type, 1 = present
 
 ; Windows the kernel owns (docs/ARCHITECTURE.md memory map): data stack,
 ; kernel, return stack, variables, buffers, IDT, dictionary; and the
@@ -566,13 +582,15 @@ mb2_quiet:      db 0                    ; 1 = mb2_window prints nothing
 mb2_windows:
     dd 0x00000500, 0x00080000
     dd 0x00100000, 0x00400000
-MB2_NWINDOWS equ 2
+    dd FB_SHADOW, FB_SHADOW + 0x1000    ; UEFI-4: the text buffer's RAM copy
+MB2_NWINDOWS equ 3
 MB2_MOVE_TO  equ 0x00400000            ; the end of the highest window
 
 mb2_entry:
     cli
     cld
     mov esp, mb2_stack_top
+    mov byte [mb2_flags], 1
     mov edi, eax                        ; the magic, kept across init_serial
     call init_serial
     mov esi, mb2_msg_magic
@@ -592,6 +610,34 @@ mb2_entry:
     jne .not_mmap
     mov [mb2_mmap_tag], esi
 .not_mmap:
+    cmp eax, 11                         ; EFI 32-bit system table
+    je .efi
+    cmp eax, 12                         ; EFI 64-bit system table
+    jne .not_efi
+.efi:
+    or byte [mb2_flags], 2
+.not_efi:
+    cmp eax, 8                          ; framebuffer info
+    jne .not_fb
+    mov ax, [esi + 28]                  ; bpp, type: kept for the report
+    mov [fb_seen], ax
+    or byte [fb_seen + 2], 1
+    cmp dword [esi + 12], 0             ; address above 4 GiB: unusable here
+    jne .not_fb
+    cmp byte [esi + 29], 1              ; framebuffer_type 1 = direct RGB
+    jne .not_fb
+    cmp byte [esi + 28], 32             ; framebuffer_bpp
+    jne .not_fb
+    mov eax, [esi + 8]
+    mov [fb_addr], eax
+    mov eax, [esi + 16]
+    mov [fb_pitch], eax
+    mov eax, [esi + 20]
+    mov [fb_width], eax
+    mov eax, [esi + 24]
+    mov [fb_height], eax
+.not_fb:
+    mov eax, [esi]                      ; the tag type again
     cmp eax, 3
     jne .next
     cmp dword [mb2_mod_end], 0
@@ -616,9 +662,13 @@ mb2_entry:
     ; per window: available bytes, and every non-available entry inside it
     ; (COLLISION: reported, not acted on -- QEMU's map is not the iron's)
     mov ebx, mb2_windows
+    mov ecx, MB2_NWINDOWS
+.report:
+    push ecx
     call mb2_window
+    pop ecx
     add ebx, 8
-    call mb2_window
+    loop .report
     ; the module must not sit in a window: GRUB 2.12 puts it at the lowest
     ; free address from 1 MiB (measured: 0x100000, inside the pool), so it
     ; moves to MB2_MOVE_TO, above every window, if the map gives that range
@@ -674,7 +724,63 @@ mb2_entry:
 .base:
     mov eax, [mb2_mod_start]
     mov [BLK_IMAGE_BASE], eax
+    call fb_setup
     jmp kernel_start
+
+; fb_setup (UEFI-4): a usable framebuffer (32 bpp, at least 80x25 cells of
+; 8x16) and the font in the module's FONT_BLK -> the text buffer moves to
+; FB_SHADOW and print_char draws every cell.  Reports either way.
+fb_setup:
+    mov esi, mb2_msg_nofb
+    cmp dword [fb_addr], 0
+    je .nofb
+    cmp dword [fb_width], VGA_WIDTH * 8
+    jb .say
+    cmp dword [fb_height], VGA_HEIGHT * 16
+    jb .say
+    mov esi, mb2_msg_fb
+    call mb2_puts
+    mov eax, [fb_width]
+    call mb2_hex
+    mov al, 'x'
+    call serial_putchar
+    mov eax, [fb_height]
+    call mb2_hex
+    mov esi, mb2_msg_at
+    call mb2_puts
+    mov eax, [fb_addr]
+    call mb2_hex
+    call mb2_crlf
+    mov eax, [mb2_mod_start]
+    add eax, COMBINED_HEADER_SIZE + FONT_BLK * BLOCK_SIZE
+    mov esi, mb2_msg_nofont
+    cmp dword [eax], 'FNT1'
+    jne .say
+    cmp word [eax + 4], 0x5F20          ; first 0x20, count 95
+    jne .say
+    add eax, 16
+    mov [fb_font], eax
+    mov dword [vga_base], FB_SHADOW
+    mov byte [fb_on], 1
+    mov esi, mb2_msg_fbon
+.say:
+    call mb2_puts
+    jmp mb2_crlf
+.nofb:                                  ; say what GRUB passed, if anything
+    call mb2_puts
+    mov esi, mb2_msg_notag
+    cmp byte [fb_seen + 2], 0
+    je .say
+    mov esi, mb2_msg_tag
+    call mb2_puts
+    movzx eax, byte [fb_seen + 1]
+    call mb2_hex
+    mov esi, mb2_msg_bpp
+    call mb2_puts
+    movzx eax, byte [fb_seen]
+    call mb2_hex
+    mov esi, mb2_msg_close
+    jmp .say
 
 mb2_refuse:                             ; ESI -> the reason; prints and halts
     push esi
@@ -842,6 +948,15 @@ mb2_msg_magic:   db 'bad multiboot2 magic in EAX', 0
 mb2_msg_nomod:   db 'no module (the blocks image)', 0
 mb2_msg_noroom:  db 'the module lies inside a kernel window and the map has no room above it', 0
 mb2_msg_moved:   db 'MB2: module moved to ', 0
+mb2_msg_fb:      db 'MB2: framebuffer ', 0
+mb2_msg_at:      db ' at ', 0
+mb2_msg_nofb:    db 'MB2: no usable framebuffer (console on serial only)', 0
+mb2_msg_notag:   db ': GRUB passed none', 0
+mb2_msg_tag:     db ': GRUB passed type ', 0
+mb2_msg_bpp:     db ', bpp ', 0
+mb2_msg_close:   db ' (want type 1, bpp 32)', 0
+mb2_msg_nofont:  db 'MB2: no font in the image (console on serial only)', 0
+mb2_msg_fbon:    db 'MB2: framebuffer console on', 0
 
 ; ============================================================================
 ; Dictionary Header Macro
@@ -1541,10 +1656,11 @@ DEFCODE "SPACE", SPACE, 0
     NEXT
 
 DEFCODE "PAGE", PAGE, 0     ; ( -- ) Clear screen, cursor to 0,0
-    mov edi, VGA_TEXT
+    mov edi, [vga_base]
     mov ecx, VGA_WIDTH * VGA_HEIGHT
     mov ax, (VGA_ATTR << 8) | ' '
     rep stosw
+    call fb_redraw
     mov dword [cursor_x], 0
     mov dword [cursor_y], 0
     ; Set hardware cursor to position 0
@@ -2647,6 +2763,23 @@ DEFCODE "DEPTH", DEPTH, 0
     mov eax, DATA_STACK_TOP
     sub eax, esp
     shr eax, 2                 ; Divide by 4 (cell size)
+    push eax
+    NEXT
+
+; BOOT-MODE ( -- n ) how this kernel was booted: 0 BIOS from a disk (no
+; memdisk), 1 BIOS through memdisk, 2 multiboot2 under BIOS, 3 multiboot2
+; under UEFI (docs/TASK_UEFI_3_4.md)
+DEFCODE "BOOT-MODE", BOOT_MODE, 0
+    movzx eax, byte [mb2_flags]
+    test eax, eax
+    jz .bios
+    shr eax, 1                          ; the EFI bit
+    add eax, 2
+    push eax
+    NEXT
+.bios:
+    cmp dword [BLK_IMAGE_BASE], 0
+    setne al
     push eax
     NEXT
 
@@ -4515,11 +4648,12 @@ init_screen:
     push edi
     
     ; Clear screen
-    mov edi, VGA_TEXT
+    mov edi, [vga_base]
     mov ecx, VGA_WIDTH * VGA_HEIGHT
     mov ax, (VGA_ATTR << 8) | ' '
     rep stosw
-    
+    call fb_redraw
+
     ; Reset cursor
     mov dword [cursor_x], 0
     mov dword [cursor_y], 0
@@ -4697,16 +4831,25 @@ print_char:
     je .bs
     
     ; Normal character
-    mov edi, VGA_TEXT
+    mov edi, [vga_base]
     mov ecx, [cursor_y]
     imul ecx, VGA_WIDTH * 2
     add edi, ecx
     mov ecx, [cursor_x]
     shl ecx, 1
     add edi, ecx
-    
+
     mov ah, VGA_ATTR
     stosw
+    cmp byte [fb_on], 0
+    je .fb_skip
+    push eax
+    mov eax, [cursor_y]
+    imul eax, VGA_WIDTH
+    add eax, [cursor_x]
+    call fb_cell
+    pop eax
+.fb_skip:
     
     inc dword [cursor_x]
     cmp dword [cursor_x], VGA_WIDTH
@@ -4779,19 +4922,88 @@ scroll_screen:
     push esi
     push edi
     
-    mov edi, VGA_TEXT
-    mov esi, VGA_TEXT + VGA_WIDTH * 2
+    mov edi, [vga_base]
+    lea esi, [edi + VGA_WIDTH * 2]
     mov ecx, VGA_WIDTH * (VGA_HEIGHT - 1)
     rep movsw
-    
+
     ; Clear last line
     mov ecx, VGA_WIDTH
     mov ax, (VGA_ATTR << 8) | ' '
     rep stosw
+    call fb_redraw
     
     pop edi
     pop esi
     pop ecx
+    ret
+
+; ----------------------------------------------------------------------------
+; fb_cell / fb_redraw (UEFI-4): draw text-buffer cells to the framebuffer as
+; 8x16 glyphs, light grey on black.  fb_cell: EAX = cell index.  Characters
+; outside 0x20-0x7E draw as a space.  No-ops unless fb_on.
+; ----------------------------------------------------------------------------
+FB_FG equ 0x00AAAAAA
+fb_cell:
+    cmp byte [fb_on], 0
+    je .ret
+    pushad
+    mov ebx, eax
+    mov esi, [vga_base]
+    movzx eax, byte [esi + ebx * 2]     ; the character
+    sub eax, 0x20
+    cmp eax, 0x7E - 0x20
+    jbe .glyph
+    xor eax, eax                        ; a space
+.glyph:
+    shl eax, 4
+    add eax, [fb_font]
+    mov esi, eax                        ; 16 glyph rows
+    mov eax, ebx
+    xor edx, edx
+    mov ecx, VGA_WIDTH
+    div ecx                             ; EAX = row, EDX = column
+    shl eax, 4                          ; pixel y = row * 16
+    imul eax, [fb_pitch]
+    shl edx, 5                          ; pixel x * 4 bytes = column * 32
+    add eax, edx
+    add eax, [fb_addr]
+    mov edi, eax
+    mov ecx, 16
+.row:
+    mov bl, [esi]
+    inc esi
+    push edi
+    mov edx, 8
+.px:
+    xor eax, eax
+    shl bl, 1
+    jnc .bg
+    mov eax, FB_FG
+.bg:
+    stosd
+    dec edx
+    jnz .px
+    pop edi
+    add edi, [fb_pitch]
+    dec ecx
+    jnz .row
+    popad
+.ret:
+    ret
+
+fb_redraw:
+    cmp byte [fb_on], 0
+    je .ret
+    push eax
+    xor eax, eax
+.cell:
+    call fb_cell
+    inc eax
+    cmp eax, VGA_WIDTH * VGA_HEIGHT
+    jb .cell
+    pop eax
+.ret:
     ret
 
 ; ----------------------------------------------------------------------------
@@ -6267,6 +6479,7 @@ cold_start:
 
 cursor_x:       dd 0
 cursor_y:       dd 0
+vga_base:       dd VGA_TEXT             ; the text buffer: VGA, or FB_SHADOW on UEFI-4
 
 ; Ctrl+C break handler state
 ctrl_held:      db 0                ; 1 = Ctrl key currently pressed

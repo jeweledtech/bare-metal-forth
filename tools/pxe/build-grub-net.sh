@@ -40,6 +40,8 @@ done
 }
 cp "$MEMDISK" "$TREE/memdisk"
 cp build/combined.img "$TREE/forth.img"
+python3 tools/make_font_blocks.py --license "$TREE/FONT-LICENSE.txt" \
+    || echo "warning: FONT-LICENSE.txt not written (font package absent)"
 
 echo "Staged $TREE:"
 echo "  memdisk:   $MEMDISK"

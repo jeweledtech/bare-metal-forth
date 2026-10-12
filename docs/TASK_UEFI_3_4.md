@@ -172,3 +172,70 @@ red in the make -k run on this tree. Owner rulings 2026-10-12, applied:
 `python3 -u`, the generator found no listens for it (drift against the
 committed entry; a new recipe would have passed unchecked). After: 38
 recipes, 78 entries, 0 problems.
+
+## Results: UEFI-4, the boot mode, both paths, network boot
+
+Evidence: ~/forthos-evidence/2026-10-12-uefi4/ (predictions written before
+each run, logs, serial captures).
+
+**Red** (UEFI-3 kernel, the extended gate): H3, B2 (three windows wanted),
+B4, U1, U3, F1, L1, L3 FAIL; H1, H2, B3, I1, U2, U4, L0, L2, L4 PASS, every
+one as predicted. L0 shows the dual path already worked: the hand-laid BIOS
+half boots the same image through SeaBIOS, GRUB and memdisk to `ok`.
+
+**Green, three things found on the way:**
+1. The window report called mb2_window twice by hand, so the third window
+   (the text shadow) went unreported: now a loop over MB2_NWINDOWS.
+2. GRUB passed **no** framebuffer tag: the standalone GRUB had no video
+   driver loaded. The kernel now says what GRUB passed (`GRUB passed none`,
+   or the type and bpp it got), which is what the iron will need too.
+3. With `insmod all_video`, GRUB passed type 1 at 24 bpp, 800x600: its bochs
+   driver setting QEMU's VGA directly. With `insmod efi_gop` only (what a
+   real machine offers): 1280x800, 32 bpp, at 0x80000000. The stick's UEFI
+   entry loads efi_gop.
+
+| check | OVMF | SeaBIOS |
+|---|---|---|
+| banner + ok | B3 PASS | L0 PASS |
+| BOOT-MODE | U1 = 3 PASS | L1 = 1 PASS |
+| HELLO-APP from blocks | U2 PASS (module) | L2 PASS (memdisk) |
+| AUTO-DETECT-REPORT | U3 `Boot: UEFI (multiboot2)` | L3 `Boot: BIOS (memdisk)` |
+| DEPTH 0 | U4 PASS | L4 PASS |
+
+Plus H1-H4, B2 (three windows, all available), B4 (`framebuffer console
+on`), I1, and **F1: after PAGE and `.( UEF) .( I4)`, the screen dump shows
+UEFI4 in the image's font, pixel for pixel, at cell 0,1** (split so only
+the output, not the echoed command, spells it). Seven runs green, 17.7 s
+each; T_UEFI_BOOT 40.
+
+One run (5) crashed in the SeaBIOS leg on a reset serial socket. Not
+reproduced in five runs after the change; the cause was not observed. The
+test now waits for its own QEMU to own both ports (qemu_pid.wait_started,
+which names a QEMU that exits) and reaps the first QEMU before the second
+starts, so a repeat names its cause instead of crashing.
+
+**Kernel pad:** 12,576 B free (UEFI-4 and BOOT-MODE: 1,108 B). The font
+costs none: blocks 536-537 of the image.
+
+**Network boot.** Red: N1, N2 (no option-93 branch, no EFI boot file
+named), N3 (no banner) FAIL as predicted; my predicted detail (an error
+naming linux16 on serial) was wrong: nothing followed GRUB's countdown on
+serial. Green: tools/pxe/gen-grub-cfg.py gives the netboot grub.cfg a
+`grub_platform` branch: the BIOS entries unchanged and in their frozen
+order inside the `pc` branch, one UEFI entry (efi_gop, multiboot2 + module2
+/forth.img) in the other. test_grub_cfg.py's frozen-shape pins now read the
+branches (owner direction 2026-10-12; 31/31). setup-dnsmasq.sh tags
+client-arch 7 and 9 and answers them with grub/x86_64-efi/core.efi, every
+other client pxelinux.0. test-uefi-netboot (new, +71): N1-N6 PASS, 12 s,
+three runs; T_UEFI_NETBOOT 30. test-g6 (the BIOS network chain) 77/77 after
+the change. **Neither the dnsmasq config nor the tree is applied to the
+live server** (make pxe-setup, make pxe-push-grub): the owner's step.
+
+**The font's license:** tools/make_font_blocks.py --license writes the
+notice and the OFL text (from console-setup's copyright file) as
+FONT-LICENSE.txt next to forth.img: make-uefi-usb.sh, make-usb-image.sh and
+the netboot tree (build-grub-net.sh), and the HP stick builder
+(forthos-vocabularies tools/make_hp_stick.py) at its next rebuild.
+
+**Still not covered on UEFI:** the form engine and the editors write
+0xB8000 from Forth, so they draw nothing on the framebuffer yet.

@@ -9,7 +9,8 @@ Three disciplines under test (spec D2 / Section 2):
    hits AND on multiple hits (single-source-of-truth, the
    VBR-LBA-OFF discipline).
 3. Drift gate: committed tools/pxe/grub.cfg == generated, entry
-   order frozen (0=memdisk, 1=chainload), timeout=5, default=0,
+   order frozen in the BIOS branch (0=memdisk, 1=chainload), one UEFI
+   multiboot2 entry in the other, timeout=5, default=0,
    biosdisk+probe GUID loop (search has no --part-uuid at all),
    and chainloader only inside the found-guard.
 """
@@ -127,13 +128,28 @@ check('committed grub.cfg matches generator byte-for-byte',
 
 print('Test 5: frozen shape pins')
 lines = gen.stdout.splitlines()
-ents = [i for i, l in enumerate(lines)
-        if l.startswith('menuentry')]
-check('exactly two menuentries', len(ents) == 2)
-check('entry 0 is memdisk',
-      len(ents) == 2 and 'memdisk' in lines[ents[0]])
-check('entry 1 is chainload',
-      len(ents) == 2 and 'installed' in lines[ents[1]])
+# Two branches (owner 2026-10-12, UEFI network boot): the BIOS (`pc`)
+# branch keeps the frozen two entries in order -- GRUB numbers the entries
+# of the branch it runs, so default=0 is still memdisk on a BIOS client --
+# and the UEFI branch holds the one multiboot2 entry.
+pc_i = [i for i, l in enumerate(lines) if l == 'if [ "$grub_platform" = "pc" ]; then']
+else_i = [i for i, l in enumerate(lines) if l == 'else']
+fi_i = [i for i, l in enumerate(lines) if l == 'fi']
+branches = len(pc_i) == 1 and len(else_i) == 1 and len(fi_i) == 1 and pc_i[0] < else_i[0] < fi_i[0]
+check('one pc/else/fi platform branch around every entry', branches)
+ents = [i for i, l in enumerate(lines) if l.startswith('menuentry')]
+pc_ents = [i for i in ents if branches and pc_i[0] < i < else_i[0]]
+efi_ents = [i for i in ents if branches and else_i[0] < i < fi_i[0]]
+check('every menuentry inside a branch', branches and len(pc_ents) + len(efi_ents) == len(ents))
+check('exactly two BIOS menuentries', len(pc_ents) == 2)
+check('BIOS entry 0 is memdisk',
+      len(pc_ents) == 2 and 'memdisk' in lines[pc_ents[0]])
+check('BIOS entry 1 is chainload',
+      len(pc_ents) == 2 and 'installed' in lines[pc_ents[1]])
+efi_body = lines[efi_ents[0]:fi_i[0]] if len(efi_ents) == 1 else []
+check('one UEFI menuentry: multiboot2 + module2 /forth.img, efi_gop',
+      len(efi_ents) == 1 and '    multiboot2 /forth.img' in efi_body
+      and '    module2 /forth.img' in efi_body and '    insmod efi_gop' in efi_body)
 check('timeout=5', 'set timeout=5' in lines)
 check('default=0', 'set default=0' in lines)
 # probe comparison line carries the canonical GUID (lowercase,

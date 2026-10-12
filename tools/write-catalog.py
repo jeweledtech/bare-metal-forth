@@ -33,6 +33,7 @@ Examples:
 import sys
 import os
 import re
+import subprocess
 
 # Import block utilities from write-block.py
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -99,6 +100,8 @@ MIRROR_RESERVED = range(216, 536)     # 320 blocks: one MIRROR image (header +
                                       # the largest dictionary, 0x30000-0x7F800 =
                                       # 318 blocks, + 1 spare); TASK_MIRROR_FIX
 MIRROR_BLK = 216                      # mirror.fth MIRROR-BLK constant
+FONT_RESERVED = range(536, 538)       # 2 blocks: the UEFI console font, read-only
+                                      # (forth.asm FONT_BLK; tools/make_font_blocks.py)
 HP_WRITE_CEILING = 910                # blocks 0-910 writable on HP (LBA < 2048)
 
 
@@ -153,7 +156,7 @@ def place_vocab(next_block, num_blocks):
     Reserved ranges are expected to be sorted and non-overlapping; we skip
     past each in turn so a vocab wider than one gap still lands cleanly."""
     start = next_block
-    for reserved in (SETTINGS_RESERVED, TELEMETRY_RESERVED, MIRROR_RESERVED):
+    for reserved in (SETTINGS_RESERVED, TELEMETRY_RESERVED, MIRROR_RESERVED, FONT_RESERVED):
         end = start + num_blocks - 1
         if start < reserved.stop and end >= reserved.start:
             start = reserved.stop
@@ -179,6 +182,7 @@ def check_reservation(vocabs, layout):
         ('settings', SETTINGS_RESERVED),
         ('telemetry', TELEMETRY_RESERVED),
         ('MIRROR', MIRROR_RESERVED),
+        ('font', FONT_RESERVED),
     ]
     for v in vocabs:
         s = layout[v['name']]
@@ -374,6 +378,21 @@ def main():
             f.seek(start * BLOCK_SIZE)
             f.write(padded)
 
+        # The UEFI console font, built from the installed Terminus Font
+        # package (never committed). Absent package: a warning and zeroed
+        # blocks; only the UEFI framebuffer console needs it.
+        font_bin = disk_image + '.font'
+        r = subprocess.run([sys.executable, os.path.join(os.path.dirname(
+            os.path.abspath(__file__)), 'make_font_blocks.py'), font_bin])
+        if r.returncode == 0:
+            font = open(font_bin, 'rb').read()
+            os.remove(font_bin)
+            assert len(font) <= len(FONT_RESERVED) * BLOCK_SIZE, len(font)
+            f.seek(FONT_RESERVED.start * BLOCK_SIZE)
+            f.write(font)
+        elif r.returncode != 2:
+            sys.exit(r.returncode)
+
     # Report
     print(f"Vocabulary Catalog written to {disk_image}")
     print(f"  Block 0: (reserved)")
@@ -390,10 +409,12 @@ def main():
         print(f"  Blocks {MIRROR_RESERVED.start}-"
               f"{MIRROR_RESERVED.stop - 1}: (reserved: MIRROR image, "
               f"MIRROR-BLK={MIRROR_BLK})")
+        print(f"  Blocks {FONT_RESERVED.start}-"
+              f"{FONT_RESERVED.stop - 1}: (reserved: UEFI console font)")
     for v in vocabs:
         start = layout[v['name']]
         end = start + v['blocks_needed'] - 1
-        if not reservations_printed and start >= MIRROR_RESERVED.stop:
+        if not reservations_printed and start >= FONT_RESERVED.stop:
             _print_reservations()
             reservations_printed = True
         if start == end:

@@ -123,6 +123,8 @@ compose() {
     mkdir -p "$mnt/boot/grub" "$mnt/EFI/BOOT"
     cp "$MEMDISK" "$mnt/memdisk"
     cp "$IMG_SRC" "$mnt/forth.img"
+    python3 "$ROOT/tools/make_font_blocks.py" --license "$mnt/FONT-LICENSE.txt" \
+        || echo "warning: FONT-LICENSE.txt not written (font package absent)"
     extract_grubcfg > "$mnt/boot/grub/grub.cfg"
     [ -s "$mnt/boot/grub/grub.cfg" ] || die "extracted grub.cfg is empty (make-uefi-usb.sh heredoc changed)"
 

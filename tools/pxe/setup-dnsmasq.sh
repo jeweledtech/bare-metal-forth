@@ -73,9 +73,15 @@ bind-interfaces
 # DHCP range on the direct cable
 dhcp-range=10.42.0.10,10.42.0.200,12h
 
-# PXE: tell DHCP clients where to TFTP-boot from
-# Format: filename, servername, server-address
-dhcp-boot=pxelinux.0,,$DEV_IP
+# PXE: tell DHCP clients where to TFTP-boot from, by firmware (DHCP option
+# 93, client-arch): 7 and 9 = x86-64 UEFI -> GRUB EFI (make pxe-push-grub
+# puts it in /srv/tftp/grub), which boots the kernel by multiboot2; every
+# other client (BIOS) -> pxelinux.0, as before.
+# Format: tag, filename, servername, server-address
+dhcp-match=set:efi64,option:client-arch,7
+dhcp-match=set:efi64,option:client-arch,9
+dhcp-boot=tag:efi64,grub/x86_64-efi/core.efi,,$DEV_IP
+dhcp-boot=tag:!efi64,pxelinux.0,,$DEV_IP
 
 # Static lease for the HP laptop
 dhcp-host=$HP_MAC,forthbox,10.42.0.50

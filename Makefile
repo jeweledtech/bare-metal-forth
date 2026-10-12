@@ -229,7 +229,7 @@ blocks: $(BLOCKS)
 # wrong build; the G6 harness compares against the host's
 # build/vbr.bin and would catch it, but at the wrong layer and with
 # far worse attribution.
-$(BUILD)/.catalog.stamp: $(BLOCKS) $(VOCAB_SOURCES) tools/write-catalog.py $(VBR)
+$(BUILD)/.catalog.stamp: $(BLOCKS) $(VOCAB_SOURCES) tools/write-catalog.py tools/make_font_blocks.py $(VBR)
 	@echo "Populating catalog into $(BLOCKS)..."
 	@# Zeroed first, every time: write-catalog writes only the blocks it
 	@# places, so a reused image kept old source in reserved ranges and its
@@ -889,8 +889,10 @@ T_BLK_EVICT ?= 60
 T_MIRROR ?= 60
 T_INTERP_ABORT ?= 90
 T_PAD_MOVE ?= 40
-# About 2x measured (2026-10-12): uefi-boot 10.5 s (five runs, the UEFI-3 gate).
-T_UEFI_BOOT ?= 25
+# About 2x measured (2026-10-12): uefi-boot 17.7 s (five runs: OVMF + SeaBIOS legs).
+T_UEFI_BOOT ?= 40
+# About 2x measured (2026-10-12): uefi-netboot 12 s (three runs; grub-net staging included).
+T_UEFI_NETBOOT ?= 30
 T_ARM64_BOOT ?= 720
 T_CORTEXM ?= 600
 test-firstboot: $(COMBINED)
@@ -1085,13 +1087,23 @@ test-memdisk: $(COMBINED)
 # of the make-uefi-usb.sh stick booted under OVMF (no CSM) must reach the
 # Forth banner + ok on serial.  Registered red: prints XFAIL and exits 0
 # until UEFI-3; XPASS exits 1.  Serial goes to a file, no TCP port.
-# UEFI-3 gate (docs/TASK_UEFI_3_4.md): the stick replica under OVMF, no CSM,
-# multiboot2 kernel + module; serial on +74 (unused before).
+# UEFI-3/4 gate (docs/TASK_UEFI_3_4.md): the stick replica under OVMF (no CSM,
+# multiboot2 kernel + module, framebuffer) and SeaBIOS (legacy, memdisk);
+# serial on +74, monitor (screen dump) on +76.
 test-uefi-boot: $(COMBINED)
 	@QPIDDIR=$(BUILD)/test-uefi-boot.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
 	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-uefi-boot --base $(TEST_PORT_BASE); \
 	echo "Running UEFI boot gate (OVMF, no CSM, multiboot2)..."; \
-	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_UEFI_BOOT) python3 -u tests/test_uefi_boot.py $$(($(TEST_PORT_BASE)+74)) $(COMBINED)
+	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_UEFI_BOOT) python3 -u tests/test_uefi_boot.py $$(($(TEST_PORT_BASE)+74)) $$(($(TEST_PORT_BASE)+76)) $(COMBINED)
+
+# UEFI network boot gate (docs/TASK_UEFI_3_4.md): OVMF boots the staged GRUB
+# tree over QEMU's own DHCP/TFTP; serial on +71 (unused before).  Never
+# touches the live PXE server.
+test-uefi-netboot: grub-net
+	@QPIDDIR=$(BUILD)/test-uefi-netboot.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
+	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-uefi-netboot --base $(TEST_PORT_BASE); \
+	echo "Running UEFI network boot gate (OVMF, TFTP)..."; \
+	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_UEFI_NETBOOT) python3 -u tests/test_uefi_netboot.py $$(($(TEST_PORT_BASE)+71))
 
 test-grub-cfg:
 	@echo "Running GRUB cfg gates..."
@@ -1255,7 +1267,7 @@ test-meta: $(COMBINED)
 #     its output as evidence, and it never gates a build.  If it must ever
 #     gate something, the gate goes on a deterministic artefact derived from
 #     it and pinned -- the treatment the Ghidra oracle already has.
-test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-vbr test-grub-cfg test-uefi-boot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-mirror test-interp-abort test-pad-move test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
+test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-vbr test-grub-cfg test-uefi-boot test-uefi-netboot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-mirror test-interp-abort test-pad-move test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)
@@ -1340,4 +1352,4 @@ grub-net: $(COMBINED) tools/pxe/grub.cfg
 pxe-push-grub: grub-net
 	@bash tools/pxe/push-grub.sh
 
-.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined usb-image check-coverage desk-hashes check-kernel-size test test-blk-evict test-mirror test-interp-abort test-pad-move test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-grub-cfg test-g6
+.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined usb-image check-coverage desk-hashes check-kernel-size test test-blk-evict test-mirror test-interp-abort test-pad-move test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-grub-cfg test-g6 test-uefi-netboot

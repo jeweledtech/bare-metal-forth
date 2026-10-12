@@ -80,6 +80,9 @@ mkdir -p "$MOUNTPOINT/EFI/BOOT"
 # Step 5: Copy memdisk and ForthOS image
 cp "$MEMDISK"  "$MOUNTPOINT/memdisk"
 cp "$IMGPATH"  "$MOUNTPOINT/forth.img"
+# The UEFI console font's license travels with the image (SIL OFL 1.1)
+python3 "$(dirname "$0")/make_font_blocks.py" --license "$MOUNTPOINT/FONT-LICENSE.txt" \
+    || echo "warning: FONT-LICENSE.txt not written (font package absent: no font in the image either)"
 
 # Step 6: Write grub.cfg
 echo "[5/8] Writing GRUB configuration..."
@@ -101,10 +104,14 @@ else
     # of forth.img, by the header's address tag) and the whole image as a
     # module; the kernel serves its blocks from the module. The standalone
     # GRUB's root is its own built-in memdisk, so find the stick first; it
-    # sees the stick's partitions only once part_gpt is loaded.
+    # sees the stick's partitions only once part_gpt is loaded, and passes
+    # the kernel a framebuffer only with a video driver loaded: the firmware's
+    # GOP, what a real machine offers (all_video also loads bochs, which
+    # set QEMU's VGA to 24 bpp directly; UEFI-4 draws at 32).
     menuentry "ForthOS — Bare Metal Forth (UEFI)" {
         insmod part_gpt
         insmod fat
+        insmod efi_gop
         search --no-floppy --set=root --file /forth.img
         multiboot2 /forth.img
         module2 /forth.img
