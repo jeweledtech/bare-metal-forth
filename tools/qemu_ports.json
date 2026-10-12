@@ -5,7 +5,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 2,
-    "source": "Makefile:373"
+    "source": "Makefile:385"
    }
   ]
  },
@@ -15,7 +15,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 75,
-    "source": "Makefile:974"
+    "source": "Makefile:998"
    }
   ]
  },
@@ -99,7 +99,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 97,
-    "source": "Makefile:386"
+    "source": "Makefile:398"
    }
   ]
  },
@@ -109,7 +109,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 55,
-    "source": "Makefile:1101"
+    "source": "Makefile:1125"
    }
   ]
  },
@@ -119,25 +119,25 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 84,
-    "source": "Makefile:874"
+    "source": "Makefile:898"
    },
    {
     "form": "tcp:127.0.0.1:P",
     "kind": "monitor",
     "offset": 85,
-    "source": "Makefile:874"
+    "source": "Makefile:898"
    },
    {
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 88,
-    "source": "Makefile:859"
+    "source": "Makefile:883"
    },
    {
     "form": "tcp:127.0.0.1:P",
     "kind": "monitor",
     "offset": 89,
-    "source": "Makefile:859"
+    "source": "Makefile:883"
    }
   ]
  },
@@ -147,7 +147,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 50,
-    "source": "Makefile:931"
+    "source": "Makefile:955"
    }
   ]
  },
@@ -173,7 +173,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 35,
-    "source": "Makefile:505"
+    "source": "Makefile:528"
    }
   ],
   "test_gui_harvest": [
@@ -181,7 +181,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 32,
-    "source": "Makefile:505"
+    "source": "Makefile:528"
    }
   ],
   "test_stub_dispatch": [
@@ -189,7 +189,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 30,
-    "source": "Makefile:505"
+    "source": "Makefile:528"
    }
   ],
   "test_ui_core": [
@@ -197,7 +197,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 31,
-    "source": "Makefile:505"
+    "source": "Makefile:528"
    }
   ],
   "test_ui_events": [
@@ -205,7 +205,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 34,
-    "source": "Makefile:505"
+    "source": "Makefile:528"
    }
   ],
   "test_ui_parser": [
@@ -213,7 +213,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 33,
-    "source": "Makefile:505"
+    "source": "Makefile:528"
    }
   ]
  },
@@ -223,7 +223,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 3,
-    "source": "Makefile:630"
+    "source": "Makefile:653"
    }
   ]
  },
@@ -233,7 +233,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 20,
-    "source": "Makefile:686"
+    "source": "Makefile:709"
    }
   ]
  },
@@ -243,7 +243,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 68,
-    "source": "tests/test_interp_abort.py:165"
+    "source": "tests/test_interp_abort.py:166"
    }
   ]
  },
@@ -253,7 +253,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 45,
-    "source": "Makefile:558"
+    "source": "Makefile:581"
    }
   ]
  },
@@ -263,7 +263,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 46,
-    "source": "Makefile:535"
+    "source": "Makefile:558"
    }
   ]
  },
@@ -293,7 +293,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 1,
-    "source": "Makefile:360"
+    "source": "Makefile:372"
    }
   ]
  },
@@ -389,7 +389,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 80,
-    "source": "Makefile:1166"
+    "source": "Makefile:1190"
    }
   ]
  },
@@ -425,13 +425,23 @@
    }
   ]
  },
+ "test-pad-move": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 69,
+    "source": "tests/test_pad_move.py:66"
+   }
+  ]
+ },
  "test-pci-bar": {
   "-": [
    {
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 87,
-    "source": "Makefile:777"
+    "source": "Makefile:800"
    }
   ]
  },
@@ -441,7 +451,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 96,
-    "source": "Makefile:416"
+    "source": "Makefile:428"
    }
   ]
  },
@@ -451,7 +461,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 98,
-    "source": "Makefile:399"
+    "source": "Makefile:411"
    }
   ]
  },
@@ -461,7 +471,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 0,
-    "source": "Makefile:349"
+    "source": "Makefile:361"
    }
   ]
  },
@@ -471,7 +481,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 98,
-    "source": "Makefile:891"
+    "source": "Makefile:915"
    }
   ]
  },
@@ -481,7 +491,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 99,
-    "source": "Makefile:904"
+    "source": "Makefile:928"
    }
   ]
  },
@@ -563,7 +573,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 16,
-    "source": "Makefile:484"
+    "source": "Makefile:507"
    }
   ],
   "test_disasm": [
@@ -571,7 +581,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 13,
-    "source": "Makefile:484"
+    "source": "Makefile:507"
    }
   ],
   "test_driver_vocabs": [
@@ -579,7 +589,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 12,
-    "source": "Makefile:484"
+    "source": "Makefile:507"
    }
   ],
   "test_echoport": [
@@ -587,7 +597,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 15,
-    "source": "Makefile:484"
+    "source": "Makefile:507"
    }
   ],
   "test_editor": [
@@ -595,7 +605,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 10,
-    "source": "Makefile:484"
+    "source": "Makefile:507"
    }
   ],
   "test_port_mapper": [
@@ -603,7 +613,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 14,
-    "source": "Makefile:484"
+    "source": "Makefile:507"
    }
   ],
   "test_x86_asm": [
@@ -611,7 +621,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 11,
-    "source": "Makefile:484"
+    "source": "Makefile:507"
    }
   ]
  },
@@ -621,13 +631,13 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "monitor",
     "offset": 93,
-    "source": "Makefile:759"
+    "source": "Makefile:782"
    },
    {
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 94,
-    "source": "Makefile:759"
+    "source": "Makefile:782"
    }
   ]
  }

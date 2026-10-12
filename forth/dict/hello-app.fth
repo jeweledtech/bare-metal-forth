@@ -9,6 +9,7 @@
 \ REQUIRES: UI-EVENTS
 \ REQUIRES: GUI-HARVEST
 \ REQUIRES: CATALOG-RESOLVER
+\ REQUIRES: HELLO-FORM
 \ ============================================
 \
 \ Minimal app proving form engine generalizes.

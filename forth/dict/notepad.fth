@@ -10,6 +10,7 @@
 \ REQUIRES: GUI-HARVEST
 \ REQUIRES: FILE-EDITOR
 \ REQUIRES: CATALOG-RESOLVER
+\ REQUIRES: NOTEPAD-FORM
 \ ============================================
 \
 \ ForthOS Notepad: text file editor form.

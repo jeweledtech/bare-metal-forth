@@ -46,7 +46,9 @@ $(VBR): $(SRC_BOOT)/vbr.asm | $(BUILD)
 	$(NASM) -f bin -o $@ $<
 
 # Embedded vocabularies (evaluated at boot, no block storage needed)
-EMBED_VOCABS = forth/dict/hardware.fth forth/dict/port-mapper.fth forth/dict/echoport.fth forth/dict/pci-enum.fth forth/dict/catalog-resolver.fth forth/dict/ahci.fth forth/dict/rtl8168.fth forth/dict/ntfs.fth forth/dict/auto-detect.fth forth/dict/fat32.fth forth/dict/ui-core.fth forth/dict/ui-parser.fth forth/dict/ui-events.fth forth/dict/gui-harvest.fth forth/dict/ps2-keyboard.fth forth/dict/file-editor-core.fth forth/dict/file-editor-disk.fth forth/dict/notepad-form.fth forth/dict/notepad.fth forth/dict/hello-form.fth forth/dict/hello-app.fth forth/dict/file-stream.fth forth/dict/file-browser-form.fth forth/dict/file-browser.fth
+# The demo apps (hello, notepad, file browser) are block-loaded, not
+# embedded (TASK_KERNEL_PAD_MOVE): S" NOTEPAD" LOAD-VOCAB etc. first.
+EMBED_VOCABS = forth/dict/hardware.fth forth/dict/port-mapper.fth forth/dict/echoport.fth forth/dict/pci-enum.fth forth/dict/catalog-resolver.fth forth/dict/ahci.fth forth/dict/rtl8168.fth forth/dict/ntfs.fth forth/dict/auto-detect.fth forth/dict/fat32.fth forth/dict/ui-core.fth forth/dict/ui-parser.fth forth/dict/ui-events.fth forth/dict/gui-harvest.fth forth/dict/ps2-keyboard.fth forth/dict/file-editor-core.fth forth/dict/file-editor-disk.fth forth/dict/file-stream.fth
 EMBEDDED = $(BUILD)/embedded.bin
 
 # Free-tier vocabularies (public-tracked only, no paid/gitignored content)
@@ -65,11 +67,18 @@ KERNEL_FREE = $(BUILD)/kernel-free.bin
 
 # For tools/evidence-snapshot.sh: make expands its own variable
 # (continuations and all), so no external parser exists to drift.
-.PHONY: print-embed-vocabs test-port-inventory test-kill-traps
+.PHONY: print-embed-vocabs test-port-inventory test-kill-traps FORCE
+FORCE:
 print-embed-vocabs:
 	@echo $(EMBED_VOCABS)
 
-$(EMBEDDED): $(EMBED_VOCABS) tools/embed-vocabs.py | $(BUILD)
+# The list itself is a prerequisite: removing a file from EMBED_VOCABS
+# changes no remaining file's timestamp, so without this stamp the old
+# stream (and kernel) silently stayed. Rewritten only when the list changes.
+$(BUILD)/embed-vocabs.list: FORCE | $(BUILD)
+	@echo "$(EMBED_VOCABS)" | cmp -s - $@ || echo "$(EMBED_VOCABS)" > $@
+
+$(EMBEDDED): $(EMBED_VOCABS) tools/embed-vocabs.py $(BUILD)/embed-vocabs.list | $(BUILD)
 	python3 tools/embed-vocabs.py $@ $(EMBED_VOCABS)
 
 # Assemble kernel (depends on embedded vocab binary)
@@ -93,7 +102,10 @@ $(IMAGE): $(BOOTLOADER) $(KERNEL)
 
 # --- Free-tier build (public vocabularies only) ---
 
-$(EMBEDDED_FREE): $(EMBED_VOCABS_FREE) tools/embed-vocabs.py | $(BUILD)
+$(BUILD)/embed-vocabs-free.list: FORCE | $(BUILD)
+	@echo "$(EMBED_VOCABS_FREE)" | cmp -s - $@ || echo "$(EMBED_VOCABS_FREE)" > $@
+
+$(EMBEDDED_FREE): $(EMBED_VOCABS_FREE) tools/embed-vocabs.py $(BUILD)/embed-vocabs-free.list | $(BUILD)
 	python3 tools/embed-vocabs.py $@ $(EMBED_VOCABS_FREE)
 
 $(KERNEL_FREE): $(SRC_KERNEL)/forth.asm $(EMBEDDED_FREE) | $(BUILD)
@@ -464,6 +476,17 @@ META_FIXTURES ?= test_metacompiler test_meta_compile test_meta_b6 \
 # back, `(` over serial, interpret-mode `."` and `.(`, and the boot stream's
 # loud message. Fixture image and a control kernel under build/test-interp.d;
 # the script launches QEMU itself.
+# Kernel-pad move (TASK_KERNEL_PAD_MOVE): hello, notepad and the file
+# browser are block-loaded; each loads and builds its form; an installed
+# instance (no memdisk, AHCI) loads nothing from blocks. The script
+# launches QEMU itself; the installed case needs ahci.fth (SKIPPED without).
+test-pad-move: $(COMBINED)
+	@QPIDDIR=$(BUILD)/test-pad-move.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
+	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-pad-move --base $(TEST_PORT_BASE); \
+	echo "Running kernel-pad move test..."; \
+	PORT=$$(($(TEST_PORT_BASE)+69)); \
+	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_PAD_MOVE) python3 tests/test_pad_move.py $$PORT
+
 test-interp-abort: $(COMBINED)
 	@QPIDDIR=$(BUILD)/test-interp.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
 	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-interp-abort --base $(TEST_PORT_BASE); \
@@ -850,9 +873,12 @@ T_SURVEY ?= 1100
 T_NETWORK ?= 900
 T_G6 ?= 1200
 T_BLOCK_RELOAD ?= 150
-T_BLK_EVICT ?= 150
-T_MIRROR ?= 150
-T_INTERP_ABORT ?= 300
+# About 2x measured (2026-10-11): blk-evict 27 s, mirror 30 s, interp-abort
+# 44 s, pad-move 17 s. A limit is never raised as a fix.
+T_BLK_EVICT ?= 60
+T_MIRROR ?= 60
+T_INTERP_ABORT ?= 90
+T_PAD_MOVE ?= 40
 T_ARM64_BOOT ?= 720
 T_CORTEXM ?= 600
 test-firstboot: $(COMBINED)
@@ -1213,7 +1239,7 @@ test-meta: $(COMBINED)
 #     its output as evidence, and it never gates a build.  If it must ever
 #     gate something, the gate goes on a deterministic artefact derived from
 #     it and pinned -- the treatment the Ghidra oracle already has.
-test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-vbr test-grub-cfg test-uefi-boot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-mirror test-interp-abort test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
+test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-vbr test-grub-cfg test-uefi-boot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-mirror test-interp-abort test-pad-move test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)
@@ -1298,4 +1324,4 @@ grub-net: $(COMBINED) tools/pxe/grub.cfg
 pxe-push-grub: grub-net
 	@bash tools/pxe/push-grub.sh
 
-.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined usb-image check-coverage desk-hashes check-kernel-size test test-blk-evict test-mirror test-interp-abort test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-grub-cfg test-g6
+.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined usb-image check-coverage desk-hashes check-kernel-size test test-blk-evict test-mirror test-interp-abort test-pad-move test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-grub-cfg test-g6

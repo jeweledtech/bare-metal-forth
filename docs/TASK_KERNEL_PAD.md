@@ -71,6 +71,14 @@ Whether blocks are readable depends on the boot path:
   anything at all, and RELOAD-VOCAB, which must be resident: P1), must
   stay embedded.
 
+  **Correction (2026-10-11, docs/TASK_KERNEL_PAD_MOVE.md §3):** "to load
+  anything at all" is wrong for the installed instance. The installer
+  writes no block store (only the kernel sectors and the VBR), so AHCI's
+  BLOCK finds no catalog there and nothing can be loaded. AHCI stays
+  embedded for disk access itself, not for loading. The "installed block
+  store" task is queued. To be confirmed by observation: red I1 of the
+  pad-move task.
+
 Tests that boot the kernel with no blocks image (ACTIVE_IMAGE /
 bmforth.img) and use embedded words: `test-phys-alloc` (HARDWARE, AHCI,
 NTFS, RTL8168) and `test-pci-typing` (PCI-ENUM). Moving NTFS or RTL8168

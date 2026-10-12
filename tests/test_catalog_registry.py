@@ -64,6 +64,10 @@ def extract_number(text):
     return None
 
 
+# NOTEPAD-FORM is block-loaded since the kernel-pad move: load it so it
+# registers its form data (TASK_KERNEL_PAD_MOVE).
+send('S" NOTEPAD-FORM" LOAD-VOCAB', 30)
+
 # Set up search order for vocab words
 send('ALSO CATALOG-RESOLVER', 1)
 send('ALSO UI-PARSER', 1)
