@@ -76,7 +76,8 @@ sketched.
   console (print_char, the key-wait flush) stays below the contract.
 - **RELOAD-VOCAB:** RL-VECTORS walks the vector chain and refuses a reload
   that would free code any vector is bound to, naming the vector.
-- **Direct access untouched:** @ ! C@ C! PC@ PC! keep their bodies; a
+- **Direct access untouched:** @ ! C@ C! W@ W! and the port words INB
+  INW INL OUTB OUTW OUTL (the design's PC@ / PC!) keep their bodies; a
   host check asserts they call nothing.
 - **K4 (test-pad-move)** measured "the pre-move list against today's
   list"; adding hal.fth to today's list would read as the move shrinking.
@@ -88,7 +89,8 @@ vectors bound; FB-BASE = 0xB8000; an unbound vector aborts the line with
 its name, DEPTH 0; a live rebind at the prompt changes FB-BASE and
 UI-CORE's VGA-BASE on the next call, and binding back restores them;
 RELOAD-VOCAB refuses to free code FB-FLUSH is bound to, naming it; the
-host check on @ ! C@ C! PC@ PC!. test-uefi-boot keeps the screen gates
+host check on @ ! C@ C! W@ W! INB INW INL OUTB OUTW OUTL. test-uefi-boot
+keeps the screen gates
 (OVMF: form and editor on the framebuffer, all cells; SeaBIOS unchanged)
 and reads FB-BASE from the contract. Pad cost reported.
 

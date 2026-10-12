@@ -20,6 +20,14 @@ display contract, on the combined image booted by BIOS.
       the control); with FB-FLUSH bound to one of its words it is refused,
       naming FB-FLUSH (Q6b).
   Q7  DEPTH 0 at the end.
+  Slice 2 (docs/TASK_HAL_BLOCK.md): BLK-READ / BLK-WRITE over the kernel's
+  block cells.
+  K1  HAL-LIST shows BLK-READ and BLK-WRITE, both bound.
+  K2  each vector's binding is the kernel's cell: HAL-GET = BLK-READER@ /
+      BLK-WRITER@, and a BLK-WRITER! is seen by HAL-GET.
+  K3  a writer bound with BIND is the one SAVE-BUFFERS calls: a counting
+      writer counts the flush of an UPDATEd block; bound back after.
+  K4  RELOAD-VOCAB refuses to free code BLK-WRITE is bound to, naming it.
 """
 import atexit, hashlib, os, re, shutil, subprocess, sys
 
@@ -110,6 +118,32 @@ try:
     check('Q5 a live rebind takes effect on the next call (FB-BASE and UI-CORE VGA-BASE), and binding back restores both',
           nums(b1)[-1:] == ['12345'] and nums(b2)[-1:] == ['12345'] and re.search(r'B8000 B8000 ok', b3) is not None,
           f'(rebound {b1.strip()!r} / {b2.strip()!r}; back {b3.strip()!r})')
+    # ---- slice 2: the block vectors
+    send(s, 'ONLY FORTH DEFINITIONS ALSO HAL')
+    b = send(s, 'HAL-LIST')
+    rows = {m.group(1): m.group(2) for m in re.finditer(r'^(\S+) -> (.+?)\s*$', b, re.M)}
+    check('K1 HAL-LIST: BLK-READ and BLK-WRITE, both bound',
+          {'BLK-READ', 'BLK-WRITE'} <= set(rows) and 'unbound' not in rows.get('BLK-READ', 'unbound')
+          and 'unbound' not in rows.get('BLK-WRITE', 'unbound'), f'({rows})')
+    # every line that changes the writer is followed by its own restore line,
+    # so an aborted line can't leave the kernel flushing to a test word
+    send(s, 'BLK-WRITER@ CONSTANT XQ-W')
+    send(s, 'VARIABLE XQ-N  : XQ-COUNT ( buf blk -- ior ) DROP DROP 1 XQ-N +! 0 ;')
+    b = send(s, "' BLK-READ HAL-GET BLK-READER@ = ' BLK-WRITE HAL-GET BLK-WRITER@ = AND .")
+    b2 = send(s, "' XQ-COUNT BLK-WRITER!  ' BLK-WRITE HAL-GET ' XQ-COUNT = .")
+    send(s, 'XQ-W BLK-WRITER!')
+    check('K2 the vectors are the kernel cells: HAL-GET = BLK-READER@ / BLK-WRITER@, and BLK-WRITER! is seen',
+          nums(b)[-1:] == ['-1'] and nums(b2)[-1:] == ['-1'], f'({b.strip()!r} / {b2.strip()!r})')
+    b = send(s, "BLK-WRITER@ XQ-W = .")
+    if nums(b)[-1:] != ['-1']:
+        print('INSTRUMENT FAIL: the writer was not restored before K3 -- no score', flush=True)
+        sys.exit(3)
+    send(s, "0 XQ-N !  ' XQ-COUNT BIND BLK-WRITE")
+    b = send(s, 'DECIMAL 7 BLOCK DROP UPDATE SAVE-BUFFERS XQ-N @ .')
+    send(s, 'XQ-W BLK-WRITER!')
+    send(s, 'EMPTY-BUFFERS')
+    check('K3 the writer bound with BIND is the one SAVE-BUFFERS calls (1 flush counted)',
+          nums(b)[-1:] == ['1'], f'({b.strip()!r})')
     # saved before MIRROR loads: anything compiled after a vocabulary blocks
     # its reload for that reason alone
     send(s, "' FB-FLUSH HAL-GET CONSTANT XQ-FL")
@@ -125,8 +159,18 @@ try:
         sys.exit(3)
     b = send(s, 'S" MIRROR" RELOAD-VOCAB', 90)
     check('Q6b RELOAD-VOCAB refuses to free code FB-FLUSH is bound to, naming it',
-          'refused' in b and 'FB-FLUSH' in b, f'({b.strip()[-160:]!r})')
+          'refused, FB-FLUSH points into it' in b, f'({b.strip()[-160:]!r})')
     send(s, "XQ-FL ' FB-FLUSH HAL-SET")
+    # MIRROR is the newest vocabulary (Q6 loaded it): nothing compiled since
+    send(s, 'ALSO HAL')
+    b = send(s, "ALSO MIRROR ' MIRROR-BLK PREVIOUS BIND BLK-WRITE")
+    if '?' in b:
+        print('INSTRUMENT FAIL: the K4 binding did not happen -- no score', flush=True)
+        sys.exit(3)
+    b = send(s, 'S" MIRROR" RELOAD-VOCAB', 90)
+    send(s, 'XQ-W BLK-WRITER!')
+    check('K4 RELOAD-VOCAB refuses to free code BLK-WRITE is bound to, naming it',
+          'refused, BLK-WRITE points into it' in b, f'({b.strip()[-160:]!r})')
     b = send(s, 'ONLY FORTH DEFINITIONS DECIMAL DEPTH .')
     check('Q7 DEPTH 0 at the end', nums(b)[-1:] == ['0'], f'({b.strip()!r})')
 finally:

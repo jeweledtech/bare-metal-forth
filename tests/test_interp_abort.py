@@ -266,11 +266,13 @@ d = depth(s)
 if d and d > 0:
     send(s, ' '.join(['DROP'] * d))
 # U8f: a vector into the failed load blocks the rollback: kept, said so
+# (the writer is the binding layer's BLK-WRITE since HAL slice 2,
+# docs/TASK_HAL_BLOCK.md: RL-HAL names it)
 b, _ = send(s, 'S" IA-VEC" LOAD-VOCAB', 60)
 b2, _ = send(s, 'ALSO IA-VEC PREVIOUS')
 check('U8f IA-VEC (BLK-WRITER! into itself, then ZZNOPE): aborts, kept, "IA-VEC partial" '
       'naming the writer vector',
-      'ZZNOPE ?' in b and 'IA-VEC partial' in b and 'BLK-WRITER' in b and 'IA-VEC ?' not in b2,
+      'ZZNOPE ?' in b and 'IA-VEC partial: BLK-WRITE points into it' in b and 'IA-VEC ?' not in b2,
       f'(load {b.strip()[-120:]!r}; ALSO {b2.strip()!r})')
 send(s, "ONLY FORTH DEFINITIONS ' (BLK-WRITE-NONE) BLK-WRITER!")
 d = depth(s)

@@ -531,8 +531,8 @@ PREVIOUS
     LOADING-DEPTH @ IF
         S" a load in progress" -1 3 RL-BLOCK
     THEN
-    BLK-WRITER@ S" BLK-WRITER@ vector" RL-CHK
-    BLK-READER@ S" BLK-READER@ vector" RL-CHK
+    \ the block writer and reader: RL-HAL
+    \ (BLK-WRITE, BLK-READ)
     ABORT-HOOK @ S" ABORT-HOOK" RL-CHK
     29C00 10 4 S" IRQ hook" RL-TABLE
     RL-IDT

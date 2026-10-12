@@ -2799,8 +2799,12 @@ DEFCODE "SCREEN-FLUSH", SCREEN_FLUSH, 0
 ; ---------------------------------------------------------------------------
 ; HAL slice 1 (docs/TASK_HAL_DISPLAY.md): a rebindable naming contract.
 ; HAL-VECTOR ( "name" -- ) lays down a word whose code field is DOVEC; its
-; body is [bound xt | header | next vector].  Calling it enters the bound
-; word (one fetch, one jump).  Unbound (xt 0): `<name>: HAL vector not
+; body is [binding cell address | header | next vector | own cell].  An
+; ordinary vector's binding cell is its own fourth cell; HAL-VECTOR-AT
+; ( addr "name" -- ) puts a vector over an existing cell (slice 2: the
+; kernel's block writer and reader cells, BLK-WRITE-CELL / BLK-READ-CELL),
+; so the vector formalizes the cell instead of duplicating it.  Calling it
+; enters the bound word (two fetches, one jump).  Unbound (xt 0): `<name>: HAL vector not
 ; bound`, then the abort path an undefined word takes.  HAL-HEAD ( -- addr )
 ; is the chain of every vector, newest first.  hal.fth holds BIND, HAL-SET,
 ; HAL-GET, HAL-LIST and the contracts.  Direct @ ! C@ C! INB OUTB stay as
@@ -2809,7 +2813,8 @@ DEFCODE "SCREEN-FLUSH", SCREEN_FLUSH, 0
 hal_head:   dd 0
 
 code_DOVEC:                         ; EAX = this vector's XT
-    mov ebx, [eax + 4]              ; the bound XT
+    mov ebx, [eax + 4]              ; its binding cell
+    mov ebx, [ebx]                  ; the bound XT
     test ebx, ebx
     jz .unbound
     mov eax, ebx
@@ -2831,15 +2836,33 @@ DEFCODE "HAL-VECTOR", HAL_VECTOR, 0
     call word_
     call create_
     mov eax, [VAR_HERE]
+    lea ecx, [eax + 16]             ; its own cell
+    mov dword [ecx], 0              ; unbound
+    call hal_lay
+    NEXT
+
+DEFCODE "HAL-VECTOR-AT", HAL_VECTOR_AT, 0
+    call word_
+    call create_
+    mov eax, [VAR_HERE]
+    pop ecx                         ; the existing binding cell
+    mov dword [eax + 16], 0
+    call hal_lay
+    NEXT
+
+hal_lay:                            ; EAX = the new XT, ECX = its binding cell
     mov dword [eax], code_DOVEC
-    mov dword [eax + 4], 0          ; unbound
+    mov [eax + 4], ecx
     mov ecx, [VAR_LATEST]
     mov [eax + 8], ecx              ; its header, for the unbound message
     mov ecx, [hal_head]
     mov [eax + 12], ecx             ; the chain
     mov [hal_head], eax
-    add dword [VAR_HERE], 16
-    NEXT
+    add dword [VAR_HERE], 20
+    ret
+
+DEFCONST "BLK-WRITE-CELL", BLK_WRITE_CELL, BLK_WRITE_VEC
+DEFCONST "BLK-READ-CELL", BLK_READ_CELL, BLK_READ_VEC
 
 DEFCODE "HAL-HEAD", HAL_HEAD, 0
     push hal_head

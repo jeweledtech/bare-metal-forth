@@ -898,8 +898,8 @@ T_BLK_EVICT ?= 60
 T_MIRROR ?= 60
 T_INTERP_ABORT ?= 90
 T_PAD_MOVE ?= 40
-# About 2x measured (2026-10-12): hal 8.6 s (three runs).
-T_HAL ?= 20
+# About 2x measured (2026-10-12): hal 13.7 s (three runs, slices 1 + 2).
+T_HAL ?= 30
 # About 2x measured (2026-10-12): uefi-boot 50.5 s (three runs: OVMF + SeaBIOS legs,
 # each also running HELLO-RUN and notepad's editor; was 17.7 s before those).
 T_UEFI_BOOT ?= 100

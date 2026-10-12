@@ -23,12 +23,14 @@ HAL DEFINITIONS
 HEX
 
 \ ---- Binding ----
-\ A vector's XT, >BODY = its bound-XT cell.
-: HAL-SET ( xt vxt -- ) >BODY ! ;
-: HAL-GET ( vxt -- xt ) >BODY @ ;
+\ Body: binding cell address, header, next
+\ vector XT, own cell. The binding cell is
+\ the vector's own, or an existing one
+\ (HAL-VECTOR-AT).
+: HAL-SET ( xt vxt -- ) >BODY @ ! ;
+: HAL-GET ( vxt -- xt ) >BODY @ @ ;
 : BIND ( xt "name" -- ) ' HAL-SET ;
 
-\ Body: bound xt, header, next vector XT.
 : HAL-NAME ( vxt -- addr len )
     >BODY 4 + @ DUP 5 + SWAP 4 + C@ 3F AND ;
 : HAL-NEXT ( vxt -- vxt' | 0 ) >BODY 8 + @ ;
@@ -70,6 +72,18 @@ HAL-VECTOR FB-FLUSH
     THEN
     ['] FB-FLUSH HAL-SET ['] FB-BASE HAL-SET ;
 HAL-BIND-DISPLAY
+
+\ ---- Block contract (slice 2) ----
+\ BLK-WRITE ( buf-addr blk# -- ior )
+\ BLK-READ  ( buf-addr blk# -- ior )
+\ ior 0 = success. Over the kernel's own
+\ cells: BLK-WRITER! / BLK-READER! and
+\ BIND write the same cell. Bound at boot
+\ by the kernel (ATA, or the fail-closed
+\ NONE words on memdisk and UEFI); AHCI-RW
+\ rebinds them on the HP.
+BLK-WRITE-CELL HAL-VECTOR-AT BLK-WRITE
+BLK-READ-CELL HAL-VECTOR-AT BLK-READ
 
 ONLY FORTH DEFINITIONS
 DECIMAL

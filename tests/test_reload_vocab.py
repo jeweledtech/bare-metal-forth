@@ -225,8 +225,10 @@ t9 = send(s, 'S" RV-VEC" RELOAD-VOCAB', 120)
 n = num(s, 'DEPTH .')
 h9, c9 = num(s, 'HERE @ .'), headers()
 w9 = num(s, "BLK-WRITER@ ' RV-W = .")
+# The block writer is the binding layer's BLK-WRITE since HAL slice 2
+# (docs/TASK_HAL_BLOCK.md): RL-HAL names the vector, not BLK-WRITER@.
 check('RV-VEC reload: refused naming the block-writer vector, HERE unchanged, RV-VEC intact',
-      'refus' in t9.lower() and 'BLK-WRITER' in t9 and h9 == h8 and c9['RV-W'] == 1 and c9['RV-VEC'] == 1
+      'refus' in t9.lower() and 'BLK-WRITE points into it' in t9 and h9 == h8 and c9['RV-W'] == 1 and c9['RV-VEC'] == 1
       and w9 == -1, f'{t9.strip()[-70:]!r} HERE +{(h9 or 0) - (h8 or 0)} {c9} vec={w9}')
 print(f'    guest: {t9.strip().splitlines()[0] if t9.strip() else t9!r}', flush=True)
 check('DEPTH 0 after that refusal', n == 0, f'{n}')
