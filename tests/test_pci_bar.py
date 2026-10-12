@@ -64,10 +64,19 @@ import serial as _ser  # tests/serial.py; script-dir sys.path shadows pyserial
 s = _ser.connect_and_sync(PORT, budget=30.0)
 
 
+READ_ODD = []
+
+
 def send(cmd, wait=1.0):
-    # Bounded in aggregate via serial.send_expect (TASK_HARNESS_KILL_BY_PID
-    # §3c). Same raw-reply contract.
-    return _ser.send_expect(s, cmd, budget=max(wait + 6.0, 10.0), settle=wait)
+    # Prompt-terminated (serial.send_until_prompt), not send_expect's
+    # settle plus 2 s quiet gap. `wait` only sizes the aggregate budget,
+    # max(wait+6, 10) as before. Same raw-reply contract (echo included).
+    # A read that ends any other way is printed and counted.
+    raw, how = _ser.send_until_prompt(s, cmd, budget=max(wait + 6.0, 10.0))
+    if how != 'prompt':
+        READ_ODD.append(cmd)
+        print(f'  READ ended by {how}: {cmd!r} -> {raw[-120:]!r}', flush=True)
+    return raw
 
 
 def body_of(raw):
@@ -231,5 +240,6 @@ zap()
 dep, _ = val('DEPTH')
 check('DEPTH 0 at exit', dep == 0, f'got {dep}')                # 16
 
+print(f'reads not ended by the prompt: {len(READ_ODD)}')
 print(f'\nResults: {PASS}/{PASS + FAIL} passed')
 sys.exit(0 if FAIL == 0 else 1)

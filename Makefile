@@ -807,7 +807,7 @@ test-pci-bar: $(COMBINED)
 		-serial tcp:127.0.0.1:$$(($(TEST_PORT_BASE)+87)),server=on,wait=off \
 		-display none -daemonize -pidfile $$PIDF; \
 	sleep 2; \
-	timeout --foreground $(T_PCI_BAR) python3 tests/test_pci_bar.py $$(($(TEST_PORT_BASE)+87)) $(COMBINED)
+	timeout --foreground $(T_PCI_BAR) python3 -u tests/test_pci_bar.py $$(($(TEST_PORT_BASE)+87)) $(COMBINED)
 
 # FIRSTBOOT wizard gate, docs/TASK_FORTHOS_FIRSTBOOT.md s.8 steps 1-3:
 # block-loaded firstboot.fth, screens read through the monitor
@@ -830,9 +830,10 @@ test-pci-bar: $(COMBINED)
 # bounded the settle-and-gap reads (20+ minutes a run), and the cut-off
 # read as a Phase 12 hang.
 T_XHCI ?= 480
-# pci-bar: about 2x observed (2026-10-08): 223s, 224s and 223s in three
-# runs on two builds; 16/16 on both builds at a 300s budget.
-T_PCI_BAR ?= 450
+# pci-bar: about 2x observed (2026-10-12): 24s, 16/16, every read
+# prompt-terminated (was 223s on settle-and-gap reads, 64 reads at ~3.3s;
+# the earlier 90s never measured a pass).
+T_PCI_BAR ?= 50
 
 # QEMU_KILL — shared teardown for every daemonized test recipe: kill the PID
 # in this recipe's pidfile (never a name pattern, which reaches other trees
