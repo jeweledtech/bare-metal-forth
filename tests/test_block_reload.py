@@ -36,7 +36,9 @@ PRE-REGISTERED (written before the red run):
   near .end_word -- provably changes nothing on these paths.  Do
   not read them as proving the Bug #34 fix; R2/R3 do that.
   R5  (characterization pin, >31-char path) a 40-char token parses
-      as EXACTLY two error signatures: the 31-char truncation
+      as EXACTLY one error signature since the interpreter-correctness
+      change (an undefined word aborts the rest of the block; before it,
+      two: the 31-char truncation and the tail). Formerly: the 31-char truncation
       chars[0:31] ('AAAAAAAAAABBBBBBBBBBCCCCCCCCCCZ') and the tail
       chars[30:40] ('ZYXWVUTSRQ') -- the shared 'Z' IS the
       max-length quirk (.end_word's dec esi backs onto the last
@@ -109,7 +111,11 @@ def block_text(lines):
 
 LONGWORD = 'AAAAAAAAAABBBBBBBBBBCCCCCCCCCC' + 'ZYXWVUTSRQ'   # 40 chars
 assert len(LONGWORD) == 40 and LONGWORD[30] == 'Z'
-R5_EXPECT = {LONGWORD[:31]: 1, LONGWORD[30:]: 1}   # derived, not typed
+# After TASK_INTERPRETER_CORRECTNESS an undefined word aborts and discards
+# the rest of the block, so the tail chars[30:40] is never parsed: exactly
+# one signature, the 31-char truncation (was two; planned red, recorded
+# before the change).
+R5_EXPECT = {LONGWORD[:31]: 1}   # derived, not typed
 
 BLOCKS = {
     1900: block_text(['( BUG34 BLOCK A )']),
@@ -246,7 +252,7 @@ try:
 
     # R5: >31-char token -- 31-char truncation + one-char-early tail
     r = send('DECIMAL 1904 LOAD')
-    check('R5: 40-char token -> exactly the two pinned signatures',
+    check('R5: 40-char token -> exactly the pinned signature (the 31-char truncation)',
           errs(r) == R5_EXPECT, f'(got {errs(r)}, want {R5_EXPECT})')
 
     # R6: meaningful char at byte 1023, no trailing whitespace

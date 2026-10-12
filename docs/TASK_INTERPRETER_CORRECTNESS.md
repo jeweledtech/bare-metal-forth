@@ -267,3 +267,174 @@ Added reds:
 |---|---|---|---|
 | Q7 | typed `.( HELLO-PAREN) 9 .` | `.( ?`, then the rest runs | prints HELLO-PAREN, then 9 |
 | Q8 | inside a definition: `: UT3 .( AT-COMPILE) ;` | `.( ?` | AT-COMPILE printed while compiling; UT3 prints nothing when run |
+
+## 7. Rulings, second round (owner, 2026-10-11)
+
+1. **`'` on an unknown name aborts, like the interpreter.** All four
+   not-found sites go through one abort routine: INTERPRET's
+   `.undefined`, `'` (TICK), SEE, and USING. Today `'` prints only
+   ` ? `, pushes nothing, and carries on, so whatever follows consumes a
+   cell that isn't there (census-B control). `ALSO <unknown>` reaches
+   INTERPRET's site, because ALSO doesn't parse a name.
+2. **Search order after an abort:**
+   - At the prompt, leave it alone: a typo must not wipe the user's
+     search order.
+   - Inside a load, restore CURRENT and the search order saved when the
+     top-level load began. LOAD-VOCAB at top level saves them, beside
+     the loading-stack reset (Q3). The abort routine restores them when
+     a load was in progress.
+3. **An aborted load rolls back the failing vocabulary** to the HERE and
+   LATEST it had before that load began.
+   - The safety checks are RELOAD-VOCAB's vector checks (RL-VECTORS:
+     the block vectors, IRQ hooks, the IDT, the catalog registry and the
+     named vocabulary variables).
+   - If a vector points into the region, keep it and print `<NAME>
+     partial: <what> points into it`.
+   - A corrected retry must then really load (no "present, skipped").
+   - Which vocabulary: the top-level one. Its dependencies that
+     finished loading before the failure stay; nested loads are rolled
+     back with it, because the region runs from the top-level load's
+     start.
+4. **DICT-SYSTEM** moved to docs/design/ with its finding (public
+   0285bc2, not yet pushed; it goes out after the next full make test,
+   since the catalog layout changes).
+5. **SURVEYOR-DEEP:** ZIP-READER's missing `REQUIRES:` line goes with
+   the Q-D3 task, after the confirming run.
+6. **Order unchanged:** census B, then the red run, then the code.
+
+Red changes (test_interp_abort.py; predictions re-frozen in a new file):
+
+| # | case | today | after |
+|---|---|---|---|
+| U8d | host patches IA-BAD's block to remove ZZNOPE, EMPTY-BUFFERS, `S" IA-BAD" LOAD-VOCAB`, `IA-BAD IAB-AFTER .` | "IA-BAD present, skipped"; IAB-AFTER already 1 from the first load | the retry really loads; IAB-AFTER 1 |
+| U8e | ORDER (and CURRENT) after the aborted load equal ORDER before it | the load's preamble leaves CURRENT = IA-BAD | equal |
+| U8f | IA-VEC (`: IAV-W 2DROP 1 ; ' IAV-W BLK-WRITER!`, then ZZNOPE) | loads past the error | aborts, is kept, prints `IA-VEC partial: BLK-WRITER@ vector points into it`; IA-VEC still found |
+| U10 | `' ZZNOPE 7 .` | ` ? ` then 7 | `ZZNOPE ?`, no 7 |
+| U11 | `USING ZZVOC 7 .` | `ZZVOC ?` then 7 | no 7 |
+| U12 | `SEE ZZSEE 7 .` | ` ? ` then 7 | no 7 |
+| U13 | `ALSO HARDWARE`, then `ZZNOPE` at the prompt, then ORDER | HARDWARE kept | HARDWARE kept (a typo at the prompt keeps the search order) |
+
+## 8. The rollback point (owner, third round, 2026-10-11)
+
+**The point:** HERE and LATEST at the start of the failing vocabulary's
+own block load, after its `REQUIRES:` dependencies have finished.
+
+- **Where it is in the code.** LOAD-VOCAB-INNER (catalog-resolver.fth)
+  runs `'RESOLVE-DEPS @ EXECUTE` (each dependency is a complete nested
+  load) and then `THRU` over the vocabulary's own blocks. The point is
+  HERE and LATEST immediately before that `THRU`.
+- **One point per loading level.** Each point is recorded beside its
+  name on the loading stack. A level still resolving its dependencies
+  has not recorded one yet.
+- **Dependencies stay.** They finished loading below the point.
+- **Anything loaded inside the region rolls back with it,** for example
+  a LOAD-VOCAB issued from the middle of the file. Its region lies above
+  the point. The message names each vocabulary rolled back.
+- **The open case, my reading.** The error may sit inside a vocabulary
+  that another file loaded mid-file. Then both block loads are in
+  progress at the abort, so the outer one fails too. The point used is
+  the outermost in-progress block-load start, and both are named. This
+  needs confirming.
+- **Vector check:** RL-VECTORS over the region. A vector into it keeps
+  the region and prints `<NAME> partial: <what> points into it`
+  (accepted).
+
+New red case:
+
+| # | case | today | after |
+|---|---|---|---|
+| U8g | IA-BAD carries `\ REQUIRES: IA-GOOD`; IA-BAD fails; then `ALSO IA-GOOD IAG . PREVIOUS` | 42 (no abort today) | 42: the dependency finished below the point and survives the rollback |
+
+## 9. Nested failure (owner, fourth round, 2026-10-11)
+
+- **Confirmed:** an abort ends the whole top-level load. Every
+  unfinished block load rolls back to the outermost unfinished point,
+  and each one is named.
+- **A dependency that fails before the outer `THRU` starts.** The outer
+  vocabulary has recorded no point yet, so the dependency rolls back to
+  its own point. The message says the outer vocabulary was not loaded
+  because of it: `<OUTER> not loaded: <DEP> failed`.
+
+| # | case | today | after |
+|---|---|---|---|
+| U8h | IA-OUTER (`\ REQUIRES: IA-DEPFAIL`, then `1 CONSTANT IAO`); IA-DEPFAIL fails at ZZNOPE. `S" IA-OUTER" LOAD-VOCAB`, then `ALSO IA-DEPFAIL PREVIOUS`, `ALSO IA-OUTER PREVIOUS` | both load past the error | `IA-OUTER not loaded: IA-DEPFAIL failed`; neither vocabulary exists afterwards (`IA-DEPFAIL ?`, `IA-OUTER ?`) |
+
+## 10. Census B results and rulings (2026-10-11)
+
+**Census B** (`make -k test` in a worktree, census kernel plus debug-console wrapper): 64 QEMU
+launches, one with undefined-word hits, test_block_reload (its ZZZNEVERWAS control, R5's 40-char
+token = 2 signatures, R6's ZZZENDBYTE). Rulings, fifth round:
+
+1. test-log-validation boots QEMU, so it is censused too (its ignored files copied into the
+   worktree). test-translator, test-pipeline and test-doc-drift don't boot Forth.
+2. test_block_reload R5 is a planned red, recorded before any code: after the fix the 40-char token
+   gives exactly one signature (the 31-char truncation), because the abort discards the rest of the
+   block; R5's pin changes in the same commit. R6 and the control are unchanged.
+3. After the test-meta census the code starts without a stop, unless the census finds an undefined
+   word outside test_block_reload; then stop and report.
+4. Queue after this task: UEFI-3 (multiboot2 entry) and UEFI-4 (framebuffer console), plan first,
+   ahead of xHCI Phase 12.
+
+**Census B complete** (2026-10-11): make test 64 QEMU launches, test-meta 9, test-log-validation 3.
+Hits: test_block_reload (control, R5, R6: planned), test_meta_b6 and test_meta_b6b `NOTAWORD`
+(deliberate: each checks the `?` message, alone on its line; unchanged by the fix), and
+test_meta_b6b `T-HERE` (a report-only line, `HEX T-HERE @ T-IMAGE - .`, typed with X86-ASM not in
+the search order: today it underflows the stack with `@`; after the fix the line is discarded; the
+line should name X86-ASM's T-HERE). No vocabulary load in any suite passes through an undefined
+word. Stopped for the owner (ruling 3: hits outside test_block_reload).
+
+## 11. As built, and the sixth round of rulings (2026-10-11)
+
+**Design change from §3: the abort calls a hook.** A rolled-back load
+has to be undone at abort time: the dictionary and search order must be
+clean before the next prompt, and the names printed then. So the kernel
+calls `ABORT-HOOK` after its reset, and catalog-resolver installs
+`CR-ABORT` there. This is the alternative Q3 named; the later rulings
+require it.
+
+**Rulings, sixth round:**
+1. **The hook can't recurse.** The kernel marks the hook busy
+   (`VAR_ABORT_BUSY`) before calling it. An abort inside the hook skips
+   it, prints `ABORT-HOOK failed: an aborted load was not rolled back`,
+   and clears the mark, so the next abort runs the hook again.
+   - ABORT-HOOK is one of RELOAD-VOCAB's vector checks (RL-VECTORS).
+   - Red U14: a hook that LOADs a block holding an undefined word.
+     Before the guard it looped forever (`ZZHOOK ?` repeated, no
+     prompt; red 31/34 as predicted). After: one `ZZHOOK ?`, the
+     message, `ok`, DEPTH 0, and the next abort runs a marker hook
+     (34/34).
+2. **U8a is tightened** to require `IA-BAD ?`: after the rollback the
+   vocabulary word itself is gone.
+3. **The embed stripper collapses spaces inside strings** (finding
+   2026-10-11). Messages in embedded code use an explicit `SPACE`
+   meanwhile.
+4. **Commit** when make -k shows only test-xhci red and test-meta
+   passes.
+
+**Built:**
+- **Kernel:** `abort_undefined` (all four sites); the hook call with its
+  busy guard; definition rollback (`:` saves and `;` clears
+  `VAR_DEF_*`); interpret-mode `."` and the new `.(`, through
+  `print_parsed`; `(` scanning TIB; `ABORT-HOOK` (DEFVAR, 0x280A4).
+- **catalog-resolver:**
+  - rollback points per level (AB-PTH, AB-PTL), recorded just before
+    `THRU`;
+  - `LOAD-VOCAB` resets the loading stack only at BLK 0, and saves the
+    order at depth 0;
+  - `CR-ABORT`: the outermost started point, the RL-VECTORS check
+    (`partial`), AB-FREE (walks FORTH's and each vocabulary's LATEST
+    cell back below the point), `<OUTER> not loaded: <DEP> failed`, each
+    rolled-back level named, the order restored.
+- **tools/boot_gate.py** runs in the bmforth.img and bmforth-free.img
+  rules. A boot-stream signature, `EMBED ABORTED`, or no `ok` fails the
+  build, and the image is removed. It is red on the control kernel and
+  green on both real kernels.
+- **`make test-interp-abort`** (port +68) is in `make test`.
+
+**Kernel content:** 114,176 B of 114,688, so **512 B left** (was 2,551).
+- +1,419 B of catalog-resolver stream (hook, points, order save);
+- +36 B for the `SPACE`s;
+- the rest is kernel code, including the guard.
+
+The owner's order puts the kernel-pad move (demo apps to blocks) next,
+before UEFI-3/4.

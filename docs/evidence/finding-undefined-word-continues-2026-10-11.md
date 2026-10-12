@@ -78,8 +78,12 @@ but never filed as a kernel defect:
   MIRROR-BLK probe sent `.` after an undefined word and underflowed the
   stack (TASK_MIRROR_FIX.md §5).
 
-Interpret-mode `."` had no record found. The kernel comments and the
-S"-laydown work discuss its compile path only.
+Interpret-mode `."` was on record (corrected 2026-10-11; the first
+version of this finding said no record was found, which was wrong). The
+UEFI-2 pre-registration (docs/evidence/uefi-2-prereg-2026-09-28.md)
+lists it as "named, not taken": the interpret-mode `."` at the end of a
+block-loaded vocabulary prints nothing. The mechanism (a compile-only
+`."` laying down dead code) is new here.
 
 ## Reach
 

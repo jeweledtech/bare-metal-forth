@@ -145,6 +145,17 @@ BLK_IMAGE_BASE       equ 0x28098    ; Physical base of a whole combined.img in R
 ; BLOCK, LOAD, --> and ram_read_block.  Same cell, same address.
 BLK_WRITE_VEC        equ 0x2809C    ; XT of active block writer ( buf-addr blk# -- ior )
 BLK_READ_VEC         equ 0x280A0    ; XT of active persistent reader ( buf-addr blk# -- ior )
+; Undefined-word abort (TASK_INTERPRETER_CORRECTNESS). ABORT-HOOK: XT the
+; abort runs after resetting the stacks (catalog-resolver rolls back a
+; failed load); 0 = none. DEF_*: HERE, LATEST and the current vocabulary's
+; LATEST cell and its value, saved by ':' and cleared by ';', so an abort
+; inside a definition can remove its half-made header.
+VAR_ABORT_HOOK       equ 0x280A4
+VAR_DEF_HERE         equ 0x280A8    ; 0 = no ':' definition in progress
+VAR_DEF_LATEST       equ 0x280AC
+VAR_DEF_CELL         equ 0x280B0
+VAR_DEF_CELLV        equ 0x280B4
+VAR_ABORT_BUSY       equ 0x280B8    ; 1 while ABORT-HOOK runs: an abort inside it skips it
 BLK_NUM_BUFFERS     equ 4
 BLK_HEADER_SIZE     equ 12
 BLK_BUF_FLAG_VALID  equ 1
@@ -370,6 +381,9 @@ kernel_start:
     ; positive "this is my medium" signal, and AHCI-RW still overrides at
     ; runtime.
     mov dword [BLK_WRITE_VEC], BLKWRITENONE
+    mov dword [VAR_ABORT_HOOK], 0
+    mov dword [VAR_ABORT_BUSY], 0
+    mov dword [VAR_DEF_HERE], 0
     ; Block read vector: persistent reads (PBLK-READ) mirror the write
     ; vector. Disk boot: ATA reader. Memdisk boot: loud-fail stub — a
     ; persistent read must NOT fall back to the RAM copy (silent-stale
@@ -1276,6 +1290,7 @@ DEFCODE ".S", DOTS, 0       ; Show stack (non-destructive, bottom to top)
 DEFVAR "STATE", STATE, VAR_STATE
 DEFVAR "HERE", HERE, VAR_HERE
 DEFVAR "LATEST", LATEST, VAR_LATEST
+DEFVAR "ABORT-HOOK", ABORT_HOOK, VAR_ABORT_HOOK
 DEFVAR "BASE", BASE, VAR_BASE
 DEFVAR "CURRENT", CURRENT, VAR_CURRENT
 
@@ -1320,11 +1335,7 @@ DEFCODE "'", TICK, 0        ; ( "name" -- xt )
     push eax
     NEXT
 .not_found:
-    push esi
-    mov esi, msg_undefined
-    call print_string
-    pop esi
-    NEXT
+    jmp abort_undefined
 
 DEFCODE ",", COMMA, 0       ; ( x -- ) Compile x to dictionary
     pop eax
@@ -1556,16 +1567,7 @@ DEFCODE "INTERPRET", INTERPRET, 0
     NEXT
 
 .undefined:
-    ; Print the unknown word
-    push esi
-    mov esi, word_buffer
-    call print_string
-    mov esi, msg_undefined
-    call print_string
-    pop esi
-    ; Reset compilation state on error (abort current definition)
-    mov dword [VAR_STATE], 0
-    NEXT
+    jmp abort_undefined
 
 .block_exhausted:
     ; Block fully parsed — restore input state saved by LOAD
@@ -1617,6 +1619,15 @@ DEFCODE "NUMBER", NUMBER, 0 ; ( c-addr -- n )
 ; Creates dictionary header and enters compile mode
 DEFCODE ":", COLON, 0
     call word_              ; Get word name
+    ; Remember the dictionary as it was, for abort_undefined's rollback
+    mov eax, [VAR_HERE]
+    mov [VAR_DEF_HERE], eax
+    mov eax, [VAR_LATEST]
+    mov [VAR_DEF_LATEST], eax
+    mov ebx, [VAR_CURRENT]
+    mov [VAR_DEF_CELL], ebx
+    mov eax, [ebx]
+    mov [VAR_DEF_CELLV], eax
     call create_            ; Create dictionary header
     
     ; Store DOCOL as first cell (makes it a threaded word)
@@ -1643,6 +1654,7 @@ DEFCODE ";", SEMICOLON, F_IMMEDIATE
     ; Unhide the word
     mov eax, [VAR_LATEST]
     and byte [eax + 4], ~F_HIDDEN
+    mov dword [VAR_DEF_HERE], 0 ; definition complete: nothing to roll back
     
     ; Exit compile mode
     mov dword [VAR_STATE], 0
@@ -2180,10 +2192,7 @@ DEFCODE "SEE", SEE, 0
     POPRSP esi                 ; Restore Forth IP
     NEXT
 .notfound:
-    mov esi, msg_undefined
-    call print_string
-    POPRSP esi                 ; Restore Forth IP
-    NEXT
+    jmp abort_undefined        ; resets the return stack too
 
 ; DUMP - ( addr len -- ) Hex dump memory region
 DEFCODE "DUMP", DUMP, 0
@@ -2477,6 +2486,12 @@ DEFCODE '(S")', DOSQUOTE, 0
 ; ." - Print string (always compile mode, since it's IMMEDIATE)
 ; Reads string from TIB, same as S" above.
 DEFCODE '."', DOTQUOTE, F_IMMEDIATE
+    ; Interpret mode: print the string now and lay nothing down.
+    cmp dword [VAR_STATE], 0
+    jne .compile
+    mov bl, '"'
+    jmp print_parsed
+.compile:
     ; Layout: [DOSQUOTE XT][length][string bytes...][align][TYPE XT]
     mov eax, [VAR_HERE]
     mov dword [eax], DOSQUOTE       ; Compile (S") XT
@@ -2671,12 +2686,31 @@ DEFCODE "(", PAREN, F_IMMEDIATE
     NEXT
 
 .interactive_paren:
-    ; Interactive mode: read from serial/keyboard until ')'
-.skip:
-    call read_key
-    cmp al, ')'
-    jne .skip
+    ; Interactive mode: the whole line is already in TIB (NUL-terminated);
+    ; scan it for ')'. End of line ends the comment. (Reading keys here
+    ; waited for input that never came: the serial-paren wedge.)
+    mov eax, [VAR_TIB]
+    mov ecx, [VAR_TOIN]
+.iscan:
+    movzx edx, byte [eax + ecx]
+    test edx, edx
+    jz .idone
+    cmp edx, 13
+    je .idone
+    cmp edx, 10
+    je .idone
+    inc ecx
+    cmp edx, ')'
+    jne .iscan
+.idone:
+    mov [VAR_TOIN], ecx
     NEXT
+
+; .( - ( "text<paren>" -- ) Print text up to ')' now, in either state
+; (IMMEDIATE). Reads the current source like '(' does.
+DEFCODE ".(", DOTPAREN, F_IMMEDIATE
+    mov bl, ')'
+    jmp print_parsed
 
 ; \ - Line comment (skip to end of current line)
 ; In block mode: advance >IN to next 64-char line boundary
@@ -3456,13 +3490,7 @@ DEFCODE "USING", USING, 0
     jmp [eax]                   ; Execute it (DOVOC sets ORDER[0], then NEXT)
 
 .not_found:
-    push esi
-    mov esi, word_buffer
-    call print_string
-    mov esi, msg_undefined
-    call print_string
-    pop esi
-    NEXT
+    jmp abort_undefined
 
 ; ============================================================================
 ; Interrupt Infrastructure - Dictionary Words
@@ -5513,6 +5541,104 @@ ata_write_sector:
 .done:
     ret
 
+; ----------------------------------------------------------------------------
+; print_parsed - print the current source up to the delimiter in BL (or end
+; of line / the source bound), skipping one leading space; advance >IN.
+; Used by interpret-mode ." and by .( . Ends with NEXT.
+; ----------------------------------------------------------------------------
+print_parsed:
+    STR_SOURCE_CAP                  ; clobbers eax; sets VAR_STR_CAP
+    mov edx, [VAR_TOIN]
+    mov eax, [VAR_TIB]
+    cmp byte [eax + edx], ' '
+    jne .loop
+    inc edx
+.loop:
+    cmp edx, [VAR_STR_CAP]
+    jge .done
+    mov eax, [VAR_TIB]
+    movzx eax, byte [eax + edx]
+    test eax, eax
+    jz .done
+    inc edx
+    cmp al, bl
+    je .done
+    push edx
+    push ebx
+    call print_char
+    pop ebx
+    pop edx
+    jmp .loop
+.done:
+    mov [VAR_TOIN], edx
+    NEXT
+
+; ----------------------------------------------------------------------------
+; abort_undefined - an undefined name ends the input, as Forth-83's ABORT.
+; Reached by jmp from the four not-found sites: INTERPRET, ' (TICK), SEE,
+; USING; the name is in word_buffer. Prints "<name> ? ", and from the boot
+; embed stream also "EMBED ABORTED at <name>: ..."; inside a ':' definition
+; puts HERE, LATEST and the current vocabulary's LATEST cell back as ':'
+; found them; empties both stacks and the input (ABORT's reset); runs
+; ABORT-HOOK (a failed vocabulary load is rolled back there; an abort
+; inside the hook skips it, says so, and clears the mark); re-enters the
+; interpreter. Never returns.
+; ----------------------------------------------------------------------------
+abort_undefined:
+    mov esi, word_buffer
+    call print_string
+    mov esi, msg_undefined
+    call print_string
+    cmp dword [VAR_TIB], embed_data
+    jne .not_embed
+    mov esi, msg_embed_aborted
+    call print_string
+    mov esi, word_buffer
+    call print_string
+    mov esi, msg_embed_tail
+    call print_string
+.not_embed:
+    cmp dword [VAR_STATE], 0
+    je .no_def
+    mov eax, [VAR_DEF_HERE]
+    test eax, eax
+    jz .no_def
+    mov [VAR_HERE], eax
+    mov eax, [VAR_DEF_LATEST]
+    mov [VAR_LATEST], eax
+    mov ebx, [VAR_DEF_CELL]
+    mov eax, [VAR_DEF_CELLV]
+    mov [ebx], eax
+.no_def:
+    mov dword [VAR_DEF_HERE], 0
+    mov dword [VAR_STATE], 0
+    mov esp, DATA_STACK_TOP
+    mov ebp, RETURN_STACK_TOP
+    mov dword [VAR_TIB], TIB_START
+    mov dword [VAR_TOIN], 0
+    mov dword [VAR_BLK], 0
+    mov dword [VAR_BLOCK_LOADING], 0
+    mov eax, [VAR_ABORT_HOOK]
+    test eax, eax
+    jz .no_hook
+    cmp dword [VAR_ABORT_BUSY], 0
+    jne .hook_failed                ; re-entered from inside the hook
+    mov dword [VAR_ABORT_BUSY], 1
+    mov esi, cold_start             ; a sane IP for execute_xt to save
+    call execute_xt
+    mov esp, DATA_STACK_TOP         ; drop whatever the hook left
+    mov dword [VAR_ABORT_BUSY], 0
+    jmp .no_hook
+.hook_failed:
+    ; The hook itself hit an undefined word: don't call it again (that
+    ; recursed forever); clear the mark so the next abort runs it; say so.
+    mov dword [VAR_ABORT_BUSY], 0
+    mov esi, msg_hook_failed
+    call print_string
+.no_hook:
+    mov esi, cold_start
+    NEXT
+
 ; ============================================================================
 ; Block Buffer Manager
 ; ============================================================================
@@ -5827,6 +5953,9 @@ msg_welcome:    db 'Bare-Metal Forth v0.1 - Ship Builders System', 13, 10
                 db 'Type WORDS to see available commands', 13, 10, 0
 msg_stack:      db '<', 0
 msg_undefined:  db ' ? ', 13, 10, 0
+msg_embed_aborted: db 'EMBED ABORTED at ', 0
+msg_embed_tail: db ': later embedded vocabularies not loaded', 13, 10, 0
+msg_hook_failed: db 'ABORT-HOOK failed: an aborted load was not rolled back', 13, 10, 0
 msg_blk_write_fail: db 'BLOCK WRITE FAIL ', 0
 msg_blk_read_fail:  db 'BLOCK READ FAIL ', 0
 msg_break:      db 'BREAK', 13, 10, 0

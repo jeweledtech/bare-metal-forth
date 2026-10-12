@@ -87,6 +87,9 @@ $(IMAGE): $(BOOTLOADER) $(KERNEL)
 	@echo "  Bootloader: $$(stat -c%s $(BOOTLOADER)) bytes"
 	@echo "  Kernel: $$(stat -c%s $(KERNEL)) bytes"
 	@echo "  Total: $$(stat -c%s $@) bytes"
+	@# Boot-log gate (TASK_INTERPRETER_CORRECTNESS): an undefined word in the
+	@# embedded boot stream fails the build; the image is removed, not kept.
+	@python3 tools/boot_gate.py $@ || { rm -f $@; exit 1; }
 
 # --- Free-tier build (public vocabularies only) ---
 
@@ -100,6 +103,7 @@ $(IMAGE_FREE): $(BOOTLOADER) $(KERNEL_FREE)
 	@echo "Creating free-tier disk image..."
 	cat $(BOOTLOADER) $(KERNEL_FREE) > $@
 	@echo "Free-tier image: $@ ($$(stat -c%s $@) bytes)"
+	@python3 tools/boot_gate.py $@ || { rm -f $@; exit 1; }
 
 free: $(IMAGE_FREE)
 
@@ -455,6 +459,18 @@ META_FIXTURES ?= test_metacompiler test_meta_compile test_meta_b6 \
 # with AHCI-RW (SKIPPED without ahci.fth).  It launches its own QEMUs (two
 # configurations and a reboot), so it is its own recipe; test-vocabs
 # depends on it.
+# Interpreter correctness (TASK_INTERPRETER_CORRECTNESS): an undefined
+# word aborts and discards the rest of its input, an aborted load rolls
+# back, `(` over serial, interpret-mode `."` and `.(`, and the boot stream's
+# loud message. Fixture image and a control kernel under build/test-interp.d;
+# the script launches QEMU itself.
+test-interp-abort: $(COMBINED)
+	@QPIDDIR=$(BUILD)/test-interp.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
+	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-interp-abort --base $(TEST_PORT_BASE); \
+	echo "Running interpreter-correctness test..."; \
+	PORT=$$(($(TEST_PORT_BASE)+68)); \
+	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_INTERP_ABORT) python3 tests/test_interp_abort.py $$PORT
+
 test-mirror: $(COMBINED)
 	@QPIDDIR=$(BUILD)/test-mirror.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
 	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-mirror --base $(TEST_PORT_BASE); \
@@ -836,6 +852,7 @@ T_G6 ?= 1200
 T_BLOCK_RELOAD ?= 150
 T_BLK_EVICT ?= 150
 T_MIRROR ?= 150
+T_INTERP_ABORT ?= 300
 T_ARM64_BOOT ?= 720
 T_CORTEXM ?= 600
 test-firstboot: $(COMBINED)
@@ -1196,7 +1213,7 @@ test-meta: $(COMBINED)
 #     its output as evidence, and it never gates a build.  If it must ever
 #     gate something, the gate goes on a deterministic artefact derived from
 #     it and pinned -- the treatment the Ghidra oracle already has.
-test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-vbr test-grub-cfg test-uefi-boot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-mirror test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
+test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-vbr test-grub-cfg test-uefi-boot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-mirror test-interp-abort test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)
@@ -1281,4 +1298,4 @@ grub-net: $(COMBINED) tools/pxe/grub.cfg
 pxe-push-grub: grub-net
 	@bash tools/pxe/push-grub.sh
 
-.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined usb-image check-coverage desk-hashes check-kernel-size test test-blk-evict test-mirror test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-grub-cfg test-g6
+.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined usb-image check-coverage desk-hashes check-kernel-size test test-blk-evict test-mirror test-interp-abort test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-grub-cfg test-g6

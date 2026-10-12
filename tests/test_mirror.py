@@ -31,7 +31,9 @@ Cases (the task doc's red table):
       MIRROR-INFO's HERE equal to the header on disk, both paths (the HP
       path can only read it back through the persistent reader).
   M5  ATA path: `: MIRTEST 4242 ;`, MIRROR, reboot on the same disks,
-      LOOKINGGLASS: MIRTEST answers 4242.
+      LOOKINGGLASS: MIRTEST answers 4242. HP path (M5d-f): the same with
+      `: HPTEST 4242 ;`, reboot on the same SATA disk, AHCI-RW, reload
+      MIRROR, LOOKINGGLASS reading through AHCI.
   M6  host: write-catalog reserves 216-535 for MIRROR (MIRROR_RESERVED,
       MIRROR_BLK), no vocabulary lies in it, it ends at or below the HP
       write ceiling, and mirror.fth's MIRROR-BLK and its settings and
@@ -372,7 +374,7 @@ finally:
     g.close()
 
 # ---------------------------------------------------------------- HP path
-HP_CASES = ('M2a', 'M2b', 'M2c', 'M4f', 'M4g', 'M4h', 'M4i', 'M4j')
+HP_CASES = ('M2a', 'M2b', 'M2c', 'M4f', 'M4g', 'M4h', 'M4i', 'M4j', 'M5d', 'M5e', 'M5f')
 if not os.path.exists(AHCI_FTH):
     for c in HP_CASES:
         skip(c, 'forth/dict/ahci.fth absent: AHCI is not in this build')
@@ -387,10 +389,10 @@ else:
     subprocess.run(['sgdisk', '-a', '1', '-n', f'6:{P6[0]}:{P6[1]}', '-t',
                     '6:4E011D24-9E20-45E8-BC49-85EB14C68532', '-c', '6:FORTHOS', DISK],
                    check=True, capture_output=True)
-    g = Guest(['-m', '64', '-kernel', '/usr/lib/syslinux/memdisk', '-initrd', IMG,
+    HP_ARGS = ['-m', '64', '-kernel', '/usr/lib/syslinux/memdisk', '-initrd', IMG,
                '-append', 'raw', '-drive', f'file={DISK},format=raw,if=none,id=sata0',
-               '-device', 'ich9-ahci,id=ahci0', '-device', 'ide-hd,drive=sata0,bus=ahci0.0'],
-              'mirror-hp')
+               '-device', 'ich9-ahci,id=ahci0', '-device', 'ide-hd,drive=sata0,bus=ahci0.0']
+    g = Guest(HP_ARGS, 'mirror-hp')
     try:
         for c in ('USING AHCI', 'AHCI-INIT', 'AHCI-RW'):
             r = g.send(c)
@@ -426,6 +428,28 @@ else:
         disk_here = struct.unpack('<I', hdr[0x10:0x14])[0]
         check("M4j MIRROR-INFO's HERE = the header's HERE on disk (HP)",
               info_here(ri) == disk_here, f'(info {info_here(ri)}, disk {disk_here:#x})')
+        # M5 on the HP path: a word, an image, then a reboot on the same disk
+        g.send(': HPTEST 4242 ;')
+        r = g.send('DECIMAL 216 MIRROR', 300)
+        check('M5d image with HPTEST saved (HP)', 'MIRROR saved to block 216' in r,
+              f'(reply tail {r.strip()[-120:]!r})')
+    finally:
+        g.close()
+    # Boot 2 repeats boot 1's prefix exactly, so the dictionary is rebuilt
+    # the same way up to MIRROR before LOOKINGGLASS overwrites it.
+    g = Guest(HP_ARGS, 'mirror-hp2')
+    try:
+        for c in ('USING AHCI', 'AHCI-INIT', 'AHCI-RW'):
+            r = g.send(c)
+        check('C4 AHCI-RW after the reboot (HP)', 'AHCI reader installed' in r, f'({r.strip()!r})',
+              fatal=True)
+        load_mirror(g)
+        r = g.send('DECIMAL 216 LOOKINGGLASS', 180)
+        check('M5e LOOKINGGLASS restored (HP, through AHCI)', 'LOOKINGGLASS restored' in r,
+              f'(reply tail {r.strip()[-120:]!r})')
+        r = g.send('DECIMAL HPTEST .')
+        check('M5f HPTEST answers 4242 after the reboot (HP)', nums(r)[-1:] == [4242],
+              f'(got {r.strip()!r})')
     finally:
         g.close()
 

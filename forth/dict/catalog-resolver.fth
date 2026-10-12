@@ -123,6 +123,22 @@ VARIABLE LP-EA
 : LOADING-RESET  ( -- )
     0 LOADING-DEPTH !
 ;
+LOADING-RESET
+
+\ ---- Rollback points (abort hook) ----
+\ Per loading level: HERE and LATEST at
+\ the start of its own block load, after
+\ its REQUIRES: dependencies finished;
+\ -1 = not started (still resolving).
+CREATE AB-PTH MAX-LOADING 4 * ALLOT
+CREATE AB-PTL MAX-LOADING 4 * ALLOT
+\ search order, depth, CURRENT at the
+\ start of the top-level load
+CREATE AB-SO 28 ALLOT
+
+: AB-CELL ( lvl base -- addr )
+    SWAP 4 * + ;
+: AB-TOP ( -- lvl ) LOADING-DEPTH @ 1- ;
 
 \ ---- In-memory catalog registry ------
 \ Lets embedded vocabs register form data
@@ -308,6 +324,7 @@ VARIABLE VP-L
     2DUP LOADING-PUSH 0= IF
         DROP DROP EXIT
     THEN
+    -1 AB-TOP AB-PTH AB-CELL !
     2DUP VOCAB-PRESENT? IF
         2DUP TYPE SPACE ." present, skipped" CR
         DROP DROP LOADING-POP EXIT
@@ -318,6 +335,8 @@ VARIABLE VP-L
         ELSE
             OVER
             'RESOLVE-DEPS @ EXECUTE
+            HERE @ AB-TOP AB-PTH AB-CELL !
+            LATEST @ AB-TOP AB-PTL AB-CELL !
             THRU
         THEN
     ELSE
@@ -503,6 +522,7 @@ VARIABLE RL-STEP
     THEN
     BLK-WRITER@ S" BLK-WRITER@ vector" RL-CHK
     BLK-READER@ S" BLK-READER@ vector" RL-CHK
+    ABORT-HOOK @ S" ABORT-HOOK" RL-CHK
     29C00 10 4 S" IRQ hook" RL-TABLE
     RL-IDT
     CR-ADDRS CR-COUNT @ 4
@@ -532,6 +552,96 @@ VARIABLE RL-STEP
         THEN
         @
     REPEAT DROP ;
+
+\ ---- Abort hook (ABORT-HOOK) ----
+\ An undefined word aborts a load. The
+\ kernel has emptied the stacks and the
+\ input; this rolls the dictionary back
+\ to the outermost started block load
+\ (dependencies loaded before it stay),
+\ unless a vector points into the region:
+\ then it keeps it and says so. Then it
+\ restores the order saved when the
+\ top-level load began. At the prompt
+\ (no load) it does nothing.
+VARIABLE AB-LVL
+VARIABLE AB-D
+VARIABLE AB-PT
+
+: AB-NAME ( lvl -- a l )
+    MAX-NAME 1+ * LOADING-NAMES +
+    DUP 1+ SWAP C@ ;
+
+\ walk a LATEST cell back below AB-PT
+: AB-FIX ( cell -- )
+    BEGIN DUP @ AB-PT @ < 0= WHILE
+        DUP @ @ OVER !
+    REPEAT DROP ;
+
+\ free [AB-PT, HERE): every chain head
+\ (FORTH's, each vocabulary's) back
+\ below it; LATEST and HERE back
+: AB-FREE ( -- )
+    FORTH-LATEST AB-FIX
+    FORTH-LATEST @
+    BEGIN DUP WHILE
+        DUP HDR-CFA @ DOVOC-CODE = IF
+            DUP HDR-CFA 4 + AB-FIX
+        THEN
+        @
+    REPEAT DROP
+    AB-LVL @ AB-PTL AB-CELL @ 28008 !
+    AB-PT @ HERE ! ;
+
+\ each started level from AB-LVL on
+: AB-SAY ( a l -- )
+    AB-D @ AB-LVL @ DO
+        I AB-PTH AB-CELL @ -1 <> IF
+            I AB-NAME TYPE SPACE 2DUP TYPE CR
+        THEN
+    LOOP 2DROP ;
+
+: CR-ABORT ( -- )
+    LOADING-DEPTH @ 0= IF EXIT THEN
+    LOADING-DEPTH @ AB-D !
+    -1 AB-LVL !
+    AB-D @ 0 DO
+        I AB-PTH AB-CELL @ -1 <> IF
+            I AB-LVL ! LEAVE
+        THEN
+    LOOP
+    AB-LVL @ 0< IF
+        AB-D @ 1- AB-NAME TYPE
+        SPACE ." not loaded" CR
+    ELSE
+        AB-LVL @ 0> IF
+            AB-LVL @ 0 DO
+                I AB-NAME TYPE
+                SPACE ." not loaded: "
+                AB-LVL @ AB-NAME TYPE
+                SPACE ." failed" CR
+            LOOP
+        THEN
+        AB-LVL @ AB-PTH AB-CELL @
+        DUP AB-PT ! RL-LO !
+        HERE @ RL-HI !
+        0 RL-WA !
+        0 LOADING-DEPTH !
+        RL-VECTORS
+        RL-WA @ IF
+            AB-LVL @ AB-NAME TYPE
+            SPACE ." partial: "
+            RL-WA @ RL-WL @ TYPE
+            SPACE ." points into it" CR
+        ELSE
+            AB-FREE
+            S" rolled back" AB-SAY
+        THEN
+    THEN
+    AB-SO 28020 28 CMOVE
+    LOADING-RESET ;
+
+' CR-ABORT ABORT-HOOK !
 
 CREATE RL-NAME 40 ALLOT
 VARIABLE RL-NLEN
@@ -579,7 +689,13 @@ FORTH DEFINITIONS
 ALSO CATALOG-RESOLVER
 
 : LOAD-VOCAB  ( addr len -- )
-    LOADING-RESET
+    \ Top level only (typed: BLK 0). Inside a
+    \ block load the loading stack must stay:
+    \ an abort rolls the outer load back too.
+    BLK @ 0= IF LOADING-RESET THEN
+    LOADING-DEPTH @ 0= IF
+        28020 AB-SO 28 CMOVE
+    THEN
     LOAD-VOCAB-INNER
 ;
 
