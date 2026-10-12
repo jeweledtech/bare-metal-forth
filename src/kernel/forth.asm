@@ -506,6 +506,344 @@ kernel_start:
     NEXT
 
 ; ============================================================================
+; UEFI-3: multiboot2 entry (docs/TASK_UEFI_3_4.md)
+; ============================================================================
+; GRUB (EFI) loads the kernel part of forth.img here by the address tag and
+; the whole image as a module, which BLK_IMAGE_BASE then points at, as on a
+; memdisk boot.  The header must sit 8-aligned in the first 32 KiB of the
+; file (multiboot2 spec 3.1); here it is a few hundred bytes in.  The BIOS
+; path never runs this: the boot sector jumps to KERNEL_ORG = kernel_start.
+
+MB2_HEADER_MAGIC equ 0xE85250D6
+MB2_BOOT_MAGIC   equ 0x36D76289         ; EAX at entry (spec 3.3)
+
+    align 8
+mb2_header:
+    dd MB2_HEADER_MAGIC
+    dd 0                                ; architecture 0: i386 protected mode
+    dd mb2_header_end - mb2_header
+    dd 0x100000000 - (MB2_HEADER_MAGIC + (mb2_header_end - mb2_header))
+    ; address tag (2): load only the kernel, not the blocks behind it
+    dw 2, 0
+    dd 24
+    dd mb2_header                       ; header_addr
+    dd KERNEL_ORG                       ; load_addr: file offset 512
+    dd KERNEL_ORG + KERNEL_PADDED_SIZE  ; load_end_addr
+    dd KERNEL_ORG + KERNEL_PADDED_SIZE  ; bss_end_addr: no bss
+    ; entry address tag (3)
+    dw 3, 0
+    dd 12
+    dd mb2_entry
+    dd 0                                ; pad to 8
+    ; information request tag (1): the memory map (6)
+    dw 1, 0
+    dd 12
+    dd 6
+    dd 0                                ; pad to 8
+    ; end tag
+    dw 0, 0
+    dd 8
+mb2_header_end:
+
+; mb2_entry does the whole multiboot2 step before kernel_start writes any
+; memory: it runs on a small stack inside the kernel image (the one range
+; GRUB cannot have put the multiboot2 information, MBI, or the module in),
+; reads the MBI in place, reports on serial, moves the module if it must,
+; sets BLK_IMAGE_BASE, and only then jumps to kernel_start.
+    align 4
+mb2_stack:      times 128 db 0
+mb2_stack_top:
+mb2_mod_start:  dd 0
+mb2_mod_end:    dd 0
+mb2_mmap_tag:   dd 0                    ; the memory map tag in the MBI, 0 = none
+mb2_dest:       dd 0, 0                 ; [lo, hi) of the move target
+mb2_quiet:      db 0                    ; 1 = mb2_window prints nothing
+
+; Windows the kernel owns (docs/ARCHITECTURE.md memory map): data stack,
+; kernel, return stack, variables, buffers, IDT, dictionary; and the
+; physical allocation pool.  [lo, hi) pairs.
+    align 4
+mb2_windows:
+    dd 0x00000500, 0x00080000
+    dd 0x00100000, 0x00400000
+MB2_NWINDOWS equ 2
+MB2_MOVE_TO  equ 0x00400000            ; the end of the highest window
+
+mb2_entry:
+    cli
+    cld
+    mov esp, mb2_stack_top
+    mov edi, eax                        ; the magic, kept across init_serial
+    call init_serial
+    mov esi, mb2_msg_magic
+    cmp edi, MB2_BOOT_MAGIC
+    jne mb2_refuse
+    ; walk the tags: the first module (3) and the memory map (6)
+    lea esi, [ebx + 8]                  ; first tag (after total_size, reserved)
+    mov edx, ebx
+    add edx, [ebx]                      ; end of the MBI
+.tag:
+    cmp esi, edx
+    jae .tags_done
+    mov eax, [esi]                      ; tag type
+    test eax, eax
+    jz .tags_done                       ; end tag
+    cmp eax, 6
+    jne .not_mmap
+    mov [mb2_mmap_tag], esi
+.not_mmap:
+    cmp eax, 3
+    jne .next
+    cmp dword [mb2_mod_end], 0
+    jne .next
+    mov eax, [esi + 8]
+    mov [mb2_mod_start], eax
+    mov eax, [esi + 12]
+    mov [mb2_mod_end], eax
+.next:
+    mov eax, [esi + 4]                  ; tag size, padded to 8
+    add eax, 7
+    and eax, ~7
+    add esi, eax
+    jmp .tag
+.tags_done:
+    mov esi, mb2_msg_nomod
+    cmp dword [mb2_mod_end], 0
+    je mb2_refuse
+    mov esi, mb2_msg_module
+    call mb2_puts
+    call mb2_range
+    ; per window: available bytes, and every non-available entry inside it
+    ; (COLLISION: reported, not acted on -- QEMU's map is not the iron's)
+    mov ebx, mb2_windows
+    call mb2_window
+    add ebx, 8
+    call mb2_window
+    ; the module must not sit in a window: GRUB 2.12 puts it at the lowest
+    ; free address from 1 MiB (measured: 0x100000, inside the pool), so it
+    ; moves to MB2_MOVE_TO, above every window, if the map gives that range
+    ; as available; otherwise REFUSED
+    mov ebx, mb2_windows
+    mov ecx, MB2_NWINDOWS
+.modcheck:
+    mov eax, [mb2_mod_start]
+    cmp eax, [ebx + 4]                  ; start < hi
+    jae .modnext
+    mov eax, [mb2_mod_end]
+    cmp eax, [ebx]                      ; end > lo
+    ja .move
+.modnext:
+    add ebx, 8
+    loop .modcheck
+    jmp .base
+.move:
+    mov eax, MB2_MOVE_TO
+    mov [mb2_dest], eax
+    add eax, [mb2_mod_end]
+    sub eax, [mb2_mod_start]
+    mov [mb2_dest + 4], eax             ; target end
+    mov ebx, mb2_dest
+    mov byte [mb2_quiet], 1
+    call mb2_window                     ; EBP = available bytes in the target
+    mov ecx, [mb2_dest + 4]
+    sub ecx, [mb2_dest]                 ; size
+    mov esi, mb2_msg_noroom
+    cmp ebp, ecx
+    jne mb2_refuse
+    ; the map is not read again, so the copy may overwrite the MBI
+    mov esi, [mb2_mod_start]
+    mov edi, [mb2_dest]
+    cmp edi, esi
+    jbe .forward
+    lea esi, [esi + ecx - 1]            ; target above source: copy backward
+    lea edi, [edi + ecx - 1]
+    std
+    rep movsb
+    cld
+    jmp .moved
+.forward:
+    rep movsb
+.moved:
+    mov eax, [mb2_dest]
+    mov [mb2_mod_start], eax
+    mov eax, [mb2_dest + 4]
+    mov [mb2_mod_end], eax
+    mov esi, mb2_msg_moved
+    call mb2_puts
+    call mb2_range
+.base:
+    mov eax, [mb2_mod_start]
+    mov [BLK_IMAGE_BASE], eax
+    jmp kernel_start
+
+mb2_refuse:                             ; ESI -> the reason; prints and halts
+    push esi
+    mov esi, mb2_msg_refused
+    call mb2_puts
+    pop esi
+    call mb2_puts
+    call mb2_crlf
+.halt:
+    cli
+    hlt
+    jmp .halt
+
+mb2_range:                              ; prints mb2_mod_start-mb2_mod_end, CRLF
+    mov eax, [mb2_mod_start]
+    call mb2_hex
+    mov al, '-'
+    call serial_putchar
+    mov eax, [mb2_mod_end]
+    call mb2_hex
+    jmp mb2_crlf
+
+; mb2_window: EBX -> [lo, hi).  EBP = the bytes of it the map gives as
+; available; prints each non-available entry overlapping it, then the
+; window line (unless mb2_quiet).  Entries at or above 4 GiB are ignored;
+; an end past 4 GiB is clipped to 0xFFFFFFFF.  No map: EBP = 0.
+mb2_window:
+    xor ebp, ebp
+    mov esi, [mb2_mmap_tag]
+    test esi, esi
+    jz .print
+    mov ecx, esi
+    add ecx, [esi + 4]                  ; end of the tag
+    mov edi, [esi + 8]                  ; entry_size
+    add esi, 16                         ; first entry
+.ent:
+    cmp esi, ecx
+    jae .print
+    cmp dword [esi + 4], 0              ; base hi
+    jne .done_ent
+    mov eax, [esi]                      ; base
+    mov edx, eax
+    add edx, [esi + 8]                  ; end = base + length lo
+    jc .clip
+    cmp dword [esi + 12], 0             ; length hi
+    je .have_end
+.clip:
+    mov edx, 0xFFFFFFFF
+.have_end:
+    cmp eax, [ebx]                      ; overlap = min(end, hi) - max(base, lo)
+    jae .lo_ok
+    mov eax, [ebx]
+.lo_ok:
+    cmp edx, [ebx + 4]
+    jbe .hi_ok
+    mov edx, [ebx + 4]
+.hi_ok:
+    cmp edx, eax
+    jbe .done_ent
+    cmp dword [esi + 16], 1             ; type 1 = available
+    jne .collision
+    sub edx, eax
+    add ebp, edx
+    jmp .done_ent
+.collision:
+    cmp byte [mb2_quiet], 0
+    jne .done_ent
+    push esi
+    mov esi, mb2_msg_coll
+    call mb2_puts
+    pop esi
+    mov eax, [esi]
+    call mb2_hex
+    mov al, '+'
+    call serial_putchar
+    mov eax, [esi + 8]
+    call mb2_hex
+    push esi
+    mov esi, mb2_msg_type
+    call mb2_puts
+    pop esi
+    mov eax, [esi + 16]
+    call mb2_hex
+    call mb2_crlf
+.done_ent:
+    add esi, edi
+    jmp .ent
+.print:
+    cmp byte [mb2_quiet], 0
+    jne .ret
+    mov esi, mb2_msg_window
+    call mb2_puts
+    mov eax, [ebx]
+    call mb2_hex
+    mov al, '-'
+    call serial_putchar
+    mov eax, [ebx + 4]
+    call mb2_hex
+    mov esi, mb2_msg_avail
+    call mb2_puts
+    mov eax, ebp
+    call mb2_hex
+    mov esi, mb2_msg_of
+    call mb2_puts
+    mov eax, [ebx + 4]
+    sub eax, [ebx]
+    call mb2_hex
+    call mb2_crlf
+.ret:
+    ret
+
+mb2_puts:                               ; ESI -> NUL-terminated, serial only
+    push eax
+    push esi
+.c:
+    lodsb
+    test al, al
+    jz .end
+    call serial_putchar
+    jmp .c
+.end:
+    pop esi
+    pop eax
+    ret
+
+mb2_hex:                                ; EAX, 8 hex digits, serial only
+    push eax
+    push ebx
+    push ecx
+    mov ebx, eax
+    mov ecx, 8
+.d:
+    rol ebx, 4
+    mov al, bl
+    and al, 0x0F
+    add al, '0'
+    cmp al, '9'
+    jbe .out
+    add al, 'A' - '9' - 1
+.out:
+    call serial_putchar
+    loop .d
+    pop ecx
+    pop ebx
+    pop eax
+    ret
+
+mb2_crlf:
+    push eax
+    mov al, 13
+    call serial_putchar
+    mov al, 10
+    call serial_putchar
+    pop eax
+    ret
+
+mb2_msg_module:  db 'MB2: module ', 0
+mb2_msg_window:  db 'MB2: window ', 0
+mb2_msg_avail:   db ' available ', 0
+mb2_msg_of:      db ' of ', 0
+mb2_msg_coll:    db 'MB2: COLLISION ', 0
+mb2_msg_type:    db ' type ', 0
+mb2_msg_refused: db 'MB2: REFUSED: ', 0
+mb2_msg_magic:   db 'bad multiboot2 magic in EAX', 0
+mb2_msg_nomod:   db 'no module (the blocks image)', 0
+mb2_msg_noroom:  db 'the module lies inside a kernel window and the map has no room above it', 0
+mb2_msg_moved:   db 'MB2: module moved to ', 0
+
+; ============================================================================
 ; Dictionary Header Macro
 ; ============================================================================
 
@@ -6083,6 +6421,13 @@ times ((BLK_BUF_DATA + BLK_NUM_BUFFERS * BLOCK_SIZE) - BLK_BUF_GUARD) db 0
 ; stack has NO runtime overflow check: this margin is the only
 ; protection that structure has.
 times (RETURN_STACK_TOP - (KERNEL_ORG + KERNEL_PADDED_SIZE) - RETURN_STACK_MIN) db 0
+
+; Free-pad floor (owner, 2026-10-12): the kernel content must leave at
+; least KERNEL_PAD_FLOOR bytes of KERNEL_PADDED_SIZE.  The count is 0 when
+; it holds (emits nothing) and -1 when it doesn't (the build fails).
+; tools/pad_report.py prints the free pad on every kernel build.
+KERNEL_PAD_FLOOR    equ 2048
+times ((KERNEL_PADDED_SIZE - ($ - $$)) < KERNEL_PAD_FLOOR) * -1 db 0
 
 ; Pad kernel to match bootloader's KERNEL_SECTORS (KERNEL_PADDED_SIZE bytes)
 times KERNEL_PADDED_SIZE - ($ - $$) db 0

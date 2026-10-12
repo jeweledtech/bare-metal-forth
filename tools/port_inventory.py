@@ -7,7 +7,7 @@ an offset from TEST_PORT_BASE, with its listen form and where it comes from.
 
 - Recipe-launched QEMUs: from the recipe's -serial / -monitor / -netdev
   ...listen= text.
-- Script-launched QEMUs (`python3 tests/X.py`, or
+- Script-launched QEMUs (`python3 [-flags] tests/X.py`, or
   `python3 $(PRIVATE_REPO)/tests/X.py` for a private-owned script run in
   place): from the script's f-strings (`tcp::{X}`,
   `tcp:127.0.0.1:{X}`, `listen=:{X}`), with X resolved by Python's ast to
@@ -310,7 +310,9 @@ def inventory():
                         ents.append(entry(mko(m.group(3), n), form, m.group(1), f'Makefile:{n}'))
                     for m in re.finditer(r'-netdev\s+\S*listen=:([^,\s]+)', ln):
                         ents.append(entry(mko(m.group(1), n), 'listen=:P', 'netdev', f'Makefile:{n}'))
-                for m in re.finditer(r'python3 (\$\(PRIVATE_REPO\)/)?tests/(\$\$\w+|\w+)\.py([^;]*)', ln):
+                # interpreter flags (`python3 -u tests/X.py`) are allowed: a recipe
+                # with them was invisible here, so its listens went unchecked
+                for m in re.finditer(r'python3 (?:-[A-Za-z]+ )*(\$\(PRIVATE_REPO\)/)?tests/(\$\$\w+|\w+)\.py([^;]*)', ln):
                     priv, script = m.group(1), m.group(2)
                     if script.startswith('$$'):
                         script = fx

@@ -82,8 +82,9 @@ $(EMBEDDED): $(EMBED_VOCABS) tools/embed-vocabs.py $(BUILD)/embed-vocabs.list | 
 	python3 tools/embed-vocabs.py $@ $(EMBED_VOCABS)
 
 # Assemble kernel (depends on embedded vocab binary)
-$(KERNEL): $(SRC_KERNEL)/forth.asm $(EMBEDDED) | $(BUILD)
+$(KERNEL): $(SRC_KERNEL)/forth.asm $(EMBEDDED) tools/pad_report.py | $(BUILD)
 	$(NASM) -f bin -o $@ $<
+	@python3 tools/pad_report.py $< $(BUILD)/pad-report.d
 
 # Create disk image
 # Bootloader at sector 0, kernel starting at sector 1
@@ -888,6 +889,8 @@ T_BLK_EVICT ?= 60
 T_MIRROR ?= 60
 T_INTERP_ABORT ?= 90
 T_PAD_MOVE ?= 40
+# About 2x measured (2026-10-12): uefi-boot 10.5 s (five runs, the UEFI-3 gate).
+T_UEFI_BOOT ?= 25
 T_ARM64_BOOT ?= 720
 T_CORTEXM ?= 600
 test-firstboot: $(COMBINED)
@@ -1082,9 +1085,13 @@ test-memdisk: $(COMBINED)
 # of the make-uefi-usb.sh stick booted under OVMF (no CSM) must reach the
 # Forth banner + ok on serial.  Registered red: prints XFAIL and exits 0
 # until UEFI-3; XPASS exits 1.  Serial goes to a file, no TCP port.
+# UEFI-3 gate (docs/TASK_UEFI_3_4.md): the stick replica under OVMF, no CSM,
+# multiboot2 kernel + module; serial on +74 (unused before).
 test-uefi-boot: $(COMBINED)
-	@echo "Running UEFI boot red (OVMF, no CSM)..."
-	@python3 tests/test_uefi_boot.py $(COMBINED)
+	@QPIDDIR=$(BUILD)/test-uefi-boot.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
+	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-uefi-boot --base $(TEST_PORT_BASE); \
+	echo "Running UEFI boot gate (OVMF, no CSM, multiboot2)..."; \
+	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_UEFI_BOOT) python3 -u tests/test_uefi_boot.py $$(($(TEST_PORT_BASE)+74)) $(COMBINED)
 
 test-grub-cfg:
 	@echo "Running GRUB cfg gates..."

@@ -2,9 +2,10 @@
 # make-uefi-usb.sh — Create dual-mode (UEFI + Legacy/CSM) bootable USB for ForthOS
 # Usage: sudo bash tools/make-uefi-usb.sh /dev/sdX [image-path]
 #
-# Creates a USB that boots ForthOS via syslinux memdisk:
+# Creates a USB that boots ForthOS both ways:
 #   - Legacy/CSM mode: GRUB BIOS → linux16 memdisk → ForthOS in real mode
-#   - UEFI mode: GRUB EFI → menu explaining CSM is required
+#   - UEFI mode: GRUB EFI → multiboot2 kernel + the image as a module, which
+#     serves the blocks the way memdisk does (docs/TASK_UEFI_3_4.md)
 #
 set -euo pipefail
 
@@ -96,21 +97,18 @@ if [ "$grub_platform" = "pc" ]; then
         reboot
     }
 else
-    # UEFI mode — cannot boot 16-bit real-mode code directly
-    menuentry "ForthOS — Boot via Legacy/CSM (select this USB as non-UEFI)" {
-        echo ""
-        echo "  ForthOS runs in 32-bit protected mode, but it is"
-        echo "  loaded by a 16-bit BIOS boot sector through memdisk."
-        echo "  UEFI mode cannot run that loader."
-        echo ""
-        echo "  To boot ForthOS:"
-        echo "    1. Reboot and enter BIOS Setup (F10 on HP)"
-        echo "    2. Enable Legacy Support / CSM"
-        echo "    3. Boot Menu (F9) -> select this USB WITHOUT 'UEFI:' prefix"
-        echo ""
-        echo "  Press Enter to reboot to BIOS Setup, or ESC for GRUB shell."
-        read
-        fwsetup
+    # UEFI mode: GRUB loads the kernel by multiboot2 (only the kernel part
+    # of forth.img, by the header's address tag) and the whole image as a
+    # module; the kernel serves its blocks from the module. The standalone
+    # GRUB's root is its own built-in memdisk, so find the stick first; it
+    # sees the stick's partitions only once part_gpt is loaded.
+    menuentry "ForthOS — Bare Metal Forth (UEFI)" {
+        insmod part_gpt
+        insmod fat
+        search --no-floppy --set=root --file /forth.img
+        multiboot2 /forth.img
+        module2 /forth.img
+        boot
     }
     menuentry "Reboot to BIOS Setup" {
         fwsetup

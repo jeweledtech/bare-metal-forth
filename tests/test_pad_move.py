@@ -13,7 +13,12 @@ file browser leave the embedded boot stream and load from blocks.
       (CATALOG-MEM 1).
   K5  after loading each app, its form (loaded by the app's REQUIRES: line)
       is a registry hit and FORM-LOAD builds widgets.
-  K4  host: kernel content leaves at least 14,800 B of KERNEL_PADDED_SIZE.
+  K4  host: the move itself -- the embedded boot stream built from the
+      pre-move list (3f58be6^, pinned below) is at least 14,000 B larger
+      than the stream built from today's EMBED_VOCABS (owner 2026-10-12:
+      the old ">= 14,800 B of pad left" was the move's acceptance number,
+      not a budget; free pad is now reported on every kernel build and held
+      to KERNEL_PAD_FLOOR by forth.asm).
   I1  the installed instance, observed: no memdisk, AHCI on an HP-549
       fixture laid out the way ADD-BOOT-ENTRY writes it (P6 34-582, VBR
       at 34, the 224 kernel sectors from 35). Stand-in: the kernel boots
@@ -82,18 +87,22 @@ def depth(s):
     return int(v[-1]) if v else None
 
 
-# ---- K4 (host): kernel content against the pad
-src = open(ASM).read()
-pad = int(re.search(r'^KERNEL_PADDED_SIZE\s+equ\s+0x([0-9A-Fa-f]+)', src, re.M).group(1), 16)
-lines = src.split('\n')
-k = [i for i, l in enumerate(lines) if l.startswith('times KERNEL_PADDED_SIZE - ($ - $$) db 0')]
-nopad = os.path.join(D, 'forth-nopad.asm')
-open(nopad, 'w').write('\n'.join(lines[:k[0]] + lines[k[0] + 1:]))
-kb = os.path.join(D, 'kernel-nopad.bin')
-subprocess.run(['nasm', '-f', 'bin', '-o', kb, nopad], check=True, cwd=ROOT)
-content = os.path.getsize(kb)
-check('K4 kernel content leaves >= 14,800 B of the pad', pad - content >= 14800,
-      f'(content {content}, pad {pad}, left {pad - content})')
+# ---- K4 (host): the move itself, the boot stream before and after
+PRE_MOVE = ('hardware port-mapper echoport pci-enum catalog-resolver ahci rtl8168 ntfs '
+            'auto-detect fat32 ui-core ui-parser ui-events gui-harvest ps2-keyboard '
+            'file-editor-core file-editor-disk notepad-form notepad hello-form hello-app '
+            'file-stream file-browser-form file-browser').split()
+mk = open(os.path.join(ROOT, 'Makefile')).read()
+now = re.search(r'^EMBED_VOCABS = (.*)$', mk, re.M).group(1).split()
+sizes = {}
+for tag, files in (('pre', [f'forth/dict/{n}.fth' for n in PRE_MOVE]), ('now', now)):
+    out = os.path.join(D, f'embed-{tag}.bin')
+    subprocess.run(['python3', 'tools/embed-vocabs.py', out] + files, check=True, cwd=ROOT,
+                   stdout=subprocess.DEVNULL)
+    sizes[tag] = os.path.getsize(out)
+check('K4 the move: the boot stream is >= 14,000 B smaller than with the pre-move list',
+      sizes['pre'] - sizes['now'] >= 14000,
+      f'(pre-move {sizes["pre"]}, now {sizes["now"]}, shrank {sizes["pre"] - sizes["now"]})')
 
 # ---- K1: kernel-only image
 pf, s = boot(['-drive', f'file={KERNEL_IMG},format=raw,if=floppy,readonly=on'], 'padmove-k')
