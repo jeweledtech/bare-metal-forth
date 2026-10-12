@@ -197,6 +197,7 @@ ATA_CTRL            equ 0x3F6
 ; VGA
 VGA_TEXT            equ 0xB8000
 FB_SHADOW           equ 0x80000         ; UEFI-4: the text buffer in RAM (no VGA text mode)
+FB_DRAWN            equ 0x81000         ; what the framebuffer shows, cell by cell (SCREEN-FLUSH)
 FONT_BLK            equ 536             ; UEFI-4: write-catalog.py FONT_RESERVED.start
 VGA_WIDTH           equ 80
 VGA_HEIGHT          equ 25
@@ -582,7 +583,7 @@ fb_seen:        db 0, 0, 0              ; GRUB's framebuffer tag: bpp, type, 1 =
 mb2_windows:
     dd 0x00000500, 0x00080000
     dd 0x00100000, 0x00400000
-    dd FB_SHADOW, FB_SHADOW + 0x1000    ; UEFI-4: the text buffer's RAM copy
+    dd FB_SHADOW, FB_DRAWN + 0x1000     ; UEFI-4: the text buffer and what the screen shows
 MB2_NWINDOWS equ 3
 MB2_MOVE_TO  equ 0x00400000            ; the end of the highest window
 
@@ -2783,6 +2784,67 @@ DEFCODE "BOOT-MODE", BOOT_MODE, 0
     push eax
     NEXT
 
+; SCREEN ( -- addr ) the text buffer the screen shows: 0xB8000 on a BIOS
+; boot, FB_SHADOW on a UEFI boot with a framebuffer (docs/TASK_UEFI_SCREEN.md)
+DEFCODE "SCREEN", SCREEN, 0
+    push dword [vga_base]
+    NEXT
+
+; SCREEN-FLUSH ( -- ) draw the changed cells of SCREEN on the framebuffer
+; (a no-op on a BIOS boot)
+DEFCODE "SCREEN-FLUSH", SCREEN_FLUSH, 0
+    call fb_flush
+    NEXT
+
+; ---------------------------------------------------------------------------
+; HAL slice 1 (docs/TASK_HAL_DISPLAY.md): a rebindable naming contract.
+; HAL-VECTOR ( "name" -- ) lays down a word whose code field is DOVEC; its
+; body is [bound xt | header | next vector].  Calling it enters the bound
+; word (one fetch, one jump).  Unbound (xt 0): `<name>: HAL vector not
+; bound`, then the abort path an undefined word takes.  HAL-HEAD ( -- addr )
+; is the chain of every vector, newest first.  hal.fth holds BIND, HAL-SET,
+; HAL-GET, HAL-LIST and the contracts.  Direct @ ! C@ C! INB OUTB stay as
+; they are: a binding is a convenience, never a wall.
+; ---------------------------------------------------------------------------
+hal_head:   dd 0
+
+code_DOVEC:                         ; EAX = this vector's XT
+    mov ebx, [eax + 4]              ; the bound XT
+    test ebx, ebx
+    jz .unbound
+    mov eax, ebx
+    jmp [eax]                       ; enter it, as NEXT would
+.unbound:
+    mov ebx, [eax + 8]              ; the vector's header: link, len, name
+    movzx ecx, byte [ebx + 4]
+    and ecx, F_LENMASK
+    lea esi, [ebx + 5]
+.name:
+    lodsb
+    call print_char
+    loop .name
+    mov esi, msg_unbound
+    call print_string
+    jmp abort_common
+
+DEFCODE "HAL-VECTOR", HAL_VECTOR, 0
+    call word_
+    call create_
+    mov eax, [VAR_HERE]
+    mov dword [eax], code_DOVEC
+    mov dword [eax + 4], 0          ; unbound
+    mov ecx, [VAR_LATEST]
+    mov [eax + 8], ecx              ; its header, for the unbound message
+    mov ecx, [hal_head]
+    mov [eax + 12], ecx             ; the chain
+    mov [hal_head], eax
+    add dword [VAR_HERE], 16
+    NEXT
+
+DEFCODE "HAL-HEAD", HAL_HEAD, 0
+    push hal_head
+    NEXT
+
 ; SP@ - ( -- addr ) Get current data stack pointer (diagnostic)
 DEFCODE "SP@", SPFETCH, 0
     push esp
@@ -4939,18 +5001,37 @@ scroll_screen:
     ret
 
 ; ----------------------------------------------------------------------------
-; fb_cell / fb_redraw (UEFI-4): draw text-buffer cells to the framebuffer as
-; 8x16 glyphs, light grey on black.  fb_cell: EAX = cell index.  Characters
-; outside 0x20-0x7E draw as a space.  No-ops unless fb_on.
+; fb_cell / fb_redraw / fb_flush (UEFI-4): draw text-buffer cells to the
+; framebuffer as 8x16 glyphs in the VGA palette (fg = attribute bits 0-3,
+; bg = bits 4-6).  fb_cell: EAX = cell index; it also records the cell in
+; FB_DRAWN.  Characters outside 0x20-0x7E draw as a space.  fb_flush draws
+; only the cells that differ from FB_DRAWN: the forms and the editors write
+; the text buffer directly (SCREEN), and the key waits flush it.  All three
+; are no-ops unless fb_on.
 ; ----------------------------------------------------------------------------
-FB_FG equ 0x00AAAAAA
+fb_palette:
+    dd 0x000000, 0x0000AA, 0x00AA00, 0x00AAAA, 0xAA0000, 0xAA00AA, 0xAA5500, 0xAAAAAA
+    dd 0x555555, 0x5555FF, 0x55FF55, 0x55FFFF, 0xFF5555, 0xFF55FF, 0xFFFF55, 0xFFFFFF
+fb_fg:  dd 0
+fb_bg:  dd 0
 fb_cell:
     cmp byte [fb_on], 0
     je .ret
     pushad
     mov ebx, eax
     mov esi, [vga_base]
-    movzx eax, byte [esi + ebx * 2]     ; the character
+    movzx eax, word [esi + ebx * 2]     ; character, attribute
+    mov [FB_DRAWN + ebx * 2], ax
+    movzx ecx, ah
+    mov edx, ecx
+    and ecx, 15
+    mov ecx, [fb_palette + ecx * 4]
+    mov [fb_fg], ecx
+    shr edx, 4
+    and edx, 7
+    mov edx, [fb_palette + edx * 4]
+    mov [fb_bg], edx
+    movzx eax, al
     sub eax, 0x20
     cmp eax, 0x7E - 0x20
     jbe .glyph
@@ -4976,10 +5057,10 @@ fb_cell:
     push edi
     mov edx, 8
 .px:
-    xor eax, eax
+    mov eax, [fb_bg]
     shl bl, 1
     jnc .bg
-    mov eax, FB_FG
+    mov eax, [fb_fg]
 .bg:
     stosd
     dec edx
@@ -4989,6 +5070,29 @@ fb_cell:
     dec ecx
     jnz .row
     popad
+.ret:
+    ret
+
+fb_flush:
+    cmp byte [fb_on], 0
+    je .ret
+    push eax
+    push edx
+    push esi
+    mov esi, [vga_base]
+    xor eax, eax
+.cell:
+    mov dx, [esi + eax * 2]
+    cmp dx, [FB_DRAWN + eax * 2]
+    je .same
+    call fb_cell
+.same:
+    inc eax
+    cmp eax, VGA_WIDTH * VGA_HEIGHT
+    jb .cell
+    pop esi
+    pop edx
+    pop eax
 .ret:
     ret
 
@@ -5209,6 +5313,7 @@ read_key:
     ; Check keyboard ring buffer (filled by IRQ1 ISR)
     cmp dword [kb_ring_count], 0
     jne .read_ring
+    call fb_flush           ; UEFI: show what the screen memory holds now
     hlt                     ; Sleep until interrupt (timer/keyboard)
     jmp .wait
 
@@ -6148,6 +6253,7 @@ abort_undefined:
     mov esi, msg_embed_tail
     call print_string
 .not_embed:
+abort_common:                       ; HAL: an unbound vector joins here
     cmp dword [VAR_STATE], 0
     je .no_def
     mov eax, [VAR_DEF_HERE]
@@ -6504,6 +6610,7 @@ msg_welcome:    db 'Bare-Metal Forth v0.1 - Ship Builders System', 13, 10
                 db 'Type WORDS to see available commands', 13, 10, 0
 msg_stack:      db '<', 0
 msg_undefined:  db ' ? ', 13, 10, 0
+msg_unbound:    db ': HAL vector not bound', 13, 10, 0
 msg_embed_aborted: db 'EMBED ABORTED at ', 0
 msg_embed_tail: db ': later embedded vocabularies not loaded', 13, 10, 0
 msg_hook_failed: db 'ABORT-HOOK failed: an aborted load was not rolled back', 13, 10, 0

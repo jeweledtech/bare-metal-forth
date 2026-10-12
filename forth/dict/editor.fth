@@ -28,7 +28,11 @@ HEX
 10 CONSTANT BLK-LINES
 40 CONSTANT BLK-COLS
 50 CONSTANT VGA-COLS
-B8000 CONSTANT VGA-BASE
+\ The screen memory, from the display
+\ contract (HAL FB-BASE).
+ALSO HAL
+: VGA-BASE ( -- addr ) FB-BASE ;
+PREVIOUS
 11 CONSTANT STATUS-ROW
 
 \ ---- Editor state ----

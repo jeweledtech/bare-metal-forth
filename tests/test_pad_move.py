@@ -13,9 +13,9 @@ file browser leave the embedded boot stream and load from blocks.
       (CATALOG-MEM 1).
   K5  after loading each app, its form (loaded by the app's REQUIRES: line)
       is a registry hit and FORM-LOAD builds widgets.
-  K4  host: the move itself -- the embedded boot stream built from the
-      pre-move list (3f58be6^, pinned below) is at least 14,000 B larger
-      than the stream built from today's EMBED_VOCABS (owner 2026-10-12:
+  K4  host: the move itself -- the embedded boot stream built from today's
+      EMBED_VOCABS plus the six moved files (where they sat in 3f58be6^) is
+      at least 14,000 B larger than the stream from today's list alone (owner 2026-10-12:
       the old ">= 14,800 B of pad left" was the move's acceptance number,
       not a budget; free pad is now reported on every kernel build and held
       to KERNEL_PAD_FLOOR by forth.asm).
@@ -87,22 +87,26 @@ def depth(s):
     return int(v[-1]) if v else None
 
 
-# ---- K4 (host): the move itself, the boot stream before and after
-PRE_MOVE = ('hardware port-mapper echoport pci-enum catalog-resolver ahci rtl8168 ntfs '
-            'auto-detect fat32 ui-core ui-parser ui-events gui-harvest ps2-keyboard '
-            'file-editor-core file-editor-disk notepad-form notepad hello-form hello-app '
-            'file-stream file-browser-form file-browser').split()
+# ---- K4 (host): the move itself, the boot stream with and without the
+# six moved files.  The "with" side is today's list plus them (where they
+# sat before the move, 3f58be6^), so a vocabulary embedded later (hal.fth,
+# 2026-10-12) counts on both sides and doesn't read as the move shrinking.
+MOVED = {'notepad-form': 'file-editor-disk', 'notepad': 'notepad-form', 'hello-form': 'notepad',
+         'hello-app': 'hello-form', 'file-browser-form': 'file-stream', 'file-browser': 'file-browser-form'}
 mk = open(os.path.join(ROOT, 'Makefile')).read()
 now = re.search(r'^EMBED_VOCABS = (.*)$', mk, re.M).group(1).split()
+pre = list(now)
+for name, after in MOVED.items():             # dict order = insertion order
+    pre.insert(pre.index(f'forth/dict/{after}.fth') + 1, f'forth/dict/{name}.fth')
 sizes = {}
-for tag, files in (('pre', [f'forth/dict/{n}.fth' for n in PRE_MOVE]), ('now', now)):
+for tag, files in (('pre', pre), ('now', now)):
     out = os.path.join(D, f'embed-{tag}.bin')
     subprocess.run(['python3', 'tools/embed-vocabs.py', out] + files, check=True, cwd=ROOT,
                    stdout=subprocess.DEVNULL)
     sizes[tag] = os.path.getsize(out)
-check('K4 the move: the boot stream is >= 14,000 B smaller than with the pre-move list',
+check('K4 the move: the boot stream is >= 14,000 B smaller than with the six moved files',
       sizes['pre'] - sizes['now'] >= 14000,
-      f'(pre-move {sizes["pre"]}, now {sizes["now"]}, shrank {sizes["pre"] - sizes["now"]})')
+      f'(with them {sizes["pre"]}, now {sizes["now"]}, shrank {sizes["pre"] - sizes["now"]})')
 
 # ---- K1: kernel-only image
 pf, s = boot(['-drive', f'file={KERNEL_IMG},format=raw,if=floppy,readonly=on'], 'padmove-k')

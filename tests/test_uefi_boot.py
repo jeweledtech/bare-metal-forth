@@ -29,6 +29,13 @@ in the register 2026-10-12.
   F1  after PAGE and `.( UEF) .( I4)` (so only the output, not the echo,
       spells it), a QEMU screen dump shows UEFI4 drawn in the image's font,
       pixel for pixel, at a cell-aligned position.
+  U5-U8 / L5-L8 (both legs): the display contract's FB-BASE = 0x80000 (OVMF)
+      / 0xB8000 (SeaBIOS);
+      HELLO-RUN's form and notepad's editor (entered with the New button,
+      so RAW-SCAN's wait runs) leave their text in that memory (pmemsave),
+      the form with inverse-video cells (6b, so S1 compares colours too);
+      back at the prompt, DEPTH 0.  On OVMF, S1/S2: all 2,000 cells of the
+      screen dump equal that memory drawn in the font and the VGA palette.
   SeaBIOS, the same image:
   L0  banner + ok.  L1  BOOT-MODE = 1.  L2  HELLO-APP loads from blocks.
   L3  AUTO-DETECT-REPORT says `Boot: BIOS (memdisk)`.  L4  DEPTH 0.
@@ -208,6 +215,40 @@ def screen_matches(ppm, text):
             if all(cell_ok(cx + i, cy, c) for i, c in enumerate(text)):
                 return True, f'(found at cell {cx},{cy} on a {w}x{h} dump)'
     return False, f'({text!r} not found on a {w}x{h} dump)'
+
+
+# VGA's 16 colours, as fb_cell draws an attribute byte (bit 7 ignored)
+PALETTE = [0x000000, 0x0000AA, 0x00AA00, 0x00AAAA, 0xAA0000, 0xAA00AA, 0xAA5500, 0xAAAAAA,
+           0x555555, 0x5555FF, 0x55FF55, 0x55FFFF, 0xFF5555, 0xFF55FF, 0xFFFF55, 0xFFFFFF]
+
+
+def screen_equals_memory(ppm, mem):
+    """(ok, detail): every one of the 80x25 cells on the dump is MEM's
+    character drawn in the image's font, fg/bg from its attribute."""
+    raw = open(ppm, 'rb').read()
+    m = re.match(rb'P6\s+(\d+)\s+(\d+)\s+(\d+)\s', raw)
+    w = int(m.group(1))
+    px = raw[m.end():]
+    font = font_from_image()
+    bad = []
+    for cell in range(80 * 25):
+        ch, at = mem[2 * cell], mem[2 * cell + 1]
+        g = ch - 0x20 if 0x20 <= ch <= 0x7E else 0
+        fg = PALETTE[at & 15].to_bytes(3, 'big')
+        bg = PALETTE[at >> 4 & 7].to_bytes(3, 'big')
+        cx, cy = cell % 80, cell // 80
+        for r in range(16):
+            bits = font[16 + g * 16 + r]
+            row = (cy * 16 + r) * w * 3
+            for b in range(8):
+                o = row + (cx * 8 + b) * 3
+                if px[o:o + 3] != (fg if bits >> (7 - b) & 1 else bg):
+                    bad.append((cx, cy))
+                    break
+            else:
+                continue
+            break
+    return not bad, f'({len(bad)} of 2000 cells differ{": first " + str(bad[:4]) if bad else ""})'
 
 
 failures = []
@@ -406,6 +447,74 @@ try:
         check(f'{tag}3 AUTO-DETECT-REPORT says {want!r}', want in b, f'({b.strip()[:160]!r})')
         b = send(s, 'ONLY FORTH DEFINITIONS DECIMAL DEPTH .')
         check(f'{tag}4 DEPTH 0', last_num(b) == '0', f'({b.strip()!r})')
+        screens(fw, s, tag)
+
+    def raw_send(s, text, settle=3.0):
+        """Type TEXT (an app owns the keyboard: no prompt to wait for),
+        then read for SETTLE seconds."""
+        s.sendall(text.encode())
+        t0, got = time.time(), b''
+        while time.time() - t0 < settle:
+            try:
+                got += s.recv(65536)
+            except socket.timeout:
+                pass
+        return got.decode('ascii', 'replace')
+
+    def screen_mem(addr, name):
+        path = os.path.join(work, name)
+        # quoted: HMP reads `4000 /tmp/...` as the expression 4000 / tmp...
+        reply = mon_cmd(f'pmemsave 0x{addr} 4000 "{path}"')
+        t0 = time.time()
+        while (not os.path.exists(path) or os.path.getsize(path) < 4000) and time.time() - t0 < 5:
+            time.sleep(0.1)
+        if not os.path.exists(path) or os.path.getsize(path) < 4000:
+            die(3, f'INSTRUMENT FAIL: pmemsave wrote no screen memory; monitor said {reply[-300:]!r}')
+        return open(path, 'rb').read()
+
+    def text_of(mem):
+        return ''.join(chr(mem[2 * i]) if 0x20 <= mem[2 * i] < 0x7F else ' ' for i in range(2000))
+
+    def screens(fw, s, tag):
+        """The forms and the editor draw on this firmware's screen."""
+        want = '80000' if fw == 'ovmf' else 'B8000'
+        b = send(s, 'HEX ALSO HAL FB-BASE . PREVIOUS DECIMAL')
+        check(f'{tag}5 the display contract: FB-BASE = {want}', last_num(b) == want, f'({b.strip()!r})')
+        # a form, in FORM-RUN's KEY loop
+        send(s, 'ALSO HELLO-APP')
+        raw_send(s, 'HELLO-RUN\r')
+        mem = screen_mem(want, f'{fw}-hello.bin')
+        check(f'{tag}6 HELLO-RUN draws its form in the screen memory', 'Hello Form Test' in text_of(mem),
+              f'({text_of(mem)[:80].strip()!r})')
+        inv = sum(1 for i in range(2000) if mem[2 * i + 1] == 0x70)
+        check(f'{tag}6b the form uses inverse video (attribute 0x70 cells), so the colours are compared too',
+              inv > 0, f'({inv} cells)')
+        if fw == 'ovmf':
+            dump = os.path.join(work, 'hello.ppm')
+            mon_cmd(f'screendump {dump}')
+            check('S1 the form on the framebuffer, all 2000 cells (KEY wait flush)',
+                  *screen_equals_memory(dump, mem))
+        raw_send(s, '\x1b', 2)                   # ESC: FORM-RUN quits
+        send(s, 'ONLY FORTH DEFINITIONS')
+        # notepad's editor, in RAW-SCAN's wait (entered with the New button)
+        send(s, 'S" NOTEPAD" LOAD-VOCAB', 90)
+        send(s, 'ALSO NOTEPAD')
+        raw_send(s, 'NOTEPAD-RUN\r')
+        raw_send(s, '1')                          # button 1 = New: edit mode
+        mem = screen_mem(want, f'{fw}-notepad.bin')
+        txt = text_of(mem)
+        check(f'{tag}7 notepad\'s editor draws (title, and the status line Ln1 Col1)',
+              'ForthOS Notepad' in txt and 'Ln1 Col1' in txt, f'({txt[:80].strip()!r} ... {txt[-80:].strip()!r})')
+        if fw == 'ovmf':
+            dump = os.path.join(work, 'notepad.ppm')
+            mon_cmd(f'screendump {dump}')
+            check('S2 the editor on the framebuffer, all 2000 cells (RAW-SCAN flush)',
+                  *screen_equals_memory(dump, mem))
+        mon_cmd('sendkey esc')                    # leave edit mode (the keyboard ring)
+        time.sleep(1)
+        raw_send(s, '\x1b', 2)                   # ESC: the form quits
+        b = send(s, 'ONLY FORTH DEFINITIONS DECIMAL DEPTH .')
+        check(f'{tag}8 back at the prompt after both apps, DEPTH 0', last_num(b) == '0', f'({b.strip()!r})')
 
     # ---- UEFI: OVMF, no CSM ----
     s, plain, seen_ok, pf = boot('ovmf')

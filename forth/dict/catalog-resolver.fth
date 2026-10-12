@@ -516,6 +516,17 @@ VARIABLE RL-STEP
         S" widget table" RL-TABLE
     THEN ;
 
+\ Every binding-layer vector (HAL-LIST's
+\ chain), through HAL's accessors.
+ALSO HAL
+: RL-HAL ( -- )
+    HAL-HEAD @
+    BEGIN ?DUP WHILE
+        DUP HAL-GET OVER HAL-NAME RL-CHK
+        HAL-NEXT
+    REPEAT ;
+PREVIOUS
+
 : RL-VECTORS ( -- )
     LOADING-DEPTH @ IF
         S" a load in progress" -1 3 RL-BLOCK
@@ -534,6 +545,7 @@ VARIABLE RL-STEP
     S" SEC-WRITE-VEC" S" INSTALL" RL-VAR
     S" SEC-READ-VEC" S" INSTALL" RL-VAR
     S" WZ-SPACE-XT" S" FIRSTBOOT" RL-VAR
+    RL-HAL
     RL-WIDGETS ;
 
 \ P1: FORTH's newest word is NAME, and

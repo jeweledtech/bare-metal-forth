@@ -7,7 +7,7 @@
 \ ============================================
 \
 \ Core widget rendering for VGA text mode.
-\ Direct writes to 0xB8000. CRTC cursor.
+\ Direct writes to SCREEN. CRTC cursor.
 \ Widget table, label pool, event ring.
 \
 \ Usage:
@@ -37,7 +37,13 @@ DECIMAL
 
 \ ---- Addresses -------------------------
 HEX
-B8000 CONSTANT VGA-BASE
+\ The screen memory, from the display
+\ contract (HAL FB-BASE): 0xB8000 on BIOS,
+\ the text shadow on UEFI. Called on every
+\ draw, so a rebind takes effect at once.
+ALSO HAL
+: VGA-BASE ( -- addr ) FB-BASE ;
+PREVIOUS
 200000 CONSTANT WT-BASE
 202000 CONSTANT POOL-BASE
 207000 CONSTANT EVT-BASE

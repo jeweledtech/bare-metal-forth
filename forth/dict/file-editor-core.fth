@@ -39,7 +39,13 @@ HEX
 \ Constants
 \ ============================================
 
-B8000 CONSTANT FE-VGA
+\ The screen memory and its flush, from
+\ the display contract (HAL FB-BASE,
+\ FB-FLUSH).
+ALSO HAL
+: FE-VGA ( -- addr ) FB-BASE ;
+: FE-FLUSH ( -- ) FB-FLUSH ;
+PREVIOUS
 50 CONSTANT VCOLS
 18 CONSTANT VROWS
 10000 CONSTANT MAX-FILE
@@ -122,6 +128,7 @@ VARIABLE RS-TYPE
     BEGIN
         KB-RING-COUNT @ 0=
     WHILE
+        FE-FLUSH  \ UEFI: show the screen
     REPEAT
     KB-RING-BUF KB-RING-TAIL @ + C@
     RS-CODE !

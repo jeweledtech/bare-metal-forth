@@ -48,13 +48,13 @@ $(VBR): $(SRC_BOOT)/vbr.asm | $(BUILD)
 # Embedded vocabularies (evaluated at boot, no block storage needed)
 # The demo apps (hello, notepad, file browser) are block-loaded, not
 # embedded (TASK_KERNEL_PAD_MOVE): S" NOTEPAD" LOAD-VOCAB etc. first.
-EMBED_VOCABS = forth/dict/hardware.fth forth/dict/port-mapper.fth forth/dict/echoport.fth forth/dict/pci-enum.fth forth/dict/catalog-resolver.fth forth/dict/ahci.fth forth/dict/rtl8168.fth forth/dict/ntfs.fth forth/dict/auto-detect.fth forth/dict/fat32.fth forth/dict/ui-core.fth forth/dict/ui-parser.fth forth/dict/ui-events.fth forth/dict/gui-harvest.fth forth/dict/ps2-keyboard.fth forth/dict/file-editor-core.fth forth/dict/file-editor-disk.fth forth/dict/file-stream.fth
+EMBED_VOCABS = forth/dict/hardware.fth forth/dict/hal.fth forth/dict/port-mapper.fth forth/dict/echoport.fth forth/dict/pci-enum.fth forth/dict/catalog-resolver.fth forth/dict/ahci.fth forth/dict/rtl8168.fth forth/dict/ntfs.fth forth/dict/auto-detect.fth forth/dict/fat32.fth forth/dict/ui-core.fth forth/dict/ui-parser.fth forth/dict/ui-events.fth forth/dict/gui-harvest.fth forth/dict/ps2-keyboard.fth forth/dict/file-editor-core.fth forth/dict/file-editor-disk.fth forth/dict/file-stream.fth
 EMBEDDED = $(BUILD)/embedded.bin
 
 # Free-tier vocabularies (public-tracked only, no paid/gitignored content)
 # Excludes: file-editor-disk (NTFS/AHCI), file-stream (NTFS/AHCI/RTL8168),
 #   file-browser (NTFS). NOTEPAD works RAM-only via file-editor-core vectors.
-EMBED_VOCABS_FREE = forth/dict/hardware.fth forth/dict/port-mapper.fth forth/dict/echoport.fth \
+EMBED_VOCABS_FREE = forth/dict/hardware.fth forth/dict/hal.fth forth/dict/port-mapper.fth forth/dict/echoport.fth \
     forth/dict/pci-enum.fth forth/dict/catalog-resolver.fth forth/dict/ps2-keyboard.fth \
     forth/dict/ui-core.fth forth/dict/ui-parser.fth forth/dict/ui-events.fth \
     forth/dict/gui-harvest.fth forth/dict/file-editor-core.fth forth/dict/notepad-form.fth \
@@ -483,6 +483,15 @@ META_FIXTURES ?= test_metacompiler test_meta_compile test_meta_b6 \
 # browser are block-loaded; each loads and builds its form; an installed
 # instance (no memdisk, AHCI) loads nothing from blocks. The script
 # launches QEMU itself; the installed case needs ahci.fth (SKIPPED without).
+# HAL slice 1 (docs/TASK_HAL_DISPLAY.md): the binding mechanism and the
+# display contract on the BIOS image; serial on +4 (unused before).
+test-hal: $(COMBINED)
+	@QPIDDIR=$(BUILD)/test-hal.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
+	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-hal --base $(TEST_PORT_BASE); \
+	echo "Running HAL binding test..."; \
+	PORT=$$(($(TEST_PORT_BASE)+4)); \
+	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_HAL) python3 tests/test_hal.py $$PORT
+
 test-pad-move: $(COMBINED)
 	@QPIDDIR=$(BUILD)/test-pad-move.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
 	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-pad-move --base $(TEST_PORT_BASE); \
@@ -889,8 +898,11 @@ T_BLK_EVICT ?= 60
 T_MIRROR ?= 60
 T_INTERP_ABORT ?= 90
 T_PAD_MOVE ?= 40
-# About 2x measured (2026-10-12): uefi-boot 17.7 s (five runs: OVMF + SeaBIOS legs).
-T_UEFI_BOOT ?= 40
+# About 2x measured (2026-10-12): hal 8.6 s (three runs).
+T_HAL ?= 20
+# About 2x measured (2026-10-12): uefi-boot 50.5 s (three runs: OVMF + SeaBIOS legs,
+# each also running HELLO-RUN and notepad's editor; was 17.7 s before those).
+T_UEFI_BOOT ?= 100
 # About 2x measured (2026-10-12): uefi-netboot 12 s (three runs; grub-net staging included).
 T_UEFI_NETBOOT ?= 30
 T_ARM64_BOOT ?= 720
@@ -1267,7 +1279,7 @@ test-meta: $(COMBINED)
 #     its output as evidence, and it never gates a build.  If it must ever
 #     gate something, the gate goes on a deterministic artefact derived from
 #     it and pinned -- the treatment the Ghidra oracle already has.
-test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-vbr test-grub-cfg test-uefi-boot test-uefi-netboot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-mirror test-interp-abort test-pad-move test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
+test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-vbr test-grub-cfg test-uefi-boot test-uefi-netboot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-mirror test-interp-abort test-pad-move test-hal test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)
@@ -1352,4 +1364,4 @@ grub-net: $(COMBINED) tools/pxe/grub.cfg
 pxe-push-grub: grub-net
 	@bash tools/pxe/push-grub.sh
 
-.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined usb-image check-coverage desk-hashes check-kernel-size test test-blk-evict test-mirror test-interp-abort test-pad-move test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-grub-cfg test-g6 test-uefi-netboot
+.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined usb-image check-coverage desk-hashes check-kernel-size test test-blk-evict test-mirror test-interp-abort test-pad-move test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-grub-cfg test-g6 test-uefi-netboot test-hal
