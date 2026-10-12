@@ -120,17 +120,11 @@ def wait_boot(s):
     return False
 
 def cmd(s, c, t=1.5):
-    s.sendall((c + '\r').encode())
-    time.sleep(t)
-    d = b''
-    try:
-        while True:
-            chunk = s.recv(4096)
-            if not chunk:
-                break
-            d += chunk
-    except Exception: pass
-    return d.decode('ascii', errors='replace')
+    # Ends at the guest's prompt (tests/serial.py), not after a fixed
+    # sleep and a quiet gap (4d); `t` only sizes the budget.
+    import serial as _ser
+    reply, _how = _ser.send_until_prompt(s, c, budget=max(15.0, 5 * t))
+    return reply
 
 def main():
     for p in (PXELINUX, LDLINUX, MEMDISK):

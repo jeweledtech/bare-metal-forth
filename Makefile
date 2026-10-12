@@ -340,21 +340,23 @@ TEST_PORT_BASE ?= $(shell b=$$(printf '%s' "$(CURDIR)" | cksum | cut -d' ' -f1);
 
 # Named timeout budgets for the batch-2 recipes (TASK_HARNESS_KILL_BY_PID
 # §3b): hard upper bounds in seconds, about 2x the observed recipe time
-# (2026-10-03, quiet machine): smoke 34s, loops 48s, abort 95s,
-# dict-bounds 114s, phys-alloc 181s, pci-typing 172s.
-T_SMOKE       ?= 90
-T_LOOPS       ?= 120
-T_ABORT       ?= 240
-T_DICT_BOUNDS ?= 240
-T_PHYS_ALLOC  ?= 360
-T_PCI_TYPING  ?= 360
+# with prompt-terminated reads (2026-10-12, docs/TASK_BOUNDED_READS_4D.md):
+# smoke 11s, loops 17s, abort 22s, dict-bounds 24s, phys-alloc 31s,
+# pci-typing 30s (were 34, 48, 95, 114, 181, 172s).
+T_SMOKE       ?= 25
+T_LOOPS       ?= 35
+T_ABORT       ?= 45
+T_DICT_BOUNDS ?= 50
+T_PHYS_ALLOC  ?= 60
+T_PCI_TYPING  ?= 60
 # Batch 2b, about 2x observed (2026-10-03): squote-laydown 567s,
-# backstop0 219s, flush 151s, file-stream 161s, integration 90s.
+# backstop0 219s, flush 151s; file-stream 28s and integration 21s
+# (2026-10-12, prompt-terminated reads; were 161s and 90s).
 T_SQUOTE_LAYDOWN   ?= 1200
 T_SQUOTE_BACKSTOP0 ?= 480
 T_FLUSH            ?= 360
-T_FILE_STREAM      ?= 360
-T_INTEGRATION      ?= 240
+T_FILE_STREAM      ?= 60
+T_INTEGRATION      ?= 45
 
 # Run smoke test (no block storage needed)
 test-smoke: $(ACTIVE_IMAGE)
@@ -550,9 +552,10 @@ test-gui: $(COMBINED)
 # QEMU's dgram end, the test's peer).
 # Named timeout budgets (see docs/TASK_HARNESS_KILL_BY_PID.md §3b):
 # a hard upper bound in seconds for the test invocation. Observed
-# pass times: test-log-harness ~20s, test-log-harness-nic ~25s.
-T_LOG_HARNESS     ?= 60
-T_LOG_HARNESS_NIC ?= 90
+# pass times (2026-10-12, prompt-terminated reads): test-log-harness
+# 12s, test-log-harness-nic 15s (were 48s and 66s).
+T_LOG_HARNESS     ?= 25
+T_LOG_HARNESS_NIC ?= 30
 
 test-log-harness-nic: $(COMBINED)
 	@for f in forth/dict/log-harness.fth tests/test_log_harness_nic.py; do \
@@ -866,18 +869,19 @@ QEMU_KILL_DIR = for PIDF in $$QPIDDIR/*.pid; do [ -e "$$PIDF" ] || continue; $(Q
 # from tools/qemu_ports.json and fails naming the first busy one.
 PORTS_FREE ?= python3 tools/ports_free.py
 # Budgets for the batch-3b recipes, about 2x observed (2026-10-04): vbr 39s,
-# g6 613s, block-reload 64s, arm64-boot 354s. cortexm is provisional: its
+# g6 613s, arm64-boot 354s; block-reload 12s (2026-10-12, prompt-terminated
+# reads; was 64s). cortexm is provisional: its
 # baseline fails before the ARM phase (2/5), so its full time is unknown.
 T_VBR ?= 90
-# .py step, py-a (about 2x observed 2026-10-04): carrier 37s, memdisk 122s,
-# survey 554s. network: 439.5s in each of two full runs (2026-10-05,
+# .py step, py-a (about 2x observed 2026-10-04): survey 554s; carrier 6s and
+# memdisk 16s (2026-10-12, prompt-terminated reads; were 37s and 122s). network: 439.5s in each of two full runs (2026-10-05,
 # after its start_qemu_pair NameError was fixed).
-T_CARRIER ?= 90
-T_MEMDISK ?= 260
+T_CARRIER ?= 15
+T_MEMDISK ?= 35
 T_SURVEY ?= 1100
 T_NETWORK ?= 900
 T_G6 ?= 1200
-T_BLOCK_RELOAD ?= 150
+T_BLOCK_RELOAD ?= 25
 # About 2x measured (2026-10-11): blk-evict 27 s, mirror 30 s, interp-abort
 # 44 s, pad-move 17 s. A limit is never raised as a fix.
 T_BLK_EVICT ?= 60

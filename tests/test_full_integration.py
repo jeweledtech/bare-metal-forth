@@ -83,19 +83,11 @@ except Exception:
 
 
 def send(cmd, wait=1.0):
-    s.sendall((cmd + '\r').encode())
-    time.sleep(wait)
-    s.settimeout(2)
-    resp = b''
-    while True:
-        try:
-            d = s.recv(4096)
-            if not d:
-                break
-            resp += d
-        except Exception:
-            break
-    return resp.decode('ascii', errors='replace')
+    # Ends at the guest's prompt (tests/serial.py), not after a fixed
+    # sleep and a quiet gap (4d); `wait` only sizes the budget.
+    import serial as _ser
+    reply, _how = _ser.send_until_prompt(s, cmd, budget=max(15.0, 5 * wait))
+    return reply
 
 
 def extract_number(text):

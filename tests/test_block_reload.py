@@ -191,8 +191,10 @@ try:
     drain(s, cap=30, quiet=4)
 
     def send(cmd, cap=60):
-        s.sendall((cmd + '\r').encode())
-        raw = drain(s, cap=cap)
+        # Ends at the guest's prompt (tests/serial.py), not a 3 s
+        # quiet gap (4d); `cap` stays the aggregate budget.
+        import serial as _ser
+        raw, _how = _ser.send_until_prompt(s, cmd, budget=cap)
         print(f'>>> {cmd}')
         print(raw.strip())
         print('-' * 60, flush=True)

@@ -81,16 +81,11 @@ try:
     time.sleep(3)
 
     def cmd(c, t=1.5):
-        s.sendall((c + '\r').encode()); time.sleep(t)
-        b = b''
-        while True:
-            try:
-                d = s.recv(65536)
-                if not d: break
-                b += d
-            except socket.timeout:
-                break
-        return b.decode('latin-1')
+        # Ends at the guest's prompt (tests/serial.py), not after a fixed
+        # sleep and a quiet gap (4d); `t` only sizes the budget.
+        import serial as _ser
+        reply, _how = _ser.send_until_prompt(s, c, budget=max(15.0, 5 * t))
+        return reply
 
     if '42' not in cmd('7 6 * .'):
         die(3, 'INSTRUMENT FAIL: no ok prompt (7 6 * . != 42)')
