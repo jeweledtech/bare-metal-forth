@@ -4,7 +4,7 @@
 
 The module manifest system provides an XML-based declaration format for Bare-Metal Forth loadable modules. Each manifest describes a module's metadata, dependencies, exported words, and embedded Forth logic. The XML format serves as a **build-time** artifact: a manifest processor reads the XML, resolves dependencies, and generates a Forth load script that the Bare-Metal Forth interpreter executes.
 
-This bridges the gap between structured, tooling-friendly module descriptions and the runtime `USING` mechanism already implemented in `dict_system.fth`.
+This bridges the gap between structured, tooling-friendly module descriptions and the runtime `USING` mechanism sketched in `docs/design/dict_system.fth` (a design sketch that never loaded on this kernel: docs/evidence/finding-dict-system-unloadable-2026-10-11.md).
 
 ## Design Goals
 
@@ -292,7 +292,7 @@ A module that composes multiple lower-level modules:
 | Component | Status |
 |-----------|--------|
 | Manifest XML schema | **Designed** (this document) |
-| dict_system.fth runtime | **Implemented** (forth/dict/dict_system.fth) |
+| dict_system.fth runtime | **Design sketch only** (docs/design/dict_system.fth; never loaded, see docs/evidence/finding-dict-system-unloadable-2026-10-11.md) |
 | HARDWARE dictionary | **Implemented** (forth/dict/hardware.fth) |
 | RTL8139 example driver | **Implemented** (forth/dict/rtl8139.fth) |
 | Manifest parser tool | Planned (Phase 2) |
