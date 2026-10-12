@@ -46,9 +46,11 @@ nameable.  ALSO XHCI is sent only after DEF? XHCI reads nonzero
 -- ALSO of an undefined name corrupts the dictionary
 (lesson_also_undefined_corruption).  ZAP is a counted drain
 (BEGIN/WHILE/REPEAT + a countdown variable, never dropping on an
-empty stack): the red run underflows the stack five times
-(undefined L1-L5 print '?' but the trailing '.' still executes --
-the interpreter does not ABORT, yesterday's Finding 5), an
+empty stack): the 2026-09-07 red run underflowed the stack five
+times (undefined L1-L5 printed '?' but the trailing '.' still
+executed -- the interpreter did not ABORT then, Finding 5).  Since
+a4b1727 an undefined word aborts the rest of its line, so that
+underflow no longer happens; ZAP stays as the guard.  An
 unbounded BEGIN..DEPTH 0<> loop never terminates on a negative
 depth, and Forth-83 LEAVE does not transfer control so a
 DO..LEAVE..DROP..LOOP shape drops once on an already-empty stack.
@@ -373,12 +375,22 @@ import serial as _ser  # tests/serial.py; script-dir sys.path shadows pyserial
 s = _ser.connect_and_sync(PORT, budget=30.0)
 
 
+READ_ODD = []
+
+
 def send(cmd, wait=1.0):
-    # Bounded in aggregate via serial.send_expect — the old unbounded recv
-    # loop hung forever when a command streamed continuously (the 2nd
-    # unbounded-recv instance, TASK_HARNESS_KILL_BY_PID §3c). Same raw-reply
-    # contract, so callers and body_of() are unchanged.
-    return _ser.send_expect(s, cmd, budget=max(wait + 6.0, 10.0), settle=wait)
+    # Prompt-terminated (serial.send_until_prompt): the read ends when the
+    # guest's `ok ` arrives, not after a fixed settle plus a 2 s quiet gap
+    # (send_expect cost >= 3 s a call, 20+ minutes a run, which read as a
+    # Phase 12 hang under a short limit). `wait` now only sizes the
+    # aggregate budget, the same max(wait+6, 10) as before. Same raw-reply
+    # contract (echo included), so callers and body_of() are unchanged. A
+    # read that ends any other way is printed and counted.
+    raw, how = _ser.send_until_prompt(s, cmd, budget=max(wait + 6.0, 10.0))
+    if how != 'prompt':
+        READ_ODD.append(cmd)
+        print(f'  READ ended by {how}: {cmd!r} -> {raw[-120:]!r}', flush=True)
+    return raw
 
 
 def body_of(raw):
@@ -2597,5 +2609,6 @@ check('BASE tripwire: reads 10 at exit',                     # 319 (was 305, was
       f'got: {body_of(raw)!r}')
 
 continuity('final score')
+print(f'reads not ended by the prompt: {len(READ_ODD)}')
 print(f'\nPassed: {PASS}/{PASS + FAIL}')
 sys.exit(0 if FAIL == 0 else 1)

@@ -790,7 +790,7 @@ test-xhci: $(COMBINED)
 		-monitor tcp:127.0.0.1:$$(($(TEST_PORT_BASE)+93)),server=on,wait=off \
 		-display none -daemonize -pidfile $$PIDF; \
 	sleep 2; \
-	timeout --foreground $(T_XHCI) python3 tests/test_xhci.py $$(($(TEST_PORT_BASE)+94)) $(COMBINED) $$(($(TEST_PORT_BASE)+93))
+	timeout --foreground $(T_XHCI) python3 -u tests/test_xhci.py $$(($(TEST_PORT_BASE)+94)) $(COMBINED) $$(($(TEST_PORT_BASE)+93))
 
 # PCI-BAR gate, (bz) R2 (docs/evidence/bz-base-finding-prereg-2026-09-27.md):
 # block-loaded pci-bar.fth, instances of a class in scan order.  TWO
@@ -825,7 +825,11 @@ test-pci-bar: $(COMBINED)
 # The hard kill propagates through `set -e` to the trap, which kills the QEMU
 # by pidfile: no orphan, no held image lock. Derive each from the recipe's
 # observed pass time with headroom; tune here, one greppable place.
-T_XHCI ?= 120
+# xhci: about 2x observed (2026-10-12): 3m58s, 319/319 with Phase 12,
+# every read prompt-terminated. The old 120 s never measured a pass: it
+# bounded the settle-and-gap reads (20+ minutes a run), and the cut-off
+# read as a Phase 12 hang.
+T_XHCI ?= 480
 # pci-bar: about 2x observed (2026-10-08): 223s, 224s and 223s in three
 # runs on two builds; 16/16 on both builds at a 300s budget.
 T_PCI_BAR ?= 450
