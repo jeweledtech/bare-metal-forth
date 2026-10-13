@@ -70,10 +70,6 @@ GRANDFATHERED = {
         'needs ARM Cortex-M QEMU',
     'test-flush':
         'bulk SAVE-BUFFERS known issue (bug #21 family)',
-    'test-network':
-        'runs since 2026-10-05 (NameError fixed) but fails 6/52: B reads'
-        ' the previous block\'s data (finding-test-network-six-reds-after-'
-        'crash-fix-2026-10-05)',
     'test-ahci-write':
         'needs AHCI scratch disk',
     'test-meta':

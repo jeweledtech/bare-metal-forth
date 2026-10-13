@@ -91,3 +91,15 @@ them first.
 `tests/test_make_wiring.py` listed test-network as BROKEN ("cannot run at
 all"), which is no longer true. It moves to GRANDFATHERED (outside `test:`,
 failing known checks, like test-flush) until these six are fixed.
+
+## Resolved 2026-10-13 (NET-DATA, docs/TASK_NET_DATA.md)
+
+~~Candidates (a)-(d)~~ as written above were not the whole story. Measured
+2026-10-13: the two data reds (902, 904) were gone by then, after the block
+cache fixes K1/K2 (slot choice and eviction register), the family of (a).
+The four PIT reds had a mechanism none of (a)-(d) named: since CARRIER-0b
+(2026-09-29) every boot's default block writer is the fail-closed
+(BLK-WRITE-NONE), and the harness never armed one, so B's
+`SAVE-BUFFERS EMPTY-BUFFERS` discarded the received blocks and THRU
+compiled zeros. The harness now arms (BLK-WRITE-ATA) on each instance's own
+disk copy and checks every flush: 56/56, wired into `make test`.

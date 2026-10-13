@@ -7,6 +7,7 @@ Phases tested:
 2. Single block transfer
 3. Vocabulary transfer (PIT-TIMER)
 """
+import re
 import socket
 import time
 import sys
@@ -70,7 +71,12 @@ def start_qemu_pair(zero_range=None):
     # Copy combined images for instance B
     combined_b = COMBINED + '.b'
     combined_ide_b = COMBINED_IDE + '.b'
+    combined_ide_a = COMBINED_IDE + '.a'
     subprocess.run(['cp', COMBINED, combined_b],
+                   capture_output=True)
+    # A writes too (the ATA writer is armed on both): its own copy,
+    # never the shared combined-ide.img
+    subprocess.run(['cp', COMBINED_IDE, combined_ide_a],
                    capture_output=True)
     subprocess.run(['cp', COMBINED_IDE, combined_ide_b],
                    capture_output=True)
@@ -87,7 +93,7 @@ def start_qemu_pair(zero_range=None):
         QEMU,
         '-drive', f'file={COMBINED},format=raw,if=floppy',
         '-drive',
-        f'file={COMBINED_IDE},format=raw,if=ide,index=1',
+        f'file={combined_ide_a},format=raw,if=ide,index=1',
         '-netdev', f'socket,id=net0,listen=:{NET_PORT}',
         '-device', 'ne2k_pci,netdev=net0',
         '-serial',
@@ -202,7 +208,7 @@ def cleanup():
     """Kill both QEMU instances and temp files."""
     qemu_pid.kill_pidfile(qemu_pid.pidfile('net-a'))
     qemu_pid.kill_pidfile(qemu_pid.pidfile('net-b'))
-    for f in [COMBINED + '.b', COMBINED_IDE + '.b']:
+    for f in [COMBINED + '.b', COMBINED_IDE + '.b', COMBINED_IDE + '.a']:
         if os.path.exists(f):
             os.unlink(f)
 
@@ -292,6 +298,18 @@ for label, sock in [('A', sa), ('B', sb)]:
           f'{r.strip()[:80]!r}')
     send(sock, 'ALSO NET-DICT', 2)
 
+# Arm a real block writer on each instance's own disk copy. Every boot's
+# default is the fail-closed (BLK-WRITE-NONE) (CARRIER-0b, 2026-09-29):
+# without this every SAVE-BUFFERS here is refused, B's received blocks are
+# discarded by EMPTY-BUFFERS, and THRU compiles B's zeroed blocks
+# (NET-DATA, 2026-10-13).
+print("\nArming the ATA writer on each instance's own disk...")
+for label, sock in [('A', sa), ('B', sb)]:
+    r = send(sock, "' (BLK-WRITE-ATA) BLK-WRITER! "
+                   "BLK-WRITER@ ' (BLK-WRITE-ATA) = .", 2)
+    check(f'Instance {label}: ATA writer armed on its own disk copy',
+          '-1 ' in r, f'{r.strip()[:80]!r}')
+
 # Test 1: MAC addresses are different
 print("\nTest: MAC addresses")
 r_a = send(sa, 'NE2K-MAC.', 2)
@@ -308,8 +326,9 @@ r = send(sa,
          'DECIMAL 900 BUFFER '
          'DUP 1024 66 FILL DROP UPDATE '
          'SAVE-BUFFERS HEX', 4)
-ok = alive(sa)
-check('A: wrote block 900', ok)
+ok = alive(sa) and 'BLOCK WRITE FAIL' not in r
+check('A: wrote block 900 (flush not refused)', ok,
+      f'{r.strip()[:80]!r}')
 
 # Send block 900 from A
 r = send(sa, 'DECIMAL 900 BLOCK-SEND HEX', 4)
@@ -350,7 +369,9 @@ if got_900:
 
 # Flush block caches on B before consecutive test
 time.sleep(1)
-send(sb, 'SAVE-BUFFERS EMPTY-BUFFERS', 3)
+r = send(sb, 'SAVE-BUFFERS EMPTY-BUFFERS', 3)
+check('B: flush before the consecutive test not refused',
+      'BLOCK WRITE FAIL' not in r, f'{r.strip()[:80]!r}')
 check('B alive between tests', alive(sb))
 if not alive(sb):
     print("B crashed after single block test!")
@@ -367,8 +388,9 @@ for blk_num, fill_byte in [(902, 170), (903, 187),
              f'DECIMAL {blk_num} BUFFER '
              f'DUP 1024 {fill_byte} FILL '
              f'DROP UPDATE SAVE-BUFFERS HEX', 4)
-    ok_w = alive(sa)
-    check(f'A: wrote block {blk_num}', ok_w)
+    ok_w = alive(sa) and 'BLOCK WRITE FAIL' not in r
+    check(f'A: wrote block {blk_num} (flush not refused)', ok_w,
+          f'{r.strip()[:80]!r}')
     if not ok_w:
         consec_ok = False
         break
@@ -448,13 +470,16 @@ for i in range(pit_count):
     if not got:
         recv_ok = False
         break
-send(sb, 'SAVE-BUFFERS EMPTY-BUFFERS', 3)
+r = send(sb, 'SAVE-BUFFERS EMPTY-BUFFERS', 3)
+check('B: flush of the PIT-TIMER blocks not refused',
+      'BLOCK WRITE FAIL' not in r, f'{r.strip()[:80]!r}')
 check('B: alive after transfer', alive(sb))
 
 # Compile PIT-TIMER on B via THRU
 r = send(sb,
          f'DECIMAL {pit_s} {pit_e} THRU HEX', 10)
-check('B: THRU compiles PIT-TIMER', alive(sb),
+check('B: THRU compiles PIT-TIMER (no undefined word)',
+      alive(sb) and not re.search(r'\S+ \?', r),
       f'{r.strip()[:80]!r}')
 
 # Activate PIT-TIMER vocab on B

@@ -15,7 +15,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 75,
-    "source": "Makefile:1067"
+    "source": "Makefile:1068"
    }
   ]
  },
@@ -109,7 +109,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 55,
-    "source": "Makefile:1208"
+    "source": "Makefile:1209"
    }
   ]
  },
@@ -119,25 +119,25 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 84,
-    "source": "Makefile:967"
+    "source": "Makefile:968"
    },
    {
     "form": "tcp:127.0.0.1:P",
     "kind": "monitor",
     "offset": 85,
-    "source": "Makefile:967"
+    "source": "Makefile:968"
    },
    {
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 88,
-    "source": "Makefile:952"
+    "source": "Makefile:953"
    },
    {
     "form": "tcp:127.0.0.1:P",
     "kind": "monitor",
     "offset": 89,
-    "source": "Makefile:952"
+    "source": "Makefile:953"
    }
   ]
  },
@@ -147,7 +147,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 50,
-    "source": "Makefile:1024"
+    "source": "Makefile:1025"
    }
   ]
  },
@@ -429,7 +429,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 80,
-    "source": "Makefile:1273"
+    "source": "Makefile:1274"
    }
   ]
  },
@@ -449,19 +449,19 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 40,
-    "source": "tests/test_ne2000_network.py:94"
+    "source": "tests/test_ne2000_network.py:100"
    },
    {
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 41,
-    "source": "tests/test_ne2000_network.py:113"
+    "source": "tests/test_ne2000_network.py:119"
    },
    {
     "form": "listen=:P",
     "kind": "netdev",
     "offset": 140,
-    "source": "tests/test_ne2000_network.py:91"
+    "source": "tests/test_ne2000_network.py:97"
    }
   ]
  },
@@ -521,7 +521,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 98,
-    "source": "Makefile:984"
+    "source": "Makefile:985"
    }
   ]
  },
@@ -531,7 +531,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 99,
-    "source": "Makefile:997"
+    "source": "Makefile:998"
    }
   ]
  },
