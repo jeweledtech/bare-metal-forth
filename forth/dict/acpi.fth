@@ -4,6 +4,7 @@
 \ PLATFORM: x86
 \ SOURCE: hand-written
 \ REQUIRES: PCI-ENUM ( .H2 .H8 )
+\ REQUIRES: FWMEM ( FW-FOLLOW? FW-SAY )
 \ CONFIDENCE: medium
 \ ============================================
 \
@@ -13,7 +14,8 @@
 \ FFFFF); the RSDT or XSDT it points to is
 \ walked and each table's checksum checked.
 \ Nothing is written. A table above 4 GiB
-\ is reported, not followed.
+\ is reported, not followed; so is one in
+\ ForthOS memory (FWMEM).
 \ HAL phase 0: docs/TASK_HAL_DISCOVERY.md.
 \
 \   ACPI.          revision, source
@@ -24,6 +26,7 @@
 VOCABULARY ACPI
 ACPI DEFINITIONS
 ALSO PCI-ENUM
+ALSO FWMEM
 HEX
 
 VARIABLE AC-OK
@@ -77,6 +80,14 @@ VARIABLE AC-SRC
     DUP 4 TYPE SPACE DUP .H8
     ."  len " DUP 4 + @ DUP .H8 SPACE
     AC-SUM 0= IF ." ok" ELSE ." BAD" THEN CR ;
+: .TABLE? ( taddr -- )
+    DUP S" ACPI table" FW-FOLLOW?
+    IF .TABLE ELSE DROP THEN ;
+
+\ The root, checked (FW-SAY: with its type).
+: AC-ROOT? ( taddr c-addr u -- taddr flag )
+    1 FW-SAY ! 2 PICK ROT ROT FW-FOLLOW?
+    0 FW-SAY ! ;
 
 \ XSDT when the revision is 2 or later and
 \ it lies below 4 GiB; else the RSDT.
@@ -86,22 +97,26 @@ VARIABLE AC-SRC
     THEN
     DUP F + C@ 2 >= OVER 1C + @ 0= AND
     OVER 18 + @ 0<> AND IF
-        18 + @ ." XSDT at " DUP .H8
+        18 + @ S" ACPI XSDT" AC-ROOT?
+        0= IF DROP EXIT THEN
+        ." XSDT at " DUP .H8
         DUP 4 + @ 24 - 8 / ." : " DUP .
         ." tables" CR
         DUP 0> IF
             0 DO
                 DUP 24 + I 8 * + DUP 4 + @ IF
                     DROP ." (above 4 GiB: unreachable)" CR
-                ELSE @ .TABLE THEN
+                ELSE @ .TABLE? THEN
             LOOP
         ELSE DROP THEN DROP
     ELSE
-        10 + @ ." RSDT at " DUP .H8
+        10 + @ S" ACPI RSDT" AC-ROOT?
+        0= IF DROP EXIT THEN
+        ." RSDT at " DUP .H8
         DUP 4 + @ 24 - 4 / ." : " DUP .
         ." tables" CR
         DUP 0> IF
-            0 DO DUP 24 + I 4 * + @ .TABLE LOOP
+            0 DO DUP 24 + I 4 * + @ .TABLE? LOOP
         ELSE DROP THEN DROP
     THEN ;
 

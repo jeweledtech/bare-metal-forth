@@ -561,8 +561,6 @@ mb2_header_end:
     align 4
 mb2_stack:      times 128 db 0
 mb2_stack_top:
-mb2_mod_start:  dd 0
-mb2_mod_end:    dd 0
 mb2_mmap_tag:   dd 0                    ; the memory map tag in the MBI, 0 = none
 mb2_dest:       dd 0, 0                 ; [lo, hi) of the move target
 mb2_quiet:      db 0                    ; 1 = mb2_window prints nothing
@@ -584,6 +582,14 @@ mb2_smbios_len: db 0
 mb2_rsdp:       times 36 db 0
 mb2_smbios:     times 32 db 0
 mb2_efi_st:     dd 0                    ; the EFI system table GRUB passed, 0 = none
+; The memory map, kept (docs/TASK_HAL_FWMEM.md): the MBI may be overwritten
+; once the module moves, and the firmware addresses are followed long after.
+; Each entry below 4 GiB as [base, end, type], end exclusive (clipped at
+; 4 GiB), adjacent entries of one type merged; beyond the cap, counted.
+MB2_MMAP_MAX equ 64
+mb2_mmap_n:     dd 0
+mb2_mmap_drop:  dd 0
+mb2_mmap:       times MB2_MMAP_MAX * 12 db 0
 
 ; Windows the kernel owns (docs/ARCHITECTURE.md memory map): data stack,
 ; kernel, return stack, variables, buffers, IDT, dictionary; and the
@@ -594,6 +600,11 @@ mb2_windows:
     dd 0x00100000, 0x00400000
     dd FB_SHADOW, FB_DRAWN + 0x1000     ; UEFI-4: the text buffer and what the screen shows
 MB2_NWINDOWS equ 3
+; the module's final range follows the windows: together, what ForthOS owns
+; (mb2_owned); [0, 0) on a BIOS boot
+mb2_mod_start:  dd 0
+mb2_mod_end:    dd 0
+MB2_NOWNED   equ MB2_NWINDOWS + 1
 MB2_MOVE_TO  equ 0x00400000            ; the end of the highest window
 
 mb2_entry:
@@ -702,6 +713,7 @@ mb2_entry:
     add esi, eax
     jmp .tag
 .tags_done:
+    call mb2_keep_map                   ; before the move can overwrite the MBI
     mov esi, mb2_msg_nomod
     cmp dword [mb2_mod_end], 0
     je mb2_refuse
@@ -872,8 +884,159 @@ mb2_tables:
     mov esi, mb2_msg_efist
     call mb2_puts
     mov eax, [mb2_efi_st]
+    call mb2_typed
+    mov esi, mb2_msg_root               ; the ACPI root: the XSDT when the
+    call mb2_puts                       ; revision is 2 or later and it lies
+    xor eax, eax                        ; below 4 GiB, else the RSDT (the
+    cmp byte [mb2_rsdp_len], 0          ; rule ACPI-TABLES uses)
+    je .root
+    mov eax, [mb2_rsdp + 16]            ; RSDT
+    cmp byte [mb2_rsdp + 15], 2
+    jb .root
+    cmp dword [mb2_rsdp + 28], 0
+    jne .root
+    cmp dword [mb2_rsdp + 24], 0
+    je .root
+    mov eax, [mb2_rsdp + 24]            ; XSDT
+.root:
+    call mb2_typed
+    mov esi, mb2_msg_map
+    call mb2_puts
+    mov eax, [mb2_mmap_n]
     call mb2_hex
+    mov esi, mb2_msg_kept
+    call mb2_puts
+    mov eax, [mb2_mmap_drop]
+    call mb2_hex
+    mov esi, mb2_msg_dropped
+    call mb2_puts
     jmp mb2_crlf
+
+; mb2_typed: EAX = an address; prints it, ' type ' and its map type, and
+; ' (ForthOS memory)' when it falls in what ForthOS owns
+mb2_typed:
+    push eax
+    call mb2_hex
+    mov esi, mb2_msg_type
+    call mb2_puts
+    mov eax, [esp]
+    call mb2_memtype
+    call mb2_hex
+    pop eax
+    call mb2_owned
+    test eax, eax
+    jz .ret
+    mov esi, mb2_msg_owned
+    call mb2_puts
+.ret:
+    ret
+
+; mb2_keep_map: copy the memory map tag into mb2_mmap (see there)
+mb2_keep_map:
+    mov esi, [mb2_mmap_tag]
+    test esi, esi
+    jz .ret
+    mov ecx, esi
+    add ecx, [esi + 4]                  ; end of the tag
+    mov ebp, [esi + 8]                  ; entry_size
+    add esi, 16                         ; first entry
+    mov edi, mb2_mmap
+.ent:
+    cmp esi, ecx
+    jae .ret
+    cmp dword [esi + 4], 0              ; at or above 4 GiB: not kept
+    jne .next
+    mov eax, [esi]                      ; base
+    mov edx, eax
+    add edx, [esi + 8]                  ; end = base + length lo
+    jc .clip
+    cmp dword [esi + 12], 0
+    je .have
+.clip:
+    mov edx, 0xFFFFFFFF
+.have:
+    cmp edx, eax
+    jbe .next
+    mov ebx, [esi + 16]                 ; type
+    cmp dword [mb2_mmap_n], 0
+    je .new
+    cmp [edi - 4], ebx                  ; same type as the last kept,
+    jne .new
+    cmp [edi - 8], eax                  ; and adjacent: merged
+    jne .new
+    mov [edi - 8], edx
+    jmp .next
+.new:
+    cmp dword [mb2_mmap_n], MB2_MMAP_MAX
+    jb .keep
+    inc dword [mb2_mmap_drop]
+    jmp .next
+.keep:
+    mov [edi], eax
+    mov [edi + 4], edx
+    mov [edi + 8], ebx
+    add edi, 12
+    inc dword [mb2_mmap_n]
+.next:
+    add esi, ebp
+    jmp .ent
+.ret:
+    ret
+
+; mb2_memtype: EAX = an address -> EAX = its type in the kept map, 0 = not
+; in it.  Keeps every other register (Forth words call it: ESI is the IP).
+mb2_memtype:
+    push esi
+    push ecx
+    mov esi, mb2_mmap
+    mov ecx, [mb2_mmap_n]
+.l:
+    jecxz .none
+    cmp eax, [esi]
+    jb .n
+    cmp eax, [esi + 4]
+    jb .hit
+.n:
+    add esi, 12
+    dec ecx
+    jmp .l
+.hit:
+    mov eax, [esi + 8]
+    jmp .r
+.none:
+    xor eax, eax
+.r:
+    pop ecx
+    pop esi
+    ret
+
+; mb2_owned: EAX = an address -> EAX = 1-3 the window, 4 the module, 0 not
+; ForthOS's.  Keeps every other register.
+mb2_owned:
+    push esi
+    push ecx
+    mov esi, mb2_windows
+    xor ecx, ecx
+.l:
+    inc ecx
+    cmp ecx, MB2_NOWNED
+    ja .none
+    cmp eax, [esi]
+    jb .n
+    cmp eax, [esi + 4]
+    jb .hit
+.n:
+    add esi, 8
+    jmp .l
+.hit:
+    mov eax, ecx
+    jmp .r
+.none:
+    xor eax, eax
+.r:
+    pop ecx
+    pop esi
+    ret
 
 mb2_refuse:                             ; ESI -> the reason; prints and halts
     push esi
@@ -1046,6 +1209,11 @@ mb2_msg_rsdp:    db 'MB2: ACPI RSDP bytes ', 0
 mb2_msg_smbios:  db ', SMBIOS entry point bytes ', 0
 mb2_msg_efist:   db ', EFI system table ', 0
 mb2_msg_at:      db ' at ', 0
+mb2_msg_root:    db ', ACPI root ', 0
+mb2_msg_map:     db ', memory map ', 0
+mb2_msg_kept:    db ' kept ', 0
+mb2_msg_dropped: db ' dropped', 0
+mb2_msg_owned:   db ' (ForthOS memory)', 0
 mb2_msg_nofb:    db 'MB2: no usable framebuffer (console on serial only)', 0
 mb2_msg_notag:   db ': GRUB passed none', 0
 mb2_msg_tag:     db ': GRUB passed type ', 0
@@ -2984,6 +3152,28 @@ DEFCODE "MB2-RSDP", MB2_RSDP, 0
     mov eax, mb2_rsdp
 .none:
     push eax
+    NEXT
+
+; MB2-MEMTYPE ( addr -- type ): its type in the multiboot2 memory map kept
+; at boot (1 available, 2 reserved, 3 ACPI reclaimable, 4 ACPI NVS, 5 bad),
+; 0 = not in it.  MB2-OWNED ( addr -- 0|n ): 1-3 the kernel window, 4 the
+; module, 0 not ForthOS's.  MB2-MMAP ( -- addr n ): the kept copy, [base,
+; end, type] each; n = 0 without a multiboot2 map (docs/TASK_HAL_FWMEM.md)
+DEFCODE "MB2-MEMTYPE", MB2_MEMTYPE, 0
+    pop eax
+    call mb2_memtype
+    push eax
+    NEXT
+
+DEFCODE "MB2-OWNED", MB2_OWNED, 0
+    pop eax
+    call mb2_owned
+    push eax
+    NEXT
+
+DEFCODE "MB2-MMAP", MB2_MMAP, 0
+    push mb2_mmap
+    push dword [mb2_mmap_n]
     NEXT
 
 ; MB2-EFI-ST ( -- addr|0 ): the EFI system table GRUB passed (UEFI boot);

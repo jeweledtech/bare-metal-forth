@@ -4,6 +4,7 @@
 \ PLATFORM: x86
 \ SOURCE: hand-written
 \ REQUIRES: PCI-ENUM ( .H8 )
+\ REQUIRES: FWMEM ( FW-FOLLOW? FW-SAY )
 \ CONFIDENCE: medium
 \ ============================================
 \
@@ -13,7 +14,9 @@
 \ under OVMF passes no SMBIOS tag), or a
 \ scan of F0000-FFFFF on 16-byte steps
 \ (BIOS); the structures it points to are
-\ walked, never written.
+\ walked, never written. Every address
+\ followed from firmware memory is checked
+\ first (FWMEM: never into ForthOS memory).
 \ HAL phase 0: docs/TASK_HAL_DISCOVERY.md.
 \
 \   SMBIOS.   version, table, source
@@ -24,6 +27,7 @@
 VOCABULARY SMBIOS
 SMBIOS DEFINITIONS
 ALSO PCI-ENUM
+ALSO FWMEM
 HEX
 
 VARIABLE SM-OK
@@ -77,12 +81,18 @@ CREATE SM2-GUID
     SWAP SM2-GUID 10 SM-MEM= OR ;
 
 VARIABLE SE-N
-\ 0: no system table, no SMBIOS entry, or
-\ a pointer above 4 GiB (not followed).
+\ 0: no system table, no SMBIOS entry, a
+\ pointer above 4 GiB, or one into ForthOS
+\ memory (not followed).
 : SM-EFI ( -- addr|0 )
     MB2-EFI-ST ?DUP 0= IF 0 EXIT THEN
+    DUP S" EFI system table" FW-FOLLOW? 0= IF
+        DROP 0 EXIT
+    THEN
     DUP 74 + @ IF DROP 0 EXIT THEN
     DUP 68 + @ SE-N ! 70 + @
+    DUP S" EFI configuration table" FW-FOLLOW?
+    0= IF DROP 0 EXIT THEN
     0 SE-N @ 0> IF
         SE-N @ 0 DO
             DUP 0= IF
@@ -93,7 +103,11 @@ VARIABLE SE-N
                 ELSE DROP THEN
             THEN
         LOOP
-    THEN NIP ;
+    THEN NIP
+    DUP IF
+        DUP S" SMBIOS entry point" FW-FOLLOW?
+        0= IF DROP 0 THEN
+    THEN ;
 
 VARIABLE SM-EPS
 VARIABLE SM-SRC
@@ -112,7 +126,8 @@ VARIABLE SM-TAB
 VARIABLE SM-LEN
 VARIABLE SM-HI
 \ ok? = 0: no entry point, or the table
-\ lies above 4 GiB (not followed).
+\ lies above 4 GiB or in ForthOS memory
+\ (not followed).
 : SM-TABLE ( -- ok? )
     SMBIOS-EPS ?DUP 0= IF 0 EXIT THEN
     DUP SM-SIG? 3 = IF
@@ -124,7 +139,8 @@ VARIABLE SM-HI
         0 SM-HI !
         16 + W@ SM-LEN !
     THEN
-    SM-HI @ 0= ;
+    SM-HI @ IF 0 EXIT THEN
+    SM-TAB @ S" SMBIOS table" FW-FOLLOW? ;
 
 \ A structure: type, length, handle, the
 \ formatted area, then strings ending in
@@ -158,8 +174,10 @@ VARIABLE SM-HI
     OVER + C@ SM-STR TYPE ;
 
 \ ---- Reports ----
+\ Prints each firmware address on the way
+\ with its memory map type (FW-SAY).
 : SMBIOS. ( -- )
-    SM-TABLE IF
+    1 FW-SAY ! SM-TABLE 0 FW-SAY ! IF
         ." SMBIOS "
         SM-EPS @ SM-SIG? 3 = IF ." 3" ELSE ." 2" THEN
         ." .x table at " SM-TAB @ .H8
@@ -168,7 +186,7 @@ VARIABLE SM-HI
         DUP 3 = IF ."  (EFI configuration table)" THEN
         2 = IF ."  (legacy scan)" THEN CR
     ELSE
-        ." No SMBIOS table (or above 4 GiB)" CR
+        ." No SMBIOS table followed" CR
     THEN ;
 
 : SYSTEM. ( -- )

@@ -24,8 +24,11 @@ in the register 2026-10-12.
       first: `MB2: module moved to <start>-<end>`).
   B3  banner + ok.  B4  `MB2: framebuffer console on`.
   B5  `MB2: ACPI RSDP bytes n, SMBIOS entry point bytes m, EFI system
-      table t`: n > 0, and m > 0 or t != 0 (GRUB 2.12 under OVMF passes no
-      SMBIOS tag; SMBIOS then comes from the EFI configuration table).
+      table t type T, ACPI root r type R, memory map k kept d dropped`:
+      n > 0, and m > 0 or t != 0 (GRUB 2.12 under OVMF passes no SMBIOS
+      tag; SMBIOS then comes from the EFI configuration table); T and R
+      firmware types (2-4), k > 0, d = 0, neither marked ForthOS memory
+      (docs/TASK_HAL_FWMEM.md).
   I1  BLK_IMAGE_BASE (0x28098) = the module's final start, as reported.
   U1  BOOT-MODE = 3.  U2  HELLO-APP loads from the module.
   U3  AUTO-DETECT-REPORT says `Boot: UEFI (multiboot2)`.  U4  DEPTH 0.
@@ -38,6 +41,15 @@ in the register 2026-10-12.
       AVX 0; ACPI-TABLES lists FACP and APIC with good checksums, through the
       XSDT from the multiboot2 RSDP copy (OVMF) or the RSDT from the legacy
       scan (SeaBIOS); DEPTH 0.
+  U14 (OVMF): SMBIOS. and ACPI-TABLES print each firmware address they
+      follow, with its memory map type, from the follow check itself: the
+      EFI system table (= B5's t), the configuration table, the SMBIOS entry
+      point and table, the ACPI XSDT (= B5's r, type R); types 2-4.
+  U15 (OVMF): FW-FOLLOW? refuses, by name and owner, the module start
+      (module), 0x7E00 (window 1), 0x100000 (window 2), 0x80000 (window 3),
+      flag 0 each; the system table passes (-1, silent).  DEPTH 0.
+  U16 / L14: BIOS. reads the type 0 QEMU was told (-smbios type=0,
+      vendor=ForthGateBIOS,version=P0.1).
   U9 / L9: PCI-TYPES on the xHCI: under OVMF its 64-bit BAR printed in full,
       equal to QEMU's own `info pci` BAR0 (0xC000000000 with the default CPU),
       and flagged `above 4 GiB: unreachable`; under SeaBIOS
@@ -385,6 +397,7 @@ try:
         # phase 0 discovery: values no firmware default can produce
         argv = ['qemu-system-x86_64', '-M', 'q35', '-m', '512',
                 '-smbios', 'type=1,manufacturer=ForthGate,product=Phase0',
+                '-smbios', 'type=0,vendor=ForthGateBIOS,version=P0.1',
                 '-cpu', 'qemu64,vendor=ForthGateCPU']
         if fw == 'ovmf':
             vars_copy = os.path.join(work, 'vars.fd')
@@ -507,8 +520,47 @@ try:
         check(f'{tag}12 ACPI: RSDP from the {src}, tables through the {root}, FACP and APIC with good checksums',
               src in b and f'{root} at' in b and sigs.get('FACP') == 'ok' and sigs.get('APIC') == 'ok'
               and 'BAD' not in sigs.values(), f'({b.strip()[:240]!r})')
+        b = send(s, 'ONLY FORTH DEFINITIONS ALSO SMBIOS BIOS. PREVIOUS')
+        btag = 'U16' if fw == 'ovmf' else 'L14'
+        check(f'{btag} BIOS. prints BIOS vendor: ForthGateBIOS, BIOS version: P0.1',
+              'BIOS vendor: ForthGateBIOS' in b and 'BIOS version: P0.1' in b, f'({b.strip()[:200]!r})')
+        if fw == 'ovmf':
+            fwmem(s)
         b = send(s, 'ONLY FORTH DEFINITIONS DECIMAL DEPTH .')
         check(f'{tag}13 DEPTH 0 after discovery', last_num(b) == '0', f'({b.strip()!r})')
+
+    def fwmem(s):
+        """U14/U15 (docs/TASK_HAL_FWMEM.md): firmware addresses are looked
+        up in the multiboot2 memory map before they are followed."""
+        def path(b, name):
+            m = re.search(rf'^{name} at ([0-9A-F]{{8}}) type ([0-9]+) ', b, re.M)
+            return (int(m.group(1), 16), int(m.group(2))) if m else None
+        b = send(s, 'ONLY FORTH DEFINITIONS ALSO SMBIOS SMBIOS. PREVIOUS')
+        st, ct = path(b, 'EFI system table'), path(b, 'EFI configuration table')
+        ep, tb = path(b, 'SMBIOS entry point'), path(b, 'SMBIOS table')
+        named = re.search(r'SMBIOS [23]\.x table at ([0-9A-F]{8})', b)
+        b2 = send(s, 'ALSO ACPI ACPI-TABLES PREVIOUS')
+        xs = path(b2, 'ACPI XSDT')
+        fw_t = lambda p: p is not None and 2 <= p[1] <= 4
+        check('U14 the follow check prints each firmware address with its map type: system table '
+              '(= boot line), configuration table, SMBIOS entry point and table, ACPI XSDT (= boot line)',
+              all(fw_t(p) for p in (st, ct, ep, tb, xs)) and bool(boot5)
+              and st == (boot5['st'], boot5['st_t']) and xs == (boot5['root'], boot5['root_t'])
+              and bool(named) and tb[0] == int(named.group(1), 16),
+              f'(st {st} ct {ct} ep {ep} tb {tb} xsdt {xs}; boot {boot5}; {b.strip()[:300]!r})')
+        mod = boot5.get('mod', 0)
+        probes = [(mod, 'module'), (0x7E00, 'window 1'), (0x100000, 'window 2'), (0x80000, 'window 3')]
+        send(s, 'ONLY FORTH DEFINITIONS ALSO FWMEM HEX 0 FW-SAY !')
+        res = []
+        for a, owner in probes:
+            b = send(s, f'{a:X} S" Probe" FW-FOLLOW? .')
+            res.append(f'Probe at {a:08X}: ForthOS memory ({owner}), not followed' in b and last_num(b) == '0')
+        b = send(s, f'{boot5.get("st", 0):X} S" Probe" FW-FOLLOW? .')
+        passes = last_num(b) == '-1' and 'Probe at' not in b
+        send(s, 'PREVIOUS DECIMAL')
+        check('U15 FW-FOLLOW? refuses the module and windows 1-3 by name and owner (flag 0); '
+              'the system table passes, silent', all(res) and passes and mod > 0,
+              f'(refusals {res}, system table {passes}, module {mod:#x})')
 
     def raw_send(s, text, settle=3.0):
         """Type TEXT (an app owns the keyboard: no prompt to wait for),
@@ -591,12 +643,20 @@ try:
           f'(module {mod.groups() if mod else None}, windows {wins})')
     check('B3 banner + ok', seen_ok)
     m5 = re.search(r'MB2: ACPI RSDP bytes ([0-9A-F]{8}), SMBIOS entry point bytes ([0-9A-F]{8}), '
-                   r'EFI system table ([0-9A-F]{8})', plain)
+                   r'EFI system table ([0-9A-F]{8}) type ([0-9A-F]{8})(.*?), ACPI root ([0-9A-F]{8}) '
+                   r'type ([0-9A-F]{8})(.*?), memory map ([0-9A-F]{8}) kept ([0-9A-F]{8}) dropped', plain)
+    boot5 = {}
+    if m5:
+        g = [int(m5.group(i), 16) if i not in (5, 8) else m5.group(i) for i in range(1, 11)]
+        boot5 = {'st': g[2], 'st_t': g[3], 'root': g[5], 'root_t': g[6], 'kept': g[8], 'drop': g[9],
+                 'mod': int(final.group(1), 16) if final else 0}
     # GRUB 2.12 under OVMF passes no SMBIOS tag (measured 2026-10-12): SMBIOS
     # then comes from the EFI system table's configuration table
-    check('B5 report: GRUB passed the ACPI RSDP (kept) and an SMBIOS tag or the EFI system table',
-          bool(m5) and int(m5.group(1), 16) > 0 and (int(m5.group(2), 16) > 0 or int(m5.group(3), 16) > 0),
-          f'({m5.group(0) if m5 else None})')
+    check('B5 report: GRUB passed the ACPI RSDP (kept) and an SMBIOS tag or the EFI system table; '
+          'both addresses typed from the map (2-4), not ForthOS memory; map kept, none dropped',
+          bool(m5) and g[0] > 0 and (g[1] > 0 or g[2] > 0) and 2 <= g[3] <= 4 and 2 <= g[6] <= 4
+          and 'ForthOS' not in g[4] + g[7] and g[8] > 0 and g[9] == 0,
+          f'({m5.group(0) if m5 else [l for l in plain.splitlines() if "RSDP" in l]})')
     check('B4 framebuffer console on', 'MB2: framebuffer console on' in plain,
           f'({[l for l in plain.splitlines() if "framebuffer" in l or "font" in l]})')
     if seen_ok and mod:
