@@ -85,5 +85,18 @@ HAL-BIND-DISPLAY
 BLK-WRITE-CELL HAL-VECTOR-AT BLK-WRITE
 BLK-READ-CELL HAL-VECTOR-AT BLK-READ
 
+\ ---- Network contract ----
+\ NET-SEND ( addr len -- ior ) one
+\ Ethernet frame: destination, source,
+\ type, payload, no FCS; len 14 to 1514,
+\ shorter than 60 goes out zero-padded.
+\ ior 0 = handed to the card (and sent,
+\ where the card says so), 1 = refused or
+\ failed. Unbound until a NIC driver's
+\ init finds its card (RTL8168, NE2000).
+HAL-VECTOR NET-SEND
+: NET-LEN-OK? ( len -- flag )
+    DUP 0E < 0= SWAP 5EA > 0= AND ;
+
 ONLY FORTH DEFINITIONS
 DECIMAL

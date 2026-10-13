@@ -492,6 +492,16 @@ test-hal: $(COMBINED)
 	PORT=$$(($(TEST_PORT_BASE)+4)); \
 	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_HAL) python3 tests/test_hal.py $$PORT
 
+# HAL NET-SEND contract (docs/TASK_HAL_NET_SEND.md): ne2k_pci binds it,
+# no NIC leaves it unbound. Serial on +12, the dgram netdev on +13/+14
+# (unused before).
+test-hal-net: $(COMBINED)
+	@QPIDDIR=$(BUILD)/test-hal-net.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
+	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-hal-net --base $(TEST_PORT_BASE); \
+	echo "Running HAL NET-SEND test..."; \
+	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_HAL_NET) python3 tests/test_hal_net.py \
+		$$(($(TEST_PORT_BASE)+12)) $$(($(TEST_PORT_BASE)+13)) $$(($(TEST_PORT_BASE)+14))
+
 # Per-machine bindings (docs/TASK_HAL_MACHINE.md): HAL-MATCH binds from
 # SMBIOS, QEMU told made-up strings (a match, then none); serial on +5.
 test-hal-match: $(COMBINED)
@@ -926,6 +936,8 @@ T_HAL ?= 30
 # About 2x measured: hal-match 17.4 s (2026-10-12, two boots, two runs; 18.8 s 10-13),
 # hal-match-hp 12.7 s (2026-10-13, two runs; boots pxelinux -> memdisk, as the stick).
 T_HAL_MATCH ?= 35
+# About 2x measured: hal-net 9.9 s (2026-10-13, two boots, two runs).
+T_HAL_NET ?= 20
 T_HAL_MATCH_HP ?= 25
 # About 2x measured (2026-10-12): uefi-boot 56.6 s (OVMF + SeaBIOS legs, each
 # running HELLO-RUN, notepad's editor, PCI-TYPES and the phase-0 discovery
@@ -1308,7 +1320,7 @@ test-meta: $(COMBINED)
 #     its output as evidence, and it never gates a build.  If it must ever
 #     gate something, the gate goes on a deterministic artefact derived from
 #     it and pinned -- the treatment the Ghidra oracle already has.
-test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-vbr test-grub-cfg test-uefi-boot test-uefi-netboot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-mirror test-interp-abort test-pad-move test-hal test-hal-match test-hal-match-hp test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
+test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-vbr test-grub-cfg test-uefi-boot test-uefi-netboot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-mirror test-interp-abort test-pad-move test-hal test-hal-net test-hal-match test-hal-match-hp test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)
@@ -1393,4 +1405,4 @@ grub-net: $(COMBINED) tools/pxe/grub.cfg
 pxe-push-grub: grub-net
 	@bash tools/pxe/push-grub.sh
 
-.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined usb-image check-coverage desk-hashes check-kernel-size test test-blk-evict test-mirror test-interp-abort test-pad-move test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-grub-cfg test-g6 test-uefi-netboot test-hal test-hal-match test-hal-match-hp
+.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined usb-image check-coverage desk-hashes check-kernel-size test test-blk-evict test-mirror test-interp-abort test-pad-move test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-grub-cfg test-g6 test-uefi-netboot test-hal test-hal-net test-hal-match test-hal-match-hp

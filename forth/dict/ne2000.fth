@@ -23,6 +23,7 @@
 VOCABULARY NE2000
 NE2000 DEFINITIONS
 ALSO PCI-ENUM
+ALSO HAL
 HEX
 
 \ ---- Register Offsets (page 0) ----
@@ -162,6 +163,32 @@ VARIABLE DMA-SRC
 \ ---- Initialize NIC ----
 \ Standard NE2000 init sequence:
 \ stop, config, loopback, PROM, start.
+\ ---- Send packet ----
+: NE2K-SEND ( addr len -- )
+    DUP >R
+    TX-START 8 LSHIFT
+    NE2K-DMA-WR
+    TX-START NE-TPSR NE!
+    R@ NE-TBCR0 NE!
+    R> 8 RSHIFT NE-TBCR1 NE!
+    CMD-TXP CMD-START OR
+    NE-CMD NE!
+    1 NE-TX-CNT +!
+;
+
+\ ---- NET-SEND (HAL network contract) ----
+\ One frame; shorter than 60 bytes goes
+\ out zero-padded. ior 0 = the transmit
+\ started (NE2K-SEND does not wait).
+CREATE NE-PAD 3C ALLOT
+: NE2K-NET-SEND ( addr len -- ior )
+    DUP NET-LEN-OK? 0= IF 2DROP 1 EXIT THEN
+    DUP 3C < IF
+        NE-PAD 3C 0 FILL
+        NE-PAD SWAP CMOVE NE-PAD 3C
+    THEN
+    NE2K-SEND 0 ;
+
 : NE2K-INIT ( -- )
     10EC 8029 PCI-FIND
     0= IF
@@ -221,9 +248,11 @@ VARIABLE DMA-SRC
     0 NE-TCR NE!
     0 NE-TX-CNT !
     0 NE-RX-CNT !
+    ['] NE2K-NET-SEND ['] NET-SEND HAL-SET
     ." NE2000 at "
     NE-BASE @ .
     CR
+    ." NET-SEND -> NE2K-NET-SEND" CR
 ;
 
 \ ---- Show MAC address ----
@@ -233,19 +262,6 @@ VARIABLE DMA-SRC
         NE-MAC I + C@ .
     LOOP
     CR
-;
-
-\ ---- Send packet ----
-: NE2K-SEND ( addr len -- )
-    DUP >R
-    TX-START 8 LSHIFT
-    NE2K-DMA-WR
-    TX-START NE-TPSR NE!
-    R@ NE-TBCR0 NE!
-    R> 8 RSHIFT NE-TBCR1 NE!
-    CMD-TXP CMD-START OR
-    NE-CMD NE!
-    1 NE-TX-CNT +!
 ;
 
 \ ---- Check for received packet ----
@@ -336,5 +352,5 @@ VARIABLE DMA-SRC
     ." RX: " NE-RX-CNT @ . CR
 ;
 
-PREVIOUS FORTH DEFINITIONS
+PREVIOUS PREVIOUS FORTH DEFINITIONS
 DECIMAL
