@@ -13,6 +13,7 @@
 \   : X-IDS S" Maker" S" Product" ;
 \   X-IDS MATCH-ENTRY
 \   BINDS FB-BASE MY-BASE
+\   X-NOTE MATCH-NOTE  ( a line, no bind )
 \ Loading entries binds nothing: only
 \ MATCH-BIND does, printing each BIND it
 \ runs. No match: the defaults stay.
@@ -70,8 +71,21 @@ VARIABLE MT-HEAD
     ' MT-ALIGN HERE @ >R 0 , SWAP , ,
     MT-WORD MT-STR,
     R> MT-HEAD @ ME-BINDS MT-APPEND ;
+\ A note: a binding with vector 0, its
+\ text where the name goes. Printed in
+\ written order; it binds nothing.
+: MATCH-NOTE ( addr len -- )
+    MT-HEAD @ 0= IF
+        2DROP ." MATCH-NOTE: no MATCH-ENTRY"
+        CR EXIT
+    THEN
+    MT-ALIGN HERE @ >R 0 , 0 , 0 ,
+    MT-STR, R> MT-HEAD @ ME-BINDS MT-APPEND ;
 
 : .BINDING ( b -- )
+    DUP 4 + @ 0= IF
+        ." Note: " 0C + MT-COUNT TYPE EXIT
+    THEN
     ." ' " DUP 0C + MT-COUNT TYPE
     ."  BIND " 4 + @ HAL-NAME TYPE ;
 
@@ -109,8 +123,9 @@ VARIABLE MS-S
     ." Machine: " .MS CR
     ME-BINDS @
     BEGIN ?DUP WHILE
-        DUP .BINDING CR
-        DUP 8 + @ OVER 4 + @ HAL-SET @
+        DUP .BINDING CR DUP 4 + @ IF
+            DUP 8 + @ OVER 4 + @ HAL-SET
+        THEN @
     REPEAT ;
 
 : MATCH-LIST ( -- )

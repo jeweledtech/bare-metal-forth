@@ -11,13 +11,14 @@ doc writes them; nothing here is a real machine.
   ForthGate / MatchTest (FB-BASE -> TM-BASE, FB-FLUSH -> TM-FLUSH) and
   ForthGate / OtherBox (FB-BASE -> TM-OTHER, the newest):
   M1  MATCH-BIND prints `Machine: ForthGate / MatchTest`, then exactly
-      `' TM-BASE BIND FB-BASE` and `' TM-FLUSH BIND FB-FLUSH`, in order,
-      and nothing about TM-OTHER.
+      `' TM-BASE BIND FB-BASE`, the entry's note `Note: FB-FLUSH here
+      only counts` (MATCH-NOTE: printed, binds nothing) and `' TM-FLUSH
+      BIND FB-FLUSH`, in written order, and nothing about TM-OTHER.
   M2  HAL-LIST: FB-BASE and FB-FLUSH bound to TM-BASE's and TM-FLUSH's
       XTs; FB-BASE returns TM-SCR; FB-FLUSH runs TM-FLUSH (2 calls counted).
   M3  BLK-READ and BLK-WRITE: the same HAL-LIST lines as before the match.
   M4  `BINDS SPACE TM-BASE` is refused, naming SPACE; MATCH-LIST shows both
-      entries with their bindings unchanged (OtherBox: one).
+      entries with their bindings and note unchanged (OtherBox: one).
   M5  direct words: ! @ C! C@ on a variable; INB of the PIC mask (0x21)
       equals its value before the match.
   M6  DEPTH 0.
@@ -94,8 +95,10 @@ ENTRIES = [
     ': TM-BASE ( -- a ) TM-SCR ;  : TM-FLUSH ( -- ) 1 TM-N +! ;  : TM-OTHER ( -- a ) 4321 ;',
     ': TM-IDS S" ForthGate" S" MatchTest" ;',
     ': TO-IDS S" ForthGate" S" OtherBox" ;',
+    ': TM-NOTE S" FB-FLUSH here only counts" ;',
     'TM-IDS MATCH-ENTRY',
     'BINDS FB-BASE TM-BASE',
+    'TM-NOTE MATCH-NOTE',
     'BINDS FB-FLUSH TM-FLUSH',
     'TO-IDS MATCH-ENTRY',
     'BINDS FB-BASE TM-OTHER',
@@ -125,7 +128,8 @@ try:
     refused = 'BINDS: SPACE is not a HAL vector' in b
     bl = send(s, 'MATCH-LIST')
     want_list = ['ForthGate / OtherBox', "  ' TM-OTHER BIND FB-BASE",
-                 'ForthGate / MatchTest', "  ' TM-BASE BIND FB-BASE", "  ' TM-FLUSH BIND FB-FLUSH"]
+                 'ForthGate / MatchTest', "  ' TM-BASE BIND FB-BASE", '  Note: FB-FLUSH here only counts',
+                 "  ' TM-FLUSH BIND FB-FLUSH"]
     got_list = [l.rstrip() for l in bl.splitlines() if l.strip() and l.strip() != 'ok']
     check('M4 BINDS refuses a non-vector, naming it; MATCH-LIST shows both entries, bindings unchanged',
           refused and got_list == want_list, f'({b.strip()!r}; list {got_list})')
@@ -133,8 +137,9 @@ try:
     pic = nums(send(s, 'HEX 21 INB . DECIMAL'))[-1:]
     b = send(s, 'MATCH-BIND')
     lines = [l.rstrip() for l in b.splitlines() if l.strip() and l.strip() != 'ok']
-    check('M1 MATCH-BIND: Machine line, then exactly the two BINDs it runs, in order, nothing of TM-OTHER',
-          lines == ['Machine: ForthGate / MatchTest', "' TM-BASE BIND FB-BASE", "' TM-FLUSH BIND FB-FLUSH"],
+    check('M1 MATCH-BIND: Machine line, then exactly the two BINDs and the note, in written order, nothing of TM-OTHER',
+          lines == ['Machine: ForthGate / MatchTest', "' TM-BASE BIND FB-BASE", 'Note: FB-FLUSH here only counts',
+                    "' TM-FLUSH BIND FB-FLUSH"],
           f'({lines})')
     after = hal_rows(send(s, 'HAL-LIST'))
     xts = re.findall(r'([0-9A-F]+) ', send(s, "HEX ' TM-BASE U. ' TM-FLUSH U. CR DECIMAL"))

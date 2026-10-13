@@ -923,10 +923,10 @@ T_INTERP_ABORT ?= 90
 T_PAD_MOVE ?= 40
 # About 2x measured (2026-10-12): hal 13.7 s (three runs, slices 1 + 2).
 T_HAL ?= 30
-# About 2x measured (2026-10-12): hal-match 17.4 s (two boots, two runs), hal-match-hp
-# 4.6 s (two runs).
+# About 2x measured: hal-match 17.4 s (2026-10-12, two boots, two runs; 18.8 s 10-13),
+# hal-match-hp 12.7 s (2026-10-13, two runs; boots pxelinux -> memdisk, as the stick).
 T_HAL_MATCH ?= 35
-T_HAL_MATCH_HP ?= 10
+T_HAL_MATCH_HP ?= 25
 # About 2x measured (2026-10-12): uefi-boot 56.6 s (OVMF + SeaBIOS legs, each
 # running HELLO-RUN, notepad's editor, PCI-TYPES and the phase-0 discovery
 # words; 50.5 s before discovery, 17.7 s before the apps).

@@ -233,7 +233,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 5,
-    "source": "tests/test_hal_match.py:83"
+    "source": "tests/test_hal_match.py:84"
    }
   ]
  },
@@ -243,7 +243,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 6,
-    "source": "tests/test_hal_match_hp.py:74"
+    "source": "tests/test_hal_match_hp.py:99"
    }
   ]
  },
