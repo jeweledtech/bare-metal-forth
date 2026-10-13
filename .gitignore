@@ -106,6 +106,12 @@ tests/test_log_validation.py
 tools/log_decode.py
 tools/log_hp_dryrun.py
 
+# Private machine entries (machine identifiers), canonical in
+# forthos-vocabularies; the public mechanism is HAL-MATCH, and the
+# test-hal-match-hp recipe prints SKIPPED when these are absent.
+forth/dict/hal-machines.fth
+tests/test_hal_match_hp.py
+
 # Paid tests
 tests/test_ahci_write.py
 tests/test_disk_survey.py

@@ -137,7 +137,7 @@ run-free: $(IMAGE_FREE)
 #     cannot publish it. Files tracked in both repos are not checked here.
 # With no private repo it prints SKIPPED and exits 0; never a silent pass.
 PRIVATE_REPO ?= ../forthos-vocabularies
-PAID_VOCABS = ahci rtl8168 ntfs auto-detect fat32 surveyor file-editor-disk log-harness cd-atapi
+PAID_VOCABS = ahci rtl8168 ntfs auto-detect fat32 surveyor file-editor-disk log-harness cd-atapi hal-machines
 
 check-sync:
 	@if [ ! -d "$(PRIVATE_REPO)/forth/dict" ]; then \
@@ -491,6 +491,29 @@ test-hal: $(COMBINED)
 	echo "Running HAL binding test..."; \
 	PORT=$$(($(TEST_PORT_BASE)+4)); \
 	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_HAL) python3 tests/test_hal.py $$PORT
+
+# Per-machine bindings (docs/TASK_HAL_MACHINE.md): HAL-MATCH binds from
+# SMBIOS, QEMU told made-up strings (a match, then none); serial on +5.
+test-hal-match: $(COMBINED)
+	@QPIDDIR=$(BUILD)/test-hal-match.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
+	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-hal-match --base $(TEST_PORT_BASE); \
+	echo "Running HAL-MATCH test..."; \
+	PORT=$$(($(TEST_PORT_BASE)+5)); \
+	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_HAL_MATCH) python3 tests/test_hal_match.py $$PORT
+
+# The private machine entries, dry-run (forthos-vocabularies); SKIPPED
+# without them. Serial on +6.
+test-hal-match-hp: $(COMBINED)
+	@for f in forth/dict/hal-machines.fth tests/test_hal_match_hp.py; do \
+		if [ ! -f $$f ]; then \
+			echo "SKIPPED: test-hal-match-hp: private machine entries absent ($$f)"; \
+			exit 0; \
+		fi; \
+	done; \
+	QPIDDIR=$(BUILD)/test-hal-match-hp.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
+	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-hal-match-hp --base $(TEST_PORT_BASE); \
+	PORT=$$(($(TEST_PORT_BASE)+6)); \
+	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_HAL_MATCH_HP) python3 tests/test_hal_match_hp.py $$PORT
 
 test-pad-move: $(COMBINED)
 	@QPIDDIR=$(BUILD)/test-pad-move.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
@@ -900,6 +923,10 @@ T_INTERP_ABORT ?= 90
 T_PAD_MOVE ?= 40
 # About 2x measured (2026-10-12): hal 13.7 s (three runs, slices 1 + 2).
 T_HAL ?= 30
+# About 2x measured (2026-10-12): hal-match 17.4 s (two boots, two runs), hal-match-hp
+# 4.6 s (two runs).
+T_HAL_MATCH ?= 35
+T_HAL_MATCH_HP ?= 10
 # About 2x measured (2026-10-12): uefi-boot 56.6 s (OVMF + SeaBIOS legs, each
 # running HELLO-RUN, notepad's editor, PCI-TYPES and the phase-0 discovery
 # words; 50.5 s before discovery, 17.7 s before the apps).
@@ -1280,7 +1307,7 @@ test-meta: $(COMBINED)
 #     its output as evidence, and it never gates a build.  If it must ever
 #     gate something, the gate goes on a deterministic artefact derived from
 #     it and pinned -- the treatment the Ghidra oracle already has.
-test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-vbr test-grub-cfg test-uefi-boot test-uefi-netboot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-mirror test-interp-abort test-pad-move test-hal test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
+test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-vbr test-grub-cfg test-uefi-boot test-uefi-netboot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-mirror test-interp-abort test-pad-move test-hal test-hal-match test-hal-match-hp test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)
@@ -1365,4 +1392,4 @@ grub-net: $(COMBINED) tools/pxe/grub.cfg
 pxe-push-grub: grub-net
 	@bash tools/pxe/push-grub.sh
 
-.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined usb-image check-coverage desk-hashes check-kernel-size test test-blk-evict test-mirror test-interp-abort test-pad-move test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-grub-cfg test-g6 test-uefi-netboot test-hal
+.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined usb-image check-coverage desk-hashes check-kernel-size test test-blk-evict test-mirror test-interp-abort test-pad-move test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-grub-cfg test-g6 test-uefi-netboot test-hal test-hal-match test-hal-match-hp
