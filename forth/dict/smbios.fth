@@ -4,7 +4,7 @@
 \ PLATFORM: x86
 \ SOURCE: hand-written
 \ REQUIRES: PCI-ENUM ( .H8 )
-\ REQUIRES: FWMEM ( FW-FOLLOW? FW-SAY )
+\ REQUIRES: FWMEM ( FW-SPAN? FW-FOLLOW? FW-SAY )
 \ CONFIDENCE: medium
 \ ============================================
 \
@@ -140,7 +140,8 @@ VARIABLE SM-HI
         16 + W@ SM-LEN !
     THEN
     SM-HI @ IF 0 EXIT THEN
-    SM-TAB @ S" SMBIOS table" FW-FOLLOW? ;
+    SM-TAB @ SM-LEN @ S" SMBIOS table"
+    FW-SPAN? ;
 
 \ A structure: type, length, handle, the
 \ formatted area, then strings ending in

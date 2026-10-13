@@ -44,10 +44,20 @@ in the register 2026-10-12.
   U14 (OVMF): SMBIOS. and ACPI-TABLES print each firmware address they
       follow, with its memory map type, from the follow check itself: the
       EFI system table (= B5's t), the configuration table, the SMBIOS entry
-      point and table, the ACPI XSDT (= B5's r, type R); types 2-4.
+      point and table, the ACPI XSDT (= B5's r, type R); types 2-4.  Where
+      the length is known the line gives the range checked, start-last: the
+      SMBIOS table (last = start + SMBIOS.'s own len - 1) and the XSDT (last
+      = r + its header length - 1, read in the guest).
   U15 (OVMF): FW-FOLLOW? refuses, by name and owner, the module start
       (module), 0x7E00 (window 1), 0x100000 (window 2), 0x80000 (window 3),
       flag 0 each; the system table passes (-1, silent).  DEPTH 0.
+  U17 / L15: FW-SPAN? checks a range: 0xFFF00 is firmware memory (not
+      ForthOS's, map type not 1: the control), and 0xFFF00 len 0x200 ends
+      inside window 2; refused `Probe at 000FFF00-001000FF: ForthOS memory
+      (window 2), not followed`, flag 0.
+  U18 / L16: the same start with len 0x100 (ends 0xFFFFF) passes, silent;
+      0xFFFFFF00 len 0x800 passes (the end saturates at 4 GiB: no wrap into
+      window 1); FW-FOLLOW? at 0xFFF00 (the start alone) passes.
   U16 / L14: BIOS. reads the type 0 QEMU was told (-smbios type=0,
       vendor=ForthGateBIOS,version=P0.1).
   U9 / L9: PCI-TYPES on the xHCI: under OVMF its 64-bit BAR printed in full,
@@ -524,30 +534,63 @@ try:
         btag = 'U16' if fw == 'ovmf' else 'L14'
         check(f'{btag} BIOS. prints BIOS vendor: ForthGateBIOS, BIOS version: P0.1',
               'BIOS vendor: ForthGateBIOS' in b and 'BIOS version: P0.1' in b, f'({b.strip()[:200]!r})')
+        span(s, 'U' if fw == 'ovmf' else 'L')
         if fw == 'ovmf':
             fwmem(s)
         b = send(s, 'ONLY FORTH DEFINITIONS DECIMAL DEPTH .')
         check(f'{tag}13 DEPTH 0 after discovery', last_num(b) == '0', f'({b.strip()!r})')
 
+    def span(s, leg):
+        """U17/U18, L15/L16: FW-SPAN? checks the whole range."""
+        t1, t2 = ('U17', 'U18') if leg == 'U' else ('L15', 'L16')
+        send(s, 'ONLY FORTH DEFINITIONS ALSO FWMEM HEX 0 FW-SAY !')
+        bo = send(s, 'FFF00 MB2-OWNED . FFF00 MB2-MEMTYPE .')
+        ctl = re.findall(r'(\d+) (\d+) ok', bo)
+        firmware = bool(ctl) and ctl[-1][0] == '0' and ctl[-1][1] != '1'
+        print(f'(not scored) start-only check at FFF00: '
+              f'{send(s, "FFF00 S\" Probe\" FW-FOLLOW? .").strip()!r}', flush=True)
+        b = send(s, 'FFF00 200 S" Probe" FW-SPAN? .')
+        check(f'{t1} a range from firmware memory (FFF00, control: not owned, type not 1) into window 2 '
+              'is refused by name, flag 0',
+              firmware and 'Probe at 000FFF00-001000FF: ForthOS memory (window 2), not followed' in b
+              and last_num(b) == '0', f'(control {bo.strip()!r}; {b.strip()!r})')
+        b1 = send(s, 'FFF00 100 S" Probe" FW-SPAN? .')
+        b2 = send(s, 'FFFFFF00 800 S" Probe" FW-SPAN? .')
+        b3 = send(s, 'FFF00 S" Probe" FW-FOLLOW? .')
+        check(f'{t2} ending before the window passes, silent; a range past 4 GiB saturates (passes); '
+              'the start alone passes',
+              all(last_num(x) == '-1' and 'Probe' not in x and '?' not in x for x in (b1, b2, b3)),
+              f'({b1.strip()!r}; {b2.strip()!r}; {b3.strip()!r})')
+        send(s, 'PREVIOUS DECIMAL')
+
     def fwmem(s):
         """U14/U15 (docs/TASK_HAL_FWMEM.md): firmware addresses are looked
         up in the multiboot2 memory map before they are followed."""
         def path(b, name):
-            m = re.search(rf'^{name} at ([0-9A-F]{{8}}) type ([0-9]+) ', b, re.M)
+            m = re.search(rf'^{name} at ([0-9A-F]{{8}})(?:-[0-9A-F]{{8}})? type ([0-9]+) ', b, re.M)
             return (int(m.group(1), 16), int(m.group(2))) if m else None
+
+        def last(b, name):
+            m = re.search(rf'^{name} at [0-9A-F]{{8}}-([0-9A-F]{{8}}) type ', b, re.M)
+            return int(m.group(1), 16) if m else None
         b = send(s, 'ONLY FORTH DEFINITIONS ALSO SMBIOS SMBIOS. PREVIOUS')
         st, ct = path(b, 'EFI system table'), path(b, 'EFI configuration table')
         ep, tb = path(b, 'SMBIOS entry point'), path(b, 'SMBIOS table')
-        named = re.search(r'SMBIOS [23]\.x table at ([0-9A-F]{8})', b)
+        named = re.search(r'SMBIOS [23]\.x table at ([0-9A-F]{8}) len ([0-9A-F]{8})', b)
+        tb_last = last(b, 'SMBIOS table')
         b2 = send(s, 'ALSO ACPI ACPI-TABLES PREVIOUS')
-        xs = path(b2, 'ACPI XSDT')
+        xs, xs_last = path(b2, 'ACPI XSDT'), last(b2, 'ACPI XSDT')
+        xl = re.findall(r'([0-9A-F]+) ok', send(s, f'HEX {boot5.get("root", 0):X} 4 + @ U. DECIMAL'))
         fw_t = lambda p: p is not None and 2 <= p[1] <= 4
         check('U14 the follow check prints each firmware address with its map type: system table '
               '(= boot line), configuration table, SMBIOS entry point and table, ACPI XSDT (= boot line)',
               all(fw_t(p) for p in (st, ct, ep, tb, xs)) and bool(boot5)
               and st == (boot5['st'], boot5['st_t']) and xs == (boot5['root'], boot5['root_t'])
-              and bool(named) and tb[0] == int(named.group(1), 16),
-              f'(st {st} ct {ct} ep {ep} tb {tb} xsdt {xs}; boot {boot5}; {b.strip()[:300]!r})')
+              and bool(named) and tb[0] == int(named.group(1), 16)
+              and tb_last == tb[0] + int(named.group(2), 16) - 1
+              and bool(xl) and xs_last == xs[0] + int(xl[-1], 16) - 1,
+              f'(st {st} ct {ct} ep {ep} tb {tb} last {tb_last} xsdt {xs} last {xs_last} len {xl}; '
+              f'boot {boot5}; {b.strip()[:300]!r})')
         mod = boot5.get('mod', 0)
         probes = [(mod, 'module'), (0x7E00, 'window 1'), (0x100000, 'window 2'), (0x80000, 'window 3')]
         send(s, 'ONLY FORTH DEFINITIONS ALSO FWMEM HEX 0 FW-SAY !')

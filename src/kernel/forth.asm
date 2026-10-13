@@ -3171,6 +3171,47 @@ DEFCODE "MB2-OWNED", MB2_OWNED, 0
     push eax
     NEXT
 
+; MB2-OWNED-IN ( addr len -- 0|1-4 ): the first owned range (as MB2-OWNED
+; numbers them) that the bytes [addr, addr+len) overlap; len 0 is the
+; address alone.  The end saturates at 4 GiB: a range never wraps to 0.
+DEFCODE "MB2-OWNED-IN", MB2_OWNED_IN, 0
+    pop ecx                             ; len
+    pop eax                             ; addr
+    push esi
+    push ebx
+    mov edx, eax                        ; EDX = the last byte
+    jecxz .last
+    dec ecx
+    add edx, ecx
+    jnc .last
+    mov edx, 0xFFFFFFFF
+.last:
+    mov esi, mb2_windows
+    xor ecx, ecx
+.l:
+    inc ecx
+    cmp ecx, MB2_NOWNED
+    ja .none
+    mov ebx, [esi + 4]                  ; hi
+    cmp ebx, [esi]
+    jbe .n                              ; empty: [0, 0), the module on BIOS
+    cmp eax, ebx
+    jae .n                              ; starts at or past hi
+    cmp edx, [esi]
+    jb .n                               ; ends below lo
+    mov eax, ecx
+    jmp .r
+.n:
+    add esi, 8
+    jmp .l
+.none:
+    xor eax, eax
+.r:
+    pop ebx
+    pop esi
+    push eax
+    NEXT
+
 DEFCODE "MB2-MMAP", MB2_MMAP, 0
     push mb2_mmap
     push dword [mb2_mmap_n]

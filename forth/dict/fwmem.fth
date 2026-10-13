@@ -11,12 +11,14 @@
 \ up before it is followed: in the
 \ multiboot2 memory map the kernel kept
 \ (MB2-MEMTYPE), and against what ForthOS
-\ owns (MB2-OWNED: its windows, the
-\ module). An address in ForthOS memory is
-\ refused, by name, and not followed.
-\ docs/TASK_HAL_FWMEM.md.
+\ owns (MB2-OWNED-IN: its windows, the
+\ module). A range that touches ForthOS
+\ memory is refused, by name, and not
+\ followed. docs/TASK_HAL_FWMEM.md.
 \
+\   FW-SPAN?   ( addr len c-addr u -- flag )
 \   FW-FOLLOW? ( addr c-addr u -- flag )
+\              the address alone (len 0)
 \   FW-SAY     on: a followed address is
 \              printed with its map type
 \ ============================================
@@ -41,16 +43,26 @@ VARIABLE FW-SAY
     0= IF ." (not in the map)" THEN ;
 
 VARIABLE FW-A
-: FW-FOLLOW? ( addr c-addr u -- flag )
-    ROT DUP FW-A ! MB2-OWNED ?DUP IF
-        >R TYPE ."  at " FW-A @ .H8
-        ." : ForthOS memory (" R> .FW-OWNER
-        ." ), not followed" CR 0 EXIT
+VARIABLE FW-L
+\ Where it starts, and with a length the
+\ last byte checked: start-last.
+: .FW-AT ( c-addr u -- )
+    TYPE ."  at " FW-A @ .H8 FW-L @ IF
+        ." -" FW-A @ FW-L @ + 1- .H8
+    THEN ;
+: FW-SPAN? ( addr len c-addr u -- flag )
+    2SWAP FW-L ! FW-A !
+    FW-A @ FW-L @ MB2-OWNED-IN ?DUP IF
+        >R .FW-AT ." : ForthOS memory ("
+        R> .FW-OWNER ." ), not followed" CR
+        0 EXIT
     THEN
     FW-SAY @ MB2-MMAP NIP 0<> AND IF
-        TYPE ."  at " FW-A @ .H8 ."  type "
+        .FW-AT ."  type "
         FW-A @ MB2-MEMTYPE .FW-TYPE CR
     ELSE 2DROP THEN -1 ;
+: FW-FOLLOW? ( addr c-addr u -- flag )
+    ROT 0 2SWAP FW-SPAN? ;
 
 ONLY FORTH DEFINITIONS
 DECIMAL

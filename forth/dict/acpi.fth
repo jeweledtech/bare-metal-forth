@@ -4,7 +4,7 @@
 \ PLATFORM: x86
 \ SOURCE: hand-written
 \ REQUIRES: PCI-ENUM ( .H2 .H8 )
-\ REQUIRES: FWMEM ( FW-FOLLOW? FW-SAY )
+\ REQUIRES: FWMEM ( FW-SPAN? FW-FOLLOW? FW-SAY )
 \ CONFIDENCE: medium
 \ ============================================
 \
@@ -80,13 +80,25 @@ VARIABLE AC-SRC
     DUP 4 TYPE SPACE DUP .H8
     ."  len " DUP 4 + @ DUP .H8 SPACE
     AC-SUM 0= IF ." ok" ELSE ." BAD" THEN CR ;
+\ A table: its start first, silent (its
+\ header holds the length), then all of
+\ it, FW-SAY as it was.
+VARIABLE AC-SAY
+: AC-SPAN? ( taddr c-addr u -- flag )
+    FW-SAY @ AC-SAY ! 0 FW-SAY !
+    2 PICK 2 PICK 2 PICK FW-FOLLOW?
+    AC-SAY @ FW-SAY ! 0= IF
+        2DROP DROP 0 EXIT
+    THEN
+    ROT DUP 4 + @ 2SWAP FW-SPAN? ;
+
 : .TABLE? ( taddr -- )
-    DUP S" ACPI table" FW-FOLLOW?
+    DUP S" ACPI table" AC-SPAN?
     IF .TABLE ELSE DROP THEN ;
 
 \ The root, checked (FW-SAY: with its type).
 : AC-ROOT? ( taddr c-addr u -- taddr flag )
-    1 FW-SAY ! 2 PICK ROT ROT FW-FOLLOW?
+    1 FW-SAY ! 2 PICK ROT ROT AC-SPAN?
     0 FW-SAY ! ;
 
 \ XSDT when the revision is 2 or later and

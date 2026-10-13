@@ -128,3 +128,54 @@ fields. FWMEM is block-loaded (catalog blocks only).
 **Not covered:** a table that starts outside ForthOS memory and runs into
 it (the check is by address); a map with more than 64 entries after
 merging is reported (dropped count), its tail looks up as type 0.
+
+## The whole range, where the length is known (2026-10-13)
+
+Owner, 2026-10-13: FW-FOLLOW? checks the whole range wherever the length is
+known (the SMBIOS structure table's length, each ACPI table's header
+length), not just the start; red first, a small commit; gate: a probe range
+that starts in firmware memory and ends inside a ForthOS window is refused
+by name.
+
+**Design.**
+- Kernel `MB2-OWNED-IN ( addr len -- 0|1-4 )`: the first owned range (the
+  three windows, then the module, numbered as MB2-OWNED numbers them) that
+  the bytes [addr, addr+len) overlap. len 0 is the address alone. The end
+  saturates at 4 GiB, so a range never wraps to 0. Empty pairs (the module
+  on a BIOS boot, [0, 0)) are skipped.
+- FWMEM `FW-SPAN? ( addr len c-addr u -- flag )`: refused, by name and
+  owner, when the range touches ForthOS memory; the refusal and the FW-SAY
+  line give `start-last` when the length is known. `FW-FOLLOW?` is
+  `FW-SPAN?` with len 0 (its output unchanged).
+- SMBIOS: the structure table is checked as [SM-TAB, SM-TAB+SM-LEN).
+- ACPI (`AC-SPAN?`): a table's start is checked first, silently (its
+  header holds the length, read only once the start is allowed), then the
+  whole table, header length at +4; used for the XSDT/RSDT and for every
+  table they list.
+- Not ranged: the EFI system table, configuration table and SMBIOS entry
+  point (their lengths are read from them; the owner's list names the two
+  above).
+
+**Gates** (test-uefi-boot):
+- U14 amended: the SMBIOS table line is `SMBIOS table at X-Y`, Y = X +
+  SMBIOS.'s own len - 1; the XSDT line `ACPI XSDT at R-Y`, Y = R + its
+  header length (read in the guest) - 1.
+- U17 / L15: 0xFFF00 len 0x200 (last 0x1000FF, inside window 2) is refused,
+  `Probe at 000FFF00-001000FF: ForthOS memory (window 2), not followed`,
+  flag 0. Control: MB2-OWNED(0xFFF00) = 0 and its map type is not 1.
+- U18 / L16: the same start with len 0x100 (ends 0xFFFFF) passes, silent;
+  0xFFFFFF00 len 0x800 passes (saturates); FW-FOLLOW? at 0xFFF00 passes.
+
+**Results.** Evidence: ~/forthos-evidence/2026-10-13-fw-span/.
+- Red (image df5b1a1f): 44/49, U14 U17 U18 L15 L16 failing, as predicted
+  (`FW-SPAN? ?`; start-only lines). FW-FOLLOW? at 0xFFF00 answered -1 on
+  both legs: the start-only check let the range through.
+- One miss: 0xFFF00's map type is 0 (not in the map) on both legs; I had
+  predicted 2 on SeaBIOS. The SeaBIOS leg boots memdisk (L1, BOOT-MODE 1):
+  no multiboot2 map, so every address types 0 there. So "firmware memory"
+  at 0xFFF00 rests on the x86 BIOS ROM area, not on a map type; the control
+  proves only "not ForthOS's, not available in the map".
+- Green (image d0258de8): 49/49, two runs, 66.8 s (T_UEFI_BOOT 135, about
+  twice; it was 115 for 56.6-61.2 s). OVMF: SMBIOS table 1F987000-1F987153
+  (len 154), XSDT 1FB7D0E8-1FB7D13B (len 54).
+- Kernel pad: 88 B (8,907 B free).
