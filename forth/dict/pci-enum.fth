@@ -397,6 +397,32 @@ VARIABLE PCI-F
     DUP 10 RSHIFT .H4 .H4
 ;
 
+\ ---- BAR0 in full ----
+\ A 64-bit memory BAR (bits 2:1 = 10)
+\ prints both dwords, 0x-prefixed, and a
+\ base above 4 GiB is flagged: a 32-bit
+\ kernel without paging can't reach it.
+\ Anything else prints as before.
+VARIABLE BR-B
+VARIABLE BR-D
+VARIABLE BR-F
+: .BAR0 ( bus dev func -- )
+    BR-F ! BR-D ! BR-B !
+    BR-B @ BR-D @ BR-F @ 10 PCI-READ
+    DUP 7 AND 4 = IF
+        BR-B @ BR-D @ BR-F @ 14 PCI-READ
+        ?DUP IF
+            ." 0x"
+            DUP FFFFFF00 AND IF .H8 ELSE .H2 THEN
+            FFFFFFF0 AND .H8
+            SPACE ." (above 4 GiB: unreachable)"
+            EXIT
+        THEN
+    THEN
+    DUP 1 AND IF FFFFFFFC ELSE FFFFFFF0 THEN
+    AND .H8
+;
+
 \ ---- Typed device listing ----
 \ Base-transparent by construction:
 \ prints only via ." and .H2/.H8
@@ -419,11 +445,11 @@ VARIABLE PCI-F
                 DUP C@ .H2 SPACE
                 DUP 1+ C@ .H2 SPACE
                 DUP 2 + C@ .H2
-                ."  MMIO "
+                SPACE ." MMIO" SPACE
                 DUP C@
                 OVER 1+ C@
                 2 PICK 2 + C@
-                0 PCI-BAR@ .H8
+                .BAR0
             THEN
             DROP
         LOOP

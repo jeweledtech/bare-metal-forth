@@ -29,6 +29,9 @@ in the register 2026-10-12.
   F1  after PAGE and `.( UEF) .( I4)` (so only the output, not the echo,
       spells it), a QEMU screen dump shows UEFI4 drawn in the image's font,
       pixel for pixel, at a cell-aligned position.
+  U9 / L9: PCI-TYPES on the xHCI: under OVMF its 64-bit BAR printed in full
+      (0xC000000000) and flagged `above 4 GiB: unreachable`; under SeaBIOS
+      an 8-digit base below 4 GiB, no flag.
   U5-U8 / L5-L8 (both legs): the display contract's FB-BASE = 0x80000 (OVMF)
       / 0xB8000 (SeaBIOS);
       HELLO-RUN's form and notepad's editor (entered with the New button,
@@ -447,6 +450,17 @@ try:
         check(f'{tag}3 AUTO-DETECT-REPORT says {want!r}', want in b, f'({b.strip()[:160]!r})')
         b = send(s, 'ONLY FORTH DEFINITIONS DECIMAL DEPTH .')
         check(f'{tag}4 DEPTH 0', last_num(b) == '0', f'({b.strip()!r})')
+        # PCI-TYPES and the xHCI BAR: OVMF puts it above 4 GiB (64-bit BAR,
+        # 0xC0_0000_0000, measured 2026-10-12); SeaBIOS below
+        b = send(s, 'USING PCI-ENUM PCI-TYPES ONLY FORTH DEFINITIONS')
+        usb = [l for l in b.splitlines() if 'USB host' in l]
+        if fw == 'ovmf':
+            check(f'{tag}9 PCI-TYPES: the xHCI 64-bit BAR in full, 0xC000000000, flagged unreachable by name',
+                  any(' MMIO 0xC000000000 ' in l and 'above 4 GiB: unreachable' in l for l in usb), f'({usb})')
+        else:
+            check(f'{tag}9 PCI-TYPES: the xHCI base below 4 GiB, 8 hex digits, no flag',
+                  bool(usb) and re.search(r' at [0-9A-F]{2} [0-9A-F]{2} [0-9A-F]{2} MMIO [0-9A-F]{8}\b', usb[0]) is not None
+                  and 'unreachable' not in usb[0], f'({usb})')
         screens(fw, s, tag)
 
     def raw_send(s, text, settle=3.0):
