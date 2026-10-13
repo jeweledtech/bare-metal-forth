@@ -27,7 +27,9 @@ docs/TASK_HAL_BLOCK.md (the block contract).
 - **Name clash:** NET-DICT already has a word NET-SEND ( first last -- )
   that sends blocks. The HAL's NET-SEND lives in the HAL vocabulary; the two
   never share a search order in today's code, but a reader can confuse
-  them. Left for NET-DATA (it reworks NET-DICT's send).
+  them. ~~Left for NET-DATA (it reworks NET-DICT's send).~~ Resolved
+  2026-10-13 (owner): NET-DICT's word is renamed NET-SEND-BLOCKS;
+  test-hal-net N4 checks NET-DICT above HAL no longer shadows NET-SEND.
 
 ## Design
 

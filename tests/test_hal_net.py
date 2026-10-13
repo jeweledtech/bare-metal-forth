@@ -21,6 +21,10 @@ image booted by BIOS (floppy + IDE blocks), two boots.
   N1  HAL-LIST: NET-SEND -> unbound.
   N2  RTL8168-INIT and NE2K-INIT find nothing, bind nothing; calling
       NET-SEND prints `NET-SEND: HAL vector not bound`.
+  N4  NET-DICT loaded above HAL in the search order: NET-SEND is still the
+      HAL vector (its code field is DOVEC's), and NET-DICT's block sender is
+      NET-SEND-BLOCKS (two NET-SENDs with different stack effects, picked by
+      search order, could corrupt the stack).
   N3  DEPTH 0.
 """
 import atexit, hashlib, os, re, shutil, struct, subprocess, sys
@@ -166,6 +170,12 @@ try:
           'NE2000 not found' in bn and 'RTL8168 not found' in br and hal_rows(h2).get('NET-SEND') == 'unbound'
           and 'NET-SEND: HAL vector not bound' in bc,
           f'({bn.strip()[-80:]!r}; {br.strip()[-80:]!r}; {hal_rows(h2)}; {bc.strip()!r})')
+    bl = send(s, 'S" NET-DICT" LOAD-VOCAB', 90)
+    b4 = send(s, "ONLY FORTH DEFINITIONS ALSO HAL ALSO NET-DICT "
+                 "' NET-SEND @ ' FB-BASE @ = . ' NET-SEND-BLOCKS 0<> .")
+    check('N4 above HAL, NET-DICT does not shadow NET-SEND; its block sender is NET-SEND-BLOCKS',
+          'NET-DICT loaded' in bl and re.search(r'-1 -1 ok', b4) is not None,
+          f'({bl.strip()[-80:]!r}; {b4.strip()!r})')
     b = send(s, 'ONLY FORTH DEFINITIONS DECIMAL DEPTH .')
     check('N3 DEPTH 0', nums(b)[-1:] == ['0'], f'({b.strip()!r})')
 finally:

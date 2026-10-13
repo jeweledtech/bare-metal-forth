@@ -71,7 +71,7 @@ Status legend:
 |---|---|---|
 | UDP console (development) | COVERED | Network console on reference platform |
 | NIC vocabulary | COVERED | `rtl8168.fth` (HP bare-metal validated — carries the net console), `rtl8139.fth`, `ne2000.fth` (QEMU) |
-| Protocol words (ARP/IP/UDP as vocabulary) | PARTIAL | `UDP-SEND`/`NET-SEND` exist (`net-dict.fth`; fixed addressing, the net console's TX path). No receive/ARP resolution as vocabulary yet |
+| Protocol words (ARP/IP/UDP as vocabulary) | PARTIAL | `UDP-SEND` exists (`rtl8168.fth`; fixed addressing, the net console's TX path), `NET-SEND-BLOCKS` sends blocks as raw 88B5 frames (`net-dict.fth`), and the HAL's `NET-SEND` sends one frame (docs/TASK_HAL_NET_SEND.md). No receive/ARP resolution as vocabulary yet |
 | DHCP | PLANNED | Missing. Addressing is fixed today; no lease client |
 | 802.11 / WPA2 | PLANNED | Missing entirely. Three of four reference machines are Wi-Fi-only; needs an 802.11 MAC vocabulary, WPA2, and a vendor firmware blob (a licensing question, not only an engineering one) |
 | Full socket stack | EXCLUDED | See Non-Goals |

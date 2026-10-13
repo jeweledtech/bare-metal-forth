@@ -24,6 +24,7 @@
 \   5 BLOCK-SEND    \ send block 5
 \   BLOCK-RECV      \ receive a block
 \   2 8 BLOCKS-SEND \ send blocks 2-8
+\   2 8 NET-SEND-BLOCKS \ same, then done
 \
 \ ============================================
 
@@ -204,9 +205,11 @@ DECIMAL 50000 CONSTANT TOUT-MAX HEX
     TX-FRM FRM-MIN NE2K-SEND
 ;
 
-\ ---- NET-SEND ----
+\ ---- NET-SEND-BLOCKS ----
 \ High-level: send blocks + done signal.
-: NET-SEND  ( first last -- )
+\ (Not the HAL's NET-SEND, which sends
+\ one frame: ( addr len -- ior ).)
+: NET-SEND-BLOCKS  ( first last -- )
     BLOCKS-SEND
     SEND-DONE
     ." Sent" CR

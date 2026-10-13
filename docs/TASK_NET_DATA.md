@@ -57,5 +57,6 @@ NET-DICT, not the NE2000 receive ring.
 - No kernel or vocabulary change.
 
 Not changed: NET-DICT sends through NE2K-SEND directly, not the HAL's
-NET-SEND (and has its own word NET-SEND, sending blocks). Moving it onto the
+NET-SEND (its block sender, once also named NET-SEND, is NET-SEND-BLOCKS
+since 2026-10-13). Moving it onto the
 contract is not needed for these reds; left for a later ruling.
