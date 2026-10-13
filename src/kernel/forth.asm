@@ -575,6 +575,15 @@ fb_height:      dd 0
 fb_font:        dd 0                    ; first glyph (char 0x20), 16 B each; 0 = no font
 fb_on:          db 0                    ; 1 = print_char mirrors to the framebuffer
 fb_seen:        db 0, 0, 0              ; GRUB's framebuffer tag: bpp, type, 1 = present
+; HAL phase 0: firmware tables GRUB passed (the legacy scans don't work
+; under UEFI): the ACPI RSDP (tag 15, else 14) and the SMBIOS entry point
+; (tag 13), copied out of the MBI.  0 = none.
+mb2_rsdp_len:   db 0
+mb2_smbios_len: db 0
+    align 4
+mb2_rsdp:       times 36 db 0
+mb2_smbios:     times 32 db 0
+mb2_efi_st:     dd 0                    ; the EFI system table GRUB passed, 0 = none
 
 ; Windows the kernel owns (docs/ARCHITECTURE.md memory map): data stack,
 ; kernel, return stack, variables, buffers, IDT, dictionary; and the
@@ -617,6 +626,14 @@ mb2_entry:
     jne .not_efi
 .efi:
     or byte [mb2_flags], 2
+    cmp eax, 12
+    jne .efi_keep
+    cmp dword [esi + 12], 0             ; a 64-bit pointer above 4 GiB: not kept
+    jne .not_efi
+.efi_keep:
+    mov eax, [esi + 8]                  ; the system table (HAL phase 0: its
+    mov [mb2_efi_st], eax               ; configuration table holds SMBIOS)
+    mov eax, [esi]
 .not_efi:
     cmp eax, 8                          ; framebuffer info
     jne .not_fb
@@ -639,6 +656,37 @@ mb2_entry:
     mov [fb_height], eax
 .not_fb:
     mov eax, [esi]                      ; the tag type again
+    cmp eax, 15                         ; ACPI 2.0+ RSDP: wins over 14
+    je .rsdp
+    cmp eax, 14                         ; ACPI 1.0 RSDP
+    jne .not_rsdp
+    cmp byte [mb2_rsdp_len], 0
+    jne .not_rsdp
+.rsdp:
+    push edi
+    push edx                            ; the walk's end-of-MBI pointer
+    mov edi, mb2_rsdp
+    mov ecx, 36
+    mov edx, 8                          ; the RSDP right after the tag head
+    call mb2_copy
+    mov [mb2_rsdp_len], cl
+    pop edx
+    pop edi
+    jmp .tag_more
+.not_rsdp:
+    cmp eax, 13                         ; SMBIOS: major, minor, 6 reserved, EPS
+    jne .tag_more
+    push edi
+    push edx                            ; the walk's end-of-MBI pointer
+    mov edi, mb2_smbios
+    mov ecx, 32
+    mov edx, 16                         ; after major, minor, 6 reserved
+    call mb2_copy
+    mov [mb2_smbios_len], cl
+    pop edx
+    pop edi
+.tag_more:
+    mov eax, [esi]
     cmp eax, 3
     jne .next
     cmp dword [mb2_mod_end], 0
@@ -726,6 +774,7 @@ mb2_entry:
     mov eax, [mb2_mod_start]
     mov [BLK_IMAGE_BASE], eax
     call fb_setup
+    call mb2_tables
     jmp kernel_start
 
 ; fb_setup (UEFI-4): a usable framebuffer (32 bpp, at least 80x25 cells of
@@ -782,6 +831,49 @@ fb_setup:
     call mb2_hex
     mov esi, mb2_msg_close
     jmp .say
+
+; mb2_copy: ESI -> a tag, EDX = the payload's offset in it; copy at most
+; ECX bytes of the payload to EDI.  Returns ECX = bytes copied.  Keeps ESI
+; and EBX (the callers save the walk's EDX around it).
+mb2_copy:
+    push esi
+    push edx
+    push ebx
+    mov ebx, [esi + 4]                  ; tag size
+    sub ebx, edx                        ; payload bytes
+    jbe .none
+    cmp ebx, ecx
+    jae .n
+    mov ecx, ebx
+.n:
+    add esi, edx
+    push ecx
+    rep movsb
+    pop ecx
+    jmp .done
+.none:
+    xor ecx, ecx
+.done:
+    pop ebx
+    pop edx
+    pop esi
+    ret
+
+; mb2_tables: report the copies (serial)
+mb2_tables:
+    mov esi, mb2_msg_rsdp
+    call mb2_puts
+    movzx eax, byte [mb2_rsdp_len]
+    call mb2_hex
+    mov esi, mb2_msg_smbios
+    call mb2_puts
+    movzx eax, byte [mb2_smbios_len]
+    call mb2_hex
+    mov esi, mb2_msg_efist
+    call mb2_puts
+    mov eax, [mb2_efi_st]
+    call mb2_hex
+    jmp mb2_crlf
 
 mb2_refuse:                             ; ESI -> the reason; prints and halts
     push esi
@@ -950,6 +1042,9 @@ mb2_msg_nomod:   db 'no module (the blocks image)', 0
 mb2_msg_noroom:  db 'the module lies inside a kernel window and the map has no room above it', 0
 mb2_msg_moved:   db 'MB2: module moved to ', 0
 mb2_msg_fb:      db 'MB2: framebuffer ', 0
+mb2_msg_rsdp:    db 'MB2: ACPI RSDP bytes ', 0
+mb2_msg_smbios:  db ', SMBIOS entry point bytes ', 0
+mb2_msg_efist:   db ', EFI system table ', 0
 mb2_msg_at:      db ' at ', 0
 mb2_msg_nofb:    db 'MB2: no usable framebuffer (console on serial only)', 0
 mb2_msg_notag:   db ': GRUB passed none', 0
@@ -2866,6 +2961,45 @@ DEFCONST "BLK-READ-CELL", BLK_READ_CELL, BLK_READ_VEC
 
 DEFCODE "HAL-HEAD", HAL_HEAD, 0
     push hal_head
+    NEXT
+
+; HAL phase 0 (docs/TASK_HAL_DISCOVERY.md): read-only discovery.
+; CPUID ( leaf subleaf -- eax ebx ecx edx )
+DEFCODE "CPUID", CPUID, 0
+    pop ecx
+    pop eax
+    cpuid
+    push eax
+    push ebx
+    push ecx
+    push edx
+    NEXT
+
+; MB2-RSDP ( -- addr|0 ) / MB2-SMBIOS ( -- addr|0 ): the copies of the ACPI
+; RSDP and the SMBIOS entry point GRUB passed on a multiboot2 boot
+DEFCODE "MB2-RSDP", MB2_RSDP, 0
+    xor eax, eax
+    cmp byte [mb2_rsdp_len], 0
+    je .none
+    mov eax, mb2_rsdp
+.none:
+    push eax
+    NEXT
+
+; MB2-EFI-ST ( -- addr|0 ): the EFI system table GRUB passed (UEFI boot);
+; its configuration table holds the SMBIOS entry point when GRUB passed no
+; SMBIOS tag (GRUB 2.12 under OVMF passes none, measured 2026-10-12)
+DEFCODE "MB2-EFI-ST", MB2_EFI_ST, 0
+    push dword [mb2_efi_st]
+    NEXT
+
+DEFCODE "MB2-SMBIOS", MB2_SMBIOS, 0
+    xor eax, eax
+    cmp byte [mb2_smbios_len], 0
+    je .none
+    mov eax, mb2_smbios
+.none:
+    push eax
     NEXT
 
 ; SP@ - ( -- addr ) Get current data stack pointer (diagnostic)

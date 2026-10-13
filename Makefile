@@ -900,9 +900,10 @@ T_INTERP_ABORT ?= 90
 T_PAD_MOVE ?= 40
 # About 2x measured (2026-10-12): hal 13.7 s (three runs, slices 1 + 2).
 T_HAL ?= 30
-# About 2x measured (2026-10-12): uefi-boot 50.5 s (three runs: OVMF + SeaBIOS legs,
-# each also running HELLO-RUN and notepad's editor; was 17.7 s before those).
-T_UEFI_BOOT ?= 100
+# About 2x measured (2026-10-12): uefi-boot 56.6 s (OVMF + SeaBIOS legs, each
+# running HELLO-RUN, notepad's editor, PCI-TYPES and the phase-0 discovery
+# words; 50.5 s before discovery, 17.7 s before the apps).
+T_UEFI_BOOT ?= 115
 # About 2x measured (2026-10-12): uefi-netboot 12 s (three runs; grub-net staging included).
 T_UEFI_NETBOOT ?= 30
 T_ARM64_BOOT ?= 720

@@ -23,14 +23,24 @@ in the register 2026-10-12.
       (three), no `REFUSED` (a module inside a window is moved above them
       first: `MB2: module moved to <start>-<end>`).
   B3  banner + ok.  B4  `MB2: framebuffer console on`.
+  B5  `MB2: ACPI RSDP bytes n, SMBIOS entry point bytes m, EFI system
+      table t`: n > 0, and m > 0 or t != 0 (GRUB 2.12 under OVMF passes no
+      SMBIOS tag; SMBIOS then comes from the EFI configuration table).
   I1  BLK_IMAGE_BASE (0x28098) = the module's final start, as reported.
   U1  BOOT-MODE = 3.  U2  HELLO-APP loads from the module.
   U3  AUTO-DETECT-REPORT says `Boot: UEFI (multiboot2)`.  U4  DEPTH 0.
   F1  after PAGE and `.( UEF) .( I4)` (so only the output, not the echo,
       spells it), a QEMU screen dump shows UEFI4 drawn in the image's font,
       pixel for pixel, at a cell-aligned position.
-  U9 / L9: PCI-TYPES on the xHCI: under OVMF its 64-bit BAR printed in full
-      (0xC000000000) and flagged `above 4 GiB: unreachable`; under SeaBIOS
+  U10-U13 / L10-L13 (HAL phase 0, QEMU told -smbios type=1,manufacturer=
+      ForthGate,product=Phase0 and -cpu qemu64,vendor=ForthGateCPU): SMBIOS
+      SYSTEM. reads those strings; CPUID the vendor and PAE/SSE2/HYPERVISOR 1,
+      AVX 0; ACPI-TABLES lists FACP and APIC with good checksums, through the
+      XSDT from the multiboot2 RSDP copy (OVMF) or the RSDT from the legacy
+      scan (SeaBIOS); DEPTH 0.
+  U9 / L9: PCI-TYPES on the xHCI: under OVMF its 64-bit BAR printed in full,
+      equal to QEMU's own `info pci` BAR0 (0xC000000000 with the default CPU),
+      and flagged `above 4 GiB: unreachable`; under SeaBIOS
       an 8-digit base below 4 GiB, no flag.
   U5-U8 / L5-L8 (both legs): the display contract's FB-BASE = 0x80000 (OVMF)
       / 0xB8000 (SeaBIOS);
@@ -372,7 +382,10 @@ try:
 
     def boot(fw):
         """Boot the replica; return (socket or None, serial text, ok seen)."""
-        argv = ['qemu-system-x86_64', '-M', 'q35', '-m', '512']
+        # phase 0 discovery: values no firmware default can produce
+        argv = ['qemu-system-x86_64', '-M', 'q35', '-m', '512',
+                '-smbios', 'type=1,manufacturer=ForthGate,product=Phase0',
+                '-cpu', 'qemu64,vendor=ForthGateCPU']
         if fw == 'ovmf':
             vars_copy = os.path.join(work, 'vars.fd')
             shutil.copy(OVMF_VARS, vars_copy)
@@ -455,13 +468,47 @@ try:
         b = send(s, 'USING PCI-ENUM PCI-TYPES ONLY FORTH DEFINITIONS')
         usb = [l for l in b.splitlines() if 'USB host' in l]
         if fw == 'ovmf':
-            check(f'{tag}9 PCI-TYPES: the xHCI 64-bit BAR in full, 0xC000000000, flagged unreachable by name',
-                  any(' MMIO 0xC000000000 ' in l and 'above 4 GiB: unreachable' in l for l in usb), f'({usb})')
+            # the truth for this run: QEMU's own view of the xHCI BAR0 (OVMF
+            # places it by the CPU's address width: 0xC000000000 with the
+            # default CPU, measured 2026-10-12; 0x800000000 with this gate's
+            # -cpu qemu64,vendor=...)
+            m = re.search(r'USB controller:.*?BAR0: 64 bit memory at 0x([0-9a-f]+)', mon_cmd('info pci'), re.S)
+            bar = int(m.group(1), 16) if m else 0
+            hi, lo = bar >> 32, bar & 0xFFFFFFFF
+            want = f"0x{hi:08X}{lo:08X}" if hi > 0xFF else f"0x{hi:02X}{lo:08X}"
+            check(f'{tag}9 PCI-TYPES: the xHCI 64-bit BAR in full ({want}, as QEMU reports it), flagged unreachable',
+                  bar > 0xFFFFFFFF and any(f' MMIO {want} ' in l and 'above 4 GiB: unreachable' in l for l in usb),
+                  f'(QEMU BAR0 {bar:#x}; {usb})')
         else:
             check(f'{tag}9 PCI-TYPES: the xHCI base below 4 GiB, 8 hex digits, no flag',
                   bool(usb) and re.search(r' at [0-9A-F]{2} [0-9A-F]{2} [0-9A-F]{2} MMIO [0-9A-F]{8}\b', usb[0]) is not None
                   and 'unreachable' not in usb[0], f'({usb})')
+        discovery(fw, s, tag)
         screens(fw, s, tag)
+
+    def discovery(fw, s, tag):
+        """HAL phase 0 (docs/TASK_HAL_DISCOVERY.md): SMBIOS, CPUID, ACPI,
+        read-only, from this firmware."""
+        for v in ('SMBIOS', 'CPUINFO', 'ACPI'):
+            send(s, f'S" {v}" LOAD-VOCAB', 90)
+        b = send(s, 'ONLY FORTH DEFINITIONS ALSO SMBIOS SMBIOS. SYSTEM. PREVIOUS')
+        ssrc = '(EFI configuration table)' if fw == 'ovmf' else '(legacy scan)'
+        check(f'{tag}10 SMBIOS {ssrc}: SYSTEM. prints Manufacturer: ForthGate, Product: Phase0',
+              ssrc in b and 'Manufacturer: ForthGate' in b and 'Product: Phase0' in b, f'({b.strip()[:200]!r})')
+        b = send(s, 'ALSO CPUINFO CPU-VENDOR. CPU-FEATURES. PREVIOUS')
+        feats = dict(re.findall(r'\b([A-Z0-9]+) ([01])\b', b))
+        check(f'{tag}11 CPUID: vendor ForthGateCPU; PAE 1, SSE2 1, HYPERVISOR 1, AVX 0',
+              'Vendor: ForthGateCPU' in b and feats.get('PAE') == '1' and feats.get('SSE2') == '1'
+              and feats.get('HYPERVISOR') == '1' and feats.get('AVX') == '0', f'({b.strip()[:200]!r})')
+        b = send(s, 'ALSO ACPI ACPI. ACPI-TABLES PREVIOUS')
+        rows = re.findall(r'^([A-Z0-9_]{4}) ([0-9A-F]{8}) len ([0-9A-F]{8}) (ok|BAD)\s*$', b, re.M)
+        sigs = {r[0]: r[3] for r in rows}
+        src, root = ('multiboot2 copy', 'XSDT') if fw == 'ovmf' else ('legacy scan', 'RSDT')
+        check(f'{tag}12 ACPI: RSDP from the {src}, tables through the {root}, FACP and APIC with good checksums',
+              src in b and f'{root} at' in b and sigs.get('FACP') == 'ok' and sigs.get('APIC') == 'ok'
+              and 'BAD' not in sigs.values(), f'({b.strip()[:240]!r})')
+        b = send(s, 'ONLY FORTH DEFINITIONS DECIMAL DEPTH .')
+        check(f'{tag}13 DEPTH 0 after discovery', last_num(b) == '0', f'({b.strip()!r})')
 
     def raw_send(s, text, settle=3.0):
         """Type TEXT (an app owns the keyboard: no prompt to wait for),
@@ -543,6 +590,13 @@ try:
           bool(mod) and len(wins) == 3 and 'REFUSED' not in plain,
           f'(module {mod.groups() if mod else None}, windows {wins})')
     check('B3 banner + ok', seen_ok)
+    m5 = re.search(r'MB2: ACPI RSDP bytes ([0-9A-F]{8}), SMBIOS entry point bytes ([0-9A-F]{8}), '
+                   r'EFI system table ([0-9A-F]{8})', plain)
+    # GRUB 2.12 under OVMF passes no SMBIOS tag (measured 2026-10-12): SMBIOS
+    # then comes from the EFI system table's configuration table
+    check('B5 report: GRUB passed the ACPI RSDP (kept) and an SMBIOS tag or the EFI system table',
+          bool(m5) and int(m5.group(1), 16) > 0 and (int(m5.group(2), 16) > 0 or int(m5.group(3), 16) > 0),
+          f'({m5.group(0) if m5 else None})')
     check('B4 framebuffer console on', 'MB2: framebuffer console on' in plain,
           f'({[l for l in plain.splitlines() if "framebuffer" in l or "font" in l]})')
     if seen_ok and mod:
