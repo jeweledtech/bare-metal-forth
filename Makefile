@@ -668,6 +668,23 @@ test-log-restore: $(COMBINED)
 	timeout --foreground $(T_LOG_RESTORE) python3 $(PRIVATE_REPO)/tests/test_log_restore.py \
 		$$(($(TEST_PORT_BASE)+70)) all
 
+# LOG-HARNESS Phase 3b, send-only (private TASK_LOG_PHASE3B_SEND.md):
+# LOG-SEND's five frames from an NE2000 pcap, checked against the model.
+T_LOG_SEND ?= 300
+test-log-send: $(COMBINED)
+	@for f in forth/dict/log-harness.fth \
+		$(PRIVATE_REPO)/tests/test_log_send.py; do \
+		if [ ! -f $$f ]; then \
+			echo "SKIPPED: test-log-send: private file absent ($$f)"; \
+			exit 0; \
+		fi; \
+	done; \
+	PIDF=$(BUILD)/log-send.d/qemu.pid; $(QEMU_KILL); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-log-send --base $(TEST_PORT_BASE); \
+	echo "Running LOG-SEND (Phase 3b) gates..."; \
+	timeout --foreground $(T_LOG_SEND) python3 $(PRIVATE_REPO)/tests/test_log_send.py \
+		$$(($(TEST_PORT_BASE)+101)) $$(($(TEST_PORT_BASE)+102)) $$(($(TEST_PORT_BASE)+103))
+
 test-log-validation: $(COMBINED)
 	@for f in forth/dict/log-harness.fth tests/test_log_validation.py; do \
 		if [ ! -f $$f ]; then \
@@ -1321,7 +1338,7 @@ test-meta: $(COMBINED)
 #     its output as evidence, and it never gates a build.  If it must ever
 #     gate something, the gate goes on a deterministic artefact derived from
 #     it and pinned -- the treatment the Ghidra oracle already has.
-test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-vbr test-grub-cfg test-uefi-boot test-uefi-netboot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-mirror test-interp-abort test-pad-move test-hal test-hal-net test-hal-match test-hal-match-hp test-network test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
+test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-log-send test-vbr test-grub-cfg test-uefi-boot test-uefi-netboot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-mirror test-interp-abort test-pad-move test-hal test-hal-net test-hal-match test-hal-match-hp test-network test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)
@@ -1406,4 +1423,4 @@ grub-net: $(COMBINED) tools/pxe/grub.cfg
 pxe-push-grub: grub-net
 	@bash tools/pxe/push-grub.sh
 
-.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined usb-image check-coverage desk-hashes check-kernel-size test test-blk-evict test-mirror test-interp-abort test-pad-move test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-grub-cfg test-g6 test-uefi-netboot test-hal test-hal-net test-hal-match test-hal-match-hp
+.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined usb-image check-coverage desk-hashes check-kernel-size test test-blk-evict test-mirror test-interp-abort test-pad-move test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-log-send pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-grub-cfg test-g6 test-uefi-netboot test-hal test-hal-net test-hal-match test-hal-match-hp
