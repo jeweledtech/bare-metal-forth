@@ -14,7 +14,7 @@ writes them, Exit returns to the `ok` prompt.
 
 | # | Bug | File | Lines | Status |
 |---|-----|------|-------|--------|
-| B1 | RAW-SCAN discards Ctrl/Shift without tracking KB-MODS | file-editor.fth | 110-118 | **OPEN** — blocks all keyboard testing |
+| B1 | RAW-SCAN discards Ctrl/Shift without tracking KB-MODS | file-editor.fth | 110-118 | **DONE** — 8d097fe: KB-UPDATE-MODS runs before the >= 80 filter (file-editor-core.fth:140-141) |
 | B2 | FILE-READ clamps to 8 sectors (4 KB) | ntfs.fth | 608-609 | **DEFERRABLE** — Open works for files < 4 KB |
 | B3 | ~~NTFS-WRITE-FILE passes unclamped count to AHCI-WRITE~~ | file-editor.fth | 462 | **DONE** — FE-SAVE has 4 KB guard |
 | B4 | ~~No AHCI/NTFS init in NOTEPAD-RUN~~ | notepad.fth | 203 | **DONE** — AHCI-INIT/NTFS-INIT/NTFS-ENABLE-WRITE in NOTEPAD-RUN |
