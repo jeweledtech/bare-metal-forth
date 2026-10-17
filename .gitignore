@@ -58,6 +58,8 @@ forth/dict/file-editor-disk.fth
 forth/dict/disk-survey-form.fth
 forth/dict/port-monitor.fth
 forth/dict/port-monitor-form.fth
+# dlg2form output (private TASK_DLG2FORM: generated from a Windows binary)
+forth/dict/iyuv-about-form.fth
 
 # Translator output (private pipeline; not in a tier until the owner places it)
 forth/dict/hdaudbus.fth
