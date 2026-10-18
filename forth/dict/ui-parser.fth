@@ -192,6 +192,10 @@ VARIABLE BC-W
 : BUILD-CARD-ED ( -- )
   P-INT P-INT P-INT ADD-CARD-ED ;
 
+\ LIST: x y w h
+: BUILD-LIST ( -- )
+  P-INT P-INT P-INT P-INT ADD-LIST ;
+
 \ ---- Process one line ------------------
 : PROCESS-LINE ( addr len -- )
   P-INIT P-SKIP-SP
@@ -211,7 +215,9 @@ VARIABLE BC-W
   S" CARD:" P-MATCH IF
     BUILD-CARD-BG EXIT THEN
   S" ENDCARD:" P-MATCH IF
-    BUILD-CARD-ED EXIT THEN ;
+    BUILD-CARD-ED EXIT THEN
+  S" LIST:" P-MATCH IF
+    BUILD-LIST EXIT THEN ;
 
 \ ---- FORM-LOAD: parse blocks ----------
 
