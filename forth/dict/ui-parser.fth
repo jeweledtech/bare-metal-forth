@@ -33,6 +33,9 @@ DECIMAL
 64 CONSTANT LINE-LEN
 16 CONSTANT LINES-BLK
 10 CONSTANT P-TEN
+\ Widget entry offset of a button's control
+\ ID (64-byte entry; 0-23 are UI-CORE's).
+24 CONSTANT WTO-CID
 HEX
 
 \ ---- Parse state -----------------------
@@ -136,12 +139,22 @@ VARIABLE TL-L
 VARIABLE BB-X
 VARIABLE BB-Y
 VARIABLE BB-W
+VARIABLE BB-N
+\ BUTTON: x y w "label" [id]. The optional
+\ control ID goes to WTO-CID, 0 when the
+\ line has none (WT-ALLOC does not clear
+\ entries); only if a widget was added.
 : BUILD-BUTTON ( -- )
   P-INT BB-X !
   P-INT BB-Y !
   P-INT BB-W !
+  WT-COUNT @ BB-N !
   BB-X @ BB-Y @ BB-W @
-  P-QUOTED 0 ADD-BUTTON ;
+  P-QUOTED 0 ADD-BUTTON
+  P-INT
+  WT-COUNT @ BB-N @ > IF
+    W-ADDR @ WTO-CID + !
+  ELSE DROP THEN ;
 
 : BUILD-DIVIDER ( -- )
   P-INT ADD-DIVIDER ;
