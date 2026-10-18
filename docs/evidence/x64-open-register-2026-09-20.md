@@ -123,7 +123,6 @@ asserted so a renamed suite cannot shrink the union silently. The
 
 | letter | red | suite | what is wrong |
 |---|---|---|---|
-| (d') | `x64_RED_rex_b_push_r12` | decoder | REX.B not applied to an opcode-embedded register |
 | (f) | `x64_RED_byte_reg_sil_under_rex` | decoder | reg 4-7 at size 1 under REX is SPL/BPL/SIL/DIL |
 | (g) | `x64_RED_truncated_imm32_refused` | decoder | immediate read past the code buffer |
 | (g) | `x64_RED_truncated_disp32_refused` | decoder | displacement read past the code buffer |
@@ -613,7 +612,7 @@ duplicated (d)/(d-k). Where no log survives, the closure is listed as
 **closed, no log**, and its only record is the `FIXED <date>` comment
 written into the suite's `xfail_names[]` when the name was retired.
 
-**With a banked gate log** (38 letters, 73 names; logs in `docs/evidence/`):
+**With a banked gate log** (43 letters, 78 names, counted from the rows 2026-10-18; before (d') this line said 38 and 73, which no count of the rows gave: the rows give 42 and 77. Logs in `docs/evidence/`; (d')'s is in the private repo's):
 
 | closed | letter(s) | gate log | names on its XPASS lines |
 |---|---|---|---|
@@ -651,6 +650,7 @@ written into the suite's `xfail_names[]` when the name was retired.
 | 2026-09-25 | (bt) | `fix-bt-xpass-gate-2026-09-25.log` | 1 (codegen emits the recorded accesses: 26 accessors, 62 access lines, 11 words on exactly the 10 predicted drivers; 1,328 drivers and every `-t report` unmoved. The same run failed (bs)'s test, whose parser predated one-line definitions; the reader was updated and checked against `-f` on 396 of 396 functions) |
 | 2026-09-25 | (bu) | `fix-bu-corrective-xpass-gate-2026-09-25.log` | 1 (MAP-PHYS is `( phys size -- virt )`, with the dropped third argument on a 50-char line of its own. The first build failed U3 on a line past column 64 (`fix-bu-xpass-gate-2026-09-25.log`), and the red was restated. The corrective equals its text prediction on 1,338 of 1,338, with 232 moved) |
 | 2026-09-25 | (bw) | `fix-bw-xpass-gate-2026-09-25.log` | 1 (`walk stopped` on its own line; every (bt) line on all 10 drivers ≤ 64; 1,338 of 1,338 equal the text prediction, 3 moved) |
+| 2026-10-18 | (d') | `fix-dprime-xpass-gate-2026-10-18.log` (private) | 1 (REX.B on PUSH/POP 50+r/58+r and MOV B0+r/B8+r: `41 54` is PUSH R12, `41 B9` is MOV R9D; private TASK_UBT_X64_DECODE_XREF) |
 
 † **Banked 2026-09-23 from the session's scratch directory**, where the
 gate run had written it. Each is the verbatim gate output, copied
@@ -679,7 +679,7 @@ by name:
 pair): (ai), 2026-09-23, controls in the translator's
 `measure/comparer-controls/`.
 
-**Total closed: 51 letters** (38 + 12 + (ai)), counted from the rows above. The lesson from the "no log" rows is the
+**Total closed: 56 letters** (43 + 12 + (ai)), counted from the rows above. The lesson from the "no log" rows is the
 fourth lineage rule's corollary again: *keep every gate log.* Six of this
 week's logs survived only because the scratch directory had not been
 cleared.
