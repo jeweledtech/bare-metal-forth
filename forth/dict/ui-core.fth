@@ -87,6 +87,8 @@ DECIMAL
 45 CONSTANT CH-DASH
 91 CONSTANT CH-LBRACK
 93 CONSTANT CH-RBRACK
+43 CONSTANT CH-PLUS
+124 CONSTANT CH-BAR
 7 CONSTANT ATTR-NORM
 112 CONSTANT ATTR-INV
 
@@ -196,6 +198,10 @@ VARIABLE VPC-TMP
   W-ADDR @ WTO-Y + C@ ;
 : W-W@ ( -- n )
   W-ADDR @ WTO-W + C@ ;
+: W-H! ( n -- )
+  W-ADDR @ WTO-H + C! ;
+: W-H@ ( -- n )
+  W-ADDR @ WTO-H + C@ ;
 : W-LLEN@ ( -- n )
   W-ADDR @ WTO-LLEN + C@ ;
 : W-LOFF@ ( -- n )
@@ -295,6 +301,17 @@ VARIABLE WL-LEN
     DW-VIS-ENA W-DW!  0 W-DW-HI!
   ELSE
     DROP DROP DROP DROP DROP
+  THEN ;
+
+\ A list box: w wide, h rows, no items.
+: ADD-LIST ( x y w h -- )
+  WT-ALLOC IF
+    W-H!  WT-LIST W-TYPE!
+    W-W!  W-Y!  W-X!  1 W-FLAGS!
+    0 W-LLEN!
+    DW-VIS-ENA W-DW!  0 W-DW-HI!
+  ELSE
+    DROP DROP DROP DROP
   THEN ;
 
 : ADD-CARD-BG ( x y w addr len -- )
@@ -457,6 +474,34 @@ VARIABLE RD-X
   43 ATTR-NORM
   W-X@ W-W@ + 1 -  W-Y@  VGA-PUTC ;
 
+\ List box: + and - on its top and bottom
+\ rows, | at both ends of the rows between.
+VARIABLE RLB-E
+VARIABLE RLB-F
+VARIABLE RLB-Y
+: RLB-ROW ( end fill row -- )
+  RLB-Y !  RLB-F !  RLB-E !
+  RLB-E @ ATTR-NORM W-X@ RLB-Y @ VGA-PUTC
+  W-W@ 2 - DUP 0 > IF
+    0 DO
+      RLB-F @ ATTR-NORM
+      W-X@ I + 1 +  RLB-Y @  VGA-PUTC
+    LOOP
+  ELSE DROP THEN
+  RLB-E @ ATTR-NORM
+  W-X@ W-W@ + 1 -  RLB-Y @  VGA-PUTC ;
+
+: RENDER-LIST ( -- )
+  CH-PLUS CH-DASH W-Y@ RLB-ROW
+  W-H@ 2 - DUP 0 > IF
+    0 DO
+      CH-BAR CH-SPACE W-Y@ I + 1 + RLB-ROW
+    LOOP
+  ELSE DROP THEN
+  W-H@ 1 > IF
+    CH-PLUS CH-DASH W-Y@ W-H@ + 1 - RLB-ROW
+  THEN ;
+
 : RENDER-WIDGET ( idx -- )
   DUP RW-IDX !
   WT-ESIZE * WT-BASE + W-ADDR !
@@ -473,6 +518,8 @@ VARIABLE RD-X
     DROP RENDER-INPUT EXIT THEN
   DUP WT-DROPBOX = IF
     DROP RENDER-DROPBOX EXIT THEN
+  DUP WT-LIST = IF
+    DROP RENDER-LIST EXIT THEN
   DUP WT-CARD-BEGIN = IF
     DROP RENDER-CARD-BG EXIT THEN
   DUP WT-CARD-END = IF
