@@ -197,7 +197,7 @@ VARIABLE BC-W
   P-INT P-INT P-INT P-INT ADD-LIST ;
 
 \ ---- Process one line ------------------
-: PROCESS-LINE ( addr len -- )
+: PL-TAG ( addr len -- )
   P-INIT P-SKIP-SP
   P-LEN @ 0 <= IF EXIT THEN
   P-ADDR @ C@ P-BSLASH = IF
@@ -218,6 +218,17 @@ VARIABLE BC-W
     BUILD-CARD-ED EXIT THEN
   S" LIST:" P-MATCH IF
     BUILD-LIST EXIT THEN ;
+
+\ A trailing DISABLED clears the enabled
+\ bit of the widget the line built.
+VARIABLE PL-N
+: PROCESS-LINE ( addr len -- )
+  WT-COUNT @ PL-N !  PL-TAG
+  WT-COUNT @ PL-N @ > IF
+    S" DISABLED" P-MATCH IF
+      WT-COUNT @ 1- CLR-ENABLED
+    THEN
+  THEN ;
 
 \ ---- FORM-LOAD: parse blocks ----------
 
