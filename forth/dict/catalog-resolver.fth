@@ -340,7 +340,9 @@ VARIABLE VP-L
             THRU
         THEN
     ELSE
-        \ Not found -- skip
+        \ Not in the catalog: say so, as the
+        \ present path does.
+        2DUP TYPE SPACE ." not found" CR
     THEN
     DROP DROP
     LOADING-POP
