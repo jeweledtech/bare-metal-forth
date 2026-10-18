@@ -92,6 +92,7 @@ DECIMAL
 118 CONSTANT CH-DROP
 7 CONSTANT ATTR-NORM
 112 CONSTANT ATTR-INV
+8 CONSTANT ATTR-DIM
 
 \ ========================================
 \ Colon defs below. Only named constants
@@ -344,11 +345,17 @@ VARIABLE WL-LEN
 
 VARIABLE RW-IDX
 : RW-ATTR ( -- attr )
+  W-DW@ DW-ENABLED AND 0= IF
+    ATTR-DIM EXIT THEN
   RW-IDX @ WT-FOCUS @ = IF
     ATTR-INV
   ELSE
     ATTR-NORM
   THEN ;
+\ Labels and lists: dim, never inverse.
+: RW-DIM ( -- attr )
+  W-DW@ DW-ENABLED AND IF
+    ATTR-NORM ELSE ATTR-DIM THEN ;
 
 VARIABLE DA-C
 VARIABLE DA-R
@@ -366,7 +373,7 @@ VARIABLE DA-A
 
 : RENDER-LABEL ( -- )
   W-LOFF@ W-LLEN@ POOL-STR
-  W-X@  W-Y@  ATTR-NORM  DRAW-AT ;
+  W-X@  W-Y@  RW-DIM  DRAW-AT ;
 
 VARIABLE RB-X
 : RENDER-BUTTON ( -- )
@@ -423,21 +430,21 @@ VARIABLE RI-VL
 VARIABLE RD-X
 : RENDER-DROPBOX ( -- )
   W-X@ RD-X !
-  CH-LBRACK ATTR-NORM
+  CH-LBRACK RW-ATTR
   RD-X @  W-Y@  VGA-PUTC
   W-LOFF@ W-LLEN@ POOL-STR
   RD-X @ 1 +  W-Y@
-  ATTR-NORM  DRAW-AT
+  RW-ATTR  DRAW-AT
   W-W@ 2 - W-LLEN@ - DUP 0 > IF
     0 DO
-      CH-SPACE ATTR-NORM
+      CH-SPACE RW-ATTR
       RD-X @ W-LLEN@ + 1 + I +
       W-Y@  VGA-PUTC
     LOOP
   ELSE DROP THEN
-  CH-DROP ATTR-NORM
+  CH-DROP RW-ATTR
   RD-X @ W-W@ + 2 -  W-Y@  VGA-PUTC
-  CH-RBRACK ATTR-NORM
+  CH-RBRACK RW-ATTR
   RD-X @ W-W@ + 1 -  W-Y@  VGA-PUTC ;
 
 : RENDER-CARD-BG ( -- )
@@ -482,14 +489,14 @@ VARIABLE RLB-F
 VARIABLE RLB-Y
 : RLB-ROW ( end fill row -- )
   RLB-Y !  RLB-F !  RLB-E !
-  RLB-E @ ATTR-NORM W-X@ RLB-Y @ VGA-PUTC
+  RLB-E @ RW-DIM W-X@ RLB-Y @ VGA-PUTC
   W-W@ 2 - DUP 0 > IF
     0 DO
-      RLB-F @ ATTR-NORM
+      RLB-F @ RW-DIM
       W-X@ I + 1 +  RLB-Y @  VGA-PUTC
     LOOP
   ELSE DROP THEN
-  RLB-E @ ATTR-NORM
+  RLB-E @ RW-DIM
   W-X@ W-W@ + 1 -  RLB-Y @  VGA-PUTC ;
 
 : RENDER-LIST ( -- )
