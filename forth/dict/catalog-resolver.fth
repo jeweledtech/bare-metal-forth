@@ -705,10 +705,16 @@ ALSO CATALOG-RESOLVER
     \ block load the loading stack must stay:
     \ an abort rolls the outer load back too.
     BLK @ 0= IF LOADING-RESET THEN
-    LOADING-DEPTH @ 0= IF
+    \ A top-level load gives the caller back
+    \ its search order, depth and CURRENT:
+    \ the file's own vocabulary word replaced
+    \ the top. The flag rides the return
+    \ stack, so a nested load cannot clear it.
+    LOADING-DEPTH @ 0= DUP >R IF
         28020 AB-SO 28 CMOVE
     THEN
     LOAD-VOCAB-INNER
+    R> IF AB-SO 28020 28 CMOVE THEN
 ;
 
 \ Recompile an edited vocabulary in place

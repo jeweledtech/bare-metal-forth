@@ -685,6 +685,13 @@ test-log-send: $(COMBINED)
 	timeout --foreground $(T_LOG_SEND) python3 $(PRIVATE_REPO)/tests/test_log_send.py \
 		$$(($(TEST_PORT_BASE)+101)) $$(($(TEST_PORT_BASE)+102)) $$(($(TEST_PORT_BASE)+103))
 
+T_LOAD_VOCAB ?= 120
+test-load-vocab: $(COMBINED)
+	@PIDF=$(BUILD)/load-vocab.d/qemu.pid; $(QEMU_KILL); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-load-vocab --base $(TEST_PORT_BASE); \
+	echo "Running LOAD-VOCAB search-order and miss gates..."; \
+	timeout --foreground $(T_LOAD_VOCAB) python3 tests/test_load_vocab.py $$(($(TEST_PORT_BASE)+106))
+
 T_DLG2FORM ?= 200
 test-dlg2form: $(COMBINED)
 	@for f in $(PRIVATE_REPO)/tools/dlg2form.py \
@@ -1353,7 +1360,7 @@ test-meta: $(COMBINED)
 #     its output as evidence, and it never gates a build.  If it must ever
 #     gate something, the gate goes on a deterministic artefact derived from
 #     it and pinned -- the treatment the Ghidra oracle already has.
-test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-log-send test-dlg2form test-vbr test-grub-cfg test-uefi-boot test-uefi-netboot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-mirror test-interp-abort test-pad-move test-hal test-hal-net test-hal-match test-hal-match-hp test-network test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
+test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-log-send test-dlg2form test-load-vocab test-vbr test-grub-cfg test-uefi-boot test-uefi-netboot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-mirror test-interp-abort test-pad-move test-hal test-hal-net test-hal-match test-hal-match-hp test-network test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)
@@ -1438,4 +1445,4 @@ grub-net: $(COMBINED) tools/pxe/grub.cfg
 pxe-push-grub: grub-net
 	@bash tools/pxe/push-grub.sh
 
-.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined usb-image check-coverage desk-hashes check-kernel-size test test-blk-evict test-mirror test-interp-abort test-pad-move test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-log-send test-dlg2form pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-grub-cfg test-g6 test-uefi-netboot test-hal test-hal-net test-hal-match test-hal-match-hp
+.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined usb-image check-coverage desk-hashes check-kernel-size test test-blk-evict test-mirror test-interp-abort test-pad-move test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-log-send test-dlg2form test-load-vocab pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-grub-cfg test-g6 test-uefi-netboot test-hal test-hal-net test-hal-match test-hal-match-hp
