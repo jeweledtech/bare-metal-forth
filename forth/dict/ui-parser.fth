@@ -220,7 +220,11 @@ VARIABLE BC-W
     BUILD-LIST EXIT THEN ;
 
 \ A trailing DISABLED clears the enabled
-\ bit of the widget the line built.
+\ bit of the widget the line built. Then
+\ DIALOG's DL-HOOK runs, looked up by name
+\ each line: nothing is stored, so a
+\ reloaded or freed DIALOG never leaves a
+\ stale vector (drop-down ITEM: lines).
 VARIABLE PL-N
 : PROCESS-LINE ( addr len -- )
   WT-COUNT @ PL-N !  PL-TAG
@@ -228,7 +232,9 @@ VARIABLE PL-N
     S" DISABLED" P-MATCH IF
       WT-COUNT @ 1- CLR-ENABLED
     THEN
-  THEN ;
+  THEN
+  S" DL-HOOK" S" DIALOG" VOC-WORD
+  ?DUP IF EXECUTE THEN ;
 
 \ ---- FORM-LOAD: parse blocks ----------
 
