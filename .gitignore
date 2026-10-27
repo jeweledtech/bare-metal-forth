@@ -61,6 +61,7 @@ forth/dict/port-monitor-form.fth
 # dlg2form output (private TASK_DLG2FORM: generated from a Windows binary)
 forth/dict/iyuv-about-form.fth
 forth/dict/mfc-keyboard-form.fth
+forth/dict/input-keyseq-form.fth
 # Private test fixture (TASK_DLG2FORM_ITEMS), copied here to build
 forth/dict/items-test-form.fth
 
