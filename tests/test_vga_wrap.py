@@ -25,9 +25,10 @@ PF = os.path.join(OUT, 'qemu.pid')
 IDE = os.path.join(OUT, 'combined-ide.img')
 SEQ = ''.join(chr(65 + i % 7) for i in range(3000))    # A-G: period 7, so an overwrite shows
 BLANK = ' ' * 80
-# S1: sha256 of boot 1's serial bytes under the base kernel (the red run),
-# None until the red has recorded it.
-SERIAL_BASE = None
+# S1: sha256 of boot 1's serial bytes under the unmodified base kernel
+# (combined.img 60ddb274, the red run after 5653442; 709 bytes), pinned
+# before any print_char change.
+SERIAL_BASE = '9e2ca8f83b778799c7b85d1609eb747032d1b412ced60a98ab01b4f09806fc6c'
 
 PASS = FAIL = 0
 
