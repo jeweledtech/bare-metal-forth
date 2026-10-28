@@ -694,6 +694,16 @@ test-stack-floor: $(COMBINED)
 	echo "Running data-stack floor (Bug #35) gates..."; \
 	timeout --foreground $(T_STACK_FLOOR) python3 tests/test_stack_floor.py $$(($(TEST_PORT_BASE)+108))
 
+# The console wraps at column 80 onto the next row (private TASK_VGA_WRAP):
+# the screen read through the monitor, serial compared byte for byte.
+T_VGA_WRAP ?= 150
+test-vga-wrap: $(COMBINED)
+	@PIDF=$(BUILD)/vga-wrap.d/qemu.pid; $(QEMU_KILL); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-vga-wrap --base $(TEST_PORT_BASE); \
+	echo "Running VGA column-80 wrap gates..."; \
+	timeout --foreground $(T_VGA_WRAP) python3 tests/test_vga_wrap.py \
+		$$(($(TEST_PORT_BASE)+109)) $$(($(TEST_PORT_BASE)+110))
+
 T_LOAD_VOCAB ?= 120
 test-load-vocab: $(COMBINED)
 	@PIDF=$(BUILD)/load-vocab.d/qemu.pid; $(QEMU_KILL); \
@@ -1386,7 +1396,7 @@ test-meta: $(COMBINED)
 #     its output as evidence, and it never gates a build.  If it must ever
 #     gate something, the gate goes on a deterministic artefact derived from
 #     it and pinned -- the treatment the Ghidra oracle already has.
-test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-log-send test-dlg2form test-rtl8168-cksum test-stack-floor test-load-vocab test-vbr test-grub-cfg test-uefi-boot test-uefi-netboot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-mirror test-interp-abort test-pad-move test-hal test-hal-net test-hal-match test-hal-match-hp test-network test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
+test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-log-send test-dlg2form test-rtl8168-cksum test-stack-floor test-vga-wrap test-load-vocab test-vbr test-grub-cfg test-uefi-boot test-uefi-netboot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-mirror test-interp-abort test-pad-move test-hal test-hal-net test-hal-match test-hal-match-hp test-network test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)
@@ -1471,4 +1481,4 @@ grub-net: $(COMBINED) tools/pxe/grub.cfg
 pxe-push-grub: grub-net
 	@bash tools/pxe/push-grub.sh
 
-.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined usb-image check-coverage desk-hashes check-kernel-size test test-blk-evict test-mirror test-interp-abort test-pad-move test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-log-send test-dlg2form test-rtl8168-cksum test-stack-floor test-load-vocab pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-grub-cfg test-g6 test-uefi-netboot test-hal test-hal-net test-hal-match test-hal-match-hp
+.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined usb-image check-coverage desk-hashes check-kernel-size test test-blk-evict test-mirror test-interp-abort test-pad-move test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-log-send test-dlg2form test-rtl8168-cksum test-stack-floor test-vga-wrap test-load-vocab pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-grub-cfg test-g6 test-uefi-netboot test-hal test-hal-net test-hal-match test-hal-match-hp
