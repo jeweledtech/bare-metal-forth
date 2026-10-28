@@ -2148,6 +2148,11 @@ DEFCODE "FIND", FIND, 0     ; ( c-addr -- c-addr 0 | xt 1 | xt -1 )
 ; Each invocation handles exactly ONE word or number, then returns
 ; to the threaded code loop via NEXT. This keeps ESI/ESP/EBP clean.
 DEFCODE "INTERPRET", INTERPRET, 0
+    ; Stack floor (Bug #35): the token before this one popped past the
+    ; data stack's top. Checked once per token, here, because every
+    ; token's word has finished by the time INTERPRET runs again.
+    cmp esp, DATA_STACK_TOP
+    ja stack_underflow_
     ; Check if we need to read a new line
     cmp dword [VAR_TOIN], 0
     jne .have_input
@@ -6617,6 +6622,18 @@ print_parsed:
     NEXT
 
 ; ----------------------------------------------------------------------------
+; stack_underflow_ - INTERPRET found ESP above DATA_STACK_TOP: a word popped
+; an empty stack (Bug #35). Says so and aborts as an undefined name does:
+; both stacks and the input emptied, a half-made definition removed,
+; ABORT-HOOK run. Before this, SP stayed above the top, DEPTH read ~2^30
+; and a DEPTH-driven loop walked SP up into memory until a warm reset.
+; ----------------------------------------------------------------------------
+stack_underflow_:
+    mov esi, msg_underflow
+    call print_string
+    jmp abort_common
+
+; ----------------------------------------------------------------------------
 ; abort_undefined - an undefined name ends the input, as Forth-83's ABORT.
 ; Reached by jmp from the four not-found sites: INTERPRET, ' (TICK), SEE,
 ; USING; the name is in word_buffer. Prints "<name> ? ", and from the boot
@@ -6998,6 +7015,7 @@ msg_welcome:    db 'Bare-Metal Forth v0.1 - Ship Builders System', 13, 10
                 db 'Type WORDS to see available commands', 13, 10, 0
 msg_stack:      db '<', 0
 msg_undefined:  db ' ? ', 13, 10, 0
+msg_underflow:  db 13, 10, 'STACK UNDERFLOW', 13, 10, 0
 msg_unbound:    db ': HAL vector not bound', 13, 10, 0
 msg_embed_aborted: db 'EMBED ABORTED at ', 0
 msg_embed_tail: db ': later embedded vocabularies not loaded', 13, 10, 0
