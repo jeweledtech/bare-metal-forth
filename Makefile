@@ -707,6 +707,23 @@ test-dlg2form: $(COMBINED)
 	timeout --foreground $(T_DLG2FORM) python3 $(PRIVATE_REPO)/tests/test_dlg2form.py \
 		$$(($(TEST_PORT_BASE)+104)) $$(($(TEST_PORT_BASE)+105))
 
+# RTL8168's IP-CKSUM against RFC 1071 (private TASK_RTL8168_CKSUM): three
+# 20-byte vectors typed into the guest, word level (QEMU has no RTL8168).
+T_RTL8168_CKSUM ?= 120
+test-rtl8168-cksum: $(COMBINED)
+	@for f in forth/dict/rtl8168.fth \
+		$(PRIVATE_REPO)/tests/test_rtl8168_cksum.py; do \
+		if [ ! -f $$f ]; then \
+			echo "SKIPPED: test-rtl8168-cksum: private file absent ($$f)"; \
+			exit 0; \
+		fi; \
+	done; \
+	PIDF=$(BUILD)/rtl8168-cksum.d/qemu.pid; $(QEMU_KILL); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-rtl8168-cksum --base $(TEST_PORT_BASE); \
+	echo "Running RTL8168 IP-CKSUM (RFC 1071) gates..."; \
+	timeout --foreground $(T_RTL8168_CKSUM) python3 $(PRIVATE_REPO)/tests/test_rtl8168_cksum.py \
+		$$(($(TEST_PORT_BASE)+107))
+
 test-log-validation: $(COMBINED)
 	@for f in forth/dict/log-harness.fth tests/test_log_validation.py; do \
 		if [ ! -f $$f ]; then \
@@ -1360,7 +1377,7 @@ test-meta: $(COMBINED)
 #     its output as evidence, and it never gates a build.  If it must ever
 #     gate something, the gate goes on a deterministic artefact derived from
 #     it and pinned -- the treatment the Ghidra oracle already has.
-test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-log-send test-dlg2form test-load-vocab test-vbr test-grub-cfg test-uefi-boot test-uefi-netboot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-mirror test-interp-abort test-pad-move test-hal test-hal-net test-hal-match test-hal-match-hp test-network test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
+test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-log-send test-dlg2form test-rtl8168-cksum test-load-vocab test-vbr test-grub-cfg test-uefi-boot test-uefi-netboot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-mirror test-interp-abort test-pad-move test-hal test-hal-net test-hal-match test-hal-match-hp test-network test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline check-sync
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)
@@ -1445,4 +1462,4 @@ grub-net: $(COMBINED) tools/pxe/grub.cfg
 pxe-push-grub: grub-net
 	@bash tools/pxe/push-grub.sh
 
-.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined usb-image check-coverage desk-hashes check-kernel-size test test-blk-evict test-mirror test-interp-abort test-pad-move test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-log-send test-dlg2form test-load-vocab pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-grub-cfg test-g6 test-uefi-netboot test-hal test-hal-net test-hal-match test-hal-match-hp
+.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined usb-image check-coverage desk-hashes check-kernel-size test test-blk-evict test-mirror test-interp-abort test-pad-move test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-log-send test-dlg2form test-rtl8168-cksum test-load-vocab pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-grub-cfg test-g6 test-uefi-netboot test-hal test-hal-net test-hal-match test-hal-match-hp
