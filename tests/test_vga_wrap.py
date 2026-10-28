@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """VGA console wrap at column 80 (private TASK_VGA_WRAP). Checks W1-W5,
-M1-M3 and S1 (serial identity), over two boots.
+M1-M3, M1s and S1 (serial identity), over two boots.
 
   python3 tests/test_vga_wrap.py <serial-port> <monitor-port>     (cwd: tree root)
 
@@ -215,8 +215,16 @@ try:
     body = out.split('\r\n', 1)[1] if '\r\n' in out else out
     before = body.split('-- more --')[0]
     n = len(re.findall(r'[A-G]', before))
-    check('M1 2400 letters, no CR: "-- more --" after 1840 (23 wrapped rows)',
-          '-- more --' in body and n == 1840, f'more {"-- more --" in body}, letters before {n}; raw {out!r}')
+    scr = screen()                          # read while the pause holds
+    shown = sum(len(re.findall(r'[A-G]', r)) for r in scr[:23]) if scr else -1
+    check('M1 2400 letters, no CR: at the pause, rows 0-22 hold 1840 letters (23 wrapped rows), row 23 "-- more --"',
+          bool(scr) and shown == 1840 and scr[23].startswith('-- more --'),
+          f'letters on rows 0-22 {shown}; {rows(scr, 22, 23)}; raw {out!r}')
+    # M1s, added after the first green run (task doc, miss 2): print_char
+    # mirrors to serial before its VGA path wraps, and the wrap is what
+    # pauses, so serial carries the 1841st letter before the pause.
+    check('M1s serial: 1841 letters before "-- more --" (mirror first, then the 23rd wrap pauses)',
+          '-- more --' in body and n == 1841, f'more {"-- more --" in body}, letters before {n}')
     rest = ''
     if '-- more --' in body:                # the release key only when there is a pause to take it
         rest = raw(s, b'x', 1.5)
