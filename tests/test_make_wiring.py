@@ -187,8 +187,68 @@ SCRIPT_EXEMPT = {
 }
 # SCRIPT_GRANDFATHERED: unreached when this check landed; deliberateness
 # unverified, review owed (wire, exempt with a verified reason, delete).
+_SCRIPT_UNREVIEWED = (
+    'reached by no recipe when the script check landed (2026-10-28); not'
+    ' run by make test; review owed: wire it, exempt it with a verified'
+    ' reason, or delete it')
 SCRIPT_GRANDFATHERED = {
+    'tests/eviction_flush_test.py': _SCRIPT_UNREVIEWED,
+    'tests/iv_roundtrip_test.py': _SCRIPT_UNREVIEWED,
+    'tests/probe_crc32_kat.py': _SCRIPT_UNREVIEWED,
+    'tests/probe_crc32_literals.py': _SCRIPT_UNREVIEWED,
+    'tests/test-catalog-resolver.sh': _SCRIPT_UNREVIEWED,
+    'tests/test_ahci_blk_reader.py': _SCRIPT_UNREVIEWED,
+    'tests/test_ahci_blk_writer.py': _SCRIPT_UNREVIEWED,
+    'tests/test_asm_vocab.py': _SCRIPT_UNREVIEWED,
+    'tests/test_blk_writer_vector.py': _SCRIPT_UNREVIEWED,
+    'tests/test_catalog_registry.py': _SCRIPT_UNREVIEWED,
+    'tests/test_dump.py': _SCRIPT_UNREVIEWED,
+    'tests/test_dword_attrs.py': _SCRIPT_UNREVIEWED,
+    'tests/test_fe_strip_all_cr.py': _SCRIPT_UNREVIEWED,
+    'tests/test_interrupts.py': _SCRIPT_UNREVIEWED,
+    'tests/test_ne2000.py': _SCRIPT_UNREVIEWED,
+    'tests/test_pci_enum.py': _SCRIPT_UNREVIEWED,
+    'tests/test_persist_quick.py': _SCRIPT_UNREVIEWED,
+    'tests/test_pit_timer.py': _SCRIPT_UNREVIEWED,
+    'tests/test_ps2_keyboard.py': _SCRIPT_UNREVIEWED,
+    'tests/test_ps2_mouse.py': _SCRIPT_UNREVIEWED,
+    'tests/test_shutdown.py': _SCRIPT_UNREVIEWED,
+    'tests/test_vga_graphics.py': _SCRIPT_UNREVIEWED,
+    'tests/test_vocab_dedup.py': _SCRIPT_UNREVIEWED,
 }
+# The grandfather list may only shrink (owner 2026-10-28), pinned by
+# name: every entry must be in this frozen set of the 23 found when the
+# check landed.  Removing a name is allowed; adding or swapping one is
+# not -- a new script is wired, or exempted with a verified reason.  The
+# set is hashed too (sorted names, newline after each), so widening it
+# means changing the pinned sha256, which the task doc records.
+SCRIPT_GRANDFATHERED_FROZEN = frozenset({
+    'tests/eviction_flush_test.py',
+    'tests/iv_roundtrip_test.py',
+    'tests/probe_crc32_kat.py',
+    'tests/probe_crc32_literals.py',
+    'tests/test-catalog-resolver.sh',
+    'tests/test_ahci_blk_reader.py',
+    'tests/test_ahci_blk_writer.py',
+    'tests/test_asm_vocab.py',
+    'tests/test_blk_writer_vector.py',
+    'tests/test_catalog_registry.py',
+    'tests/test_dump.py',
+    'tests/test_dword_attrs.py',
+    'tests/test_fe_strip_all_cr.py',
+    'tests/test_interrupts.py',
+    'tests/test_ne2000.py',
+    'tests/test_pci_enum.py',
+    'tests/test_persist_quick.py',
+    'tests/test_pit_timer.py',
+    'tests/test_ps2_keyboard.py',
+    'tests/test_ps2_mouse.py',
+    'tests/test_shutdown.py',
+    'tests/test_vga_graphics.py',
+    'tests/test_vocab_dedup.py',
+})
+SCRIPT_GRANDFATHERED_FROZEN_SHA256 = (
+    '7b6fc13e0e6bfd95cd0713670984021c9127b575e481a109f4c1a3f1ccefe158')
 SCRIPT_ALL = {**SCRIPT_EXEMPT, **SCRIPT_GRANDFATHERED}
 _ls = subprocess.run(['git', '-C', ROOT_DIR, 'ls-files', 'tests'],
                      capture_output=True, text=True)
@@ -215,7 +275,10 @@ reached = {f for f in scripts
            if re.search(_token(os.path.basename(f)), _mk_code)
            or re.search(_token(os.path.splitext(os.path.basename(f))[0]),
                         _mk_code)}
-_todo = sorted(reached)
+# This file never reaches anything: its quoted names are exemption
+# entries, not runs (miss 1: the grandfather table reached all 23).
+_SELF = 'tests/test_make_wiring.py'
+_todo = sorted(reached - {_SELF})
 while _todo:
     with open(os.path.join(ROOT_DIR, _todo.pop()), errors='replace') as f:
         _body = _code(f.read())
@@ -230,7 +293,8 @@ while _todo:
                 or re.search(r'[\'"][^\'"\n]*\b' + re.escape(b) + r'[\'"]',
                              _body)):
             reached.add(s)
-            _todo.append(s)
+            if s != _SELF:
+                _todo.append(s)
 _unreached = [s for s in scripts if s not in reached]
 print(f'test-make-wiring scripts: {len(scripts)} tracked, {len(reached)} '
       f'reached, {len(SCRIPT_EXEMPT)} exempt, {len(SCRIPT_GRANDFATHERED)} '
@@ -247,6 +311,15 @@ for s in scripts:
         check(f'{s} reached by a recipe', False,
               'no recipe runs it -- wire it, or exempt it WITH a true '
               'reason')
+_frozen_sha = hashlib.sha256(''.join(
+    n + '\n' for n in sorted(SCRIPT_GRANDFATHERED_FROZEN)).encode()).hexdigest()
+check('script grandfather frozen set is the pinned one',
+      _frozen_sha == SCRIPT_GRANDFATHERED_FROZEN_SHA256,
+      f'sha256 {_frozen_sha} -- the frozen set changed; it may not grow')
+_new = sorted(set(SCRIPT_GRANDFATHERED) - SCRIPT_GRANDFATHERED_FROZEN)
+check('every grandfathered script is in the frozen set', not _new,
+      f'not frozen: {_new} -- the list only shrinks; wire the script or '
+      'exempt it with a verified reason')
 for e in sorted(SCRIPT_ALL):
     if e not in scripts:
         check(f'script entry {e} names a tracked file', False,
