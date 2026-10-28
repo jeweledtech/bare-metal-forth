@@ -20,6 +20,12 @@ exist) is stale and fails.  Entries marked "grandfathered" say so
 explicitly: skip must not read like a pass (gate discipline,
 2026-07-28).
 
+Scripts too (2026-10-28, TASK_TEST_WIRING_SCRIPTS): a target can only
+be missing from `test:` if it exists.  tests/test_reload_vocab.py never
+had one, so neither half above could see it.  Every file tracked
+directly under tests/ must be reached by a recipe, or carry an
+exemption with a reason, in the same classes.
+
 This gate is subject to its own rule: test-make-wiring must appear
 in `test:`.  A gate absent from the aggregate is the exact defect
 it polices.
@@ -42,6 +48,7 @@ import tempfile
 
 MAKEFILE = os.path.normpath(os.path.join(
     os.path.dirname(os.path.abspath(__file__)), '..', 'Makefile'))
+ROOT_DIR = os.path.dirname(MAKEFILE)
 
 # Three classes, three different claims -- kept apart so the debt
 # stays countable instead of becoming prose inside a reason string
@@ -164,6 +171,91 @@ for e in sorted(ALL_EXEMPT):
               'that now works)')
     else:
         check(f'{cls} entry {e} valid (exists, unwired)', True)
+
+print('\nScripts: every tracked tests/ file reached by a recipe')
+# The target checks above never see a script that no target names:
+# tests/test_reload_vocab.py had no recipe from the day it landed, so
+# `make test` never ran it (TASK_TEST_WIRING_SCRIPTS, 2026-10-28).
+# Reached = (a) basename or stem a whole token in a non-comment Makefile
+# line (stems: VOCAB_TESTS_ALL and GUI_TESTS_ALL name scripts without
+# .py), or (b) imported, or named in a quoted string, in a non-comment
+# line of a file already reached; transitive.  Comments, docstring prose
+# and documents do not reach.  Static: named by a recipe, not passing.
+#
+# SCRIPT_EXEMPT: verified deliberate, as EXEMPT above.
+SCRIPT_EXEMPT = {
+}
+# SCRIPT_GRANDFATHERED: unreached when this check landed; deliberateness
+# unverified, review owed (wire, exempt with a verified reason, delete).
+SCRIPT_GRANDFATHERED = {
+}
+SCRIPT_ALL = {**SCRIPT_EXEMPT, **SCRIPT_GRANDFATHERED}
+_ls = subprocess.run(['git', '-C', ROOT_DIR, 'ls-files', 'tests'],
+                     capture_output=True, text=True)
+if _ls.returncode != 0:
+    check('git ls-files lists the tracked tests/ files', False,
+          f'rc={_ls.returncode} {_ls.stderr.strip()!r} -- a skip must '
+          'not read like a pass')
+    scripts = []
+else:
+    scripts = sorted(f for f in _ls.stdout.split() if f.count('/') == 1)
+
+
+def _token(x):
+    return r'(?<![\w.-])' + re.escape(x) + r'(?![\w-])'
+
+
+def _code(text):
+    return '\n'.join(l for l in text.split('\n')
+                     if not l.lstrip().startswith('#'))
+
+
+_mk_code = _code(_folded)
+reached = {f for f in scripts
+           if re.search(_token(os.path.basename(f)), _mk_code)
+           or re.search(_token(os.path.splitext(os.path.basename(f))[0]),
+                        _mk_code)}
+_todo = sorted(reached)
+while _todo:
+    with open(os.path.join(ROOT_DIR, _todo.pop()), errors='replace') as f:
+        _body = _code(f.read())
+    for s in scripts:
+        if s in reached:
+            continue
+        b = os.path.basename(s)
+        st = os.path.splitext(b)[0]
+        if (re.search(r'^\s*(import\s+[\w\s,]*\b' + re.escape(st)
+                      + r'\b|from\s+' + re.escape(st) + r'\s+import)',
+                      _body, re.M)
+                or re.search(r'[\'"][^\'"\n]*\b' + re.escape(b) + r'[\'"]',
+                             _body)):
+            reached.add(s)
+            _todo.append(s)
+_unreached = [s for s in scripts if s not in reached]
+print(f'test-make-wiring scripts: {len(scripts)} tracked, {len(reached)} '
+      f'reached, {len(SCRIPT_EXEMPT)} exempt, {len(SCRIPT_GRANDFATHERED)} '
+      f'grandfathered (review owed), '
+      f'{len([s for s in _unreached if s not in SCRIPT_ALL])} unreached')
+for s in scripts:
+    if s in reached:
+        check(f'{s} reached by a recipe', True)
+    elif s in SCRIPT_ALL:
+        cls = 'exempt' if s in SCRIPT_EXEMPT else 'grandfathered'
+        check(f'{s} {cls} with reason', bool(SCRIPT_ALL[s].strip()),
+              'empty reason -- an orphan with paperwork')
+    else:
+        check(f'{s} reached by a recipe', False,
+              'no recipe runs it -- wire it, or exempt it WITH a true '
+              'reason')
+for e in sorted(SCRIPT_ALL):
+    if e not in scripts:
+        check(f'script entry {e} names a tracked file', False,
+              'not tracked -- delete the entry')
+    elif e in reached:
+        check(f'script entry {e} still unreached', False,
+              'a recipe reaches it now -- the entry is stale, delete it')
+    else:
+        check(f'script entry {e} valid (tracked, unreached)', True)
 
 print('\nSelf-application')
 check('this gate (test-make-wiring) is itself in test:',
