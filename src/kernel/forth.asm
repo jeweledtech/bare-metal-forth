@@ -1927,6 +1927,8 @@ DEFCODE "PAGE", PAGE, 0     ; ( -- ) Clear screen, cursor to 0,0
     call fb_redraw
     mov dword [cursor_x], 0
     mov dword [cursor_y], 0
+    mov dword [ser_col], 0
+    mov dword [wrap_rows], 0
     ; Set hardware cursor to position 0
     mov dx, 0x3D4
     mov al, 0x0F
@@ -5112,6 +5114,8 @@ init_screen:
     ; Reset cursor
     mov dword [cursor_x], 0
     mov dword [cursor_y], 0
+    mov dword [ser_col], 0
+    mov dword [wrap_rows], 0
     
     pop edi
     pop ecx
@@ -5242,10 +5246,106 @@ net_flush:
     ret
 
 ; ----------------------------------------------------------------------------
-; print_char - Print character in AL to both VGA and serial port
+; print_char - Print character in AL to both VGA and serial port.  Serial
+; gets every byte as before; VGA wraps at column 80 onto the next row.
 ; ----------------------------------------------------------------------------
 print_char:
-    call serial_putchar     ; Mirror to serial port
+    call mirror_char        ; Serial and net console: every byte, unchanged
+
+    push ebx
+    push ecx
+    push edx
+    push edi
+
+    cmp al, 13              ; Carriage return
+    je .cr
+    cmp al, 10              ; Line feed
+    je .lf
+    cmp al, 8               ; Backspace
+    je .bs
+
+    ; Normal character.  Deferred wrap: a full row (cursor_x = 80) moves
+    ; to the next row only when the 81st character comes, so 80 characters
+    ; then CR LF, and the bottom-right cell, behave as before.  The wrap is
+    ; VGA only (serial has no columns), counts for MORE, and marks the new
+    ; row as continuing the one above (wrap_rows) for backspace.
+    cmp dword [cursor_x], VGA_WIDTH
+    jl .in_row
+    mov dword [cursor_x], 0
+    push eax
+    call vga_newline
+    pop eax
+    mov ecx, [cursor_y]
+    bts dword [wrap_rows], ecx
+.in_row:
+    call vga_put
+    inc dword [cursor_x]
+    inc dword [ser_col]     ; the column as it was before the deferred wrap
+    cmp dword [ser_col], VGA_WIDTH
+    jl .done
+    mov dword [ser_col], 0
+    jmp .done
+
+.cr:
+    mov dword [cursor_x], 0
+    mov dword [ser_col], 0
+    jmp .done
+
+.lf:
+    cmp dword [cursor_x], VGA_WIDTH     ; a pending wrap ends with this LF
+    jl .lf_row
+    mov dword [cursor_x], 0
+.lf_row:
+    push eax
+    call vga_newline
+    pop eax
+    mov ecx, [cursor_y]
+    btr dword [wrap_rows], ecx
+    jmp .done
+
+.bs:
+    ; Serial: a space follows the backspace when the old column (ser_col)
+    ; was not 0, exactly as before this change.
+    cmp dword [ser_col], 0
+    je .bs_vga
+    dec dword [ser_col]
+    push eax
+    mov al, ' '
+    call mirror_char
+    pop eax
+.bs_vga:
+    ; VGA: erase the cell left of the cursor; at column 0 of a row that
+    ; continues the one above, that is column 79 of the row above.
+    cmp dword [cursor_x], 0
+    jne .bs_erase
+    mov ecx, [cursor_y]
+    test ecx, ecx
+    jz .done
+    btr dword [wrap_rows], ecx
+    jnc .done
+    dec dword [cursor_y]
+    mov dword [cursor_x], VGA_WIDTH
+.bs_erase:
+    dec dword [cursor_x]
+    push eax
+    mov al, ' '
+    call vga_put
+    pop eax
+
+.done:
+    pop edi
+    pop edx
+    pop ecx
+    pop ebx
+    ret
+
+; ----------------------------------------------------------------------------
+; mirror_char - AL to the serial port and, when on, the net console buffer
+; (flushed on LF or full).  print_char's first step; also its backspace's
+; space, which serial gets but the VGA path writes itself.
+; ----------------------------------------------------------------------------
+mirror_char:
+    call serial_putchar
 
     ; --- Net console: buffer char for UDP ---
     cmp byte [net_console_enabled], 0
@@ -5272,20 +5372,15 @@ print_char:
     call net_flush
     pop eax
 .no_net:
+    ret
 
-    push ebx
+; ----------------------------------------------------------------------------
+; vga_put - AL at (cursor_x, cursor_y), attribute VGA_ATTR; the cursor does
+; not move.  Mirrors the cell to the framebuffer when fb_on.  Clobbers AH.
+; ----------------------------------------------------------------------------
+vga_put:
     push ecx
-    push edx
     push edi
-
-    cmp al, 13              ; Carriage return
-    je .cr
-    cmp al, 10              ; Line feed
-    je .lf
-    cmp al, 8               ; Backspace
-    je .bs
-    
-    ; Normal character
     mov edi, [vga_base]
     mov ecx, [cursor_y]
     imul ecx, VGA_WIDTH * 2
@@ -5293,43 +5388,41 @@ print_char:
     mov ecx, [cursor_x]
     shl ecx, 1
     add edi, ecx
-
     mov ah, VGA_ATTR
     stosw
     cmp byte [fb_on], 0
-    je .fb_skip
+    je .ret
     push eax
     mov eax, [cursor_y]
     imul eax, VGA_WIDTH
     add eax, [cursor_x]
     call fb_cell
     pop eax
-.fb_skip:
-    
-    inc dword [cursor_x]
-    cmp dword [cursor_x], VGA_WIDTH
-    jl .done
-    
-.cr:
-    mov dword [cursor_x], 0
-    jmp .done
-    
-.lf:
+.ret:
+    pop edi
+    pop ecx
+    ret
+
+; ----------------------------------------------------------------------------
+; vga_newline - cursor_y to the next row, scrolling at the bottom (wrap_rows
+; scrolls with the rows); then MORE's row count and pause.  Clobbers EAX,
+; ECX.  Used by LF and by the deferred wrap.
+; ----------------------------------------------------------------------------
+vga_newline:
     inc dword [cursor_y]
     cmp dword [cursor_y], VGA_HEIGHT
-    jl .lf_more
-    ; Scroll screen
+    jl .more
     call scroll_screen
+    shr dword [wrap_rows], 1
     mov dword [cursor_y], VGA_HEIGHT - 1
-.lf_more:
-    ; MORE pagination: count lines and pause when full screen
+.more:
+    ; MORE pagination: count rows and pause when a screen is full
     cmp byte [more_enabled], 0
-    je .done
+    je .ret
     inc dword [more_lines]
     cmp dword [more_lines], 23
-    jl .done
+    jl .ret
     ; Pause: print "-- more --" and wait for keypress
-    push eax
     push esi
     mov esi, msg_more
     call print_string
@@ -5338,6 +5431,7 @@ print_char:
     mov al, 13
     call serial_putchar
     mov dword [cursor_x], 0
+    mov dword [ser_col], 0
     mov ecx, 12
 .more_clear:
     mov al, ' '
@@ -5349,24 +5443,10 @@ print_char:
     mov al, 13
     call serial_putchar
     mov dword [cursor_x], 0
+    mov dword [ser_col], 0
     pop esi
-    pop eax
     mov dword [more_lines], 0
-    jmp .done
-    
-.bs:
-    cmp dword [cursor_x], 0
-    je .done
-    dec dword [cursor_x]
-    mov al, ' '
-    call print_char
-    dec dword [cursor_x]
-    
-.done:
-    pop edi
-    pop edx
-    pop ecx
-    pop ebx
+.ret:
     ret
 
 ; ----------------------------------------------------------------------------
@@ -6990,6 +7070,8 @@ cold_start:
 
 cursor_x:       dd 0
 cursor_y:       dd 0
+ser_col:        dd 0     ; the column print_char kept before the deferred wrap (serial only)
+wrap_rows:      dd 0     ; bit y: row y continues row y-1 (a deferred wrap made it)
 vga_base:       dd VGA_TEXT             ; the text buffer: VGA, or FB_SHADOW on UEFI-4
 
 ; Ctrl+C break handler state
