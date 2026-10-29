@@ -537,14 +537,14 @@ def gate_c():
 # against its two authorities: forth.asm's dictionary for what the kernel
 # has, and Forth-83 itself for each word's word set (private
 # TASK_QUICKREF_FIX). The page listed 16 absent words as available and
-# called W@ and W! Forth-83 words. FORTH83.TXT lives in the private repo;
-# without it D4 is skipped, not counted.
+# called W@ and W! Forth-83 words. FORTH83.TXT is the standard's text,
+# copied unchanged (its notice forbids unmarked changes), so a copy that
+# is absent or differs from FORTH83_SHA fails D4.
 # ---------------------------------------------------------------------------
 QUICKREF = 'docs/forth83_quick_reference.html'
 KERNEL_ASM = 'src/kernel/forth.asm'
-FORTH83 = os.path.join(
-    os.environ.get('PRIVATE_REPO', os.path.join(ROOT, '..', 'forthos-vocabularies')),
-    'docs', 'evidence', 'two-over-2026-10-29', 'FORTH83.TXT')
+FORTH83 = 'docs/references/FORTH83.TXT'
+FORTH83_SHA = 'f51c38c81ef1461f57d5987db6f2a18f0bef0eca776b27fe17271acf9bc13629'
 # NASM quotes a name with " ' or `; names holding a " use ' (S" ." ABORT").
 DEF_NAME = re.compile(r'^\s*DEF(?:CODE|WORD|VAR|CONST)\s+(?:"([^"]*)"|\'([^\']*)\'|`([^`]*)`)', re.M)
 LAYER_LABELS = {'Nucleus', 'Device', 'Interpreter', 'Compiler', 'layer', 'none'}
@@ -626,10 +626,13 @@ def gate_d():
           f'absent, unmarked {len(unmarked)}: {unmarked}; marked, defined '
           f'{len(wrong)}: {wrong}')
 
-    if not os.path.exists(FORTH83):
-        print(f'  SKIPPED (not counted): D4 word sets: {FORTH83} absent')
+    p83 = os.path.join(ROOT, FORTH83)
+    have = hashlib.sha256(open(p83, 'rb').read()).hexdigest() if os.path.exists(p83) else None
+    if have != FORTH83_SHA:
+        check('D4 each word tagged with its Forth-83 word set (N = not in Forth-83)', False,
+              f'{FORTH83} absent' if have is None else f'{FORTH83} is not the original text: sha256 {have}')
     else:
-        sets = forth83_tiers(open(FORTH83, encoding='latin-1').read())
+        sets = forth83_tiers(open(p83, encoding='latin-1').read())
         bad = []
         for w in words:
             want = next((c for c, _ in TIER_NAMES if w in sets[c]), 'N')
