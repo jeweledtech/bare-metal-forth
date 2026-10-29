@@ -71,6 +71,16 @@
    }
   ]
  },
+ "test-console-band": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 115,
+    "source": "tests/test_console_band.py:64"
+   }
+  ]
+ },
  "test-cortexm": {
   "-": [
    {
@@ -109,13 +119,13 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 104,
-    "source": "$(PRIVATE_REPO)/tests/test_dlg2form.py:507"
+    "source": "$(PRIVATE_REPO)/tests/test_dlg2form.py:510"
    },
    {
     "form": "tcp:127.0.0.1:P",
     "kind": "monitor",
     "offset": 105,
-    "source": "$(PRIVATE_REPO)/tests/test_dlg2form.py:508"
+    "source": "$(PRIVATE_REPO)/tests/test_dlg2form.py:511"
    }
   ]
  },
@@ -125,7 +135,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 55,
-    "source": "Makefile:1332"
+    "source": "Makefile:1343"
    }
   ]
  },
@@ -465,7 +475,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 80,
-    "source": "Makefile:1397"
+    "source": "Makefile:1408"
    }
   ]
  },
