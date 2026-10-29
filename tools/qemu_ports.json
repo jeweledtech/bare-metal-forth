@@ -15,7 +15,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 75,
-    "source": "Makefile:1153"
+    "source": "Makefile:1163"
    }
   ]
  },
@@ -125,7 +125,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 55,
-    "source": "Makefile:1294"
+    "source": "Makefile:1304"
    }
   ]
  },
@@ -135,25 +135,25 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 84,
-    "source": "Makefile:1053"
+    "source": "Makefile:1063"
    },
    {
     "form": "tcp:127.0.0.1:P",
     "kind": "monitor",
     "offset": 85,
-    "source": "Makefile:1053"
+    "source": "Makefile:1063"
    },
    {
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 88,
-    "source": "Makefile:1038"
+    "source": "Makefile:1048"
    },
    {
     "form": "tcp:127.0.0.1:P",
     "kind": "monitor",
     "offset": 89,
-    "source": "Makefile:1038"
+    "source": "Makefile:1048"
    }
   ]
  },
@@ -163,7 +163,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 50,
-    "source": "Makefile:1110"
+    "source": "Makefile:1120"
    }
   ]
  },
@@ -279,7 +279,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 3,
-    "source": "Makefile:784"
+    "source": "Makefile:794"
    }
   ]
  },
@@ -289,7 +289,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 20,
-    "source": "Makefile:840"
+    "source": "Makefile:850"
    }
   ]
  },
@@ -465,7 +465,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 80,
-    "source": "Makefile:1359"
+    "source": "Makefile:1369"
    }
   ]
  },
@@ -517,7 +517,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 87,
-    "source": "Makefile:931"
+    "source": "Makefile:941"
    }
   ]
  },
@@ -551,6 +551,16 @@
    }
   ]
  },
+ "test-resolve-deps": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 112,
+    "source": "tests/test_resolve_deps.py:55"
+   }
+  ]
+ },
  "test-rtl8168-cksum": {
   "-": [
    {
@@ -577,7 +587,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 98,
-    "source": "Makefile:1070"
+    "source": "Makefile:1080"
    }
   ]
  },
@@ -587,7 +597,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 99,
-    "source": "Makefile:1083"
+    "source": "Makefile:1093"
    }
   ]
  },
@@ -779,13 +789,13 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "monitor",
     "offset": 93,
-    "source": "Makefile:913"
+    "source": "Makefile:923"
    },
    {
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 94,
-    "source": "Makefile:913"
+    "source": "Makefile:923"
    }
   ]
  }
