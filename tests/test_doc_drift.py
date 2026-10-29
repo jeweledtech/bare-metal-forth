@@ -37,6 +37,7 @@ Design rules, following the project's existing gate idiom:
 Run: python3 tests/test_doc_drift.py    (prints the standard Passed: n/n)
 """
 
+import hashlib
 import os
 import re
 import sys
@@ -531,6 +532,118 @@ def gate_c():
           found <= listed, f'tests only: {sorted(found - listed)}')
 
 
+# ---------------------------------------------------------------------------
+# Gate D -- the Forth-83 quick reference (docs/forth83_quick_reference.html)
+# against its two authorities: forth.asm's dictionary for what the kernel
+# has, and Forth-83 itself for each word's word set (private
+# TASK_QUICKREF_FIX). The page listed 16 absent words as available and
+# called W@ and W! Forth-83 words. FORTH83.TXT lives in the private repo;
+# without it D4 is skipped, not counted.
+# ---------------------------------------------------------------------------
+QUICKREF = 'docs/forth83_quick_reference.html'
+KERNEL_ASM = 'src/kernel/forth.asm'
+FORTH83 = os.path.join(
+    os.environ.get('PRIVATE_REPO', os.path.join(ROOT, '..', 'forthos-vocabularies')),
+    'docs', 'evidence', 'two-over-2026-10-29', 'FORTH83.TXT')
+# NASM quotes a name with " ' or `; names holding a " use ' (S" ." ABORT").
+DEF_NAME = re.compile(r'^\s*DEF(?:CODE|WORD|VAR|CONST)\s+(?:"([^"]*)"|\'([^\']*)\'|`([^`]*)`)', re.M)
+LAYER_LABELS = {'Nucleus', 'Device', 'Interpreter', 'Compiler', 'layer', 'none'}
+# Precedence: a word in two places takes the first (WORDS is App. B's,
+# not App. C's proposal).
+TIER_NAMES = [('R', 'Required, 12'), ('D', 'Double Number Extension, 13'),
+              ('A', 'Assembler Extension, 14'), ('S', 'System Extension, 15'),
+              ('C', 'Controlled Reference, 16'), ('U', 'Uncontrolled Reference, App. B'),
+              ('X', 'Experimental proposal, App. C')]
+
+
+def forth83_tiers(text):
+    """{code: set of names}, read from the standard's own sections: the
+    layer lists of 12.1-15.1, the glossary entries of 16, App. B, App. C."""
+    lines = text.split('\n')
+
+    def span(begin, end):
+        i = next(n for n, ln in enumerate(lines) if begin in ln and '....' not in ln)
+        j = next((n for n in range(i + 1, len(lines)) if end and end in lines[n]), len(lines))
+        return lines[i + 1:j]
+
+    def layers(begin, end):
+        names = set()
+        for ln in span(begin, end):
+            if ln.startswith(' ' * 11):
+                names |= {w for w in ln.split() if not w.isdigit() and w not in LAYER_LABELS}
+        return names
+
+    def glossary(begin, end):
+        names = set()
+        for ln in span(begin, end):
+            m = re.match(r'^      (\S+) {2,}\S', ln)
+            name = m.group(1) if m else ''
+            # not a section number, a page number or a wrapped prose line
+            if name and not re.match(r'^(\d+\.)+\d*$|^[A-E]\.$|^\d+$', name) \
+                    and not re.search('[a-z]', name):
+                names.add(name)
+        return names
+
+    return {
+        'R': layers('12.1 The Required Word Set Layers', '12.2 '),
+        'D': layers('13.1 The Double Number Extension Word Set Layers', '13.2 '),
+        'A': layers('14.1 The Assembler Extension Word Set Layers', '14.2 '),
+        'S': layers('15.1 The System Extension Word Set Layers', '15.2 '),
+        'C': glossary('16.  CONTROLLED REFERENCE WORDS', 'APPENDIX A.'),
+        'U': glossary('APPENDIX B.  UNCONTROLLED REFERENCE WORDS', 'APPENDIX C.'),
+        'X': glossary('APPENDIX C.  EXPERIMENTAL PROPOSALS', None),
+    }
+
+
+def gate_d():
+    print('Gate D: the Forth-83 quick reference')
+    for rel in (QUICKREF, KERNEL_ASM, FORTH83):
+        p = os.path.join(ROOT, rel)
+        h = hashlib.sha256(open(p, 'rb').read()).hexdigest() if os.path.exists(p) else 'ABSENT'
+        print(f'  input sha256 {h}  {rel}')
+    page = read(QUICKREF)
+    kernel = {''.join(m) for m in DEF_NAME.findall(read(KERNEL_ASM))}
+    cats = re.findall(r"\{ name:'([^']+)', words:\[(.*?)\] \}", page)
+    pills = [w for _, ws in cats for w in re.findall(r"'([^']*)'", ws)]
+    m_missing = re.search(r'const MISSING = \[(.*?)\];', page)
+    m_tier = re.search(r'const TIER = \{(.*?)\};', page, re.S)
+    missing = set(re.findall(r"'([^']*)'", m_missing.group(1))) if m_missing else set()
+    tier = dict(re.findall(r"'([^']*)'\s*:\s*'([A-Z])'", m_tier.group(1))) if m_tier else {}
+    print(f'  {len(cats)} categories, {len(pills)} pills, kernel {len(kernel)} names')
+    check('D1 the page carries CATS, MISSING and TIER',
+          bool(pills) and m_missing is not None and m_tier is not None,
+          f'CATS pills {len(pills)}, MISSING {m_missing is not None}, '
+          f'TIER {m_tier is not None}')
+
+    spaced = [w for w in pills if w != w.strip() or len(w.split()) != 1]
+    check('D2 every pill is one word', not spaced, f'{len(spaced)}: {spaced}')
+
+    words = [w.strip() for w in pills]
+    absent = {w for w in words if w not in kernel}
+    unmarked, wrong = sorted(absent - missing), sorted(missing - absent)
+    check('D3 MISSING is exactly the words forth.asm does not define',
+          not unmarked and not wrong,
+          f'absent, unmarked {len(unmarked)}: {unmarked}; marked, defined '
+          f'{len(wrong)}: {wrong}')
+
+    if not os.path.exists(FORTH83):
+        print(f'  SKIPPED (not counted): D4 word sets: {FORTH83} absent')
+    else:
+        sets = forth83_tiers(open(FORTH83, encoding='latin-1').read())
+        bad = []
+        for w in words:
+            want = next((c for c, _ in TIER_NAMES if w in sets[c]), 'N')
+            got = tier.get(w, 'R')
+            if want != got:
+                bad.append(f'{w} {got}->{want}')
+        print(f'  Forth-83 sets: ' + ', '.join(f'{c} {len(sets[c])}' for c, _ in TIER_NAMES))
+        check('D4 each word tagged with its Forth-83 word set (N = not in Forth-83)',
+              not bad, f'{len(bad)}: {bad}')
+
+    counts = re.findall(r'\b\d+-word\b', page)
+    check('D5 no word count on the page', not counts, f'{len(counts)}: {counts}')
+
+
 if __name__ == '__main__':
     gate_a()
     print()
@@ -539,5 +652,7 @@ if __name__ == '__main__':
     gate_b_3a()
     print()
     gate_c()
+    print()
+    gate_d()
     print(f'\nPassed: {PASS}/{PASS + FAIL}')
     sys.exit(0 if FAIL == 0 else 1)
