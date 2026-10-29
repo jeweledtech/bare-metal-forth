@@ -217,3 +217,8 @@ docs/plans/
 # refs/, untracked and NOT ignored).  Staging by exact path is the first line;
 # this is the second.  Evidence cites a spec by sha256 and page, never by copy.
 /refs/
+
+# Python bytecode (2026-10-29, private TASK_TESTS_UNTRACKED): 77 .pyc files sat
+# untracked under tests/__pycache__/; test-make-wiring now fails on any
+# untracked, non-ignored file under tests/.
+__pycache__/
