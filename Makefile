@@ -1134,9 +1134,23 @@ lint:
 	@python3 tools/lint-forth.py --asm $(SRC_KERNEL)/forth.asm
 
 # Run ARM64 boot test (cross-compile + QEMU raspi3b)
+# In make test (private TASK_TWO_OVER: it carries TARGET-ARM64's 2OVER
+# check). Skipped, not passed, without the private vocabularies or
+# qemu-system-aarch64.
 test-arm64-boot: $(COMBINED)
-	@cp $(COMBINED) $(COMBINED_IDE)
-	@QPIDDIR=$(BUILD)/test-arm64-boot.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
+	@for f in forth/dict/meta-compiler.fth forth/dict/arm64-asm.fth \
+		forth/dict/target-arm64.fth; do \
+		if [ ! -f $$f ]; then \
+			echo "SKIPPED: test-arm64-boot: private vocabulary absent ($$f)"; \
+			exit 0; \
+		fi; \
+	done; \
+	if ! command -v qemu-system-aarch64 >/dev/null 2>&1; then \
+		echo "SKIPPED: test-arm64-boot: qemu-system-aarch64 absent"; \
+		exit 0; \
+	fi; \
+	cp $(COMBINED) $(COMBINED_IDE); \
+	QPIDDIR=$(BUILD)/test-arm64-boot.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
 	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-arm64-boot --base $(TEST_PORT_BASE); \
 	echo "Running ARM64 boot test..."; \
 	PORT=$$(($(TEST_PORT_BASE)+50)); \
@@ -1465,7 +1479,7 @@ test-meta: $(COMBINED)
 #     its output as evidence, and it never gates a build.  If it must ever
 #     gate something, the gate goes on a deterministic artefact derived from
 #     it and pinned -- the treatment the Ghidra oracle already has.
-test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-log-send test-dlg2form test-rtl8168-cksum test-stack-floor test-vga-wrap test-reload-vocab test-load-vocab test-resolve-deps test-vbr test-grub-cfg test-uefi-boot test-uefi-netboot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-mirror test-interp-abort test-pad-move test-hal test-hal-net test-hal-match test-hal-match-hp test-network test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline test-pipeline-e2e test-net-flush-lf test-console-band test-double-cell check-sync
+test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-log-send test-dlg2form test-rtl8168-cksum test-stack-floor test-vga-wrap test-reload-vocab test-load-vocab test-resolve-deps test-vbr test-grub-cfg test-uefi-boot test-uefi-netboot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-mirror test-interp-abort test-pad-move test-hal test-hal-net test-hal-match test-hal-match-hp test-network test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline test-pipeline-e2e test-net-flush-lf test-console-band test-double-cell test-arm64-boot check-sync
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)
