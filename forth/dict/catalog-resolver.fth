@@ -356,6 +356,24 @@ VARIABLE RD-BLK
 VARIABLE RD-BUFP
 CREATE RD-BUF 42 ALLOT
 
+\ Next name at offset o, before line end
+\ eo: spaces skipped, then up to a space,
+\ a ( or a control byte. n = 0: none.
+: RD-NAME ( eo o -- eo o' n )
+    BEGIN
+        2DUP > IF
+            DUP RD-BUFP @ + C@ 20 =
+        ELSE FALSE THEN
+    WHILE 1+ REPEAT
+    DUP
+    BEGIN
+        2 PICK OVER > IF
+            DUP RD-BUFP @ + C@
+            DUP 20 > SWAP 28 <> AND
+        ELSE FALSE THEN
+    WHILE 1+ REPEAT
+    OVER - ;
+
 : RESOLVE-DEPS  ( blk# -- )
     DUP RD-BLK !
     BLOCK RD-BUFP !
@@ -383,28 +401,23 @@ CREATE RD-BUF 42 ALLOT
             THEN THEN THEN
         LOOP
         IF
-            BEGIN
-                DUP C@ 20 =
-            WHILE 1+ REPEAT
-            DUP
-            BEGIN
-                DUP C@ DUP
-                20 <>
-                SWAP 28 <> AND
-                OVER C@ 0<> AND
-            WHILE 1+ REPEAT
-            OVER -
-            DUP 0> IF
-                OVER RD-BUF
+            \ Every name on the line: offsets
+            \ into the block, as a nested load
+            \ can move it (RD-BUFP refetched).
+            RD-BUFP @ -
+            OVER RD-BUFP @ - 40 + SWAP
+            BEGIN RD-NAME DUP 0> WHILE
+                OVER RD-BUFP @ + RD-BUF
                 2 PICK CMOVE
-                SWAP DROP
+                DUP ROT + SWAP
                 RD-BLK @ SWAP
                 RD-BUF SWAP
                 LOAD-VOCAB-INNER
                 RD-BLK !
                 RD-BLK @ BLOCK
                 RD-BUFP !
-            ELSE DROP DROP THEN
+            REPEAT
+            DROP DROP DROP
         THEN
         DROP DROP
     LOOP
