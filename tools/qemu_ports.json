@@ -125,7 +125,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 55,
-    "source": "Makefile:1323"
+    "source": "Makefile:1332"
    }
   ]
  },
@@ -465,7 +465,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 80,
-    "source": "Makefile:1388"
+    "source": "Makefile:1397"
    }
   ]
  },
@@ -476,6 +476,16 @@
     "kind": "serial",
     "offset": 67,
     "source": "tests/test_mirror.py:149"
+   }
+  ]
+ },
+ "test-net-flush-lf": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 114,
+    "source": "tests/test_net_flush_lf.py:64"
    }
   ]
  },
