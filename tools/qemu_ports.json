@@ -109,13 +109,13 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 104,
-    "source": "$(PRIVATE_REPO)/tests/test_dlg2form.py:504"
+    "source": "$(PRIVATE_REPO)/tests/test_dlg2form.py:507"
    },
    {
     "form": "tcp:127.0.0.1:P",
     "kind": "monitor",
     "offset": 105,
-    "source": "$(PRIVATE_REPO)/tests/test_dlg2form.py:505"
+    "source": "$(PRIVATE_REPO)/tests/test_dlg2form.py:508"
    }
   ]
  },
@@ -125,7 +125,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 55,
-    "source": "Makefile:1304"
+    "source": "Makefile:1323"
    }
   ]
  },
@@ -465,7 +465,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 80,
-    "source": "Makefile:1369"
+    "source": "Makefile:1388"
    }
   ]
  },
@@ -541,6 +541,16 @@
    }
   ]
  },
+ "test-pipeline-e2e": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 113,
+    "source": "$(PRIVATE_REPO)/tests/test_pipeline_e2e.py:91"
+   }
+  ]
+ },
  "test-reload-vocab": {
   "-": [
    {
@@ -557,7 +567,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 112,
-    "source": "tests/test_resolve_deps.py:55"
+    "source": "tests/test_resolve_deps.py:56"
    }
   ]
  },
