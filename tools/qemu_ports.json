@@ -129,13 +129,23 @@
    }
   ]
  },
+ "test-double-cell": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 116,
+    "source": "tests/test_double_cell.py:64"
+   }
+  ]
+ },
  "test-file-stream": {
   "-": [
    {
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 55,
-    "source": "Makefile:1343"
+    "source": "Makefile:1353"
    }
   ]
  },
@@ -475,7 +485,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 80,
-    "source": "Makefile:1408"
+    "source": "Makefile:1418"
    }
   ]
  },
