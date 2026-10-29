@@ -5362,7 +5362,7 @@ mirror_char:
     pop eax
     pop edx
     ; Flush on LF (0x0A) or buffer full
-    cmp dl, 10
+    cmp al, 10
     je .net_do_flush
     cmp dword [net_buf_pos], 256
     jge .net_do_flush
