@@ -42,6 +42,9 @@ An error is the kernel's `<word> ? ` signature.
 
 ### Block loads: 70 catalog entries, 9 pass through an undefined word
 
+2026-10-28: five of the nine rows below are resolved (struck through,
+each with the commit that fixed it); the other four are unchanged.
+
 Method: `S" NAME" LOAD-VOCAB` in one fresh boot per entry (floppy + IDE
 scratch copies), recording every signature, whether the reply ended at
 the prompt, and DEPTH afterwards. 61 loads are clean, most of them
@@ -52,11 +55,11 @@ the prompt, and DEPTH afterwards. 61 loads are clean, most of them
 | DISK-SURVEY-FORM | 23 | prompt | 18 | a form data block (read by FORM-LOAD), not a vocabulary | aborts at the first token, which is better; LOAD-VOCAB could refuse non-vocabulary entries (out of scope) |
 | PORT-MONITOR-FORM | 22 | prompt | 22 | same | same |
 | VBR-TEMPLATE | 1 | prompt | 0 | the raw VBR payload, binary | same |
-| THUMB2-ASM | 2 | prompt | 0 | `META-COMPILER`, `T-!`: needs the metacompiler, which LOAD-VOCAB doesn't bring in | aborts; its real load path is test-meta's sequence (census B) |
-| TARGET-X86 | 125 | budget (hung) | ? | same family | aborts at the first error instead of hanging |
-| TARGET-ARM64 | 1,256 | closed | ? | same family | same |
-| TARGET-CORTEX-M | 837 | prompt | 587 | same family | same |
-| SURVEYOR-DEEP | 6 | prompt | 5 | `CAB-EXTRACT MSI-READER ZIP-READER` and counters undefined: its dependencies don't load (consistent with Q-D3, `REQUIRES:` loading only the first name; not yet traced) | **a real load that works partly today and would abort**; needs its dependencies fixed first |
+| THUMB2-ASM | ~~2~~ | ~~prompt~~ | ~~0~~ | ~~`META-COMPILER`, `T-!`: needs the metacompiler, which LOAD-VOCAB doesn't bring in~~ | ~~aborts; its real load path is test-meta's sequence (census B)~~ Resolved 2026-10-28 by ada8f56 (RESOLVE-DEPS loads every REQUIRES: name, so META-COMPILER comes in): loads clean in a fresh boot, 0 errors, DEPTH 0 (private docs/evidence/block-numbers-audit-2026-10-28/census_probe.log) |
+| TARGET-X86 | ~~125~~ | ~~budget (hung)~~ | ~~?~~ | ~~same family~~ | ~~aborts at the first error instead of hanging~~ Resolved 2026-10-28 by ada8f56: loads clean, 0 errors, DEPTH 0 (test-resolve-deps R4-R6; private docs/evidence/block-numbers-audit-2026-10-28/census_probe.log) |
+| TARGET-ARM64 | ~~1,256~~ | ~~closed~~ | ~~?~~ | ~~same family~~ | ~~same~~ Resolved 2026-10-28 by ada8f56: loads clean in a fresh boot, 0 errors, DEPTH 0 (private docs/evidence/block-numbers-audit-2026-10-28/census_probe.log) |
+| TARGET-CORTEX-M | ~~837~~ | ~~prompt~~ | ~~587~~ | ~~same family~~ | ~~same~~ Resolved 2026-10-28 by ada8f56: loads clean in a fresh boot, 0 errors, DEPTH 0 (private docs/evidence/block-numbers-audit-2026-10-28/census_probe.log) |
+| SURVEYOR-DEEP | ~~6~~ | ~~prompt~~ | ~~5~~ | ~~`CAB-EXTRACT MSI-READER ZIP-READER` and counters undefined: its dependencies don't load (consistent with Q-D3, `REQUIRES:` loading only the first name; not yet traced)~~ | ~~**a real load that works partly today and would abort**; needs its dependencies fixed first~~ Resolved 2026-10-28 by ada8f56 (CAB-EXTRACT, MSI-READER load) and private 456b260 (its REQUIRES: line names ZIP-READER): loads clean (test-resolve-deps R8-R9) |
 | DICT-SYSTEM | 5 | budget (hung) | ? | uses `PLACE ?DO COUNT COMPARE`, which this kernel lacks | already broken; aborting is an improvement |
 
 Raw per-entry results are kept with the evidence for this task (one

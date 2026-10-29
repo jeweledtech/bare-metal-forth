@@ -10,8 +10,8 @@ Usage:
 The test expects QEMU to be running with the block disk attached
 on the specified TCP serial port (default 4471).
 
-PIT-TIMER blocks are determined by write-catalog.py output.
-Currently PIT-TIMER is at blocks 80-84.
+PIT-TIMER blocks are determined by write-catalog.py output (see
+get_pit_blocks); they move whenever a vocabulary before it changes size.
 """
 import socket
 import time
