@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """RESOLVE-DEPS loads every name on a REQUIRES: line (private
-TASK_RESOLVE_DEPS_EVERY_NAME). Seven checks, R1-R7.
+TASK_RESOLVE_DEPS_EVERY_NAME, TASK_SURVEYOR_DEEP_REQUIRES). Ten checks,
+R1-R10.
 
   python3 tests/test_resolve_deps.py <serial-port>     (cwd: tree root)
 
@@ -92,6 +93,19 @@ try:
     send('ONLY FORTH DEFINITIONS DECIMAL')
     dep = body(send('DEPTH .')).split()
     check('R7 DEPTH 0', dep[:1] == ['0'], f'{dep}')
+
+    # SURVEYOR-DEEP does ALSO ZIP-READER (private TASK_SURVEYOR_DEEP_REQUIRES):
+    # a load on its own needs ZIP-READER on its REQUIRES: line.
+    send('ONLY FORTH DEFINITIONS')
+    rep = body(send('S" SURVEYOR-DEEP" LOAD-VOCAB', 120))
+    check('R8 S" SURVEYOR-DEEP" LOAD-VOCAB: no ?', '?' not in rep, repr(rep.strip()))
+    send('ONLY FORTH DEFINITIONS')
+    rep = body(send('USING SURVEYOR-DEEP'))
+    check('R9 USING SURVEYOR-DEEP: no ?', '?' not in rep, repr(rep.strip()))
+
+    send('ONLY FORTH DEFINITIONS DECIMAL')
+    dep = body(send('DEPTH .')).split()
+    check('R10 DEPTH 0', dep[:1] == ['0'], f'{dep}')
     s.close()
 finally:
     qemu_pid.kill_pidfile(PF)
