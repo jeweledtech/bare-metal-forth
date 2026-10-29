@@ -255,6 +255,19 @@ if _ls.returncode != 0:
     scripts = []
 else:
     scripts = sorted(f for f in _ls.stdout.split() if f.count('/') == 1)
+# The count above is of TRACKED files, so a script still untracked when
+# this runs is silently left out of it (private TASK_FORTH83_VOCAB's miss:
+# 175 predicted as 174, the red read before `git add`). Any untracked,
+# non-ignored file under tests/ fails instead (private TASK_TESTS_UNTRACKED).
+_un = subprocess.run(['git', '-C', ROOT_DIR, 'ls-files', '--others',
+                      '--exclude-standard', 'tests'],
+                     capture_output=True, text=True)
+untracked = sorted(_un.stdout.split()) if _un.returncode == 0 else None
+check('no untracked, non-ignored file under tests/',
+      untracked == [],
+      f'rc={_un.returncode} {_un.stderr.strip()!r}' if untracked is None
+      else f'{len(untracked)}: {untracked[:8]} -- track it, ignore it, or '
+      'move it out of tests/')
 
 
 def _token(x):
