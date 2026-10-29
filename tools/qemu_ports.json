@@ -77,7 +77,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 115,
-    "source": "tests/test_console_band.py:64"
+    "source": "tests/test_console_band.py:75"
    }
   ]
  },

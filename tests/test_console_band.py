@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """The console as window 0: a band of the screen (private TASK_CONSOLE_BAND,
-DESIGN_WINDOW_FOCUS step 1). Sixteen checks, B0-B15.
+DESIGN_WINDOW_FOCUS step 1). Seventeen checks, D0 and B0-B15.
 
   python3 tests/test_console_band.py <serial-port>     (cwd: tree root)
 
@@ -11,8 +11,13 @@ read back from FB-BASE (0xB8000 on this BIOS boot). Markers are cells the
 console never prints otherwise: EMIT 1-6 puts that character code in a cell,
 and CELLOF finds it (cell index row * 80 + col, -1 if absent). PAINT fills
 rows 0-16 with 'A'; UNPAINTED counts the cells there that are not.
+
+Blocks come from a copy of the image attached as an IDE disk. D0 is a
+positive control that it is attached: CATALOG-FIND of UI-PARSER, which this
+task does not move, against the range tools/catalog_layout.py reads from
+build/blocks.img. If D0 fails the run stops with `no block disk`.
 """
-import hashlib, os, subprocess, sys
+import hashlib, os, shutil, subprocess, sys
 
 ROOT = os.getcwd()
 sys.path.insert(0, os.path.join(ROOT, 'tests'))
@@ -24,6 +29,7 @@ COMBINED = os.path.join(ROOT, 'build', 'combined.img')
 OUT = os.path.join(ROOT, 'build', 'console-band.d')
 os.makedirs(OUT, exist_ok=True)
 PF = os.path.join(OUT, 'qemu.pid')
+IDE = os.path.join(OUT, 'combined-ide.img')
 
 SETUP = [
     'ONLY FORTH DEFINITIONS DECIMAL ALSO HAL',
@@ -58,9 +64,14 @@ for p in (COMBINED, os.path.join(ROOT, 'src', 'kernel', 'forth.asm'),
     h = hashlib.sha256(open(p, 'rb').read()).hexdigest() if os.path.exists(p) else 'ABSENT'
     print(f'input sha256 {h}  {p}', flush=True)
 
+lay = subprocess.run(['python3', 'tools/catalog_layout.py', 'UI-PARSER'], capture_output=True, text=True)
+UIP = lay.stdout.split()[:2]
+print(f'UI-PARSER in build/blocks.img: {UIP}', flush=True)
+
 qemu_pid.kill_pidfile(PF)
+shutil.copyfile(COMBINED, IDE)
 q = subprocess.run(['qemu-system-i386', '-drive', f'file={COMBINED},format=raw,if=floppy', '-m', '256',
-                    '-display', 'none', '-snapshot',
+                    '-drive', f'file={IDE},format=raw,if=ide,index=1', '-display', 'none', '-snapshot',
                     '-serial', f'tcp:127.0.0.1:{PORT},server=on,wait=off',
                     '-daemonize', '-pidfile', PF], capture_output=True)
 qemu_pid.check_launch(q, PF, PORT, 'console-band')
@@ -82,6 +93,17 @@ try:
     def num(cmd):
         v = nums(send(cmd))
         return v[-1] if v else '?'
+
+    v = nums(send('ALSO CATALOG-RESOLVER S" UI-PARSER" CATALOG-FIND .S PREVIOUS'))
+    got = [x.strip('<>') for x in v if x.strip('<>')]     # .S: <2211 2227 -1 >
+    ok = len(UIP) == 2 and got[:3] == UIP + ['-1']
+    check('D0 block disk attached: CATALOG-FIND UI-PARSER gives its range from build/blocks.img',
+          ok, f'guest {got}, image {UIP}')
+    if not ok:
+        print('  no block disk: stopping before any check that loads from blocks', flush=True)
+        print(f'\nPassed: {PASS}/{PASS + FAIL}', flush=True)
+        sys.exit(1)                   # the finally below stops QEMU
+    send('DROP DROP DROP')
 
     bad = [line for line in SETUP if '?' in body(send(line))]
     if bad:
