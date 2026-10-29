@@ -1156,6 +1156,21 @@ test-arm64-boot: $(COMBINED)
 	PORT=$$(($(TEST_PORT_BASE)+50)); \
 	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_ARM64_BOOT) python3 tests/test_arm64_boot.py $$PORT
 
+# test-meta-b6b: test-meta's one fixture that boots a META-COMPILE-X86-BOOT
+# kernel, in make test because it carries TARGET-X86's 2OVER check
+# (private TASK_TWO_OVER). test-meta (all six, about 30 min) stays outside
+# the sweep. Skipped, not passed, without the private script or
+# vocabularies.
+test-meta-b6b: $(COMBINED)
+	@for f in tests/test_meta_b6b.py forth/dict/meta-compiler.fth \
+		forth/dict/target-x86.fth; do \
+		if [ ! -f $$f ]; then \
+			echo "SKIPPED: test-meta-b6b: private file absent ($$f)"; \
+			exit 0; \
+		fi; \
+	done; \
+	$(MAKE) --no-print-directory test-meta META_FIXTURES=test_meta_b6b
+
 # Run Cortex-M33 boot test (cross-compile + QEMU mps2-an505)
 test-cortexm: $(COMBINED)
 	@cp $(COMBINED) $(COMBINED_IDE)
