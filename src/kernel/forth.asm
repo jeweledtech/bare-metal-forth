@@ -1393,8 +1393,8 @@ DEFCODE "2SWAP", TWOSWAP, 0
 DEFCODE "2OVER", TWOOVER, 0
     mov eax, [esp + 12]         ; ( a b c d -- a b c d a b )
     mov ebx, [esp + 8]
-    push ebx
     push eax
+    push ebx
     NEXT
 
 DEFCODE "?DUP", QDUP, 0
