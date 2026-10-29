@@ -17,6 +17,7 @@
   .word-grid { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:16px; }
   .word-pill { font-family:var(--font-mono); font-size:12px; padding:3px 9px; border-radius:6px; border:0.5px solid var(--color-border-tertiary); color:var(--color-text-primary); background:var(--color-background-secondary); }
   .word-pill.warn { border-color:var(--color-border-warning); color:var(--color-text-warning); }
+  .tier { font-size:10px; margin-left:3px; color:var(--color-text-tertiary); }
   .hint { font-size:12px; color:var(--color-text-tertiary); margin-top:4px; }
   .constraint-box { background:var(--color-background-warning); border:0.5px solid var(--color-border-warning); border-radius:var(--border-radius-md); padding:10px 14px; margin-bottom:10px; font-size:13px; color:var(--color-text-warning); }
   .constraint-box strong { display:block; margin-bottom:3px; font-weight:500; }
@@ -28,17 +29,17 @@
 </head>
 <body>
 <h1>ForthOS — Forth-83 kernel quick reference</h1>
-<p class="subtitle">178-word dictionary organized by category. Words marked in amber are absent or constrained in the ForthOS kernel — check before using in vocabulary source files.</p>
+<p class="subtitle">Forth-83 words and ForthOS's own, by category, each tagged with its Forth-83 word set. Amber ✗: not in the ForthOS kernel (forth.asm). Both are checked against forth.asm and the text of the standard by tests/test_doc_drift.py. Check before using a word in vocabulary source files.</p>
 
 <div class="tab-bar" id="tabs"></div>
 <div id="content"></div>
 
-<footer>ForthOS · github.com/jeweledtech/bare-metal-forth · forth.asm (public) · 178-word kernel · 64-char line limit · always verify against source</footer>
+<footer>ForthOS · github.com/jeweledtech/bare-metal-forth · forth.asm (public) · 64-char line limit · always verify against source</footer>
 
 <script>
 const CATS = [
   { name:'Stack', words:['DUP','DROP','SWAP','OVER','ROT','-ROT','NIP','TUCK','2DUP','2DROP','2SWAP','2OVER','PICK','ROLL','DEPTH'] },
-  { name:'Arithmetic', words:['+',' -','*','/','MOD','/MOD','*/','*/MOD','ABS','NEGATE','MAX','MIN','DUP +','1+','1-','2+','2-','2*'] },
+  { name:'Arithmetic', words:['+','-','*','/','MOD','/MOD','*/','*/MOD','ABS','NEGATE','MAX','MIN','1+','1-','2+','2-','2*'] },
   { name:'Logic', words:['AND','OR','XOR','NOT','INVERT','LSHIFT','RSHIFT','=','<>','<','>','0=','0<','0>','U<','U>'] },
   { name:'Memory', words:['@','!','C@','C!','W@','W!','2@','2!','MOVE','FILL','ERASE','COUNT','HERE','ALLOT',',','C,'] },
   { name:'Control', words:['IF','THEN','ELSE','BEGIN','UNTIL','WHILE','REPEAT','DO','LOOP','+LOOP','LEAVE','EXIT','ABORT','QUIT'] },
@@ -49,14 +50,26 @@ const CATS = [
   { name:'Constraints', words:[] },
   { name:'Bug log', words:[] },
 ];
-const MISSING = ['2*'];
+// Not defined in forth.asm (each also missing at the boot prompt, 2026-10-29).
+const MISSING = ['ROLL','*/','*/MOD','2*','NOT','U<','U>','2@','2!','COUNT','QUIT','KEY?','SPACES','DOES>','COMPILE','FORTH-83','ASSEMBLER'];
+// Forth-83 word set of every word that is not Required (section 12).
+const TIER = {
+  '2DUP':'D','2DROP':'D','2SWAP':'D','2OVER':'D','2@':'D','2!':'D',
+  'ASSEMBLER':'A',
+  '2*':'C','ERASE':'C','C,':'C','HEX':'C','DUMP':'C','THRU':'C','LIST':'C','SCR':'C','RECURSE':'C',
+  '<>':'U','MOVE':'U','WORDS':'U',
+  'ONLY':'X','ALSO':'X','ORDER':'X',
+  '-ROT':'N','NIP':'N','TUCK':'N','INVERT':'N','LSHIFT':'N','RSHIFT':'N','U>':'N','W@':'N','W!':'N',
+  'KEY?':'N','.S':'N','SEE':'N','POSTPONE':'N','PREVIOUS':'N','USING':'N',
+};
+const LEGEND = 'untagged: Required (§12) · D Double Number Extension (§13) · A Assembler Extension (§14) · C Controlled Reference (§16) · U Uncontrolled Reference (App. B) · X Experimental proposal (App. C) · N not in Forth-83';
 const CONSTRAINTS = [
-  { label:'No 2*', body:'<code>2*</code> is absent from the 178-word kernel. Use <code>DUP +</code> instead. Always verify words against forth.asm before using in vocab source files.' },
-  { label:'No " in Forth-83', body:'The double-quote character cannot appear directly. Use: <code>DECIMAL 34 CONSTANT QC</code> then <code>QC EMIT</code> to output a literal quote character.' },
-  { label:'64-char line limit', body:'Forth block format is fixed: 16 lines of 64 characters per 1024-byte block. Lines that exceed 64 chars are silently truncated at the block boundary.' },
-  { label:'Short strings corrupt state', body:'Strings under 6 characters inside <code>."</code> can corrupt the embedded vocab interpreter state. Pad to 6+ characters or use <code>EMIT</code> sequences instead.' },
-  { label:'HEX/DECIMAL bleed', body:'HEX or DECIMAL mode set inside a vocab leaks into subsequent vocabs unless reset. Every vocab must end with <code>ONLY FORTH DEFINITIONS</code> or equivalent.' },
-  { label:'ALSO/PREVIOUS must match', body:'Unmatched ALSO entries cause search order overflow. Confirmed in rtl8168.fth (3 leaks) and port-mapper.fth (1 leak). Always pair every ALSO with a PREVIOUS.' },
+  { label:'Absent words (✗)', body:'Every word marked ✗ is not in the kernel, Forth-83 words among them: <code>2*</code>, <code>ROLL</code>, <code>*/</code>, <code>NOT</code>, <code>COUNT</code>, <code>SPACES</code>, <code>DOES></code> and more. For <code>2*</code> use <code>DUP +</code>. Verify a word against forth.asm before using it in vocab source files.' },
+  { label:'A " inside a string', body:'<code>."</code> and <code>ABORT"</code> end at the next <code>"</code>, so a quote cannot appear inside them. Inside a definition <code>[CHAR] "</code> gives 34 (<code>: Q [CHAR] " EMIT ;</code>); [CHAR] is compile-only. Outside one, use 34, e.g. <code>DECIMAL 34 CONSTANT QC</code> then <code>QC EMIT</code>.' },
+  { label:'64-char line limit', body:'A block is 16 lines of 64 characters (1024 bytes). The block writer (tools/write-block.py) cuts every source line at 64 characters, and <code>make lint</code> refuses any line in forth/dict/*.fth longer than 64.' },
+  { label:'Short strings (unverified)', body:'Older notes say a <code>."</code> string under 6 characters corrupts the embedded vocabulary interpreter. No mechanism or reproduction is recorded. At the prompt, compiled <code>."</code> strings of 0, 1 and 2 characters print correctly (2026-10-29); the embedded path is untested.' },
+  { label:'BASE carries over', body:'BASE is one cell: HEX set in one vocabulary stays in force for whatever loads next. <code>ONLY FORTH DEFINITIONS</code> does not reset it. End every vocabulary with <code>ONLY FORTH DEFINITIONS</code> and then <code>DECIMAL</code>.' },
+  { label:'Search order: 8 entries', body:'ALSO with 8 entries in the search order does nothing, silently; nothing overflows. <code>ONLY FORTH DEFINITIONS</code> resets the order, so a vocabulary that ends with it leaves no ALSO behind, PREVIOUS or not.' },
 ];
 const BUGS = [
   { label:'Bug #24 — data stack collision', body:'Embedded vocab data crossed data stack top causing IF/THEN backpatch to stomp token stream. Fix: <code>DATA_STACK_TOP</code> moved to 0x7C00. Check for collision any time new memory regions are added.' },
@@ -84,8 +97,9 @@ function render(i) {
   }
   el.innerHTML = `<div class="word-grid">${cat.words.map(w=>{
     const warn = MISSING.includes(w);
-    return `<span class="word-pill${warn?' warn':''}">${w}${warn?' ✗':''}</span>`;
-  }).join('')}</div><p class="hint">${cat.words.length} words in this category${MISSING.filter(m=>cat.words.includes(m)).length?' · ✗ = absent from kernel, do not use':''}</p>`;
+    const tier = TIER[w] ? `<span class="tier">${TIER[w]}</span>` : '';
+    return `<span class="word-pill${warn?' warn':''}">${w}${tier}${warn?' ✗':''}</span>`;
+  }).join('')}</div><p class="hint">${cat.words.length} words in this category${MISSING.filter(m=>cat.words.includes(m)).length?' · ✗ = absent from kernel, do not use':''}</p><p class="hint">${LEGEND}</p>`;
 }
 const bar = document.getElementById('tabs');
 CATS.forEach((c,i)=>{ const t=document.createElement('button'); t.className='tab'+(i===0?' active':''); t.textContent=c.name; t.onclick=()=>render(i); bar.appendChild(t); });
