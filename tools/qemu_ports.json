@@ -145,7 +145,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 55,
-    "source": "Makefile:1382"
+    "source": "Makefile:1393"
    }
   ]
  },
@@ -184,6 +184,16 @@
     "kind": "serial",
     "offset": 50,
     "source": "Makefile:1120"
+   }
+  ]
+ },
+ "test-forth83": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 117,
+    "source": "tests/test_forth83.py:72"
    }
   ]
  },
@@ -485,7 +495,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 80,
-    "source": "Makefile:1447"
+    "source": "Makefile:1458"
    }
   ]
  },

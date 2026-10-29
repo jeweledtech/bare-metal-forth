@@ -508,6 +508,12 @@ try:
                   and 'unreachable' not in usb[0], f'({usb})')
         discovery(fw, s, tag)
         screens(fw, s, tag)
+        # FORTH83's DOES> on this boot path (private TASK_FORTH83_VOCAB, check D):
+        # a child runs code laid in the dictionary, under OVMF and SeaBIOS
+        b = send(s, 'ONLY FORTH DEFINITIONS DECIMAL S" FORTH83" LOAD-VOCAB', 90)
+        b2 = send(s, 'ALSO FORTH83 : MC CREATE , DOES> @ ; 42 MC XM  XM .')
+        check(f'{tag}30 FORTH83 loads and a DOES> child answers 42',
+              'not found' not in b and last_num(b2) == '42', f'(load {b.strip()[-80:]!r}; {b2.strip()[-80:]!r})')
 
     def discovery(fw, s, tag):
         """HAL phase 0 (docs/TASK_HAL_DISCOVERY.md): SMBIOS, CPUID, ACPI,

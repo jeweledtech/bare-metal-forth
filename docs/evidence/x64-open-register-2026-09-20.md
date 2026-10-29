@@ -135,7 +135,7 @@ asserted so a renamed suite cannot shrink the union silently. The
 | (ab) | `x64_RED_ab_two_byte_arm_ignores_mandatory_prefix` | decoder | the arm never reads `66`/`F2`/`F3` |
 | (t) | `unknown_0f_modrm_recovery` | decoder | `0F 0D C0` is #UD and is accepted |
 
-## Python reds (0)
+## Python reds (1)
 
 **One register, two readers** (owner ruling 2026-09-28):
 - The C-suite union check (`suite_census.py`, unchanged) reads the table
@@ -147,6 +147,7 @@ asserted so a renamed suite cannot shrink the union silently. The
 
 | stage | red | test | what is wrong |
 |---|---|---|---|
+| SEE | `see1_RED_decompile_prints_cell_addresses` | tests/test_forth83.py | SEE's decompile loop passes print_hex_short the cell's address (EAX), not the xt in it (EBX), forth.asm 2916-2918: it prints addresses, not the words (private TASK_SEE_CELLS, 2026-10-29; XFAIL until fixed) |
 
 Resolved 2026-10-12: UEFI-1's `uefi1_RED_stick_boots_to_ok_under_ovmf`
 (tests/test_uefi_boot.py) passed at UEFI-3 (multiboot2 entry); the test
