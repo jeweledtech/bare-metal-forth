@@ -627,6 +627,14 @@ check('DEPTH after rejection = 2 (stack untouched)',
       has_word(resp_after_echo(r, 'DEPTH . DROP DROP'), '2'),
       r.strip()[:60])
 
+# 2OVER (private TASK_TWO_OVER): Forth-83 13.2, ( a b c d -- a b c d a b ),
+# printed top first.
+tov_cmd = '1 2 3 4 2OVER . . . . . .'
+r = send(bs, tov_cmd, 3)
+check('2OVER: 1 2 3 4 2OVER prints 2 1 4 3 2 1',
+      resp_after_echo(r, tov_cmd).split()[:6] == ['2', '1', '4', '3', '2', '1'],
+      r.strip()[:80])
+
 # ---- +LOOP coverage ----
 # Positive step
 pl1_cmd = ': PL1 10 0 DO I . 2 +LOOP ; PL1'
