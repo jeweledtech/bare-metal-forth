@@ -1,9 +1,16 @@
 # UBT Sanitizer Demo — Approved Copy (i8042prt.sys)
 
+**Superseded 2026-10-29 by `make test-pipeline-e2e`** (d8142a6), which
+runs the same chain (translate i8042prt.sys, load it from blocks, call a
+translated port word) and finds its blocks at run time. The demo harness
+named below was deleted: it wrote at a hand-set block that is now inside
+the catalog. Struck text below is kept as a record.
+
 This is the canonical wording for any surface that presents the demo
 (landing page, social posts, whitepaper §4.4). Counts come from the
 committed transcript (`docs/demo-i8042-transcript.txt`); if the
-analyzer changes, re-run `demo_i8042.sh` and update the numbers here
+analyzer changes, ~~re-run `demo_i8042.sh`~~ (superseded 2026-10-29:
+the harness is deleted; run `make test-pipeline-e2e`) and update the numbers here
 from the new transcript — never quote counts the artifact doesn't
 show. The demo is byte-reproducible: independent runs produce
 identical transcripts (verified 2026-07-07), so a diff against the
@@ -20,9 +27,10 @@ product:
   disassemble it and check every classification claim, function by
   function, reason by reason. The transcript itself, including the
   full strip list, is committed here as-is.
-- **Paid:** the UBT translator that produced the strip, and the demo
+- **Paid:** the UBT translator that produced the strip~~, and the demo
   harness (`demo_i8042.sh`, `demo_i8042_qemu.py`) that regenerates
-  the transcript, are part of the commercial tier.
+  the transcript,~~ (harness deleted 2026-10-29; superseded by
+  test-pipeline-e2e) is part of the commercial tier.
 
 Do not publish wording that implies a public reader can re-run the
 pipeline themselves. What they *can* do — and what the copy should
