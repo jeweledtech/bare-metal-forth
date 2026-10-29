@@ -1465,6 +1465,34 @@ DEFCODE "*", MUL, 0
     push eax
     NEXT
 
+; UM* ( u1 u2 -- ud ) Forth-83 12.2: the unsigned product, low cell under
+; the high cell
+DEFCODE "UM*", UMSTAR, 0
+    pop eax
+    pop ebx
+    mul ebx                 ; EDX:EAX = u1 * u2
+    push eax
+    push edx
+    NEXT
+
+; UM/MOD ( ud u1 -- u2 u3 ) Forth-83 12.2: remainder u2, quotient u3, all
+; unsigned. A zero divisor or a quotient past 32 bits is the standard's
+; error condition, and DIV would fault (#DE) on either: both are high >= u1.
+DEFCODE "UM/MOD", UMSLASHMOD, 0
+    pop ebx                 ; u1
+    pop edx                 ; high cell
+    pop eax                 ; low cell
+    cmp edx, ebx
+    jae .err
+    div ebx                 ; EAX = quotient, EDX = remainder
+    push edx
+    push eax
+    NEXT
+.err:
+    mov esi, msg_ummod
+    call print_string
+    jmp abort_common
+
 ; Floored division (Forth-83 semantics!)
 ; This is the CORRECT implementation that handles negative numbers properly
 DEFCODE "/", DIV, 0
@@ -7156,6 +7184,7 @@ msg_welcome:    db 'Bare-Metal Forth v0.1 - Ship Builders System', 13, 10
 msg_stack:      db '<', 0
 msg_undefined:  db ' ? ', 13, 10, 0
 msg_underflow:  db 13, 10, 'STACK UNDERFLOW', 13, 10, 0
+msg_ummod:      db 13, 10, 'UM/MOD OUT OF RANGE', 13, 10, 0
 msg_unbound:    db ': HAL vector not bound', 13, 10, 0
 msg_embed_aborted: db 'EMBED ABORTED at ', 0
 msg_embed_tail: db ': later embedded vocabularies not loaded', 13, 10, 0
