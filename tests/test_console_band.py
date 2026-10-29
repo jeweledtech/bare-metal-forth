@@ -95,7 +95,7 @@ try:
         return v[-1] if v else '?'
 
     v = nums(send('ALSO CATALOG-RESOLVER S" UI-PARSER" CATALOG-FIND .S PREVIOUS'))
-    got = [x.strip('<>') for x in v if x.strip('<>')]     # .S: <2211 2227 -1 >
+    got = [x.strip('<>') for x in v if x.strip('<>')]     # .S: <first last -1 >
     ok = len(UIP) == 2 and got[:3] == UIP + ['-1']
     check('D0 block disk attached: CATALOG-FIND UI-PARSER gives its range from build/blocks.img',
           ok, f'guest {got}, image {UIP}')
