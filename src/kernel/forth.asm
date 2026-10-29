@@ -1919,29 +1919,61 @@ DEFCODE "SPACE", SPACE, 0
     call print_char
     NEXT
 
-DEFCODE "PAGE", PAGE, 0     ; ( -- ) Clear screen, cursor to 0,0
-    mov edi, [vga_base]
-    mov ecx, VGA_WIDTH * VGA_HEIGHT
+DEFCODE "PAGE", PAGE, 0     ; ( -- ) Clear the console's band, cursor to its first row
+page_band:
+    imul edi, [con_top], VGA_WIDTH * 2
+    add edi, [vga_base]
+    imul ecx, [con_rows], VGA_WIDTH
     mov ax, (VGA_ATTR << 8) | ' '
     rep stosw
     call fb_redraw
     mov dword [cursor_x], 0
-    mov dword [cursor_y], 0
+    mov ecx, [con_top]
+    mov [cursor_y], ecx
     mov dword [ser_col], 0
     mov dword [wrap_rows], 0
-    ; Set hardware cursor to position 0
+    ; Hardware cursor to the band's first cell
+    imul ecx, ecx, VGA_WIDTH
     mov dx, 0x3D4
     mov al, 0x0F
     out dx, al
     inc dx
-    xor al, al
+    mov al, cl
     out dx, al
     dec dx
     mov al, 0x0E
     out dx, al
     inc dx
-    xor al, al
+    mov al, ch
     out dx, al
+    NEXT
+
+; CON-REGION - ( top rows -- flag ) The console's band: rows top..top+rows-1,
+; full width.  3 <= rows, top + rows <= 25; else false and nothing changes.
+; True: the band is set, MORE's count restarts, and PAGE runs on it.
+DEFCODE "CON-REGION", CON_REGION, 0
+    pop ecx                 ; rows
+    pop eax                 ; top
+    cmp ecx, 3
+    jb .no
+    mov edx, VGA_HEIGHT
+    sub edx, ecx
+    jb .no                  ; rows > 25
+    cmp eax, edx
+    ja .no                  ; top < 0 or top + rows > 25
+    mov [con_top], eax
+    mov [con_rows], ecx
+    mov dword [more_lines], 0
+    push -1
+    jmp page_band
+.no:
+    push 0
+    NEXT
+
+; CON-REGION@ - ( -- top rows ) The console's band
+DEFCODE "CON-REGION@", CON_REGION_FETCH, 0
+    push dword [con_top]
+    push dword [con_rows]
     NEXT
 
 DEFCODE "TYPE", TYPE, 0     ; ( addr len -- )
@@ -5319,8 +5351,8 @@ print_char:
     cmp dword [cursor_x], 0
     jne .bs_erase
     mov ecx, [cursor_y]
-    test ecx, ecx
-    jz .done
+    cmp ecx, [con_top]
+    jbe .done
     btr dword [wrap_rows], ecx
     jnc .done
     dec dword [cursor_y]
@@ -5410,17 +5442,21 @@ vga_put:
 ; ----------------------------------------------------------------------------
 vga_newline:
     inc dword [cursor_y]
-    cmp dword [cursor_y], VGA_HEIGHT
+    mov ecx, [con_top]
+    add ecx, [con_rows]         ; the band's bottom (exclusive)
+    cmp [cursor_y], ecx
     jl .more
+    dec ecx
+    mov [cursor_y], ecx
     call scroll_screen
-    shr dword [wrap_rows], 1
-    mov dword [cursor_y], VGA_HEIGHT - 1
 .more:
     ; MORE pagination: count rows and pause when a screen is full
     cmp byte [more_enabled], 0
     je .ret
     inc dword [more_lines]
-    cmp dword [more_lines], 23
+    mov eax, [con_rows]
+    sub eax, 2                  ; a band's rows less the pause and the prompt
+    cmp [more_lines], eax
     jl .ret
     ; Pause: print "-- more --" and wait for keypress
     push esi
@@ -5454,12 +5490,31 @@ vga_newline:
 ; ----------------------------------------------------------------------------
 scroll_screen:
     push ecx
+    push edx
     push esi
     push edi
-    
-    mov edi, [vga_base]
+
+    ; wrap_rows: the band's bits move up one row, the others stay
+    mov ecx, [con_rows]
+    mov eax, 1
+    shl eax, cl
+    dec eax
+    mov ecx, [con_top]
+    shl eax, cl                 ; EAX = the band's bits
+    mov edx, [wrap_rows]
+    and edx, eax
+    shr edx, 1
+    and edx, eax
+    not eax
+    and eax, [wrap_rows]
+    or eax, edx
+    mov [wrap_rows], eax
+
+    imul edi, [con_top], VGA_WIDTH * 2
+    add edi, [vga_base]
     lea esi, [edi + VGA_WIDTH * 2]
-    mov ecx, VGA_WIDTH * (VGA_HEIGHT - 1)
+    imul ecx, [con_rows], VGA_WIDTH
+    sub ecx, VGA_WIDTH
     rep movsw
 
     ; Clear last line
@@ -5467,9 +5522,10 @@ scroll_screen:
     mov ax, (VGA_ATTR << 8) | ' '
     rep stosw
     call fb_redraw
-    
+
     pop edi
     pop esi
+    pop edx
     pop ecx
     ret
 
@@ -7071,6 +7127,8 @@ cold_start:
 cursor_x:       dd 0
 cursor_y:       dd 0
 ser_col:        dd 0     ; the column print_char kept before the deferred wrap (serial only)
+con_top:        dd 0     ; the console's band (CON-REGION): first row
+con_rows:       dd VGA_HEIGHT ; and its height
 wrap_rows:      dd 0     ; bit y: row y continues row y-1 (a deferred wrap made it)
 vga_base:       dd VGA_TEXT             ; the text buffer: VGA, or FB_SHADOW on UEFI-4
 
