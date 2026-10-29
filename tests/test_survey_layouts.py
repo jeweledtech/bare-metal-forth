@@ -248,12 +248,10 @@ def survey(disk_img, port):
     # kernel USING is find-only, so load it off the catalog
     # first.  LOAD-VOCAB resolves REQUIRES deps -- same proven
     # pattern as test_install.py's INSTALL load.
-    # ORDER MATTERS: the resolver has no already-loaded check, so
-    # LOAD-VOCAB re-loads AHCI from blocks and SURVEYOR compiles
-    # against that fresh copy.  AHCI-INIT must run AFTER the load
-    # or its state lands in the embedded copy and PARTITION-MAP
-    # says "AHCI not init".  test_install.py inits after loading
-    # for the same reason.
+    # AHCI is embedded, so LOAD-VOCAB skips it ("AHCI present,
+    # skipped") and SURVEYOR compiles against the embedded copy.
+    # AHCI-INIT runs after the load, the order this test was proven
+    # in; test_install.py inits after loading too.
     sess.send('S" SURVEYOR" LOAD-VOCAB', 10)
     sess.send('USING AHCI', 2)
     r = sess.send('AHCI-INIT', 5)
