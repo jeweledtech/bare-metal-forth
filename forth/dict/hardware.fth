@@ -98,7 +98,7 @@ VARIABLE US-LOOPS  3E8 US-LOOPS !
 \ ============================================
 \ For DMA buffers and device memory.
 \ Page-aligned, physically contiguous.
-\ Pool: 1MB..4MB.  Owner side table (LIVE
+\ Pool: 1MB..2MB.  Owner side table (LIVE
 \ entries only) is a STATIC CARVE at the pool
 \ origin -- not self-allocated, so the table
 \ never appears as an allocation and PHYS-AUDIT
@@ -117,7 +117,9 @@ VARIABLE US-LOOPS  3E8 US-LOOPS !
 \   overlap is impossible by identity.
 
 100000 CONSTANT POOL-ORIGIN
-400000 CONSTANT PHYS-TOP
+\ The pool ends below the lowest fixed region
+\ (UI-CORE's WT-BASE, ui-core.fth:47).
+200000 CONSTANT PHYS-TOP
 300 CONSTANT OWN-CAP
 C CONSTANT OWN-REC
 3000 CONSTANT OWN-BYTES
@@ -308,7 +310,9 @@ VARIABLE PA-SZ  VARIABLE PA-A  VARIABLE PA-SL
             PHYS-HEAP @ PA-SZ @ + PHYS-HEAP !
         THEN
     THEN
-    PA-A @ 0= IF 0 EXIT THEN
+    PA-A @ 0= IF
+        ." PHYS: pool full below " PHYS-TOP U. CR 0 EXIT
+    THEN
     PA-SZ @    PA-SL @ !
     CURRENT @  PA-SL @ 4 + !
     PA-A @     PA-SL @ 8 + !
@@ -396,6 +400,12 @@ VARIABLE AU-UN  VARIABLE AU-LB
 : DMA-ALLOC  ( size -- addr | 0 )
     PHYS-ALLOC
 ;
+
+\ A driver's buffer address before use: 0
+\ (PHYS-ALLOC refused it) is refused, once
+\ said; the caller takes its failure path.
+: ?DMA-OK ( addr -- flag )
+    DUP 0= IF ." DMA BUFFER REFUSED" CR THEN 0<> ;
 
 \ ============================================
 \ Deferred Procedure Call
