@@ -332,11 +332,21 @@ def cursor_cells(ppm, mem):
 
 
 failures = []
+passed = 0
+# The total, pinned from the check() sites and their calls (private
+# TASK_TEST_COUNT_LINES): host H1-H4 4; OVMF top level B2-B5, I1, F1,
+# C1-C4 10; common() 18 per leg (1-4, 9, 30, discovery 5, span 2,
+# screens 5), OVMF only fwmem 2 and S1/S2 2: U 22, L 18; L0 1.
+# A check that did not run counts as not passed.
+EXPECTED = 4 + 10 + 22 + 1 + 18
 
 
 def check(label, cond, detail=''):
+    global passed
     print(f'[{"PASS" if cond else "FAIL"}] {label} {detail}', flush=True)
-    if not cond:
+    if cond:
+        passed += 1
+    else:
         failures.append(label)
 
 
@@ -845,5 +855,8 @@ try:
 finally:
     shutil.rmtree(work, ignore_errors=True)
 
-print(f'FAILED: {failures}' if failures else 'All UEFI-3/4 gates pass')
-sys.exit(1 if failures else 0)
+print(f'Passed: {passed}/{EXPECTED}')
+print(f'FAILED: {failures}' if failures else
+      'All UEFI-3/4 gates pass' if passed == EXPECTED else
+      f'NOT ALL RUN: {EXPECTED - passed} of {EXPECTED} checks did not run')
+sys.exit(1 if failures or passed != EXPECTED else 0)
