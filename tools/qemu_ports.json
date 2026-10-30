@@ -145,7 +145,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 55,
-    "source": "Makefile:1414"
+    "source": "Makefile:1424"
    }
   ]
  },
@@ -505,7 +505,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 80,
-    "source": "Makefile:1479"
+    "source": "Makefile:1489"
    }
   ]
  },
@@ -628,6 +628,16 @@
     "kind": "serial",
     "offset": 107,
     "source": "$(PRIVATE_REPO)/tests/test_rtl8168_cksum.py:54"
+   }
+  ]
+ },
+ "test-search-order": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 121,
+    "source": "tests/test_search_order.py:57"
    }
   ]
  },
