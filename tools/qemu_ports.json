@@ -9,6 +9,16 @@
    }
   ]
  },
+ "test-abort-routes": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 122,
+    "source": "tests/test_abort_routes.py:133"
+   }
+  ]
+ },
  "test-ahci-write": {
   "-": [
    {
@@ -145,7 +155,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 55,
-    "source": "Makefile:1424"
+    "source": "Makefile:1435"
    }
   ]
  },
@@ -505,7 +515,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 80,
-    "source": "Makefile:1489"
+    "source": "Makefile:1500"
    }
   ]
  },
