@@ -222,3 +222,6 @@ docs/plans/
 # untracked under tests/__pycache__/; test-make-wiring now fails on any
 # untracked, non-ignored file under tests/.
 __pycache__/
+
+# Demo video assets: raw footage and session clips, never published
+video-demos/assets/
