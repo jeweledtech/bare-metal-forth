@@ -145,7 +145,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 55,
-    "source": "Makefile:1404"
+    "source": "Makefile:1414"
    }
   ]
  },
@@ -194,6 +194,16 @@
     "kind": "serial",
     "offset": 117,
     "source": "tests/test_forth83.py:72"
+   }
+  ]
+ },
+ "test-free-boot": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 120,
+    "source": "tests/test_free_boot.py:48"
    }
   ]
  },
@@ -495,7 +505,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 80,
-    "source": "Makefile:1469"
+    "source": "Makefile:1479"
    }
   ]
  },
