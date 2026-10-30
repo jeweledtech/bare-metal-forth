@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Focus between windows: Ctrl+W (private TASK_WINDOW_FOCUS,
-DESIGN_WINDOW_FOCUS step 2). Twenty checks, D0 W0 K1-K4 S1-S6 E1 E2 F1 F2
-O1 N1-N3.
+DESIGN_WINDOW_FOCUS step 2). Twenty-two checks, D0 W0 K1-K4 S1-S6 E1 E2 F0
+F1 F2 O1 N1-N3 U0.
 
   python3 tests/test_window_focus.py <serial-port> <monitor-port>   (cwd: tree root)
 
@@ -134,6 +134,28 @@ try:
     def body(reply):
         return reply.split('\r\n', 1)[1] if '\r\n' in reply else ''
 
+    SETUP_BAD = []
+
+    def setup(cmd, budget=30):
+        """A setup step: its reply must hold no `?`; U0 reports every one that did."""
+        r = send(cmd, budget)
+        if '?' in body(r):
+            SETUP_BAD.append((cmd[:50], body(r).strip()[-60:]))
+        return r
+
+    def screen():
+        """Rows 0-24 as saved by the monitor: read before the test sends any
+        further console line, so its own output cannot move the band first."""
+        dump = os.path.join(OUT, 'screen.bin')
+        if os.path.exists(dump):
+            os.unlink(dump)
+        mon_cmd(f'pmemsave 0xB8000 4000 "{dump}"')
+        for _ in range(20):
+            if os.path.exists(dump) and os.path.getsize(dump) == 4000:
+                break
+            time.sleep(0.1)
+        return open(dump, 'rb').read() if os.path.exists(dump) else b''
+
     def nums(reply):
         # control characters (a marker EMIT, an echoed 0x17) split tokens
         t = ''.join(' ' if ord(c) < 32 else c for c in body(reply))
@@ -150,12 +172,12 @@ try:
         sys.exit(1)                   # the finally below stops QEMU
     send('DROP DROP DROP')
 
-    bad = [line for line in SETUP if '?' in body(send(line))]
+    for line in SETUP:
+        setup(line)
     r = send('S" WINDOW" LOAD-VOCAB', budget=60)
     check('W0 WINDOW loads, no ?', '?' not in body(r), body(r).strip()[-120:])
-    bad += [line for line in HANDLERS if '?' in body(send(line))]
-    if bad:
-        print(f'    (setup lines with ?: {bad})', flush=True)
+    for line in HANDLERS:
+        setup(line)
 
     # ---- the kernel, no hook ----
     v = nums(send('FOCUS-HOOK @ .'))
@@ -164,10 +186,10 @@ try:
     check('K2 FOCUS-SWITCH with no hook: 0, nothing runs', v[:1] == ['0'], f'{v}')
 
     # The console in rows 17-24, window 1 in rows 0-16.
-    send('8 WIN-CONSOLE')
-    v = nums(send('0 0 80 17 WIN-NEW .'))
+    setup('8 WIN-CONSOLE')
+    v = nums(setup('0 0 80 17 WIN-NEW .'))
     if v[:1] != ['1']:
-        print(f'    (WIN-NEW gave {v})', flush=True)
+        SETUP_BAD.append(('0 0 80 17 WIN-NEW .', f'{v}'))
 
     # The cursor follows the prompt: after PAGE the prompt is `ok ` at
     # (0, 17); the 14 typed characters end at column 17: cell 1377.
@@ -221,13 +243,13 @@ try:
     check('S6 1 WIN-FOCUS runs the handler: TN 1', v[:1] == ['1'], f'{v}')
 
     # ---- ABORT inside the handler ----
-    send("' TH2 1 WIN-KEYS!")
+    setup("' TH2 1 WIN-KEYS!")
     raw(CTRL_W)
     raw('z', 2.0)
     send('')
     # The ABORT skipped WIN-SWITCH's reset; WIN-ACTIVE must still say 0.
     a0 = nums(send('WIN-ACTIVE .'))
-    send("' TH 1 WIN-KEYS!")
+    setup("' TH 1 WIN-KEYS!")
     raw('7')
     raw(CTRL_W)
     raw('a')
@@ -238,25 +260,33 @@ try:
           a0[:1] == ['0'] and v[2:4] == ['1', '0'], f'after ABORT {a0}, after the switch {v}')
 
     # ---- a form in window 1 ----
-    send('S" HELLO-APP" LOAD-VOCAB', budget=90)
-    send('ALSO HELLO-APP ALSO UI-PARSER ALSO CATALOG-RESOLVER')
-    send(': HF S" HELLO-FORM" CATALOG-FIND DROP FORM-LOAD FORM-WIRE HA-FIND-WIDGETS ;')
-    send('PREVIOUS PREVIOUS PREVIOUS HF')
-    send("' WIN-FORM-KEYS 1 WIN-KEYS!")
+    # HELLO-APP's load ends in ONLY FORTH DEFINITIONS: the order is set
+    # again after it. FORM-WIRE is GUI-HARVEST's, so HF compiles with it.
+    setup('ONLY FORTH DEFINITIONS')   # a load's ALSOs need room: 8 entries
+    setup('S" HELLO-APP" LOAD-VOCAB', budget=90)
+    setup('ALSO HELLO-APP ALSO UI-PARSER ALSO GUI-HARVEST ALSO CATALOG-RESOLVER')
+    setup(': HF S" HELLO-FORM" CATALOG-FIND DROP FORM-LOAD FORM-WIRE HA-FIND-WIDGETS ;')
+    setup('PREVIOUS PREVIOUS PREVIOUS PREVIOUS HF')
+    setup('ONLY FORTH DEFINITIONS DECIMAL ALSO HAL ALSO UI-CORE ALSO WINDOW')
+    w = nums(send('WT-COUNT @ .'))
+    check('F0 HELLO-FORM loaded: WT-COUNT > 0', w[:1] != [] and w[0].isdigit() and int(w[0]) > 0, f'{w}')
+    setup("' WIN-FORM-KEYS 1 WIN-KEYS!")
     send('PAGE')
     send('PAINT BMARK')
     raw(CTRL_W, 2.0)
     raw(CTRL_W, 2.0)
-    t = body(send('ROW1')).replace('ok', '').strip()
-    b = nums(send('BCOUNT .'))
+    m = screen()
+    t = ''.join(chr(c) for c in m[160 + 2:160 + 32:2])          # row 1, cols 1-15
+    b = sum(1 for i in range(1600, 2000) if m[2 * i:2 * i + 2] == b'B\x07')
     check('F1 the form draws in window 1 and the band survives: Hello Form Test, BCOUNT 400',
-          t.startswith('Hello Form Test') and b[:1] == ['400'], f'row 1 {t!r}, BCOUNT {b}')
+          t == 'Hello Form Test' and b == 400, f'row 1 {t!r}, band B cells {b}')
     v = nums(send('WIN-ACTIVE .'))
     check('F2 Ctrl+W leaves the form: the console answers, WIN-ACTIVE 0', v[:1] == ['0'], f'{v}')
 
     # ---- NOTEPAD's editor ----
-    send("' TH 1 WIN-KEYS! 0 TN !")
-    send('S" NOTEPAD" LOAD-VOCAB', budget=90)
+    setup("' TH 1 WIN-KEYS! 0 TN !")
+    setup('ONLY FORTH DEFINITIONS')   # a load's ALSOs need room: 8 entries
+    setup('S" NOTEPAD" LOAD-VOCAB', budget=90)
 
     # NOTEPAD borrows its search order's top slot for KB-MODS; the order
     # after the borrow must equal the order before it. The file ends in
@@ -281,8 +311,8 @@ try:
     else:
         check('O1 NOTEPAD\'s borrow restores its search order', False,
               f'borrow lines {bor}, ALSO lines {len(also)} in notepad.fth')
-    send('ONLY FORTH DEFINITIONS DECIMAL ALSO HAL ALSO UI-CORE ALSO WINDOW')
-    send('ALSO NOTEPAD')
+    setup('ONLY FORTH DEFINITIONS DECIMAL ALSO HAL ALSO UI-CORE ALSO WINDOW')
+    setup('ALSO NOTEPAD')
     raw('NOTEPAD-RUN\r', 3.0)
     raw('1', 2.0)                      # button 1 = New: edit mode (RAW-SCAN)
     key('ctrl-w', 2.0)
@@ -301,7 +331,7 @@ try:
           n1 and v[:1] == ['0'], f'N1 {n1}, {v}')
 
     # NOTEPAD as the handler: inside the switch its Ctrl+W is ignored.
-    send("' NOTEPAD-RUN 1 WIN-KEYS! 0 TN !")
+    setup("' NOTEPAD-RUN 1 WIN-KEYS! 0 TN !")
     raw(CTRL_W, 3.0)
     raw('1', 2.0)
     key('ctrl-w', 2.0)
@@ -310,6 +340,7 @@ try:
     v = nums(send('TN @ . WIN-ACTIVE . DEPTH .'))
     check('N2 NOTEPAD inside a switch: Ctrl+W ignored, Esc leaves; TN 0, WIN-ACTIVE 0, DEPTH 0',
           v[:3] == ['0', '0', '0'] and 'NOTEPAD closed' in r, f'{v}, {r.strip()[-60:]!r}')
+    check('U0 every setup step replied without ?', not SETUP_BAD, f'{SETUP_BAD[:6]}')
     s.close()
 finally:
     qemu_pid.kill_pidfile(PF)
