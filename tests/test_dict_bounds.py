@@ -67,6 +67,12 @@ that bug's fix, one mechanism for
 every abort path; hiding a private unwind inside dict_full_ would
 fix the guard's residue while leaving every other abort's, and the
 two would then diverge.
+  Since 2026-10-30 (private TASK_ABORT_ROUTES) that one mechanism
+  exists: ABORT and every fired ABORT" go through abort_common, which
+  rolls a definition in progress back to the HERE, LATEST and vocab
+  cell ':' saved; dict_full_ ends in ABORT, so test 4 now leaves no
+  stub.  The text above is the 2026-08-24 decision as it was; no
+  check here pins the residue.
 
 Red-first (pre-registered 2026-08-24, outcome recorded below the
 expectations, per docket discipline):

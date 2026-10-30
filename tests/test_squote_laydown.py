@@ -118,19 +118,28 @@ NUL planted at 2048:
 T3 GREEN, same park: BF executes at STATE=0 (backstop is compile
 path only), ':' dispatches at HERE = P (not > P, ja) and lays the
 12-byte header, then the string word dispatches at HERE = P+12 >
-P: backstop refuses.  HERE = 0x7F80C, all three sentinels intact,
-DICT FULL on the LOAD line.  Identical for all three legs.
+P: backstop refuses.  The refusal ends in ABORT, which goes through
+abort_common: a definition in progress is rolled back to the HERE
+':' saved (VAR_DEF_HERE, set before create_), so HERE = P =
+0x7F800, all three sentinels intact, DICT FULL on the LOAD line.
+Identical for all three legs.
+  Was (to 2026-10-29, when ABORT reset only the stacks and input):
+  HERE = 0x7F80C, the header left in place.
 
 T2 (boundary refusal, normal HERE far from the ceiling), quote at
 absolute 1500, NUL at 1501:
   GREEN: "UNTERMINATED STRING" on the LOAD line; STATE=0 (the
-  refusal's ABORT); HERE at h+20, the laydown start -- only
-  .endcopy moves VAR_HERE and the refusal precedes it.  The
-  length cell at h+16 is never patched, so the old h+16 read is
-  gone with the silent stop it measured.  ABORT also resets BLK,
+  refusal's ABORT); HERE back at h, the definition's start: the
+  refusal precedes .endcopy, and abort_common rolls the header
+  back to the HERE ':' saved.  The length cell at h+16 is never
+  patched, so the old h+16 read is gone with the silent stop it
+  measured.  ABORT also resets BLK,
   so the rest of the crafted block is never parsed -- the old
   green side-noise (31-char 'XXX...' token -> "?" -> ABORT via
   word_'s own bound, forth.asm cmp ecx, 31) died with it too.
+  Was (to 2026-10-29): "HERE at h+20, the laydown start -- only
+  .endcopy moves VAR_HERE and the refusal precedes it" (ABORT left
+  the header and the (S") XT in place).
   RED   L = 1500-11 = 1489 (Q1/Q2), 1500-15 = 1485 (Q3) laid
   down, length-patched, HERE moved, no message, STATE left 1 --
   three discriminators per leg.
@@ -152,7 +161,9 @@ this file's T3 geometry (string at P+20, Q3 trailing XT at
 supersedes the earlier draft wherever they disagree.
 
 T4 (margin, BACKSTOP_MARGIN = 2048): park DICT_LIMIT-2048+8 =
-0x7F808 -> body refused, HERE at park+12.  (RED: old 1024 margin
+0x7F808 -> body refused, and the refused definition rolled back by
+abort_common: HERE at park.  Was (to 2026-10-29): HERE at park+12,
+the header left in place by ABORT.  (RED: old 1024 margin
 admits the whole definition, HERE at park+24 -- both checks FAIL;
 derivation and red re-run below.)  Control park DICT_LIMIT-8192
 compiles and runs on both sides.
@@ -171,6 +182,12 @@ the Q-leg names -- and T3 GREEN already predicts the identical
 accepts the same class by decision.  The first green run then
 confirmed 0x7F814 = park+12.  "Refused with nothing laid" was
 the draft's invention, never the kernel's contract.
+  Since 2026-10-30 (private TASK_ABORT_ROUTES) it is: ABORT goes
+  through abort_common, which rolls a definition in progress back
+  to the HERE ':' saved, so the 12-byte header is laid and then
+  removed -- HERE = park = 0x7F808.  The model above (the refusal
+  lands on the first body token) still holds; only the residue
+  went.  The T3 park reads P for the same reason.
 T4 RED under the renamed check (derived): the old 1024 margin's
 threshold is 0x7FC00, park 0x7F808 is below it, so the whole
 definition compiles -- header 12 + literal 8 (LIT XT + value 1)
@@ -232,7 +249,11 @@ is INVALID -- stale image, dead interpreter).
 OBSERVED: the 2026-08-28 run prints exactly 23 (evidence log
 above).
 
-STUB RESIDUE AND UNWIND: every leg leaves a LATEST-reachable stub
+STUB RESIDUE AND UNWIND: since 2026-10-30 a refused definition is
+rolled back (abort_common restores HERE, LATEST and the current
+vocabulary's latest cell), so the refusal legs leave no stub; the
+unwind below is kept, now as a no-op guard for them.  Was (to
+2026-10-29): every leg leaves a LATEST-reachable stub
 (same residue class the dict-bounds suite accepts once, test 4
 there).  This suite parks at the SAME address repeatedly, and a
 second header over a stub that LATEST points at would self-link
@@ -257,7 +278,8 @@ above 0x80000, ja) and create_'s 72-byte margin also passes, so
 ONLY the in-loop guard stands between the laydown and the ceiling.
 Predicted (re-registered 2026-08-26 for the DICT_LIMIT-8 guard;
 the original 0x80000/492 prediction predates the -8 epilogue
-reservation and was never run): guard is 'jae DICT_LIMIT-8', so
+reservation and was never run; the HERE half re-registered
+2026-10-30, below): guard is 'jae DICT_LIMIT-8', so
 it fires when edi reaches 0x7FFF8 after 484 of the available 2036
 source bytes (string start 0x7FE14; 0x7FFF8 - 0x7FE14 = 0x1E4 =
 484); DICT FULL on the LOAD line (this is the DESTINATION guard's
@@ -274,6 +296,12 @@ destination guard fires at edx=495 vs the source cap's 1024, a
 interpreter alive.  First run of 2026-08-28 (same image, same
 23/23) predates the strengthened assertion and is superseded by
 this one, not captured.
+Re-registered 2026-10-30 (private TASK_ABORT_ROUTES): the refusal's
+ABORT now goes through abort_common, which rolls the definition
+back to the HERE ':' saved, so the HERE check reads park = 0x7FE00,
+not 0x7FE14.  Derived from source (':' sets VAR_DEF_HERE before
+create_; abort_common restores it when STATE is not 0).  OBSERVED
+2026-10-30: 23/23, HERE 0x7FE00.
 """
 import hashlib
 import re
@@ -420,12 +448,16 @@ def craft(prefix, quote_abs):
 def unwind():
     """Restore HERE/LATEST/current-vocab-latest to the post-helper
     baseline (see docstring: park-address reuse forbids leaving
-    stubs that LATEST reaches).  Note it restores ALL THREE: A8
-    established that ABORT unwinds neither HERE nor LATEST and the
-    kernel's own recovery touches only global VAR_LATEST -- so
-    after T2's refusal legs (which ABORT mid-definition, leaving a
-    smudged header at LATEST), this poke of the per-vocab cell is
-    what keeps T2b's h_base arithmetic honest."""
+    stubs that LATEST reaches).  Note it restores ALL THREE.  Since
+    2026-10-30 abort_common rolls a refused definition back (all
+    three), so after a refusal leg this restores what is already
+    there; T2b's terminated definition still needs it.  Was (to
+    2026-10-29): A8 established that ABORT unwinds neither HERE nor
+    LATEST and the kernel's own recovery touches only global
+    VAR_LATEST -- so after T2's refusal legs (which ABORT
+    mid-definition, leaving a smudged header at LATEST), this poke
+    of the per-vocab cell is what keeps T2b's h_base arithmetic
+    honest."""
     poke_here(h_base)
     send(f'DECIMAL {l_base} LATEST !', 0.8)
     send(f'DECIMAL {l_base} {cur_cell} !', 0.8)
@@ -626,9 +658,12 @@ if BACKSTOP0:
     check('sentinels intact (guard stopped the walk)',
           (v0, v1, v2) == (SENTINEL,) * 3,
           f's0={hx(v0)} s1={hx(v1)} s2={hx(v2)}')
+    # Rolled back to the HERE ':' saved, park.  Was (to 2026-10-29):
+    # park + 20 = 0x7FE14, the string start (VAR_HERE only moves at
+    # endcopy, and the refusal's ABORT left the rest in place).
     hb, _ = here()
-    check('HERE still at string start 0x7FE14 (VAR_HERE only moves '
-          'at endcopy)', hb == park + 20, f'HERE={hx(hb)}')
+    check('HERE back at park 0x7FE00 (refused definition rolled '
+          'back)', hb == park, f'HERE={hx(hb)}')
     recover_state()
     unwind()
     check('interpreter alive after in-loop refusal', alive())
@@ -641,8 +676,9 @@ print("\nTest 2: block-boundary exhaustion is a NAMED refusal "
       "(x3 words)")
 # GREEN: the copy loop hits BLOCK_SIZE with no closing quote and
 # jumps string_unterm_ -- "UNTERMINATED STRING" on the LOAD line,
-# ABORT clears STATE, and VAR_HERE never advances past the laydown
-# start (only .endcopy moves it, and the refusal precedes
+# ABORT clears STATE, and abort_common rolls the definition back to
+# h_base (was, to 2026-10-29: VAR_HERE stayed at the laydown start,
+# since only .endcopy moves it and the refusal precedes
 # .endcopy; the length cell at h+16 is likewise never patched, so
 # this suite no longer reads it here).  RED (pre-fix kernel): no
 # message exists, the runaway lays RED_LEN bytes, .endcopy patches
@@ -666,10 +702,14 @@ for name, word, prefix, start in LEGS:
     check(f'{name} STATE cleared by the refusal (ABORT ran)',
           sv == 0, f'STATE={sv!r} (red: 1, the runaway swallowed '
           f'the closing quote)')
+    # abort_common rolls the refused definition back to the HERE ':'
+    # saved (forth.asm ':' sets VAR_DEF_HERE before create_): h_base.
+    # Was (to 2026-10-29): h_base + 20, the laydown start, when the
+    # refusal's ABORT left the header and (S") XT in place.
     hb, _ = here()
-    check(f'{name} HERE at laydown start (refusal precedes '
-          f'endcopy)', hb == h_base + 20,
-          f'HERE={hx(hb)} want {hx(h_base + 20)} (red: endcopy '
+    check(f'{name} HERE back at the definition\'s start (refused '
+          f'definition rolled back)', hb == h_base,
+          f'HERE={hx(hb)} want {hx(h_base)} (red: endcopy '
           f'ran, len {RED_LEN[name]} laid down)')
     unwind()
     check(f'{name} alive after boundary-refusal leg', alive())
@@ -754,9 +794,12 @@ for name, word, prefix, start in LEGS:
     check(f'{name} sentinel 0x80008 intact', v2 == SENTINEL,
           f'got {hx(v2)} (red: Q1 the TYPE XT < {hx(DICT_START)}; '
           f'Q2/Q3 predicted intact even in red)')
+    # Rolled back to the HERE ':' saved, PARK.  Was (to 2026-10-29):
+    # PARK + 12, the header left in place by the refusal's ABORT.
     hb, _ = here()
-    check(f'{name} HERE at park+12 (header laid, body refused)',
-          hb == PARK + 12,
+    check(f'{name} HERE back at park (header laid, body refused, '
+          f'definition rolled back)',
+          hb == PARK,
           f'HERE={hx(hb)} (red predicts Q1 0x8000C, Q2/Q3 0x80008)')
     recover_state()
     unwind()
@@ -776,10 +819,12 @@ r = send(': M1 1 ;', 2.0)
 b = body_of(r)
 check('margin park refused', 'DICT FULL' in b,
       repr(b.strip()[-90:]))
+# Rolled back to the HERE ':' saved, park.  Was (to 2026-10-29):
+# park + 12, the header left in place by the refusal's ABORT.
 hb, _ = here()
-check('margin park: header laid, body refused (HERE at park+12)',
-      hb == park + 12,
-      f'HERE={hx(hb)} want {hx(park + 12)}')
+check('margin park: header laid, body refused, rolled back (HERE at park)',
+      hb == park,
+      f'HERE={hx(hb)} want {hx(park)}')
 recover_state()
 unwind()
 # Control: well below the margin, definitions still compile and run
