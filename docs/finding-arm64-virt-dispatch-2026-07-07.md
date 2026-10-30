@@ -101,6 +101,8 @@ Private repo fa36980.
 
 ### Bug #33c: DOT/NUMBER output (OPEN)
 
+2026-10-29: closed, see "Resolution: Bug #33c — CLOSED (2026-07-11)" below (line 545).
+
 **Symptom:** DOT produces wrong output for every
 value. Multi-digit NUMBER also broken.
 
@@ -592,6 +594,8 @@ until #33d is resolved.
 `test-pipeline` excluded by design).
 
 ## Bug #33d — colon definition non-response (OPEN)
+
+2026-10-29: closed, see "Resolution: Bug #33d — CLOSED (2026-07-11)" below (line 687).
 
 **Observed (2026-07-11, kernel `695abda7...`):**
 `: T5 7 EMIT ;` echoed with no `ok` and no `?`
