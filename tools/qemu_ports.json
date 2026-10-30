@@ -155,7 +155,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 55,
-    "source": "Makefile:1435"
+    "source": "Makefile:1444"
    }
   ]
  },
@@ -515,7 +515,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 80,
-    "source": "Makefile:1500"
+    "source": "Makefile:1509"
    }
   ]
  },
@@ -802,6 +802,16 @@
     "kind": "monitor",
     "offset": 110,
     "source": "tests/test_vga_wrap.py:102"
+   }
+  ]
+ },
+ "test-vocab-dedup": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 123,
+    "source": "tests/test_vocab_dedup.py:173"
    }
   ]
  },

@@ -210,7 +210,6 @@ SCRIPT_GRANDFATHERED = {
     'tests/test_ps2_mouse.py': _SCRIPT_UNREVIEWED,
     'tests/test_shutdown.py': _SCRIPT_UNREVIEWED,
     'tests/test_vga_graphics.py': _SCRIPT_UNREVIEWED,
-    'tests/test_vocab_dedup.py': _SCRIPT_UNREVIEWED,
 }
 # The grandfather list may only shrink (owner 2026-10-28), pinned by
 # name: every entry must be in this frozen set of the 23 found when the
