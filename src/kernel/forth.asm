@@ -3550,16 +3550,7 @@ DEFCODE '."', DOTQUOTE, F_IMMEDIATE
 ; so aborting out of a block LOAD (where VAR_TIB is the block buffer)
 ; would otherwise parse the stale buffer forever.
 DEFCODE "ABORT", ABORT, 0
-    mov byte [focus_busy], 0    ; E: ABORT does not reach abort_common
-    mov esp, DATA_STACK_TOP
-    mov ebp, RETURN_STACK_TOP
-    mov dword [VAR_STATE], 0
-    mov dword [VAR_TIB], TIB_START
-    mov dword [VAR_TOIN], 0
-    mov dword [VAR_BLK], 0
-    mov dword [VAR_BLOCK_LOADING], 0
-    mov esi, cold_start
-    NEXT
+    jmp abort_common            ; one route: roll-back, ABORT-HOOK, embed message
 
 ; (ABORT") ( flag c-addr u -- ) Compiled runtime for ABORT".
 ; The message is laid down by (S"), exactly as ." does it, so (S")
@@ -5875,7 +5866,7 @@ print_hex_short:
 
 ; ----------------------------------------------------------------------------
 ; read_key - Wait for and return a keypress in AL
-; Tracks Ctrl key state. Ctrl+C sets break_flag and returns 3 (ETX).
+; Tracks Ctrl key state. Ctrl+C returns 3 (ETX); read_line sets break_flag.
 ; ----------------------------------------------------------------------------
 read_key:
     call read_key_raw
@@ -6065,9 +6056,7 @@ read_key_raw:
     jmp .wait
 
 .ctrl_c:
-    ; Set break flag — interpreter checks this after read_line returns
-    mov byte [break_flag], 1
-    mov al, 3               ; ETX (Ctrl+C character)
+    mov al, 3               ; ETX (Ctrl+C character); read_line sets break_flag
     pop ebx
     ret
 
@@ -6623,7 +6612,8 @@ read_line:
     jmp .loop
 
 .break:
-    ; Discard line, null-terminate at start
+    ; Discard line, null-terminate at start; INTERPRET acts on the flag
+    mov byte [break_flag], 1
     mov edi, TIB_START
     mov byte [edi], 0
     mov al, 13
@@ -6904,7 +6894,8 @@ abort_undefined:
     call print_string
     mov esi, msg_undefined
     call print_string
-    cmp dword [VAR_TIB], embed_data
+abort_common:                       ; HAL: an unbound vector joins here
+    cmp dword [VAR_TIB], embed_data ; every route says when it stops the boot
     jne .not_embed
     mov esi, msg_embed_aborted
     call print_string
@@ -6913,7 +6904,6 @@ abort_undefined:
     mov esi, msg_embed_tail
     call print_string
 .not_embed:
-abort_common:                       ; HAL: an unbound vector joins here
     mov byte [focus_busy], 0
     cmp dword [VAR_STATE], 0
     je .no_def
