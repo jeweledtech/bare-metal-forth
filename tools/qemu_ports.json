@@ -119,13 +119,13 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 104,
-    "source": "$(PRIVATE_REPO)/tests/test_dlg2form.py:520"
+    "source": "$(PRIVATE_REPO)/tests/test_dlg2form.py:522"
    },
    {
     "form": "tcp:127.0.0.1:P",
     "kind": "monitor",
     "offset": 105,
-    "source": "$(PRIVATE_REPO)/tests/test_dlg2form.py:521"
+    "source": "$(PRIVATE_REPO)/tests/test_dlg2form.py:523"
    }
   ]
  },
