@@ -668,6 +668,25 @@ check('+LOOP stack clean (DEPTH=0)',
       has_word(resp_after_echo(r, 'DEPTH .'), '0'),
       r.strip()[:60])
 
+# ---- #33d defect 2 in CREATE and CONSTANT (private TASK_33D_GUARD) ----
+# HERE must advance past the name after CMOVE. Two CREATEs in a row
+# differ by align4(5+n)+4: 16 for 4-byte names, 12 if HERE stays put
+# (and the zeroed name then misses in FIND, printing ?).
+r = send(bs, 'CREATE CRAA CREATE CRBB', 3)
+cr_cmd = 'CRBB CRAA - .'
+r = send(bs, cr_cmd, 3)
+resp = resp_after_echo(r, cr_cmd)
+check('CREATE x2: CRBB CRAA - . = 16 (header size, 4-byte names)',
+      has_word(resp, '16') and '?' not in resp,
+      r.strip()[:60])
+
+r = send(bs, '123 CONSTANT CNAA 456 CONSTANT CNBB', 3)
+cn_cmd = 'CNAA . CNBB .'
+r = send(bs, cn_cmd, 3)
+check('CONSTANT x2: CNAA . CNBB . = 123 456',
+      resp_after_echo(r, cn_cmd).split()[:2] == ['123', '456'],
+      r.strip()[:60])
+
 # ============================================================
 # Cleanup
 # ============================================================
