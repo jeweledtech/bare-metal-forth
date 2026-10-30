@@ -147,6 +147,14 @@ CREATE NP-LBL-EXIT 4 C, CHAR E C,
 NP-REGISTER-BUTTONS
 
 \ ---- Mode switch helpers ----------------
+\ KB-MODS: PS2-KEYBOARD's (search order
+\ full, so its top slot is borrowed)
+PREVIOUS ALSO PS2-KEYBOARD KB-MODS
+PREVIOUS ALSO CATALOG-RESOLVER
+CONSTANT NP-KB-MODS
+\ Ctrl's release went to the switch, not RAW-SCAN
+: NP-CTRL-OFF ( -- )
+  NP-KB-MODS @ 2 INVERT AND NP-KB-MODS ! ;
 
 : NP-EXIT-EDIT ( -- )
   0 NP-EDIT-MODE ! ;
@@ -157,6 +165,10 @@ NP-REGISTER-BUTTONS
   DUP SC-CTRL-Q =
   FE-CTRL? AND IF
     DROP NP-EXIT-EDIT EXIT THEN
+  \ Ctrl+W (scancode 11): the window
+  \ switch; refused inside a switch
+  DUP 11 = FE-CTRL? AND IF
+    DROP FOCUS-SWITCH IF NP-CTRL-OFF THEN EXIT THEN
   FE-DISPATCH ;
 
 \ ---- Main entry point ------------------

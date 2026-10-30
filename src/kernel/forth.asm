@@ -3550,6 +3550,7 @@ DEFCODE '."', DOTQUOTE, F_IMMEDIATE
 ; so aborting out of a block LOAD (where VAR_TIB is the block buffer)
 ; would otherwise parse the stale buffer forever.
 DEFCODE "ABORT", ABORT, 0
+    mov byte [focus_busy], 0    ; E: ABORT does not reach abort_common
     mov esp, DATA_STACK_TOP
     mov ebp, RETURN_STACK_TOP
     mov dword [VAR_STATE], 0
@@ -4570,6 +4571,21 @@ DEFCODE "MORE-ENABLED", MORE_ENABLED_W, 0
 ; NET-CON-ON - ( -- ) Enable net console output mirroring
 DEFCODE "NET-CON-ON", NET_CON_ON, 0
     mov byte [net_console_enabled], 1
+    NEXT
+
+;  FOCUS-HOOK ( -- addr ) xt run when Ctrl+W is read, 0 = none
+DEFVAR "FOCUS-HOOK", FOCUS_HOOK_VAR, focus_hook
+
+;  FOCUS-BUSY ( -- addr ) byte, nonzero while FOCUS-HOOK runs; ABORT
+;  clears it (abort_common), so it also says a switch ended by an ABORT
+DEFVAR "FOCUS-BUSY", FOCUS_BUSY_VAR, focus_busy
+
+;  FOCUS-SWITCH ( -- flag ) run FOCUS-HOOK as Ctrl+W does; false when
+;  none is set or one is already running
+DEFCODE "FOCUS-SWITCH", FOCUS_SWITCH, 0
+    call focus_switch
+    neg eax
+    push eax
     NEXT
 
 ; NET-CON-OFF - ( -- ) Disable net console, reset buffer
@@ -5854,6 +5870,68 @@ print_hex_short:
 ; Tracks Ctrl key state. Ctrl+C sets break_flag and returns 3 (ETX).
 ; ----------------------------------------------------------------------------
 read_key:
+    call read_key_raw
+    cmp al, 0x17                ; the focus-switch key (Ctrl+W)
+    jne .rk_ret
+    push eax
+    call focus_switch
+    pop eax
+    jz .rk_ret                  ; not run: Ctrl+W goes to the caller
+    jmp read_key
+.rk_ret:
+    ret
+
+; focus_switch - run FOCUS-HOOK unless none is set or one is running.
+; EAX = 1 (ZF clear) when it ran, 0 (ZF set) when not.
+focus_switch:
+    xor eax, eax
+    cmp dword [focus_hook], 0
+    je .fs_ret
+    cmp byte [focus_busy], 0
+    jne .fs_ret
+    mov byte [focus_busy], 1
+    pushad
+    mov eax, [focus_hook]
+    call execute_xt
+    popad
+    mov byte [focus_busy], 0
+    call crtc_follow
+    inc eax
+.fs_ret:
+    test eax, eax
+    ret
+
+; crtc_follow - BIOS text mode: the hardware cursor to (cursor_x, cursor_y)
+crtc_follow:
+    cmp byte [fb_on], 0
+    jne .cf_ret
+    pushad
+    mov eax, [cursor_y]
+    imul eax, eax, VGA_WIDTH
+    mov ecx, [cursor_x]
+    cmp ecx, VGA_WIDTH - 1
+    jbe .cf_x
+    mov ecx, VGA_WIDTH - 1
+.cf_x:
+    add eax, ecx
+    mov ecx, eax
+    mov dx, 0x3D4
+    mov al, 0x0F
+    out dx, al
+    inc dx
+    mov al, cl
+    out dx, al
+    dec dx
+    mov al, 0x0E
+    out dx, al
+    inc dx
+    mov al, ch
+    out dx, al
+    popad
+.cf_ret:
+    ret
+
+read_key_raw:
     push ebx
 
 .wait:
@@ -5919,6 +5997,10 @@ read_key:
     je .normal_key
     cmp al, 0x2E            ; 'c' scancode
     je .ctrl_c
+    cmp al, 0x11            ; 'w' scancode
+    jne .normal_key
+    mov al, 0x17
+    jmp .check_result
 
 .normal_key:
     ; Look up ASCII — use shifted table if Shift held
@@ -6495,6 +6577,7 @@ read_line:
     xor ecx, ecx
 
 .loop:
+    call crtc_follow
     call read_key
 
     ; Check for Ctrl+C break (read_key returns 3 = ETX)
@@ -6823,6 +6906,7 @@ abort_undefined:
     call print_string
 .not_embed:
 abort_common:                       ; HAL: an unbound vector joins here
+    mov byte [focus_busy], 0
     cmp dword [VAR_STATE], 0
     je .no_def
     mov eax, [VAR_DEF_HERE]
@@ -7249,6 +7333,9 @@ more_enabled:       db 0            ; 0 = off (default), 1 = on
 more_lines:         dd 0            ; Lines printed since last pause
 
 ; Net console state (UDP output mirror)
+focus_hook:             dd 0        ; xt run on Ctrl+W, 0 = none
+focus_busy:             db 0
+                        align 4
 net_console_enabled:    db 0        ; 1 = mirror output to UDP
 net_flushing:           db 0        ; 1 = flush in progress (re-entrancy guard)
                         align 4

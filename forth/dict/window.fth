@@ -5,13 +5,18 @@
 \ SOURCE: hand-written
 \ CONFIDENCE: medium
 \ REQUIRES: HAL
+\ REQUIRES: UI-CORE ( RENDER-WIDGET WT-COUNT WT-FOCUS )
+\ REQUIRES: UI-EVENTS ( FOCUS-IDX HANDLE-KEY QUIT-FLAG )
 \ ============================================
 \
 \ Windows: regions of the 80x25 text screen,
 \ in a table read only through these words.
 \ Window 0 is the console; its region is the
 \ kernel's band (CON-REGION), full width.
-\ Private DESIGN_WINDOW_FOCUS, step 1.
+\ Private DESIGN_WINDOW_FOCUS, steps 1-2.
+\ Ctrl+W (FOCUS-HOOK) runs the target
+\ window's key handler until it reads
+\ Ctrl+W again; then the console.
 \
 \ Usage:
 \   S" WINDOW" LOAD-VOCAB  ALSO WINDOW
@@ -20,12 +25,17 @@
 \   0 0 80 17 WIN-NEW   ( -- id )
 \   col row id WIN-AT   ( -- addr )
 \   id WIN-CLS
+\   xt id WIN-KEYS!   Ctrl+W runs xt
+\   ' WIN-FORM-KEYS id WIN-KEYS!  a form
+\   id WIN-FOCUS      switch to id now
 \
 \ ============================================
 
 VOCABULARY WINDOW
 WINDOW DEFINITIONS
 ALSO HAL
+ALSO UI-CORE
+ALSO UI-EVENTS
 DECIMAL
 
 8 CONSTANT WIN-MAX
@@ -100,6 +110,57 @@ VARIABLE WC-ID
     OVER 0 DO 1824 OVER I 2 * + W! LOOP DROP
   LOOP DROP  FB-FLUSH ;
 
-PREVIOUS
+\ ---- Keys and focus (step 2) ------------
+\ Per window: its key handler xt, 0 none.
+CREATE WIN-KEYS WIN-MAX CELLS ALLOT
+WIN-KEYS WIN-MAX CELLS 0 FILL
+VARIABLE WIN-CUR     0 WIN-CUR !
+VARIABLE WIN-TARGET  0 WIN-TARGET !
+23 CONSTANT WIN-SWITCH-KEY  \ Ctrl+W
+
+\ The window that owns the keys now: 0
+\ unless a switch runs. An ABORT in a
+\ handler skips WIN-SWITCH's reset, but
+\ clears the kernel's FOCUS-BUSY.
+: WIN-ACTIVE ( -- id )
+  FOCUS-BUSY C@ IF WIN-CUR @ ELSE 0 THEN ;
+: WIN-HANDLER ( id -- xt ) CELLS WIN-KEYS + @ ;
+
+\ FOCUS-HOOK's xt: run the target's
+\ handler as the active window.
+: WIN-SWITCH ( -- )
+  WIN-TARGET @ ?DUP 0= IF EXIT THEN
+  DUP WIN-CUR !  WIN-HANDLER EXECUTE
+  0 WIN-CUR ! ;
+
+\ Ctrl+W goes to window id and runs xt.
+: WIN-KEYS! ( xt id -- )
+  WIN-ID DUP 0= ABORT" WINDOW: the console's keys are its own"
+  DUP WIN-TARGET !  CELLS WIN-KEYS + !
+  ['] WIN-SWITCH FOCUS-HOOK ! ;
+
+\ Switch to window id now, as Ctrl+W.
+: WIN-FOCUS ( id -- )
+  WIN-ID DUP 0= IF DROP EXIT THEN
+  DUP WIN-HANDLER 0= ABORT" WINDOW: no key handler"
+  WIN-TARGET !  FOCUS-SWITCH DROP ;
+
+\ A form as a window's handler: its own
+\ region cleared, never the screen, so
+\ the console band survives. Ctrl+W or
+\ the form's quit leaves.
+: WIN-FORM-KEYS ( -- )
+  0 QUIT-FLAG !
+  BEGIN
+    WIN-ACTIVE WIN-CLS
+    FOCUS-IDX @ WT-FOCUS !
+    WT-COUNT @ 0 > IF
+      WT-COUNT @ 0 DO I RENDER-WIDGET LOOP
+    THEN
+    KEY DUP WIN-SWITCH-KEY = IF DROP EXIT THEN
+    HANDLE-KEY  QUIT-FLAG @
+  UNTIL ;
+
+PREVIOUS PREVIOUS PREVIOUS
 FORTH DEFINITIONS
 DECIMAL
