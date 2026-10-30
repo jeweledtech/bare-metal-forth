@@ -10,8 +10,7 @@ make combined has no private sources), build/bmforth-free.img + build/blocks.img
 Images are copied into build/vocab-dedup.d first (never booted in place).
 Public cases (always): PCI-ENUM again (embedded), FIRSTBOOT (block-loaded
 in both the full and the free build; REQUIRES four vocabularies embedded in
-both, one per line), FIRSTBOOT again. Private cases (only when forth/dict/ahci.fth and surveyor.fth
-are in the tree; else SKIPPED, exit 0): AHCI again, SURVEYOR (REQUIRES AHCI
+both, one per line), FIRSTBOOT again. Private cases (private mode, below): AHCI again, SURVEYOR (REQUIRES AHCI
 NTFS FAT32 HARDWARE, surveyor.fth:6; all four embedded, so four skip lines),
 SURVEYOR again, INSTALL (REQUIRES SURVEYOR). Each step measures HERE, counts
 the "<name> present, skipped" lines (each REQUIRES resolves exactly once per
@@ -20,6 +19,20 @@ dictionary region is dumped through the QEMU monitor (pmemsave) and a header
 is counted only when the name is preceded by its length byte (len & 0x3F,
 not hidden) and a plausible link cell. FIND is not used for the count.
 The checks are the gates after the fix.
+
+Mode, decided before booting (private TASK_VOCAB_DEDUP_WIRE, amendment).
+PRIVATE_REPO and PRIVATE_REPO_ORIGIN come from the recipe (make's value
+and $(origin PRIVATE_REPO)); run by hand, ../forthos-vocabularies beside
+the tree, origin "file" (the Makefile:139 default).
+  private: PRIVATE_REPO/forth/dict exists, and ahci.fth and surveyor.fth
+           are there and in this tree's forth/dict. 15 checks.
+  public:  PRIVATE_REPO/forth/dict absent, origin "file" (the default).
+           7 checks; the 8 private checks not run.
+  FAIL (exit 1, no QEMU): absent but set explicitly, or present without
+           its vocabularies. Never a fallback to public mode.
+The final line names the mode and pins its total:
+  Passed: N/15 (private mode: PRIVATE_REPO <path>)
+  Passed: N/7 (public mode: 8 private checks not run, PRIVATE_REPO absent)
 
 Pin history:
 - 2026-10-30, a miss (private TASK_VOCAB_DEDUP_WIRE): the SURVEYOR check
@@ -62,7 +75,24 @@ IDE = os.path.join(D, 'ide.img')
 PF = os.path.join(D, 'qemu.pid')
 MON = os.path.join(D, 'monitor.sock')
 DUMP = os.path.join(D, 'dict.bin')
-PRIVATE = all(os.path.exists(os.path.join(ROOT, 'forth', 'dict', f)) for f in ('ahci.fth', 'surveyor.fth'))
+PRIV_VOCABS = ('ahci.fth', 'surveyor.fth')
+PRIV_REPO = os.environ.get('PRIVATE_REPO') or os.path.join(ROOT, '..', 'forthos-vocabularies')
+PRIV_ORIGIN = os.environ.get('PRIVATE_REPO_ORIGIN', 'file')
+if os.path.isdir(os.path.join(PRIV_REPO, 'forth', 'dict')):
+    _miss = [w + '/forth/dict/' + f for w in (PRIV_REPO, ROOT) for f in PRIV_VOCABS
+             if not os.path.exists(os.path.join(w, 'forth', 'dict', f))]
+    if _miss:
+        print(f'FAIL: PRIVATE_REPO {PRIV_REPO} found, its vocabularies not: {_miss} '
+              '(no fallback to public mode)', flush=True)
+        sys.exit(1)
+    PRIVATE = True
+elif PRIV_ORIGIN != 'file':
+    print(f'FAIL: PRIVATE_REPO set ({PRIV_ORIGIN}) to {PRIV_REPO}, not found '
+          '(no fallback to public mode)', flush=True)
+    sys.exit(1)
+else:
+    PRIVATE = False
+TOTAL = 15 if PRIVATE else 7
 DICT_START, DICT_LIMIT = 0x30000, 0x80000
 NAMES = ['AHCI-INIT', 'AHCI', 'PCI-ENUM', 'HARDWARE', 'NTFS', 'FAT32', 'SURVEYOR', 'INSTALL',
          'FIRSTBOOT', 'UI-CORE', 'UI-PARSER', 'UI-EVENTS', 'GUI-HARVEST', 'CATALOG-RESOLVER']
@@ -198,7 +228,7 @@ check('FIRSTBOOT (previously loaded) again: HERE unchanged, one skip line',
 
 PRIV_CHECKS = 8
 if not PRIVATE:
-    print(f'  SKIPPED: private vocabularies (AHCI, SURVEYOR) are not in this tree: '
+    print(f'  SKIPPED: public mode (PRIVATE_REPO absent): AHCI, SURVEYOR, INSTALL cases, '
           f'{PRIV_CHECKS} private checks not run', flush=True)
     h7 = h3
 else:
@@ -230,5 +260,7 @@ n = re.findall(r'-?\d+', send(s, 'DECIMAL DEPTH .'))
 check('DEPTH 0', n[-1:] == ['0'], f'{n}')
 print(f'  HERE: boot {h0:#x}, after all loads {h7:#x}; headroom below 0x7F800: {0x7F800 - h7}', flush=True)
 qemu_pid.kill_pidfile(PF)
-print(f'\nPassed: {PASS}/{PASS + FAIL}')
-sys.exit(0 if FAIL == 0 else 1)
+MODE = (f'private mode: PRIVATE_REPO {PRIV_REPO}' if PRIVATE else
+        f'public mode: {PRIV_CHECKS} private checks not run, PRIVATE_REPO absent')
+print(f'\nPassed: {PASS}/{TOTAL} ({MODE})')
+sys.exit(0 if FAIL == 0 and PASS == TOTAL else 1)

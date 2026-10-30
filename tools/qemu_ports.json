@@ -155,7 +155,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 55,
-    "source": "Makefile:1444"
+    "source": "Makefile:1445"
    }
   ]
  },
@@ -515,7 +515,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 80,
-    "source": "Makefile:1509"
+    "source": "Makefile:1510"
    }
   ]
  },
@@ -811,7 +811,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 123,
-    "source": "tests/test_vocab_dedup.py:173"
+    "source": "tests/test_vocab_dedup.py:203"
    }
   ]
  },

@@ -1310,6 +1310,7 @@ test-vocab-dedup: $(COMBINED)
 	@PIDF=$(BUILD)/vocab-dedup.d/qemu.pid; $(QEMU_KILL); \
 	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-vocab-dedup --base $(TEST_PORT_BASE); \
 	echo "Running vocab dedup gates..."; \
+	PRIVATE_REPO='$(PRIVATE_REPO)' PRIVATE_REPO_ORIGIN='$(origin PRIVATE_REPO)' \
 	timeout --foreground $(T_VOCAB_DEDUP) python3 tests/test_vocab_dedup.py $$(($(TEST_PORT_BASE)+123))
 
 # test-double-cell: 2DROP 2DUP 2SWAP 2OVER against Forth-83 13.2, and
