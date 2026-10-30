@@ -298,13 +298,10 @@ VARIABLE SB-COL
 ;
 
 \ ---- Hardware cursor ----
+\ The kernel's CURSOR!: the CRTC on BIOS, drawn on UEFI
 : FE-CURSOR ( -- )
     FE-CY @ FE-RGN-Y @ + VCOLS *
-    FE-CX @ +
-    DUP FF AND
-    0F 3D4 OUTB 3D5 OUTB
-    8 RSHIFT
-    0E 3D4 OUTB 3D5 OUTB
+    FE-CX @ + CURSOR!
 ;
 
 \ ============================================

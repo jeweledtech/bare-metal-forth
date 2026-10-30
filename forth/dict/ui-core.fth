@@ -155,14 +155,9 @@ VARIABLE VPC-TMP
     LOOP
   LOOP ;
 
+\ The kernel's CURSOR!: the CRTC on BIOS, drawn on UEFI
 : CURSOR-AT ( col row -- )
-  VGA-COLS * +
-  DUP BYTE-MASK AND
-  CRTC-LO CRTC-IDX OUTB
-  CRTC-DAT OUTB
-  8 RSHIFT
-  CRTC-HI CRTC-IDX OUTB
-  CRTC-DAT OUTB ;
+  VGA-COLS * + CURSOR! ;
 
 \ ---- Widget entry access ---------------
 

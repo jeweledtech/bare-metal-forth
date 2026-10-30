@@ -1960,20 +1960,7 @@ page_band:
     mov [cursor_y], ecx
     mov dword [ser_col], 0
     mov dword [wrap_rows], 0
-    ; Hardware cursor to the band's first cell
-    imul ecx, ecx, VGA_WIDTH
-    mov dx, 0x3D4
-    mov al, 0x0F
-    out dx, al
-    inc dx
-    mov al, cl
-    out dx, al
-    dec dx
-    mov al, 0x0E
-    out dx, al
-    inc dx
-    mov al, ch
-    out dx, al
+    call crtc_follow            ; the cursor to the band's first cell
     NEXT
 
 ; CON-REGION - ( top rows -- flag ) The console's band: rows top..top+rows-1,
@@ -3125,6 +3112,16 @@ DEFCODE "SCREEN", SCREEN, 0
 DEFCODE "SCREEN-FLUSH", SCREEN_FLUSH, 0
     call fb_flush
     NEXT
+
+; CURSOR! ( cell -- ) the cursor to a cell, row * 80 + col: the CRTC on a
+; BIOS boot, the drawn cursor on a UEFI framebuffer; off the screen, none
+DEFCODE "CURSOR!", CURSOR_STORE, 0
+    pop eax
+    call cursor_to
+    NEXT
+
+; CURSOR-CELL ( -- addr ) the cell CURSOR! last set (-1: none)
+DEFVAR "CURSOR-CELL", CURSOR_CELL_VAR, fb_cursor
 
 ; ---------------------------------------------------------------------------
 ; HAL slice 1 (docs/TASK_HAL_DISPLAY.md): a rebindable naming contract.
@@ -5586,9 +5583,12 @@ fb_palette:
     dd 0x555555, 0x5555FF, 0x55FF55, 0x55FFFF, 0xFF5555, 0xFF55FF, 0xFFFF55, 0xFFFFFF
 fb_fg:  dd 0
 fb_bg:  dd 0
+fb_cursor: dd -1                        ; the cursor's cell (CURSOR-CELL); -1 = none
 fb_cell:
     cmp byte [fb_on], 0
     je .ret
+    cmp eax, VGA_WIDTH * VGA_HEIGHT
+    jae .ret                            ; off the screen (no cursor: -1)
     pushad
     mov ebx, eax
     mov esi, [vga_base]
@@ -5641,6 +5641,23 @@ fb_cell:
     add edi, [fb_pitch]
     dec ecx
     jnz .row
+    mov eax, [esp + 28]                 ; the cell (pushad's EAX)
+    cmp eax, [fb_cursor]
+    jne .done
+    mov eax, [fb_pitch]
+    sub edi, eax
+    sub edi, eax                        ; glyph rows 14 and 15: the cursor
+    mov eax, [fb_fg]
+    mov edx, 2
+.ul:
+    push edi
+    mov ecx, 8
+    rep stosd
+    pop edi
+    add edi, [fb_pitch]
+    dec edx
+    jnz .ul
+.done:
     popad
 .ret:
     ret
@@ -5900,10 +5917,8 @@ focus_switch:
     test eax, eax
     ret
 
-; crtc_follow - BIOS text mode: the hardware cursor to (cursor_x, cursor_y)
+; crtc_follow - the cursor to (cursor_x, cursor_y), through cursor_to
 crtc_follow:
-    cmp byte [fb_on], 0
-    jne .cf_ret
     pushad
     mov eax, [cursor_y]
     imul eax, eax, VGA_WIDTH
@@ -5913,7 +5928,29 @@ crtc_follow:
     mov ecx, VGA_WIDTH - 1
 .cf_x:
     add eax, ecx
+    call cursor_to
+    popad
+    ret
+
+; cursor_to - EAX = a cell (row * 80 + col).  Records it in fb_cursor (-1
+; when off the screen); BIOS: the CRTC cursor there; UEFI framebuffer: the
+; old cell redrawn without the cursor, the new one with it (fb_cell).
+cursor_to:
+    pushad
     mov ecx, eax
+    cmp eax, VGA_WIDTH * VGA_HEIGHT
+    jb .ct_on
+    or eax, -1                  ; off the screen: no cursor drawn
+.ct_on:
+    xchg eax, [fb_cursor]       ; EAX = the cell it was on
+    cmp byte [fb_on], 0
+    je .ct_crtc
+    call fb_cell                ; the old cell, without it
+    mov eax, [fb_cursor]
+    call fb_cell                ; the new cell, with it
+    popad
+    ret
+.ct_crtc:
     mov dx, 0x3D4
     mov al, 0x0F
     out dx, al
@@ -5927,7 +5964,6 @@ crtc_follow:
     mov al, ch
     out dx, al
     popad
-.cf_ret:
     ret
 
 read_key_raw:
