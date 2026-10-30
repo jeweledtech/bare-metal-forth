@@ -145,7 +145,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 55,
-    "source": "Makefile:1393"
+    "source": "Makefile:1404"
    }
   ]
  },
@@ -495,7 +495,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 80,
-    "source": "Makefile:1458"
+    "source": "Makefile:1469"
    }
   ]
  },
@@ -830,6 +830,22 @@
     "kind": "serial",
     "offset": 11,
     "source": "Makefile:552"
+   }
+  ]
+ },
+ "test-window-focus": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 118,
+    "source": "tests/test_window_focus.py:103"
+   },
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "monitor",
+    "offset": 119,
+    "source": "tests/test_window_focus.py:104"
    }
   ]
  },
