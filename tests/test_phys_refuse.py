@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """A refused DMA buffer is refused by the driver, not used at address 0
-(private TASK_PHYS_CEILING, the drivers' part). Ten checks: B1, B2, L1,
-R1, R2, A1, A2, C1, N1, N2.
+(private TASK_PHYS_CEILING, the drivers' part). Eleven checks: B1, B2, L1,
+R1, R2, A1, A2, W2, C1, N1, N2.
 
   python3 tests/test_phys_refuse.py <serial-port>     (cwd: tree root)
 
@@ -19,7 +19,11 @@ minimal NTFS boot sector at its first NTFS partition, so NTFS-INIT reaches
 MFT-READ0. No NIC: QEMU has no RTL8168, so RTL8168-INIT's refusal is not
 exercised here. Low memory is the witness: 0x5A over 0x0-0x4FF (below
 every window ForthOS owns, forth.asm mb2_windows from 0x500), read with
-the monitor's pmemsave, refilled before each step.
+the monitor's pmemsave, refilled before each step and compared with a
+snapshot taken just before it; B1 and W2 show a deliberate write into it
+is seen. A1 proves the refusal only: AHCI-INIT writes no buffer itself
+(the first command does, A2). Every image QEMU opens is this test's own
+copy under build/phys-refuse.d; N2's disk write can land only there.
 
 The subject is private (ahci, rtl8168, ntfs, auto-detect): with
 PRIVATE_REPO absent at the Makefile default the test is SKIPPED, not
@@ -34,7 +38,7 @@ import serial as ser
 import g6_fixture
 
 PORT = int(sys.argv[1])
-TOTAL = 10
+TOTAL = 11
 B = os.path.join(ROOT, 'build')
 D = os.path.join(B, 'phys-refuse.d')
 PF = os.path.join(D, 'qemu.pid')
@@ -111,6 +115,17 @@ def disk_hash():
 
 
 DISK0 = disk_hash()
+for p in (IMG, IDE, DISK):
+    assert os.path.dirname(os.path.realpath(p)) == os.path.realpath(D), p
+SHARED = [os.path.join(B, n) for n in ('bmforth-free.img', 'blocks.img', 'combined.img', 'bmforth.img')
+          if os.path.exists(os.path.join(B, n))]
+
+
+def shared_hashes():
+    return {p: hashlib.sha256(open(p, 'rb').read()).hexdigest() for p in SHARED}
+
+
+SHARED0 = shared_hashes()
 for p in (os.path.join(B, 'bmforth-free.img'), os.path.join(B, 'blocks.img'),
           os.path.join(ROOT, 'forth', 'dict', 'hardware.fth')) + \
         tuple(os.path.join(ROOT, 'forth', 'dict', f) for f in DRIVERS) + (os.path.abspath(__file__),):
@@ -147,8 +162,14 @@ def whole(mem):
     return mem == b'\x5A' * LOW
 
 
-def broken(mem):
-    bad = [i for i, c in enumerate(mem) if c != 0x5A]
+def same(before, after):
+    """Low memory unchanged across a step: read whole both times."""
+    return len(before) == LOW and before == after
+
+
+def broken(mem, ref=None):
+    ref = ref if ref is not None and len(ref) == LOW else b'\x5A' * LOW
+    bad = [i for i, c in enumerate(mem) if c != ref[i]] if len(mem) == LOW else []
     return f'{len(bad)} bytes changed, first at {bad[0]:#x}' if bad else ('unread' if len(mem) != LOW else 'whole')
 
 
@@ -219,31 +240,36 @@ try:
 
     send(s, ORDER)
     fill(s)
-    b = send(s, 'S" x" RTL8168-SEND .')
+    m0 = low()
+    b = send(s, 'HEX HERE @ 40 RTL8168-SEND . DECIMAL')
     m = low()
-    check('R1 RTL8168-SEND direct: "DMA BUFFER REFUSED", 1; low memory whole',
-          REFUSED in b and nums(b)[-1:] == [1] and whole(m), f'{b.strip()!r}; {broken(m)}')
+    check('R1 RTL8168-SEND direct, a 64-byte frame: "DMA BUFFER REFUSED", 1; low memory unchanged',
+          REFUSED in b and nums(b)[-1:] == [1] and whole(m0) and same(m0, m), f'{b.strip()!r}; {broken(m, m0)}')
 
     fill(s)
+    m0 = low()
     b = send(s, 'S" x" UDP-SEND')
     b2 = send(s, '7 .')
     m = low()
     check('R2 UDP-SEND: "DMA BUFFER REFUSED", aborted (no TX), the prompt answers 7; low memory whole',
-          REFUSED in b and 'TX timeout' not in b and nums(b2)[-1:] == [7] and whole(m),
-          f'{b.strip()!r} / {b2.strip()!r}; {broken(m)}')
+          REFUSED in b and 'TX timeout' not in b and nums(b2)[-1:] == [7] and whole(m0) and same(m0, m),
+          f'{b.strip()!r} / {b2.strip()!r}; {broken(m, m0)}')
 
     send(s, ORDER)
     fill(s)
+    m0 = low()
     b = send(s, 'TRY-AHCI AUTO-DETECT-REPORT')
     m = low()
-    check('A1 caller TRY-AHCI AUTO-DETECT-REPORT: "DMA BUFFER REFUSED", "AHCI: none"; low memory whole',
-          REFUSED in b and 'AHCI: none' in b and whole(m), f'{b.strip()!r}; {broken(m)}')
+    check('A1 caller TRY-AHCI AUTO-DETECT-REPORT: refusal only (AHCI-INIT writes no buffer itself; '
+          'the first command\'s write is A2\'s): "DMA BUFFER REFUSED", "AHCI: none"',
+          REFUSED in b and 'AHCI: none' in b and whole(m0) and same(m0, m), f'{b.strip()!r}; {broken(m, m0)}')
 
     fill(s)
+    m0 = low()
     b = send(s, 'MBR.')
     m = low()
-    check('A2 caller MBR.: "DMA BUFFER REFUSED", "Read err"; low memory whole',
-          REFUSED in b and 'Read err' in b and whole(m), f'{b.strip()!r}; {broken(m)}')
+    check('A2 caller MBR.: "DMA BUFFER REFUSED", "Read err"; low memory unchanged',
+          REFUSED in b and 'Read err' in b and whole(m0) and same(m0, m), f'{b.strip()!r}; {broken(m, m0)}')
     qemu_pid.kill_pidfile(PF)
 
     # ---- Boot 2: AHCI on a fresh pool, then the pool exhausted, then NTFS
@@ -252,32 +278,60 @@ try:
     send(s, 'S" AHCI" LOAD-VOCAB', 300.0)
     send(s, 'ONLY FORTH ALSO HARDWARE ALSO AHCI DECIMAL')
     fill(s)
+    w0 = low()
+    send(s, 'HEX 77 100 C! DECIMAL')
+    w1 = low()
+    fill(s)
+    w2 = low()
+    check('W2 (control, boot 2) the sentinel reads back whole; a byte stored at 0x100 is seen',
+          whole(w0) and len(w1) == LOW and w1[0x100] == 0x77 and w1[:0x100] + w1[0x101:] == b'\x5A' * (LOW - 1)
+          and whole(w2), f'{broken(w0)}; at 0x100 {w1[0x100:0x101].hex() if len(w1) == LOW else None}; {broken(w2)}')
+    m0 = w2
     b = send(s, 'AHCI-INIT')
     f_ = send(s, 'AH-FOUND @ 0<> .')
     r = send(s, '0 1 AHCI-READ .')
     m = low()
-    check('C1 (control) AHCI on a fresh pool: drive found, 0 1 AHCI-READ gives 0; low memory whole',
-          nums(f_)[-1:] == [-1] and nums(r)[-1:] == [0] and whole(m),
-          f'{b.strip()!r} / {f_.strip()!r} / {r.strip()!r}; {broken(m)}')
+    check('C1 (control) AHCI on a fresh pool: drive found, 0 1 AHCI-READ gives 0; low memory unchanged',
+          nums(f_)[-1:] == [-1] and nums(r)[-1:] == [0] and same(m0, m),
+          f'{b.strip()!r} / {f_.strip()!r} / {r.strip()!r}; {broken(m, m0)}')
 
     send(s, 'HEX PHYS-HEAP-END @ PHYS-HEAP @ - PHYS-ALLOC DROP DECIMAL')
     send(s, 'HEX 1000 PHYS-ALLOC . DECIMAL')
     send(s, 'S" NTFS" LOAD-VOCAB', 300.0)
     send(s, 'ONLY FORTH ALSO HARDWARE ALSO AHCI ALSO NTFS DECIMAL')
     fill(s)
+    m0 = low()
     b = send(s, 'NTFS-INIT')
     m = low()
-    check('N1 caller NTFS-INIT: "NTFS at LBA", "DMA BUFFER REFUSED", "MFT read err"; low memory whole',
-          'NTFS at LBA' in b and REFUSED in b and 'MFT read err' in b and whole(m), f'{b.strip()!r}; {broken(m)}')
+    check('N1 caller NTFS-INIT: "NTFS at LBA", "DMA BUFFER REFUSED", "MFT read err"; low memory unchanged',
+          'NTFS at LBA' in b and REFUSED in b and 'MFT read err' in b and whole(m0) and same(m0, m),
+          f'{b.strip()!r}; {broken(m, m0)}')
 
+    # staged in red and green alike: a one-run map, so record 0 is the MFT
+    # (NTFS_LBA + 32), and a fixup-array offset 0x30 at 0x4, so
+    # MFT-UNFIXUP's writes land inside the watched range
     fill(s)
+    # and a marker update-sequence number 0x1234 at 0x30, unlike the
+    # sentinel: the unfixup puts it at 0x1FE of what AHCI-WRITE sends, so the
+    # disk is the evidence (MFT-FIXUP restores low memory after the write)
+    send(s, f'HEX {NTFS_LBA + 32:X} MFT-RUNS ! A MFT-RUNS 4 + ! 1 MFT-NRUNS ! 30 4 W! 1234 30 W! DECIMAL')
+    m0 = low()
     b = send(s, '0 MFT-WRITE .')
     m = low()
     qemu_pid.kill_pidfile(PF)
     d1 = disk_hash()
-    check('N2 MFT-WRITE direct: "DMA BUFFER REFUSED", 1; low memory whole; the disk unchanged',
-          REFUSED in b and nums(b)[-1:] == [1] and whole(m) and d1 == DISK0,
-          f'{b.strip()!r}; {broken(m)}; disk {"unchanged" if d1 == DISK0 else "changed " + d1}')
+    s1 = shared_hashes()
+    with open(DISK, 'rb') as f:
+        f.seek((NTFS_LBA + 32) * 512 + 0x1FE)
+        mark = f.read(2)
+    check('N2 MFT-WRITE direct, record 0 mapped: the disk is the evidence (no 34 12 at 0x1FE of LBA '
+          f'{NTFS_LBA + 32}, the disk copy unchanged); "DMA BUFFER REFUSED", 1; low memory unchanged (a guard); '
+          'build/ images unchanged',
+          REFUSED in b and nums(b)[-1:] == [1] and len(m0) == LOW and m0[4:6] == b'\x30\x00'
+          and same(m0, m) and d1 == DISK0 and mark != b'\x34\x12' and s1 == SHARED0,
+          f'{b.strip()!r}; {broken(m, m0)}; disk {"unchanged" if d1 == DISK0 else "changed " + d1}, '
+          f'0x1FE {mark.hex()}; '
+          f'build/ {"unchanged" if s1 == SHARED0 else "CHANGED"}')
 finally:
     qemu_pid.kill_pidfile(PF)
 
