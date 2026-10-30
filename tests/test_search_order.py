@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""ALSO and USING on a full search order (private TASK_ALSO_FULL, part a).
-Six checks: D0, A1-A4, B2.
+"""ALSO and USING on a full search order, and a load's own fresh order
+(private TASK_ALSO_FULL, parts a and b). Eight checks: D0, A1-A4, B1-B3.
 
   python3 tests/test_search_order.py <serial-port>     (cwd: tree root)
 
@@ -8,7 +8,10 @@ The search order holds 8 entries. At depth 8 ALSO and USING used to do
 nothing, so the vocabulary word after them replaced the top entry and the
 old top was lost without a word. They now refuse: SEARCH ORDER FULL, the
 order unchanged, and the rest of the line not run (as an undefined word);
-inside a load the load rolls back with that reason. ORDER prints each
+inside a load the load rolls back with that reason. A top-level
+LOAD-VOCAB starts the file at ONLY FORTH DEFINITIONS and gives the caller
+its order and CURRENT back after, so a file's depth and the vocabulary its
+words go into do not depend on its caller. ORDER prints each
 entry's address, top first, so two ORDER outputs compare as strings.
 
 Blocks come from a copy of the image attached as an IDE disk; D0 is the
@@ -110,16 +113,27 @@ try:
           FULL in r and '5' not in r.replace(FULL, '').split() and after2 == after,
           f'{r.strip()[:80]!r}; {after} -> {after2}')
 
-    # A load from a 4-deep caller: HELLO-APP adds five, so it overflows (it is
-    # refused and rolled back, or today drops GUI-HARVEST); either way the
-    # caller's order is restored after it.
+    # A load from a 4-deep caller: HELLO-APP adds five. Started at its own
+    # fresh order it loads; either way the caller's order is restored.
     send('ONLY FORTH ALSO HAL ALSO UI-CORE ALSO UI-EVENTS')
     o3 = order()
     r = body(send('S" HELLO-APP" LOAD-VOCAB', budget=90))
     print(f'    (HELLO-APP from depth 4: {r.strip()[-90:]!r})', flush=True)
+    check('B1 HELLO-APP loads from a 4-deep caller: no ?, not rolled back',
+          '?' not in r and 'rolled back' not in r and FULL not in r, f'{r.strip()[-90:]!r}')
     o4 = order()
     check('B2 a load from a 4-deep caller gives the caller its order back',
           o3[0] is not None and o3 == o4, f'{o3} -> {o4}')
+
+    # A file with no DEFINITIONS line (NOTEPAD-FORM) defines into FORTH,
+    # not into its caller's CURRENT (here HAL).
+    send('ONLY FORTH ALSO HAL DEFINITIONS')
+    r = body(send('S" NOTEPAD-FORM" LOAD-VOCAB', budget=60))
+    print(f'    (NOTEPAD-FORM from CURRENT HAL: {r.strip()[-60:]!r})', flush=True)
+    send('FORTH DEFINITIONS')
+    r = body(send("ONLY FORTH ' NF-DATA ."))
+    check('B3 a file without DEFINITIONS defines into FORTH: NF-DATA found under ONLY FORTH',
+          '?' not in r and r.replace('ok', '').strip() != '', f'{r.strip()[:60]!r}')
     s.close()
 finally:
     qemu_pid.kill_pidfile(PF)
