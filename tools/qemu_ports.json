@@ -119,13 +119,13 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 104,
-    "source": "$(PRIVATE_REPO)/tests/test_dlg2form.py:522"
+    "source": "$(PRIVATE_REPO)/tests/test_dlg2form.py:525"
    },
    {
     "form": "tcp:127.0.0.1:P",
     "kind": "monitor",
     "offset": 105,
-    "source": "$(PRIVATE_REPO)/tests/test_dlg2form.py:523"
+    "source": "$(PRIVATE_REPO)/tests/test_dlg2form.py:526"
    }
   ]
  },
@@ -637,7 +637,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 121,
-    "source": "tests/test_search_order.py:57"
+    "source": "tests/test_search_order.py:60"
    }
   ]
  },
