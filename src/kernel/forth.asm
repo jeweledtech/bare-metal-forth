@@ -4375,8 +4375,11 @@ DEFCODE "ALSO", ALSO, 0
 .done_shift:
     ; Top entry is now duplicated (ORDER[0] still has original)
     inc dword [VAR_SEARCH_DEPTH]
-.full:
     NEXT
+.full:                          ; refused: an ALSO here would drop the top
+    mov esi, msg_order_full
+    call print_string
+    jmp abort_common
 
 ; PREVIOUS - ( -- ) Remove top entry from search order
 DEFCODE "PREVIOUS", PREVIOUS, 0
@@ -4460,7 +4463,7 @@ DEFCODE "USING", USING, 0
     push eax                    ; Save vocab XT
     mov eax, [VAR_SEARCH_DEPTH]
     cmp eax, 8
-    jge .full
+    jge .refuse                 ; full: ALSO's refusal, not a dropped top
     lea ebx, [VAR_SEARCH_ORDER + eax * 4]
     mov ecx, eax
 .shift:
@@ -4477,6 +4480,11 @@ DEFCODE "USING", USING, 0
     ; Now execute the vocabulary word (replaces top of search order)
     pop eax                     ; XT of vocabulary word
     jmp [eax]                   ; Execute it (DOVOC sets ORDER[0], then NEXT)
+
+.refuse:
+    mov esi, msg_order_full
+    call print_string
+    jmp abort_common
 
 .not_found:
     jmp abort_undefined
@@ -7270,6 +7278,7 @@ msg_undefined:  db ' ? ', 13, 10, 0
 msg_underflow:  db 13, 10, 'STACK UNDERFLOW', 13, 10, 0
 msg_ummod:      db 13, 10, 'UM/MOD OUT OF RANGE', 13, 10, 0
 msg_unbound:    db ': HAL vector not bound', 13, 10, 0
+msg_order_full: db 'SEARCH ORDER FULL', 13, 10, 0
 msg_embed_aborted: db 'EMBED ABORTED at ', 0
 msg_embed_tail: db ': later embedded vocabularies not loaded', 13, 10, 0
 msg_hook_failed: db 'ABORT-HOOK failed: an aborted load was not rolled back', 13, 10, 0

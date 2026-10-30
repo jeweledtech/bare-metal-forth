@@ -727,6 +727,8 @@ ALSO CATALOG-RESOLVER
     \ stack, so a nested load cannot clear it.
     LOADING-DEPTH @ 0= DUP >R IF
         28020 AB-SO 28 CMOVE
+        \ and the file starts at a fresh order
+        ONLY FORTH DEFINITIONS
     THEN
     LOAD-VOCAB-INNER
     R> IF AB-SO 28020 28 CMOVE THEN
