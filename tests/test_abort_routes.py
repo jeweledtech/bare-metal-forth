@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Every abort through abort_common, and Ctrl+C read by KEY (private
-TASK_ABORT_ROUTES). Ten checks: D0, R1-R4, E0, E1, B0-B2.
+TASK_ABORT_ROUTES). Sixteen checks: D0, R1-R10, E0, E1, B0-B2.
 
   python3 tests/test_abort_routes.py <serial-port>     (cwd: tree root)
 
@@ -8,14 +8,19 @@ ABORT and every fired ABORT" used to reset the stacks and the input only:
 no definition roll-back, no ABORT-HOOK (so a load they stopped stayed
 loaded, with the file's search order and CURRENT), and no EMBED ABORTED
 when they stopped the boot. They now go through abort_common, as an
-undefined word does. And a Ctrl+C read by KEY (a window's key handler)
+undefined word does; so does a dictionary refusal (DICT FULL,
+UNTERMINATED STRING: dict_refuse_ ends in ABORT), and inside a load it
+rolls the load back whole, HERE and LATEST as before it (R5-R10,
+private TASK_REFUSE_LOAD_ROLLBACK). And a Ctrl+C read by KEY (a window's key handler)
 used to leave the break flag set, so the console's next line was thrown
 away as a break; only read_line's own break sets it now.
 
 Fixtures under build/abort-routes.d/fx (never forth/dict or
 build/combined.img), as test_interp_abort.py builds its own:
   - a catalog: a copy of forth/dict plus ABORT-PROBE (fires ABORT" while
-    loading) and ABORT-PROBE2 (a plain ABORT), packed by write-catalog
+    loading), ABORT-PROBE2 (a plain ABORT), ABORT-PROBE3 (DICT FULL
+    outside a definition) and ABORT-PROBE4 (UNTERMINATED STRING inside
+    one, its last line: the S" walk reaches the block's end), packed by write-catalog
     into a copy of build/blocks.img, booted after build/bmforth.img with
     an IDE copy (D0 checks it is attached);
   - two kernels, nasm -dEMBED_FILE: EMBED_VOCABS plus one more line at
@@ -60,6 +65,21 @@ ABORT-PROBE2 DEFINITIONS
 AP2-FAIL
 FORTH DEFINITIONS
 """
+FIX_AP3 = r"""\ CATALOG: ABORT-PROBE3
+\ abort-routes fixture (build/abort-routes.d only)
+VOCABULARY ABORT-PROBE3
+ABORT-PROBE3 DEFINITIONS
+: AP3-WORD 1 ;
+HEX 100000 ALLOT
+FORTH DEFINITIONS
+"""
+FIX_AP4 = r"""\ CATALOG: ABORT-PROBE4
+\ abort-routes fixture (build/abort-routes.d only)
+VOCABULARY ABORT-PROBE4
+ABORT-PROBE4 DEFINITIONS
+: AP4-WORD 1 ;
+: AP4-FAIL S" never closed
+"""
 EMBED_CTL = 'ZZEMBEDNOPE\n'
 EMBED_NEG = ': EB-FAIL 1 ABORT" EMBED-PROBE: refused" ;\nEB-FAIL\n'
 
@@ -88,6 +108,8 @@ for f in glob.glob(os.path.join(ROOT, 'forth', 'dict', '*.fth')):
     shutil.copy(f, os.path.join(FX, 'dict'))
 open(os.path.join(FX, 'dict', 'abort-probe.fth'), 'w').write(FIX_AP)
 open(os.path.join(FX, 'dict', 'abort-probe2.fth'), 'w').write(FIX_AP2)
+open(os.path.join(FX, 'dict', 'abort-probe3.fth'), 'w').write(FIX_AP3)
+open(os.path.join(FX, 'dict', 'abort-probe4.fth'), 'w').write(FIX_AP4)
 BLOCKS = os.path.join(FX, 'blocks.img')
 shutil.copy(os.path.join(B, 'blocks.img'), BLOCKS)
 r = subprocess.run([sys.executable, os.path.join(ROOT, 'tools', 'write-catalog.py'), BLOCKS,
@@ -200,21 +222,31 @@ try:
         sys.exit(1)                   # the finally below stops QEMU
     send('DROP DROP DROP')
 
-    def probe(name, msg, rn, on):
+    def probe(name, msg, rn, on, wn=None):
         send('ONLY FORTH ALSO HAL DEFINITIONS ALSO UI-CORE')
         before = order()
+        if wn:
+            h0 = nums(send('DECIMAL HERE @ . LATEST @ .'))[:2]
         r = body(send(f'S" {name}" LOAD-VOCAB', budget=60))
         print(f'    ({name}: {r.strip()[-90:]!r})', flush=True)
         after = order()
+        if wn:
+            h1 = nums(send('DECIMAL HERE @ . LATEST @ .'))[:2]
         p = nums(send(f'ALSO CATALOG-RESOLVER S" {name}" VOCAB-PRESENT? . PREVIOUS'))
         check(f'{rn} {name} aborts while loading: {msg + ", " if msg else ""}rolled back, absent (0)',
               (not msg or msg in r) and f'{name} rolled back' in r and p[:1] == ['0'],
               f'{r.strip()[-90:]!r}; present {p[:1]}')
         check(f'{on} after it the caller\'s order and CURRENT are back', before is not None and before == after,
               f'{before} -> {after}')
+        if wn:
+            check(f'{wn} rolled back whole: HERE and LATEST as before the load', len(h0) == 2 and h0 == h1,
+                  f'{h0} -> {h1}')
 
     probe('ABORT-PROBE', 'ABORT-PROBE: refused', 'R1', 'R2')
     probe('ABORT-PROBE2', '', 'R3', 'R4')
+    # a dictionary refusal inside the load: outside a definition, then inside one
+    probe('ABORT-PROBE3', 'DICT FULL', 'R5', 'R6', 'R7')
+    probe('ABORT-PROBE4', 'UNTERMINATED STRING', 'R8', 'R9', 'R10')
 
     # ---- Ctrl+C read by KEY inside a switch (TH as test_window_focus)
     bad = []
