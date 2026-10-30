@@ -11,7 +11,8 @@ Images are copied into build/vocab-dedup.d first (never booted in place).
 Public cases (always): PCI-ENUM again (embedded), FIRSTBOOT (block-loaded
 in both the full and the free build; REQUIRES four vocabularies embedded in
 both, one per line), FIRSTBOOT again. Private cases (only when forth/dict/ahci.fth and surveyor.fth
-are in the tree; else SKIPPED, exit 0): AHCI again, SURVEYOR (REQUIRES AHCI),
+are in the tree; else SKIPPED, exit 0): AHCI again, SURVEYOR (REQUIRES AHCI
+NTFS FAT32 HARDWARE, surveyor.fth:6; all four embedded, so four skip lines),
 SURVEYOR again, INSTALL (REQUIRES SURVEYOR). Each step measures HERE, counts
 the "<name> present, skipped" lines (each REQUIRES resolves exactly once per
 load), and counts dictionary headers directly: the guest's
@@ -19,6 +20,16 @@ dictionary region is dumped through the QEMU monitor (pmemsave) and a header
 is counted only when the name is preceded by its length byte (len & 0x3F,
 not hidden) and a plausible link cell. FIND is not used for the count.
 The checks are the gates after the fix.
+
+Pin history:
+- 2026-10-30, a miss (private TASK_VOCAB_DEDUP_WIRE): the SURVEYOR check
+  expected one skip line, AHCI's. It was written against this docstring's
+  "SURVEYOR (REQUIRES AHCI)", not against surveyor.fth:6, which has read
+  REQUIRES: AHCI NTFS FAT32 HARDWARE since 2026-04-13. The script was not
+  wired into make test, so the failing check was never seen; first run
+  before wiring: 14/15 (four skip lines, each dependency one header).
+  Now four skip lines, one each, from surveyor.fth:6.
+  Was (to 2026-10-30): skips(r5) == {'AHCI': 1}.
 """
 import atexit, hashlib, os, re, socket, struct, subprocess, sys, time
 
@@ -198,7 +209,9 @@ else:
     check('AHCI again: one AHCI, one AHCI-INIT, one PCI-ENUM', (c4['AHCI'], c4['AHCI-INIT'], c4['PCI-ENUM']) == (1, 1, 1),
           f'{c4}')
     h5, c5, r5 = step(s, 'S" SURVEYOR" LOAD-VOCAB', 'S" SURVEYOR" LOAD-VOCAB')
-    check('SURVEYOR loads once; its REQUIRES (AHCI) resolved exactly once', c5['SURVEYOR'] == 1 and skips(r5) == {'AHCI': 1},
+    # surveyor.fth:6: REQUIRES: AHCI NTFS FAT32 HARDWARE (all four embedded)
+    check('SURVEYOR loads once; its REQUIRES (AHCI NTFS FAT32 HARDWARE) resolved exactly once, one skip line each',
+          c5['SURVEYOR'] == 1 and skips(r5) == {'AHCI': 1, 'NTFS': 1, 'FAT32': 1, 'HARDWARE': 1},
           f'{skips(r5)} {c5}')
     check('SURVEYOR: no copy of its dependencies',
           all(c5[k] == 1 for k in ('AHCI-INIT', 'AHCI', 'PCI-ENUM', 'HARDWARE', 'NTFS', 'FAT32')), f'{c5}')
