@@ -1,0 +1,79 @@
+============================================================
+ UBT i8042prt.sys strip, 2026-10-29 (ReactOS PS/2 driver)
+============================================================
+
+Replaces the strip half of docs/demo-i8042-transcript.txt (2026-07).
+The live half (load from blocks, call a kept port word) is
+make test-pipeline-e2e, P3-P8.
+
+public HEAD: d94459ed361b969c76309c418fdbc2ca977c9b1d
+command (as the private tests/test_pipeline_e2e.py:62, after make -s -C tools/translator):
+  translator tools/translator/tests/data/i8042prt.sys -t forth -o i8042prt.fth
+
+sha256 (paths under tools/translator):
+  031ba298a2ded32a6d664afa46e8be2919d28b83bc1badf14d0e17aeddb16515  tests/data/i8042prt.sys
+  5e2729ec8bfc078fe2b578963e1543bc48c21ab7a19c86da80b3fef65e50751b  bin/translator
+  053d47754904b36473569632de974a382f62e988d80aecb47436b276214d0a6a  i8042prt.fth (output)
+
+--- strip summary (verbatim from the generated vocabulary) ---
+\ STRIP: 56 total -> 9 kept / 41 scaffolding / 6 unclass
+\ DROPPED (reason):
+\   func_11000 (IRP+DIAGNOSTIC)
+\   func_1105F (IRP+DIAGNOSTIC)
+\   func_110BE (IRP+DIAGNOSTIC)
+\   func_11120 (WMI+REGISTRY+MEMORY)
+\   func_1154C (PNP+MEMORY+SYNC+DIAGNOSTIC)
+\   func_11726 (DIAGNOSTIC)
+\   func_117B3 (via:IRP+DIAGNOSTIC)
+\   func_117D2 (POWER+DIAGNOSTIC)
+\   func_11846 (IRP+DIAGNOSTIC)
+\   func_11A17 (IRP+DIAGNOSTIC)
+\   func_11A95 (DIAGNOSTIC)
+\   func_11B19 (IRP+PNP+MEMORY+SYNC+DIAGNOSTIC)
+\   func_11E2B (via:DIAGNOSTIC)
+\   func_11F3E (IRP+SYNC+DIAGNOSTIC)
+\   func_120DD (MEMORY+DIAGNOSTIC)
+\   func_1235C (IRP+PNP+DIAGNOSTIC)
+\   func_1252A (IRP+SYNC+DIAGNOSTIC)
+\   func_127F5 (via:DIAGNOSTIC)
+\   func_12825 (DIAGNOSTIC)
+\   func_129E8 (IRP+DIAGNOSTIC)
+\   func_12CBB (IRP+MEMORY+SYNC+DIAGNOSTIC)
+\   func_138F4 (IRP+DIAGNOSTIC)
+\   func_13984 (MEMORY)
+\   func_13B00 (DIAGNOSTIC)
+\   func_14577 (SYNC+DIAGNOSTIC)
+\   func_145F7 (SYNC+DIAGNOSTIC)
+\   func_147E0 (DIAGNOSTIC)
+\   func_14895 (DIAGNOSTIC)
+\   func_14A8F (DIAGNOSTIC)
+\   func_14BD5 (IRP+MEMORY+SYNC+DIAGNOSTIC)
+\   func_154D0 (DIAGNOSTIC)
+\   func_163DE (IRP+PNP+MEMORY+SYNC+DIAGNOSTIC)
+\   func_16DFC (DIAGNOSTIC)
+\   func_170B5 (DIAGNOSTIC)
+\   func_17357 (DIAGNOSTIC)
+\   func_17520 (REGISTRY+STRING+DIAGNOSTIC)
+\   func_17F34 (STRING)
+\   func_17F3C (STRING)
+\   func_17F44 (STRING)
+\   func_17F4C (DIAGNOSTIC)
+\   func_17F54 (DIAGNOSTIC)
+\ UNCLASSIFIED (kept out, unproven):
+\   func_12C70
+\   func_14486
+\   func_171DE
+\   func_1730A
+\   func_17D70
+\   func_17DA1
+
+--- kept: the 9 generated words (verbatim definition lines) ---
+: INT-FN-122A8  ( -- )
+: INT-FN-134A6  ( -- )  \ 2 HAL calls
+: INT-FN-144CF  ( -- )
+: INT-FN-1518C  ( -- )  \ 3 HAL calls
+: INT-FN-1563A  ( -- )  \ 5 HAL calls
+: PORT-FN-16FCC  ( port -- byte )
+: PORT-FN-17024  ( port -- byte )
+: HAL-FN-17181  ( us -- )
+: PORT-FN-171FA  ( -- )  \ 2 HAL calls

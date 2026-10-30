@@ -1,3 +1,6 @@
+2026-10-29: superseded for counts by docs/demo-i8042-transcript-2026-10-29.txt
+(56 total -> 9 kept / 41 scaffolding / 6 unclass). Kept as a record.
+
 ============================================================
  UBT sanitizer demo: i8042prt.sys (ReactOS PS/2 driver)
 ============================================================

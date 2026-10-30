@@ -8,7 +8,8 @@ the catalog. Struck text below is kept as a record.
 
 This is the canonical wording for any surface that presents the demo
 (landing page, social posts, whitepaper §4.4). Counts come from the
-committed transcript (`docs/demo-i8042-transcript.txt`); if the
+committed transcript (~~`docs/demo-i8042-transcript.txt`~~
+`docs/demo-i8042-transcript-2026-10-29.txt`, 2026-10-29); if the
 analyzer changes, ~~re-run `demo_i8042.sh`~~ (superseded 2026-10-29:
 the harness is deleted; run `make test-pipeline-e2e`) and update the numbers here
 from the new transcript — never quote counts the artifact doesn't
@@ -40,16 +41,17 @@ are checkable without it.
 
 ## The pitch (use this wording)
 
-> A real Windows-ABI kernel-mode driver — 50 functions calling into
+> A real Windows-ABI kernel-mode driver — ~~50~~ 56 functions calling into
 > hal.dll and ntoskrnl.exe — reduced to 9 callable hardware Forth
-> words. 33 functions of OS scaffolding dropped, each with a stated,
+> words. ~~33~~ 41 functions of OS scaffolding dropped, each with a stated,
 > checkable reason (IRP dispatch, PnP, power, sync, debug plumbing).
-> 8 functions the analyzer could not prove either way — so it says so,
+> ~~8~~ 6 functions the analyzer could not prove either way — so it says so,
 > and keeps them out. Then it boots on bare metal and reads the
 > keyboard controller port.
 
-Three-bucket honesty is the feature: `9 kept + 33 scaffolding +
-8 unclassified = 50`. Both output formats render the same counts, and
+Three-bucket honesty is the feature: ~~`9 kept + 33 scaffolding +
+8 unclassified = 50`~~ `9 kept + 41 scaffolding + 6 unclassified =
+56` (2026-10-29, from today's translator; struck: the 2026-07 counts). Both output formats render the same counts, and
 a committed test fails if they ever drift.
 
 ## Provenance is the pitch (not a caveat)
@@ -93,8 +95,11 @@ access is risk-free.
 - **"signed"** — the corpus binary is the unsigned ReactOS build.
   (The signed-retail variant is banked with translator endpoint #2.)
 - **"manifest"** — nothing in this demo parses or strips a manifest.
-- **"9/41"** — stale. The honest split of the 41 non-hardware
-  functions is 33 confident drops + 8 unclassified.
+- ~~**"9/41"** — stale. The honest split of the 41 non-hardware
+  functions is 33 confident drops + 8 unclassified.~~ (2026-10-29:
+  41 is now the scaffolding count.)
+- **"9/47"** — lumps the 47 non-hardware functions together; the
+  honest split is 41 confident drops + 6 unclassified.
 - **".NET" / "CLR"** — the CIL path exists but is not wired into this
   pipeline; this demo is native x86 only.
 
