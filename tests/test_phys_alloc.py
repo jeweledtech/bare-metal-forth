@@ -2,7 +2,9 @@
 """Physical allocator gate: PHYS-RELEASE, PHYS-AUDIT, owner tags.
 
 History that earns the suite: PHYS-ALLOC (forth/dict/hardware.fth)
-was a bump allocator over 0x100000-0x400000 with no free path and
+was a bump allocator over 0x100000-0x400000 (was, to 2026-10-30;
+now 0x100000-0x200000, below UI-CORE's fixed form region: private
+TASK_PHYS_CEILING) with no free path and
 no record of who allocated -- xHCI hot-plug (allocate rings/DCBAA
 on device arrival, release on removal) is the workload it could
 not serve.  Design measured before built (2026-08-31 probe,
@@ -26,7 +28,8 @@ Design under test (option b -- no tombstones):
     unreachable by construction with the real capacity, and a
     refusal only reachable in states nobody produces is the
     folding-branch defect), "not allocated", "double release",
-    "size mismatch", and bare 0 for out-of-memory (unchanged).
+    "size mismatch", and bare 0 for out-of-memory (was, to
+    2026-10-30; now "PHYS: pool full below <PHYS-TOP>", then 0).
     The two membership refusals are BASE-ADDRESS answers: addr+1
     inside a live allocation reads "not allocated", inside a freed
     extent reads "double release" -- both refuse, both misattribute
@@ -296,7 +299,9 @@ check('PHYS-AUDIT exists', a['live'] is not None,
 check('boot audit: live 7', a['live'] == 7, f'got {a["live"]}')
 check('boot audit: unattributed 0 (all 7 tagged by owner)',
       a['unat'] == 0, f'got {a["unat"]}')
-check('boot audit sum closes to 300000', a['total'] == 0x300000
+# 0x100000 = PHYS-TOP - POOL-ORIGIN (hardware.fth); was 300000 to
+# 2026-10-30, PHYS-TOP 400000 (private TASK_PHYS_CEILING)
+check('boot audit sum closes to 100000', a['total'] == 0x100000
       and not a['mismatch'], f'total={a["total"]}')
 
 print('\n=== Phase 2: release and reuse ===')
@@ -377,7 +382,7 @@ check('flat occupancy across 200 cycles',
       a0['live'] is not None and a0['live'] == a1['live'],
       f'{a0["live"]} -> {a1["live"]}')
 check('audit sum still closes after churn',
-      a1['total'] == 0x300000 and not a1['mismatch'],
+      a1['total'] == 0x100000 and not a1['mismatch'],
       f'total={a1["total"]}')
 # Flat live count proves the TABLE doesn't leak; it says nothing
 # about the free list.  200 varying-size cycles that each return
@@ -414,6 +419,65 @@ check('oversize alloc returns 0', re.search(r'\b0\b',
       body_of(raw)) is not None, f'got: {body_of(raw)!r}')
 check('OOM did NOT say table full (distinct refusals)',
       'table full' not in body_of(raw), f'got: {body_of(raw)!r}')
+
+print('\n=== Phase 6b: the ceiling (private TASK_PHYS_CEILING) ===')
+# C0: PHYS-TOP at or below the lowest fixed region in the pool's range,
+# every `<hex> CONSTANT` in forth/dict outside hardware.fth, from source.
+import glob as _glob
+import os as _os
+_hw = open(_os.path.join('forth', 'dict', 'hardware.fth')).read()
+_top = int(re.search(r'^([0-9A-F]+) CONSTANT PHYS-TOP', _hw, re.M).group(1), 16)
+_fixed = []
+for _f in sorted(_glob.glob(_os.path.join('forth', 'dict', '*.fth'))):
+    if _os.path.basename(_f) == 'hardware.fth':
+        continue
+    for _n, _ln in enumerate(open(_f, errors='replace'), 1):
+        _m = re.search(r'(?:^\s*|\bHEX\s+)([0-9A-F]+)\s+CONSTANT\s+(\S+)', _ln)
+        if _m and 0x103000 < int(_m.group(1), 16) < 0x400000:
+            _fixed.append((int(_m.group(1), 16), _m.group(2), f'{_os.path.basename(_f)}:{_n}'))
+for _v, _name, _at in sorted(_fixed):
+    print(f'  fixed region {_v:#x} {_name} ({_at})')
+_lowest = min(_fixed)[0] if _fixed else None
+check(f'C0 PHYS-TOP {_top:#x} at or below the lowest fixed region'
+      f' {_lowest if _lowest is None else hex(_lowest)}',
+      _lowest is not None and _top <= _lowest)
+# C2 (control) first, kept: the allocation filling the pool to 0x200000
+# exactly is granted at PHYS-HEAP (the bump heap); held through C1.
+_h, _ = val('PHYS-HEAP @')
+_h = _h or 0
+_sz2 = 0x200000 - _h
+raw = send(f'HEX {_sz2:X} PHYS-ALLOC U. DECIMAL', 2.0)
+_m = re.findall(r'\b[0-9A-F]+\b', body_of(raw).replace('ok', ' '))
+_a2 = int(_m[-1], 16) if _m else None
+check(f'C2 (control) filling to 0x200000 granted at PHYS-HEAP {_h:#x}',
+      _a2 == _h and _h != 0, f'got {body_of(raw)!r}')
+# C1: free = PHYS-AUDIT total - live sizes - tail - OWN-BYTES; request
+# free + 0x1000. Exact one page past the largest free block when
+# extents is 1, an upper bound when more: no free block can serve it,
+# only the bump heap (private TASK_PHYS_CEILING, amendment).
+_au = audit()
+_live = [int(m.group(2), 16) for m in
+         re.finditer(r'^\s*([0-9A-F]+) ([0-9A-F]+)\b', _au['body'], re.M)]
+_hp, _ = val('PHYS-HEAP @')
+_he, _ = val('PHYS-HEAP-END @')
+_ob, _ = val('OWN-BYTES')
+_free = (_au['total'] or 0) - sum(_live) - ((_he or 0) - (_hp or 0)) - (_ob or 0)
+_sz1 = _free + 0x1000
+print(f'  C1 sizing: total {_au["total"]!r} live {len(_live)}/{_au["live"]} '
+      f'sum {sum(_live):#x} tail {(_he or 0) - (_hp or 0):#x} table {_ob!r} '
+      f'free {_free:#x} extents {_au["extents"]} request {_sz1:#x}')
+raw = send(f'HEX {_sz1:X} PHYS-ALLOC U. DECIMAL', 2.0)
+_m = re.findall(r'\b[0-9A-F]+\b', body_of(raw).replace('ok', ' '))
+_a1 = int(_m[-1], 16) if _m else None
+check('C1 an allocation crossing 0x200000 refused: 0, '
+      '"PHYS: pool full below 200000"',
+      _a1 == 0 and 'PHYS: pool full below 200000' in body_of(raw)
+      and len(_live) == _au['live'] and _free > 0,
+      f'request {_sz1:#x}: got {body_of(raw)!r}')
+if _a1:
+    send(f'HEX {_a1:X} {_sz1:X} PHYS-RELEASE DECIMAL')
+if _a2:
+    send(f'HEX {_a2:X} {_sz2:X} PHYS-RELEASE DECIMAL')
 
 print('\n=== Phase 7 (destructive, last): corrupted free list ===')
 raw = send('HEX 1000 PHYS-ALLOC U. DECIMAL')

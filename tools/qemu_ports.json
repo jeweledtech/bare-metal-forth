@@ -155,7 +155,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 55,
-    "source": "Makefile:1445"
+    "source": "Makefile:1456"
    }
   ]
  },
@@ -515,7 +515,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 80,
-    "source": "Makefile:1510"
+    "source": "Makefile:1521"
    }
   ]
  },
@@ -598,6 +598,16 @@
     "kind": "serial",
     "offset": 98,
     "source": "Makefile:414"
+   }
+  ]
+ },
+ "test-phys-refuse": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 124,
+    "source": "tests/test_phys_refuse.py:166"
    }
   ]
  },
