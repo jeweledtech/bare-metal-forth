@@ -1,0 +1,53 @@
+name: Wi-Fi chip request
+description: Tell us which Wi-Fi chip is in your laptops. Requests and unit counts decide whether we build Wi-Fi, and for which chip first.
+title: "Wi-Fi chip: "
+labels: ["wifi-chip"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ForthOS has no Wi-Fi today. Requests and unit counts decide whether we build Wi-Fi, and for which chip first.
+        The fastest way to find yours: boot the ForthOS stick, type `USING PCI-ENUM`, `PCI-SCAN`, `PCI-LIST`,
+        and copy the row whose class is `02/80`.
+  - type: input
+    id: vendor-device
+    attributes:
+      label: Wi-Fi vendor:device ID
+      description: From the `PCI-LIST` row with class 02/80, e.g. `10EC:B822`.
+      placeholder: "10EC:B822"
+    validations:
+      required: true
+  - type: input
+    id: chip-name
+    attributes:
+      label: Chip name, if you know it
+      placeholder: "Realtek RTL8822BE"
+  - type: input
+    id: laptop
+    attributes:
+      label: Laptop make and model
+      placeholder: "HP 15-bs0xx"
+    validations:
+      required: true
+  - type: input
+    id: quantity
+    attributes:
+      label: Roughly how many of these do you have?
+      description: Units on your shelf or coming through each month.
+      placeholder: "40"
+    validations:
+      required: true
+  - type: dropdown
+    id: wired
+    attributes:
+      label: Do these laptops have a wired Ethernet port?
+      options:
+        - "Yes"
+        - "No, Wi-Fi only"
+        - "Mixed"
+  - type: textarea
+    id: report
+    attributes:
+      label: Full PCI-LIST report (optional)
+      description: Paste the whole table if you have it.
+      render: text
