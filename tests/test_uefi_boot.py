@@ -70,7 +70,16 @@ in the register 2026-10-12.
       so RAW-SCAN's wait runs) leave their text in that memory (pmemsave),
       the form with inverse-video cells (6b, so S1 compares colours too);
       back at the prompt, DEPTH 0.  On OVMF, S1/S2: all 2,000 cells of the
-      screen dump equal that memory drawn in the font and the VGA palette.
+      screen dump equal that memory drawn in the font and the VGA palette,
+      the cell CURSOR-CELL holds (read with pmemsave) with glyph rows 14-15
+      in its foreground, and no other cell so drawn.  Was (to 2026-10-29,
+      before the drawn cursor): every cell plain.
+  C1-C4 (OVMF, window step 2b, private TASK_WINDOW_CURSOR_UEFI): the
+      drawn cursor, found on the dump as the one cell whose rows 14-15
+      are foreground over its character.  C1 typing Z: the cell after Z.
+      C2 typing Y: the cell after Y (it moved; Y plain).  C3 Ctrl+W into a
+      KEY-based window (TH: 40 5 CURSOR-AT): cell 440.  C4 Ctrl+W back:
+      the cell after the console's typed Q.
   SeaBIOS, the same image:
   L0  banner + ok.  L1  BOOT-MODE = 1.  L2  HELLO-APP loads from blocks.
   L3  AUTO-DETECT-REPORT says `Boot: BIOS (memdisk)`.  L4  DEPTH 0.
@@ -257,9 +266,11 @@ PALETTE = [0x000000, 0x0000AA, 0x00AA00, 0x00AAAA, 0xAA0000, 0xAA00AA, 0xAA5500,
            0x555555, 0x5555FF, 0x55FF55, 0x55FFFF, 0xFF5555, 0xFF55FF, 0xFFFF55, 0xFFFFFF]
 
 
-def screen_equals_memory(ppm, mem):
+def screen_equals_memory(ppm, mem, cursor=None):
     """(ok, detail): every one of the 80x25 cells on the dump is MEM's
-    character drawn in the image's font, fg/bg from its attribute."""
+    character drawn in the image's font, fg/bg from its attribute; the
+    cell CURSOR (if given) with glyph rows 14-15 in its foreground, the
+    drawn cursor (window step 2b)."""
     raw = open(ppm, 'rb').read()
     m = re.match(rb'P6\s+(\d+)\s+(\d+)\s+(\d+)\s', raw)
     w = int(m.group(1))
@@ -273,7 +284,7 @@ def screen_equals_memory(ppm, mem):
         bg = PALETTE[at >> 4 & 7].to_bytes(3, 'big')
         cx, cy = cell % 80, cell // 80
         for r in range(16):
-            bits = font[16 + g * 16 + r]
+            bits = 0xFF if cell == cursor and r >= 14 else font[16 + g * 16 + r]
             row = (cy * 16 + r) * w * 3
             for b in range(8):
                 o = row + (cx * 8 + b) * 3
@@ -284,6 +295,40 @@ def screen_equals_memory(ppm, mem):
                 continue
             break
     return not bad, f'({len(bad)} of 2000 cells differ{": first " + str(bad[:4]) if bad else ""})'
+
+
+def cursor_cells(ppm, mem):
+    """The cells drawn with the cursor: glyph rows 0-13 as MEM's character
+    and attribute, rows 14-15 all foreground, where the font's own rows
+    14-15 for that character are not already all set (window step 2b)."""
+    raw = open(ppm, 'rb').read()
+    m = re.match(rb'P6\s+(\d+)\s+(\d+)\s+(\d+)\s', raw)
+    w = int(m.group(1))
+    px = raw[m.end():]
+    font = font_from_image()
+    out = []
+    for cell in range(80 * 25):
+        ch, at = mem[2 * cell], mem[2 * cell + 1]
+        g = ch - 0x20 if 0x20 <= ch <= 0x7E else 0
+        if font[16 + g * 16 + 14] == 0xFF and font[16 + g * 16 + 15] == 0xFF:
+            continue
+        fg = PALETTE[at & 15].to_bytes(3, 'big')
+        bg = PALETTE[at >> 4 & 7].to_bytes(3, 'big')
+        cx, cy = cell % 80, cell // 80
+        ok = True
+        for r in range(16):
+            bits = 0xFF if r >= 14 else font[16 + g * 16 + r]
+            row = (cy * 16 + r) * w * 3
+            for b in range(8):
+                o = row + (cx * 8 + b) * 3
+                if px[o:o + 3] != (fg if bits >> (7 - b) & 1 else bg):
+                    ok = False
+                    break
+            if not ok:
+                break
+        if ok:
+            out.append(cell)
+    return out
 
 
 failures = []
@@ -623,14 +668,14 @@ try:
                 pass
         return got.decode('ascii', 'replace')
 
-    def screen_mem(addr, name):
+    def screen_mem(addr, name, size=4000):
         path = os.path.join(work, name)
         # quoted: HMP reads `4000 /tmp/...` as the expression 4000 / tmp...
-        reply = mon_cmd(f'pmemsave 0x{addr} 4000 "{path}"')
+        reply = mon_cmd(f'pmemsave 0x{addr} {size} "{path}"')
         t0 = time.time()
-        while (not os.path.exists(path) or os.path.getsize(path) < 4000) and time.time() - t0 < 5:
+        while (not os.path.exists(path) or os.path.getsize(path) < size) and time.time() - t0 < 5:
             time.sleep(0.1)
-        if not os.path.exists(path) or os.path.getsize(path) < 4000:
+        if not os.path.exists(path) or os.path.getsize(path) < size:
             die(3, f'INSTRUMENT FAIL: pmemsave wrote no screen memory; monitor said {reply[-300:]!r}')
         return open(path, 'rb').read()
 
@@ -642,6 +687,18 @@ try:
         want = '80000' if fw == 'ovmf' else 'B8000'
         b = send(s, 'HEX ALSO HAL FB-BASE . PREVIOUS DECIMAL')
         check(f'{tag}5 the display contract: FB-BASE = {want}', last_num(b) == want, f'({b.strip()!r})')
+        # the drawn cursor's cell (window step 2b): CURSOR-CELL's address,
+        # read at the prompt; the cell itself with each dump (pmemsave)
+        cur_addr = None
+        if fw == 'ovmf':
+            b = send(s, 'DECIMAL CURSOR-CELL .')
+            n = last_num(b)
+            cur_addr = int(n) if n and '?' not in b else None
+
+        def cursor_at(name):
+            if cur_addr is None:
+                return None
+            return int.from_bytes(screen_mem(f'{cur_addr:X}', name, 4), 'little', signed=True)
         # a form, in FORM-RUN's KEY loop
         send(s, 'ALSO HELLO-APP')
         raw_send(s, 'HELLO-RUN\r')
@@ -654,8 +711,12 @@ try:
         if fw == 'ovmf':
             dump = os.path.join(work, 'hello.ppm')
             mon_cmd(f'screendump {dump}')
-            check('S1 the form on the framebuffer, all 2000 cells (KEY wait flush)',
-                  *screen_equals_memory(dump, mem))
+            c = cursor_at('ovmf-hello-cursor.bin')
+            ok, detail = screen_equals_memory(dump, mem, c) if c is not None else (False, '(no CURSOR-CELL)')
+            cc = cursor_cells(dump, mem) if c is not None else None
+            check('S1 the form on the framebuffer, all 2000 cells (KEY wait flush), '
+                  'the cursor drawn at CURSOR-CELL and nowhere else',
+                  ok and cc == [c], f'{detail} (CURSOR-CELL {c}, cursor cells {cc})')
         raw_send(s, '\x1b', 2)                   # ESC: FORM-RUN quits
         send(s, 'ONLY FORTH DEFINITIONS')
         # notepad's editor, in RAW-SCAN's wait (entered with the New button)
@@ -670,8 +731,12 @@ try:
         if fw == 'ovmf':
             dump = os.path.join(work, 'notepad.ppm')
             mon_cmd(f'screendump {dump}')
-            check('S2 the editor on the framebuffer, all 2000 cells (RAW-SCAN flush)',
-                  *screen_equals_memory(dump, mem))
+            c = cursor_at('ovmf-notepad-cursor.bin')
+            ok, detail = screen_equals_memory(dump, mem, c) if c is not None else (False, '(no CURSOR-CELL)')
+            cc = cursor_cells(dump, mem) if c is not None else None
+            check('S2 the editor on the framebuffer, all 2000 cells (RAW-SCAN flush), '
+                  'the cursor drawn at CURSOR-CELL and nowhere else',
+                  ok and cc == [c], f'{detail} (CURSOR-CELL {c}, cursor cells {cc})')
         mon_cmd('sendkey esc')                    # leave edit mode (the keyboard ring)
         time.sleep(1)
         raw_send(s, '\x1b', 2)                   # ESC: the form quits
@@ -723,6 +788,48 @@ try:
         dump = os.path.join(work, 'screen.ppm')
         mon_cmd(f'screendump {dump}')
         check('F1 the framebuffer shows the text, glyph for glyph', *screen_matches(dump, F1_text))
+
+        # C1-C4: the drawn cursor (window step 2b): typed characters, then
+        # Ctrl+W into a KEY-based window (TH, as test_window_focus) and back
+        def cursor_dump(tag):
+            mem = screen_mem('80000', f'cursor-{tag}.bin')
+            dump = os.path.join(work, f'cursor-{tag}.ppm')
+            mon_cmd(f'screendump {dump}')
+            return text_of(mem), cursor_cells(dump, mem)
+        send(s, 'PAGE')
+        raw_send(s, 'Z', 2)
+        txt, cc = cursor_dump('z')
+        z = txt.rfind('Z')
+        check('C1 typing Z: the one drawn cursor is on the cell after Z', z >= 0 and cc == [z + 1],
+              f'(Z at {z}, cursor cells {cc})')
+        raw_send(s, 'Y', 2)
+        txt, cc = cursor_dump('y')
+        y = txt.rfind('Y')
+        check('C2 typing Y: the cursor moved to the cell after Y; Y drawn plain',
+              y == z + 1 and cc == [y + 1], f'(Y at {y}, cursor cells {cc})')
+        raw_send(s, '\x08\x08', 1)
+        bad = []
+        for cmd in ('ONLY FORTH DEFINITIONS DECIMAL ALSO HAL', 'S" WINDOW" LOAD-VOCAB',
+                    'ALSO UI-CORE ALSO WINDOW', 'VARIABLE TN VARIABLE TACT VARIABLE TFS',
+                    ': TH 0 TN ! WIN-ACTIVE TACT ! FOCUS-SWITCH TFS ! 40 5 CURSOR-AT'
+                    ' BEGIN KEY DUP 23 = IF DROP EXIT THEN TN @ 0 1 WIN-AT C! 1 TN +! AGAIN ;',
+                    '0 0 80 17 WIN-NEW .', "' TH 1 WIN-KEYS!", 'PAGE'):
+            b = send(s, cmd, 90)
+            if '?' in b:
+                bad.append((cmd[:40], b.strip()[-60:]))
+        raw_send(s, 'Q', 2)
+        txt, _ = cursor_dump('q')
+        q = txt.rfind('Q')
+        raw_send(s, '\x17', 2)
+        txt, cc = cursor_dump('in')
+        check('C3 Ctrl+W into the window: the one drawn cursor is at TH\'s 40 5 CURSOR-AT (cell 440)',
+              not bad and cc == [440], f'(setup {bad}; cursor cells {cc})')
+        raw_send(s, '\x17', 2)
+        txt, cc = cursor_dump('back')
+        check('C4 Ctrl+W back: the one drawn cursor is on the console line, the cell after Q',
+              q >= 0 and cc == [q + 1], f'(Q at {q}, cursor cells {cc})')
+        raw_send(s, '\x08', 1)
+        send(s, '')
     s.close()
     qemu_pid.kill_pidfile(pf[0])
     pf[1].wait(timeout=10)              # reaped: its ports and image lock are free

@@ -737,13 +737,13 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 74,
-    "source": "tests/test_uefi_boot.py:425"
+    "source": "tests/test_uefi_boot.py:470"
    },
    {
     "form": "tcp:127.0.0.1:P",
     "kind": "monitor",
     "offset": 76,
-    "source": "tests/test_uefi_boot.py:424"
+    "source": "tests/test_uefi_boot.py:469"
    }
   ]
  },
