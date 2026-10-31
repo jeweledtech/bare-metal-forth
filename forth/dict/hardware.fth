@@ -310,8 +310,10 @@ VARIABLE PA-SZ  VARIABLE PA-A  VARIABLE PA-SL
             PHYS-HEAP @ PA-SZ @ + PHYS-HEAP !
         THEN
     THEN
+    \ PHYS-TOP in hex whatever BASE is
     PA-A @ 0= IF
-        ." PHYS: pool full below " PHYS-TOP U. CR 0 EXIT
+        ." PHYS: pool full below "
+        BASE @ HEX PHYS-TOP U. BASE ! CR 0 EXIT
     THEN
     PA-SZ @    PA-SL @ !
     CURRENT @  PA-SL @ 4 + !
