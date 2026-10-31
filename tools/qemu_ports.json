@@ -129,13 +129,13 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 104,
-    "source": "$(PRIVATE_REPO)/tests/test_dlg2form.py:534"
+    "source": "$(PRIVATE_REPO)/tests/test_dlg2form.py:537"
    },
    {
     "form": "tcp:127.0.0.1:P",
     "kind": "monitor",
     "offset": 105,
-    "source": "$(PRIVATE_REPO)/tests/test_dlg2form.py:535"
+    "source": "$(PRIVATE_REPO)/tests/test_dlg2form.py:538"
    }
   ]
  },
@@ -155,7 +155,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 55,
-    "source": "Makefile:1466"
+    "source": "Makefile:1493"
    }
   ]
  },
@@ -515,7 +515,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 80,
-    "source": "Makefile:1531"
+    "source": "Makefile:1558"
    }
   ]
  },
@@ -618,6 +618,16 @@
     "kind": "serial",
     "offset": 113,
     "source": "$(PRIVATE_REPO)/tests/test_pipeline_e2e.py:91"
+   }
+  ]
+ },
+ "test-read-flags": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 126,
+    "source": "tests/test_read_flags.py:122"
    }
   ]
  },
