@@ -15,6 +15,10 @@ The failed reads are real: the AHCI disk sits behind QEMU's blkdebug,
 which fails a read covering the injected sector with EIO. One failed read
 wedges the AHCI port (every later read prints "not ready"; private
 finding-ahci-port-wedge-2026-10-31), so each boot injects one sector.
+K2's only evidence that the second BLOCK reads again is that wedge's
+"not ready": it holds only while the wedge stands. The wedge's fix
+re-pins K2 (the second BLOCK returns the block's correct contents, a
+fresh read, under a one-shot blkdebug error), pre-registered then.
 
 The fixture is built once and tracked in the private repo
 (tests/fixtures/read-flags: disk.img.gz, its build commands and tool
@@ -197,7 +201,8 @@ try:
     k2 = send(s, f'DECIMAL {BLOCK_N} BLOCK DEPTH .')
     k2d = depth(s)
     k2x = send(s, '7 6 * .')
-    check(f'K2 BLOCK {BLOCK_N} again reads again ("not ready"), "BLOCK READ FAILED" again; DEPTH 0; 7 6 * . gives 42',
+    check(f'K2 BLOCK {BLOCK_N} again reads again ("not ready", evidence only while the port wedge stands), '
+          '"BLOCK READ FAILED" again; DEPTH 0; 7 6 * . gives 42',
           'not ready' in k2 and 'BLOCK READ FAILED' in k2 and not nums(k2) and k2d == '0'
           and nums(k2x)[-1:] == ['42'], f'{k2!r}; DEPTH {k2d}; {k2x!r}')
 
