@@ -225,3 +225,7 @@ __pycache__/
 
 # Demo video assets: raw footage and session clips, never published
 video-demos/assets/
+# Demo video renders: graded clips and overlays, never published
+video-demos/edit/
+# HP disk survey: tracked redacted in the private repo; the original stays local
+docs/hp-disk-survey-2026-04-13.txt
