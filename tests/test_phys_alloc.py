@@ -474,6 +474,24 @@ check('C1 an allocation crossing 0x200000 refused: 0, '
       _a1 == 0 and 'PHYS: pool full below 200000' in body_of(raw)
       and len(_live) == _au['live'] and _free > 0,
       f'request {_sz1:#x}: got {body_of(raw)!r}')
+# C3: the same request sent in DECIMAL; the refusal names PHYS-TOP in hex
+# whatever BASE is, and leaves BASE as it found it (private
+# TASK_POOL_FULL_BASE). `BASE @ DECIMAL .` reads 16 if the print left HEX.
+raw = send(f'DECIMAL {_sz1} PHYS-ALLOC U.', 2.0)
+_b = re.findall(r'\d+', body_of(send('BASE @ DECIMAL .')))
+check('C3 refusal sent in DECIMAL: "PHYS: pool full below 200000", 0;'
+      ' BASE 10 after',
+      'PHYS: pool full below 200000' in body_of(raw)
+      and re.search(r'\b0\b', body_of(raw)) is not None
+      and _b[-1:] == ['10'],
+      f'got {body_of(raw)!r}, BASE {_b!r}')
+# C4 (control): PHYS-AUDIT sent in DECIMAL prints its summary in hex
+# (it saves BASE and sets HEX itself; 1048576 if decimal) and restores BASE.
+_au = body_of(send('DECIMAL PHYS-AUDIT', 4.0))
+_b = re.findall(r'\d+', body_of(send('BASE @ DECIMAL .')))
+check('C4 (control) PHYS-AUDIT sent in DECIMAL: "total: 100000"; BASE 10'
+      ' after', re.search(r'total: 100000\b', _au) is not None
+      and _b[-1:] == ['10'], f'got {_au!r}, BASE {_b!r}')
 if _a1:
     send(f'HEX {_a1:X} {_sz1:X} PHYS-RELEASE DECIMAL')
 if _a2:
