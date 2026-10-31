@@ -1,7 +1,8 @@
 # Finding: in a public clone, `make -k test` fails 55 of 71 targets that should skip or run
 
-Date: 2026-10-31. Status: recorded, not fixed. Found while measuring
-Part B of the count-lines item (private TASK_TEST_COUNT_LINES).
+Date: 2026-10-31. Status: recorded, not fixed; queued after the stop
+line, near the top. Found while measuring Part B of the count-lines item
+(private TASK_TEST_COUNT_LINES).
 
 ## How it was measured
 
@@ -62,7 +63,9 @@ the survey (a wired test reads a file no repo holds).
 
 ## When it is taken up
 
-Owner's call. The shape of it: a public clone's `make test` either builds
+Queued by the owner, 2026-10-31: after this session's stop line, near the
+top of the queue. "A public clone should run make test with private
+targets SKIPPED, not dropped." The shape of it: a public clone's `make test` either builds
 a public image for those targets (free embedded set) or each target
 skips, naming its mode; the four failing targets skip or pin per mode.
 A pre-registered red first: this measurement, made a check.
