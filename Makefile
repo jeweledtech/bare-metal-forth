@@ -1209,10 +1209,25 @@ test-ahci-write: $(COMBINED) $(AHCI_SCRATCH)
 	sleep 3; \
 	timeout --foreground $(T_AHCI_WRITE) python3 tests/test_ahci_write.py $$PORT
 
-# Run pipeline integration test (offline)
+# Run pipeline integration test (offline; private TASK_PIPELINE_SKIPS).
+# The test is private, run from PRIVATE_REPO; the translator is built
+# first (the public copy, as test-pipeline-e2e). SKIPPED in public mode;
+# PRIVATE_REPO set and the test absent fails.
 test-pipeline:
 	@echo "Running pipeline integration test..."
-	@python3 tests/test_pipeline_integration.py
+	@if [ ! -f $(PRIVATE_REPO)/tests/test_pipeline_integration.py ]; then \
+		if [ "$(origin PRIVATE_REPO)" = file ]; then \
+			echo "SKIPPED (public mode: PRIVATE_REPO absent): test-pipeline, 16 checks not run"; \
+			exit 0; \
+		fi; \
+		echo "FAIL: PRIVATE_REPO set ($(origin PRIVATE_REPO)) to $(PRIVATE_REPO), its test absent"; \
+		exit 1; \
+	fi; \
+	if [ -f tools/translator/Makefile ]; then \
+		$(MAKE) -s -C tools/translator >/dev/null || exit 1; \
+	fi; \
+	PRIVATE_REPO='$(PRIVATE_REPO)' PRIVATE_REPO_ORIGIN='$(origin PRIVATE_REPO)' \
+	python3 $(PRIVATE_REPO)/tests/test_pipeline_integration.py
 
 # UBT translator's own suite (24 binaries, ~300 checks, ~12 s).  Not
 # in `test:` -- its output grammar (`TEST: name PASS`) is not the
