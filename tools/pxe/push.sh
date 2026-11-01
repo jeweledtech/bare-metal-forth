@@ -3,7 +3,8 @@
 # Usage: bash tools/pxe/push.sh [image-path]
 set -e
 
-TFTP_ROOT=/srv/tftp
+TFTP_ROOT="${TFTP_ROOT:-/srv/tftp}"
+SUDO="${SUDO-sudo}"
 IMG="${1:-build/combined.img}"
 
 if [ ! -f "$IMG" ]; then
@@ -11,7 +12,7 @@ if [ ! -f "$IMG" ]; then
     exit 1
 fi
 
-sudo cp "$IMG" "$TFTP_ROOT/forth.img"
+$SUDO cp "$IMG" "$TFTP_ROOT/forth.img"
 
 SIZE=$(stat -c%s "$IMG")
 MD5=$(md5sum "$IMG" | cut -d' ' -f1)

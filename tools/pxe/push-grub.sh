@@ -8,7 +8,8 @@
 set -e -o pipefail
 cd "$(dirname "$0")/../.."
 TREE=build/tftp
-TFTP_ROOT=/srv/tftp
+TFTP_ROOT="${TFTP_ROOT:-/srv/tftp}"
+SUDO="${SUDO-sudo}"
 
 [ -d "$TREE/grub" ] || {
     echo "ERROR: $TREE not staged. Run 'make grub-net' first."
@@ -24,7 +25,7 @@ echo "Provenance (staged tree):"
 MANIFEST=$(bash tools/pxe/tree-hash.sh "$TREE")
 echo "  manifest: $MANIFEST"
 
-sudo cp -r "$TREE"/. "$TFTP_ROOT"/
+$SUDO cp -r "$TREE"/. "$TFTP_ROOT"/
 
 # Verify what actually landed (deploy provenance discipline):
 # hash only the files we own -- /srv/tftp also holds the pxelinux
