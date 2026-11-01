@@ -20,7 +20,8 @@ is counted only when the name is preceded by its length byte (len & 0x3F,
 not hidden) and a plausible link cell. FIND is not used for the count.
 The checks are the gates after the fix.
 
-Mode, decided before booting (private TASK_VOCAB_DEDUP_WIRE, amendment).
+Mode, decided before booting (private TASK_VOCAB_DEDUP_WIRE, amendment;
+the rule now in tests/run_mode.py, private TASK_TEST_COUNT_LINES).
 PRIVATE_REPO and PRIVATE_REPO_ORIGIN come from the recipe (make's value
 and $(origin PRIVATE_REPO)); run by hand, ../forthos-vocabularies beside
 the tree, origin "file" (the Makefile:139 default).
@@ -50,6 +51,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, 'tests'))
 import qemu_pid               # noqa: E402
 import serial as ser          # noqa: E402
+import run_mode               # noqa: E402
 
 PORT = int(sys.argv[1])
 B = os.path.join(ROOT, 'build')
@@ -76,22 +78,9 @@ PF = os.path.join(D, 'qemu.pid')
 MON = os.path.join(D, 'monitor.sock')
 DUMP = os.path.join(D, 'dict.bin')
 PRIV_VOCABS = ('ahci.fth', 'surveyor.fth')
-PRIV_REPO = os.environ.get('PRIVATE_REPO') or os.path.join(ROOT, '..', 'forthos-vocabularies')
-PRIV_ORIGIN = os.environ.get('PRIVATE_REPO_ORIGIN', 'file')
-if os.path.isdir(os.path.join(PRIV_REPO, 'forth', 'dict')):
-    _miss = [w + '/forth/dict/' + f for w in (PRIV_REPO, ROOT) for f in PRIV_VOCABS
-             if not os.path.exists(os.path.join(w, 'forth', 'dict', f))]
-    if _miss:
-        print(f'FAIL: PRIVATE_REPO {PRIV_REPO} found, its vocabularies not: {_miss} '
-              '(no fallback to public mode)', flush=True)
-        sys.exit(1)
-    PRIVATE = True
-elif PRIV_ORIGIN != 'file':
-    print(f'FAIL: PRIVATE_REPO set ({PRIV_ORIGIN}) to {PRIV_REPO}, not found '
-          '(no fallback to public mode)', flush=True)
-    sys.exit(1)
-else:
-    PRIVATE = False
+_PV = tuple('forth/dict/' + f for f in PRIV_VOCABS)
+_MODE = run_mode.resolve(ROOT, private=_PV, tree=_PV)
+PRIVATE, PRIV_REPO = _MODE.private, _MODE.repo
 TOTAL = 15 if PRIVATE else 7
 DICT_START, DICT_LIMIT = 0x30000, 0x80000
 NAMES = ['AHCI-INIT', 'AHCI', 'PCI-ENUM', 'HARDWARE', 'NTFS', 'FAT32', 'SURVEYOR', 'INSTALL',
@@ -260,7 +249,5 @@ n = re.findall(r'-?\d+', send(s, 'DECIMAL DEPTH .'))
 check('DEPTH 0', n[-1:] == ['0'], f'{n}')
 print(f'  HERE: boot {h0:#x}, after all loads {h7:#x}; headroom below 0x7F800: {0x7F800 - h7}', flush=True)
 qemu_pid.kill_pidfile(PF)
-MODE = (f'private mode: PRIVATE_REPO {PRIV_REPO}' if PRIVATE else
-        f'public mode: {PRIV_CHECKS} private checks not run, PRIVATE_REPO absent')
-print(f'\nPassed: {PASS}/{TOTAL} ({MODE})')
+print('\n' + _MODE.line(PASS, TOTAL, _MODE.not_run(PRIV_CHECKS)))
 sys.exit(0 if FAIL == 0 and PASS == TOTAL else 1)

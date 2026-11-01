@@ -36,6 +36,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, 'tests'))
 import qemu_pid          # noqa: E402
 import serial as ser     # noqa: E402
+import run_mode          # noqa: E402
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 4469
 B = os.path.join(ROOT, 'build')
@@ -45,6 +46,9 @@ ASM = os.path.join(ROOT, 'src', 'kernel', 'forth.asm')
 KERNEL_IMG = os.path.join(B, 'bmforth.img')
 COMBINED = os.path.join(B, 'combined.img')
 AHCI_FTH = os.path.join(ROOT, 'forth', 'dict', 'ahci.fth')
+# The mode (tests/run_mode.py): the installed instance needs AHCI (private).
+MODE = run_mode.resolve(ROOT, private=('forth/dict/ahci.fth',), tree=('forth/dict/ahci.fth',))
+TOTAL = 19 if MODE.private else 15                # C3, C4, I1, I1b private
 APPS = [('NOTEPAD', 'NOTEPAD-RUN'), ('HELLO-APP', 'HELLO-RUN'), ('FILE-BROWSER', 'FILE-BROWSER-RUN')]
 failures, skips, checks = [], [], 0
 
@@ -164,9 +168,9 @@ finally:
     qemu_pid.kill_pidfile(pf)
 
 # ---- I1: the installed instance (needs AHCI, a paid vocabulary)
-if not os.path.exists(AHCI_FTH):
+if not MODE.private:
     skips.append('I1')
-    print('[SKIPPED] I1 (forth/dict/ahci.fth absent)', flush=True)
+    print('[SKIPPED] I1 (public mode: AHCI is private)', flush=True)
 else:
     import g6_fixture as g6
     DISK = os.path.join(D, 'installed.img')
@@ -207,6 +211,5 @@ else:
         s.close()
         qemu_pid.kill_pidfile(pf)
 
-print(f'Passed: {checks - len(failures)}/{checks}'
-      + (f'  SKIPPED: {" ".join(skips)}' if skips else ''), flush=True)
-sys.exit(0 if not failures else 1)
+print(MODE.line(checks - len(failures), TOTAL, MODE.not_run(19 - 15)), flush=True)
+sys.exit(0 if not failures and checks == TOTAL else 1)

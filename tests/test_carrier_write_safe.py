@@ -111,6 +111,8 @@ with open(SCRATCH, 'rb') as f:
 intact = after == SENTINEL
 clob = after == b'\x41' * 512
 print(f'  scratch LBA {LBA}: sentinel intact={intact}, clobbered-by-write={clob}')
+EXPECTED = 1        # the one check: the sentinel intact
+print(f'Passed: {int(intact)}/{EXPECTED}', flush=True)
 
 if CARRIER_REDS:
     if intact:

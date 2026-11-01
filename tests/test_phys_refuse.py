@@ -34,6 +34,7 @@ import atexit, hashlib, os, re, socket, struct, subprocess, sys, time
 ROOT = os.getcwd()
 sys.path.insert(0, os.path.join(ROOT, 'tests'))
 import qemu_pid
+import run_mode
 import serial as ser
 import g6_fixture
 
@@ -46,20 +47,10 @@ MON = os.path.join(D, 'monitor.sock')
 DUMP = os.path.join(D, 'low.bin')
 LOW = 0x500
 DRIVERS = ('ahci.fth', 'rtl8168.fth', 'ntfs.fth', 'auto-detect.fth')
-PRIV_REPO = os.environ.get('PRIVATE_REPO') or os.path.join(ROOT, '..', 'forthos-vocabularies')
-PRIV_ORIGIN = os.environ.get('PRIVATE_REPO_ORIGIN', 'file')
-if os.path.isdir(os.path.join(PRIV_REPO, 'forth', 'dict')):
-    _miss = [w + '/forth/dict/' + f for w in (PRIV_REPO, ROOT) for f in DRIVERS
-             if not os.path.exists(os.path.join(w, 'forth', 'dict', f))]
-    if _miss:
-        print(f'FAIL: PRIVATE_REPO {PRIV_REPO} found, the drivers not: {_miss} '
-              '(no fallback to public mode)', flush=True)
-        sys.exit(1)
-elif PRIV_ORIGIN != 'file':
-    print(f'FAIL: PRIVATE_REPO set ({PRIV_ORIGIN}) to {PRIV_REPO}, not found '
-          '(no fallback to public mode)', flush=True)
-    sys.exit(1)
-else:
+_D = tuple('forth/dict/' + f for f in DRIVERS)
+_MODE = run_mode.resolve(ROOT, private=_D, tree=_D)
+PRIV_REPO = _MODE.repo
+if not _MODE.private:
     print(f'SKIPPED (public mode: PRIVATE_REPO absent): test-phys-refuse, {TOTAL} checks not run '
           '(AHCI, RTL8168, NTFS are private)', flush=True)
     sys.exit(0)
@@ -335,5 +326,5 @@ try:
 finally:
     qemu_pid.kill_pidfile(PF)
 
-print(f'\nPassed: {PASS}/{TOTAL}')
+print('\n' + _MODE.line(PASS, TOTAL))
 sys.exit(0 if FAIL == 0 and PASS == TOTAL else 1)

@@ -5,7 +5,7 @@
 
 Fixture: a one-block vocabulary RV-FIX (`1 CONSTANT RV`), added to a copy of
 forth/dict and packed by tools/write-catalog.py into a copy of build/blocks.img,
-behind build/bmforth.img (or build/bmforth-free.img in a public clone); all
+behind build/bmforth.img (build/bmforth-free.img in public mode); all
 under build/reload-vocab.d, never forth/dict or build/combined.img.
 Steps: load RV-FIX; the host patches its block to `2 CONSTANT RV` in the IDE
 image; the guest runs EMPTY-BUFFERS and checks it reads the edit (control);
@@ -19,6 +19,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, 'tests'))
 import qemu_pid               # noqa: E402
 import serial as ser          # noqa: E402
+import run_mode               # noqa: E402
 
 PORT = int(sys.argv[1])
 B = os.path.join(ROOT, 'build')
@@ -120,8 +121,9 @@ def rv(s):
 
 
 # ---- fixture image
-kernel = os.path.join(B, 'bmforth.img') if os.path.exists(os.path.join(ROOT, 'forth', 'dict', 'ahci.fth')) \
-    else os.path.join(B, 'bmforth-free.img')
+# The mode (tests/run_mode.py): private, the full kernel; public, the free one.
+_MODE = run_mode.resolve(ROOT, private=('forth/dict/ahci.fth',), tree=('forth/dict/ahci.fth',))
+kernel = os.path.join(B, 'bmforth.img' if _MODE.private else 'bmforth-free.img')
 for need in (kernel, os.path.join(B, 'blocks.img'), os.path.join(B, 'vbr.bin')):
     if not os.path.exists(need):
         sys.exit(f'NO INPUT: {need} (make combined, or make free blocks write-catalog)')
@@ -243,5 +245,6 @@ send(s, 'RV-OLDW BLK-WRITER!')
 n = num(s, 'DEPTH .')
 check('DEPTH 0', n == 0, f'{n}')
 qemu_pid.kill_pidfile(PF)
-print(f'\nPassed: {PASS}/{PASS + FAIL}')
-sys.exit(0 if FAIL == 0 else 1)
+TOTAL = 13                                       # the same checks in both modes
+print('\n' + _MODE.line(PASS, TOTAL, 'the free kernel'))
+sys.exit(0 if FAIL == 0 and PASS == TOTAL else 1)

@@ -3,9 +3,10 @@
 TASK_FORTH83_VOCAB). The kernel's UM* and UM/MOD (K1-K5); the block-loaded
 FORTH83 vocabulary's renames (R), high-level words (H), pictured output
 (P), CONVERT (C) and DOES> (O), with DOES>'s five checks: A another CURRENT
-vocabulary, B SEE, E TARGET-X86 loaded alongside (private; skipped and not
-counted without forth/dict/target-x86.fth), M a MIRROR image across a
-reboot, and the UEFI and SeaBIOS paths (U30/L30 in test_uefi_boot.py).
+vocabulary, B SEE, E TARGET-X86 loaded alongside (private; skipped in
+public mode, tests/run_mode.py: 37 checks private, 36 public), M a
+MIRROR image across a reboot, and the UEFI and SeaBIOS paths (U30/L30
+in test_uefi_boot.py).
 
   python3 tests/test_forth83.py <serial-port>     (cwd: tree root)
 
@@ -27,12 +28,16 @@ import hashlib, os, re, shutil, subprocess, sys
 ROOT = os.getcwd()
 sys.path.insert(0, os.path.join(ROOT, 'tests'))
 import qemu_pid
+import run_mode
 import serial as ser
 
 PORT = int(sys.argv[1])
 COMBINED = os.path.join(ROOT, 'build', 'combined.img')
 VOCAB = os.path.join(ROOT, 'forth', 'dict', 'forth83.fth')
 TARGET_X86 = os.path.join(ROOT, 'forth', 'dict', 'target-x86.fth')
+# The mode (tests/run_mode.py): E1 needs TARGET-X86, a private vocabulary.
+MODE = run_mode.resolve(ROOT, private=('forth/dict/target-x86.fth',), tree=('forth/dict/target-x86.fth',))
+TOTAL = 37 if MODE.private else 36
 OUT = os.path.join(ROOT, 'build', 'forth83.d')
 os.makedirs(OUT, exist_ok=True)
 PF = os.path.join(OUT, 'qemu.pid')
@@ -97,8 +102,8 @@ def session(s):
 
 
 def finish():
-    print(f'\nPassed: {PASS}/{PASS + FAIL}', flush=True)
-    sys.exit(0 if FAIL == 0 else 1)
+    print('\n' + MODE.line(PASS, TOTAL, MODE.not_run(37 - 36)), flush=True)
+    sys.exit(0 if FAIL == 0 and PASS == TOTAL else 1)
 
 
 try:
@@ -220,8 +225,8 @@ try:
               out.strip()[:80])
 
     # E: TARGET-X86 alongside (private)
-    if not os.path.exists(TARGET_X86):
-        print(f'  SKIPPED (not counted): E1 TARGET-X86 alongside: {TARGET_X86} absent', flush=True)
+    if not MODE.private:
+        print('  SKIPPED (public mode): E1 TARGET-X86 alongside: TARGET-X86 is private', flush=True)
     else:
         r = body('S" TARGET-X86" LOAD-VOCAB', 120)
         e = nums('ALSO META-COMPILER ALSO TARGET-X86 ALSO FORTH83 : MC3 CREATE , DOES> @ ; 3 MC3 X3  X3 .')

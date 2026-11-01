@@ -155,6 +155,8 @@ print(f'  check 1: GDT base {gdt_base:#x} in the kernel image '
 for name, ok in controls:
     print(f'  control: {name}: {ok}')
 bad = [n for n, ok in controls if not ok]
+EXPECTED = 5        # check 1 and the 4 controls
+print(f'Passed: {int(red) + len(controls) - len(bad)}/{EXPECTED}', flush=True)
 if bad:
     die(1, f'FAIL: controls failed: {bad}')
 if UEFI_REDS:

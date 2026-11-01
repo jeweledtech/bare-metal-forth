@@ -39,11 +39,16 @@ OVMF_VARS = '/usr/share/OVMF/OVMF_VARS_4M.fd'
 BANNER = 'Bare-Metal Forth v0.1 - Ship Builders System'
 WAIT = 90
 failures = []
+passed = 0
+EXPECTED = 6        # N1, N2, N3; N4-N6 under `if ok:` (a check not run is not passed)
 
 
 def check(label, cond, detail=''):
+    global passed
     print(f'[{"PASS" if cond else "FAIL"}] {label} {detail}', flush=True)
-    if not cond:
+    if cond:
+        passed += 1
+    else:
         failures.append(label)
 
 
@@ -133,5 +138,6 @@ try:
 finally:
     shutil.rmtree(work, ignore_errors=True)
 
+print(f'Passed: {passed}/{EXPECTED}', flush=True)
 print(f'FAILED: {failures}' if failures else 'All UEFI netboot gates pass')
-sys.exit(1 if failures else 0)
+sys.exit(1 if failures or passed != EXPECTED else 0)

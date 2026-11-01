@@ -270,6 +270,7 @@ if ok:
     r = send('ORDER', 2)
     print(f'  ORDER: {r.strip()!r}')
 
-print(f'\nPassed: {PASS}/{PASS + FAIL}')
+TOTAL = 35          # pinned: a SKIP drops checks, and a check not run is not passed
+print(f'\nPassed: {PASS}/{TOTAL}')
 s.close()
-sys.exit(0 if FAIL == 0 else 1)
+sys.exit(0 if FAIL == 0 and PASS == TOTAL else 1)

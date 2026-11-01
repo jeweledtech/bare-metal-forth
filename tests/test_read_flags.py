@@ -36,6 +36,7 @@ import atexit, gzip, hashlib, os, re, socket, subprocess, sys, time
 ROOT = os.getcwd()
 sys.path.insert(0, os.path.join(ROOT, 'tests'))
 import qemu_pid
+import run_mode
 import serial as ser
 
 PORT = int(sys.argv[1])
@@ -50,22 +51,10 @@ FIX = os.path.join('tests', 'fixtures', 'read-flags', 'disk.img.gz')
 IMG_SHA = '1455f18de181095a4069c8c3903b89dc3b8a1838d3479b72f2ec88a51b9c5d98'
 GPT_ENTRIES, BLOCK_SECTOR, REC65, BIG_BATCH2 = 2, 30000, 2210, 4944
 BLOCK_N = 14887                                  # (30000 - BLOCKS-LBA-BASE E1) / 2
-PRIV_REPO = os.environ.get('PRIVATE_REPO') or os.path.join(ROOT, '..', 'forthos-vocabularies')
-PRIV_ORIGIN = os.environ.get('PRIVATE_REPO_ORIGIN', 'file')
-if os.path.isdir(os.path.join(PRIV_REPO, 'forth', 'dict')):
-    _miss = [w + '/forth/dict/' + f for w in (PRIV_REPO, ROOT) for f in DRIVERS
-             if not os.path.exists(os.path.join(w, 'forth', 'dict', f))]
-    if not os.path.exists(os.path.join(PRIV_REPO, FIX)):
-        _miss.append(os.path.join(PRIV_REPO, FIX))
-    if _miss:
-        print(f'FAIL: PRIVATE_REPO {PRIV_REPO} found, these not: {_miss} '
-              '(no fallback to public mode)', flush=True)
-        sys.exit(1)
-elif PRIV_ORIGIN != 'file':
-    print(f'FAIL: PRIVATE_REPO set ({PRIV_ORIGIN}) to {PRIV_REPO}, not found '
-          '(no fallback to public mode)', flush=True)
-    sys.exit(1)
-else:
+_D = tuple('forth/dict/' + f for f in DRIVERS)
+_MODE = run_mode.resolve(ROOT, private=_D + (FIX,), tree=_D)
+PRIV_REPO = _MODE.repo
+if not _MODE.private:
     print(f'SKIPPED (public mode: PRIVATE_REPO absent): test-read-flags, {TOTAL} checks not run '
           '(AHCI, FILE-STREAM, NTFS and the fixture are private)', flush=True)
     sys.exit(0)
@@ -254,5 +243,5 @@ try:
 finally:
     qemu_pid.kill_pidfile(PF)
 
-print(f'\nPassed: {PASS}/{TOTAL}', flush=True)
+print('\n' + _MODE.line(PASS, TOTAL), flush=True)
 sys.exit(0 if PASS == TOTAL and PASS + FAIL == TOTAL else 1)

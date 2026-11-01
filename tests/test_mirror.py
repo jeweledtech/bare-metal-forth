@@ -9,9 +9,10 @@ Scratch copies only.  The shipped writers are installed on them:
             a MIRROR over the code store overwrites packed source here.
   HP path   memdisk + the combined image, an HP-549 disk (tests/
             g6_fixture.py + FORTHOS partition at LBA 34-582) on AHCI,
-            `AHCI-INIT AHCI-RW`.  Needs AHCI (a paid vocabulary): in a
-            clone without forth/dict/ahci.fth these cases are SKIPPED,
-            and a skip is never counted as a pass.
+            `AHCI-INIT AHCI-RW`.  Needs AHCI (a paid vocabulary): in
+            public mode (tests/run_mode.py) these cases are SKIPPED,
+            and a skip is never counted as a pass (42 checks private,
+            25 public).
 
 Cases (the task doc's red table):
   M1  `900 MIRROR`, ATA writer: 900 lies inside a vocabulary's blocks.
@@ -57,6 +58,7 @@ from importlib.machinery import SourceFileLoader
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import qemu_pid  # noqa: E402
 import serial as ser  # noqa: E402
+import run_mode  # noqa: E402
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 4467
 COMBINED = sys.argv[2] if len(sys.argv) > 2 else 'build/combined.img'
@@ -67,6 +69,9 @@ ASM = os.path.join(ROOT, 'src', 'kernel', 'forth.asm')
 MIRROR_FTH = os.path.join(ROOT, 'forth', 'dict', 'mirror.fth')
 WRITE_CATALOG = os.path.join(ROOT, 'tools', 'write-catalog.py')
 AHCI_FTH = os.path.join(ROOT, 'forth', 'dict', 'ahci.fth')
+# The mode (tests/run_mode.py): the HP path needs AHCI, a private vocabulary.
+MODE = run_mode.resolve(ROOT, private=('forth/dict/ahci.fth',), tree=('forth/dict/ahci.fth',))
+TOTAL = 42 if MODE.private else 25                # 17 HP-path checks private
 
 src = open(ASM).read()
 _m = re.search(r'^KERNEL_PADDED_SIZE\s+equ\s+0x([0-9A-Fa-f]+)', src, re.M)
@@ -104,7 +109,7 @@ def skip(label, why):
 for p in (COMBINED, ASM, MIRROR_FTH, WRITE_CATALOG, os.path.abspath(__file__)):
     print(f'input sha256 {hashlib.sha256(open(p, "rb").read()).hexdigest()}  {p}',
           flush=True)
-if os.path.exists(AHCI_FTH):
+if MODE.private:
     print(f'input sha256 {hashlib.sha256(open(AHCI_FTH, "rb").read()).hexdigest()}'
           f'  {AHCI_FTH}', flush=True)
 
@@ -375,9 +380,9 @@ finally:
 
 # ---------------------------------------------------------------- HP path
 HP_CASES = ('M2a', 'M2b', 'M2c', 'M4f', 'M4g', 'M4h', 'M4i', 'M4j', 'M5d', 'M5e', 'M5f')
-if not os.path.exists(AHCI_FTH):
+if not MODE.private:
     for c in HP_CASES:
-        skip(c, 'forth/dict/ahci.fth absent: AHCI is not in this build')
+        skip(c, 'public mode: AHCI is private')
 else:
     import g6_fixture as g6
     IMG = os.path.join(D, 'hp-combined.img')
@@ -453,6 +458,5 @@ else:
     finally:
         g.close()
 
-print(f'Passed: {checks - len(failures)}/{checks}'
-      + (f'  SKIPPED: {len(skips)} ({" ".join(skips)})' if skips else ''), flush=True)
-sys.exit(0 if not failures else 1)
+print(MODE.line(checks - len(failures), TOTAL, MODE.not_run(42 - 25)), flush=True)
+sys.exit(0 if not failures and checks == TOTAL else 1)

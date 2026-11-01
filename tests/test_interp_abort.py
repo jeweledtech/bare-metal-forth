@@ -27,6 +27,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, 'tests'))
 import qemu_pid               # noqa: E402
 import serial as ser          # noqa: E402
+import run_mode               # noqa: E402
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 4468
 B = os.path.join(ROOT, 'build')
@@ -95,8 +96,9 @@ def blk_text(lines):
 
 
 # ---- fixture image
-kernel = os.path.join(B, 'bmforth.img') if os.path.exists(os.path.join(ROOT, 'forth', 'dict', 'ahci.fth')) \
-    else os.path.join(B, 'bmforth-free.img')
+# The mode (tests/run_mode.py): private, the full kernel; public, the free one.
+_MODE = run_mode.resolve(ROOT, private=('forth/dict/ahci.fth',), tree=('forth/dict/ahci.fth',))
+kernel = os.path.join(B, 'bmforth.img' if _MODE.private else 'bmforth-free.img')
 for need in (kernel, os.path.join(B, 'blocks.img'), os.path.join(B, 'vbr.bin')):
     if not os.path.exists(need):
         sys.exit(f'NO INPUT: {need} (make combined, or make free blocks write-catalog)')
@@ -397,5 +399,6 @@ check('U9b the boot names it loudly: EMBED ABORTED at ZZCENSUS',
       'EMBED ABORTED at ZZCENSUS' in boot_txt and boot_txt.rstrip().endswith('ok'),
       f'(log {boot_txt.strip()[-120:]!r})')
 
-print(f'Passed: {checks - len(failures)}/{checks}', flush=True)
-sys.exit(0 if not failures else 1)
+TOTAL = 34                                       # the same checks in both modes
+print(_MODE.line(checks - len(failures), TOTAL, 'the free kernel'), flush=True)
+sys.exit(0 if not failures and checks == TOTAL else 1)

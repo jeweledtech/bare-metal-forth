@@ -137,6 +137,11 @@ run-free: $(IMAGE_FREE)
 #     cannot publish it. Files tracked in both repos are not checked here.
 # With no private repo it prints SKIPPED and exits 0; never a silent pass.
 PRIVATE_REPO ?= ../forthos-vocabularies
+# The run mode of a recipe whose test is private (tests/run_mode.py, private
+# TASK_TEST_COUNT_LINES): exit 0 to run; 10 SKIPPED (public mode), the recipe
+# exits 0; 1 FAIL (PRIVATE_REPO set and absent, or present without a file).
+RUN_MODE = PRIVATE_REPO='$(PRIVATE_REPO)' PRIVATE_REPO_ORIGIN='$(origin PRIVATE_REPO)' python3 tests/run_mode.py
+RUN_MODE_END = rc=$$?; [ $$rc = 10 ] && exit 0; [ $$rc = 0 ] || exit 1
 PAID_VOCABS = ahci rtl8168 ntfs auto-detect fat32 surveyor file-editor-disk log-harness cd-atapi hal-machines atapi-ahci
 
 check-sync:
@@ -514,12 +519,7 @@ test-hal-match: $(COMBINED)
 # The private machine entries, dry-run (forthos-vocabularies); SKIPPED
 # without them. Serial on +6.
 test-hal-match-hp: $(COMBINED)
-	@for f in forth/dict/hal-machines.fth tests/test_hal_match_hp.py; do \
-		if [ ! -f $$f ]; then \
-			echo "SKIPPED: test-hal-match-hp: private machine entries absent ($$f)"; \
-			exit 0; \
-		fi; \
-	done; \
+	@$(RUN_MODE) test-hal-match-hp --private forth/dict/hal-machines.fth tests/test_hal_match_hp.py --tree forth/dict/hal-machines.fth tests/test_hal_match_hp.py; $(RUN_MODE_END); \
 	QPIDDIR=$(BUILD)/test-hal-match-hp.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
 	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-hal-match-hp --base $(TEST_PORT_BASE); \
 	PORT=$$(($(TEST_PORT_BASE)+6)); \
@@ -530,6 +530,7 @@ test-pad-move: $(COMBINED)
 	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-pad-move --base $(TEST_PORT_BASE); \
 	echo "Running kernel-pad move test..."; \
 	PORT=$$(($(TEST_PORT_BASE)+69)); \
+	PRIVATE_REPO='$(PRIVATE_REPO)' PRIVATE_REPO_ORIGIN='$(origin PRIVATE_REPO)' \
 	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_PAD_MOVE) python3 tests/test_pad_move.py $$PORT
 
 test-interp-abort: $(COMBINED)
@@ -537,6 +538,7 @@ test-interp-abort: $(COMBINED)
 	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-interp-abort --base $(TEST_PORT_BASE); \
 	echo "Running interpreter-correctness test..."; \
 	PORT=$$(($(TEST_PORT_BASE)+68)); \
+	PRIVATE_REPO='$(PRIVATE_REPO)' PRIVATE_REPO_ORIGIN='$(origin PRIVATE_REPO)' \
 	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_INTERP_ABORT) python3 tests/test_interp_abort.py $$PORT
 
 test-mirror: $(COMBINED)
@@ -544,6 +546,7 @@ test-mirror: $(COMBINED)
 	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-mirror --base $(TEST_PORT_BASE); \
 	echo "Running MIRROR test..."; \
 	PORT=$$(($(TEST_PORT_BASE)+67)); \
+	PRIVATE_REPO='$(PRIVATE_REPO)' PRIVATE_REPO_ORIGIN='$(origin PRIVATE_REPO)' \
 	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_MIRROR) python3 tests/test_mirror.py $$PORT $(COMBINED)
 
 test-vocabs: $(COMBINED) test-mirror
@@ -601,12 +604,7 @@ T_LOG_HARNESS     ?= 25
 T_LOG_HARNESS_NIC ?= 30
 
 test-log-harness-nic: $(COMBINED)
-	@for f in forth/dict/log-harness.fth tests/test_log_harness_nic.py; do \
-		if [ ! -f $$f ]; then \
-			echo "SKIPPED: test-log-harness-nic: private vocab absent ($$f)"; \
-			exit 0; \
-		fi; \
-	done; \
+	@$(RUN_MODE) test-log-harness-nic --private forth/dict/log-harness.fth tests/test_log_harness_nic.py --tree forth/dict/log-harness.fth tests/test_log_harness_nic.py; $(RUN_MODE_END); \
 	PIDF=$(BUILD)/test-log-harness-nic.pid; $(QEMU_KILL); \
 	PCAP=$(BUILD)/log-harness-nic.pcap; rm -f $$PCAP; \
 	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-log-harness-nic --base $(TEST_PORT_BASE); \
@@ -624,12 +622,7 @@ test-log-harness-nic: $(COMBINED)
 		$$(($(TEST_PORT_BASE)+46)) $$PCAP $$(($(TEST_PORT_BASE)+48))
 
 test-log-harness: $(COMBINED)
-	@for f in forth/dict/log-harness.fth tests/test_log_harness.py; do \
-		if [ ! -f $$f ]; then \
-			echo "SKIPPED: test-log-harness: private vocab absent ($$f)"; \
-			exit 0; \
-		fi; \
-	done; \
+	@$(RUN_MODE) test-log-harness --private forth/dict/log-harness.fth tests/test_log_harness.py --tree forth/dict/log-harness.fth tests/test_log_harness.py; $(RUN_MODE_END); \
 	PIDF=$(BUILD)/test-log-harness.pid; $(QEMU_KILL); \
 	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-log-harness --base $(TEST_PORT_BASE); \
 	cp $(COMBINED) $(COMBINED_IDE); \
@@ -655,13 +648,7 @@ T_LOG_RESTORE    ?= 600
 T_LOG_VALIDATION ?= 400
 
 test-log-restore: $(COMBINED)
-	@for f in forth/dict/log-harness.fth \
-		$(PRIVATE_REPO)/tests/test_log_restore.py; do \
-		if [ ! -f $$f ]; then \
-			echo "SKIPPED: test-log-restore: private file absent ($$f)"; \
-			exit 0; \
-		fi; \
-	done; \
+	@$(RUN_MODE) test-log-restore --private forth/dict/log-harness.fth tests/test_log_restore.py --tree forth/dict/log-harness.fth; $(RUN_MODE_END); \
 	PIDF=$(BUILD)/log-restore.d/qemu.pid; $(QEMU_KILL); \
 	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-log-restore --base $(TEST_PORT_BASE); \
 	echo "Running LOG-RESTORE gates..."; \
@@ -672,13 +659,7 @@ test-log-restore: $(COMBINED)
 # LOG-SEND's five frames from an NE2000 pcap, checked against the model.
 T_LOG_SEND ?= 300
 test-log-send: $(COMBINED)
-	@for f in forth/dict/log-harness.fth \
-		$(PRIVATE_REPO)/tests/test_log_send.py; do \
-		if [ ! -f $$f ]; then \
-			echo "SKIPPED: test-log-send: private file absent ($$f)"; \
-			exit 0; \
-		fi; \
-	done; \
+	@$(RUN_MODE) test-log-send --private forth/dict/log-harness.fth tests/test_log_send.py --tree forth/dict/log-harness.fth; $(RUN_MODE_END); \
 	PIDF=$(BUILD)/log-send.d/qemu.pid; $(QEMU_KILL); \
 	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-log-send --base $(TEST_PORT_BASE); \
 	echo "Running LOG-SEND (Phase 3b) gates..."; \
@@ -712,6 +693,7 @@ test-reload-vocab: $(COMBINED)
 	@PIDF=$(BUILD)/reload-vocab.d/qemu.pid; $(QEMU_KILL); \
 	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-reload-vocab --base $(TEST_PORT_BASE); \
 	echo "Running RELOAD-VOCAB test..."; \
+	PRIVATE_REPO='$(PRIVATE_REPO)' PRIVATE_REPO_ORIGIN='$(origin PRIVATE_REPO)' \
 	timeout --foreground $(T_RELOAD_VOCAB) python3 tests/test_reload_vocab.py $$(($(TEST_PORT_BASE)+111))
 
 # RESOLVE-DEPS loads every name on a REQUIRES: line, not only the first
@@ -733,13 +715,7 @@ test-load-vocab: $(COMBINED)
 
 T_DLG2FORM ?= 200
 test-dlg2form: $(COMBINED)
-	@for f in $(PRIVATE_REPO)/tools/dlg2form.py \
-		$(PRIVATE_REPO)/tests/test_dlg2form.py; do \
-		if [ ! -f $$f ]; then \
-			echo "SKIPPED: test-dlg2form: private file absent ($$f)"; \
-			exit 0; \
-		fi; \
-	done; \
+	@$(RUN_MODE) test-dlg2form --private tools/dlg2form.py tests/test_dlg2form.py; $(RUN_MODE_END); \
 	PIDF=$(BUILD)/dlg2form.d/qemu.pid; $(QEMU_KILL); \
 	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-dlg2form --base $(TEST_PORT_BASE); \
 	echo "Running dlg2form (Windows About box as a FORM) gates..."; \
@@ -750,13 +726,7 @@ test-dlg2form: $(COMBINED)
 # 20-byte vectors typed into the guest, word level (QEMU has no RTL8168).
 T_RTL8168_CKSUM ?= 120
 test-rtl8168-cksum: $(COMBINED)
-	@for f in forth/dict/rtl8168.fth \
-		$(PRIVATE_REPO)/tests/test_rtl8168_cksum.py; do \
-		if [ ! -f $$f ]; then \
-			echo "SKIPPED: test-rtl8168-cksum: private file absent ($$f)"; \
-			exit 0; \
-		fi; \
-	done; \
+	@$(RUN_MODE) test-rtl8168-cksum --private forth/dict/rtl8168.fth tests/test_rtl8168_cksum.py --tree forth/dict/rtl8168.fth; $(RUN_MODE_END); \
 	PIDF=$(BUILD)/rtl8168-cksum.d/qemu.pid; $(QEMU_KILL); \
 	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-rtl8168-cksum --base $(TEST_PORT_BASE); \
 	echo "Running RTL8168 IP-CKSUM (RFC 1071) gates..."; \
@@ -764,12 +734,7 @@ test-rtl8168-cksum: $(COMBINED)
 		$$(($(TEST_PORT_BASE)+107))
 
 test-log-validation: $(COMBINED)
-	@for f in forth/dict/log-harness.fth tests/test_log_validation.py; do \
-		if [ ! -f $$f ]; then \
-			echo "SKIPPED: test-log-validation: private file absent ($$f)"; \
-			exit 0; \
-		fi; \
-	done; \
+	@$(RUN_MODE) test-log-validation --private forth/dict/log-harness.fth tests/test_log_validation.py --tree forth/dict/log-harness.fth tests/test_log_validation.py; $(RUN_MODE_END); \
 	PIDF=$(BUILD)/log-validation.d/qemu.pid; $(QEMU_KILL); \
 	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-log-validation --base $(TEST_PORT_BASE); \
 	echo "Running LOG-HARNESS disk validation gates..."; \
@@ -779,12 +744,9 @@ test-log-validation: $(COMBINED)
 # Host only: the decoder's image, header and dump are byte-identical
 # to the decoder before the layout refactor (TASK_LOG_LAYOUT_REFACTOR).
 test-log-decode-layout:
-	@if [ ! -f $(PRIVATE_REPO)/tests/test_log_decode_layout.py ]; then \
-		echo "SKIPPED: test-log-decode-layout: private test absent"; \
-	else \
-		echo "Running LOG decoder layout check..."; \
-		python3 $(PRIVATE_REPO)/tests/test_log_decode_layout.py; \
-	fi
+	@$(RUN_MODE) test-log-decode-layout --private tests/test_log_decode_layout.py; $(RUN_MODE_END); \
+	echo "Running LOG decoder layout check..."; \
+	python3 $(PRIVATE_REPO)/tests/test_log_decode_layout.py
 
 # Run the INSTALL write-allowlist gate (Piece 1).
 # Needs $(COMBINED): INSTALL is block-loaded off the catalog, not
@@ -1138,15 +1100,9 @@ lint:
 # check). Skipped, not passed, without the private vocabularies or
 # qemu-system-aarch64.
 test-arm64-boot: $(COMBINED)
-	@for f in forth/dict/meta-compiler.fth forth/dict/arm64-asm.fth \
-		forth/dict/target-arm64.fth; do \
-		if [ ! -f $$f ]; then \
-			echo "SKIPPED: test-arm64-boot: private vocabulary absent ($$f)"; \
-			exit 0; \
-		fi; \
-	done; \
+	@$(RUN_MODE) test-arm64-boot --private forth/dict/meta-compiler.fth forth/dict/arm64-asm.fth forth/dict/target-arm64.fth --tree forth/dict/meta-compiler.fth forth/dict/arm64-asm.fth forth/dict/target-arm64.fth; $(RUN_MODE_END); \
 	if ! command -v qemu-system-aarch64 >/dev/null 2>&1; then \
-		echo "SKIPPED: test-arm64-boot: qemu-system-aarch64 absent"; \
+		echo "SKIPPED (environment: qemu-system-aarch64 absent): test-arm64-boot"; \
 		exit 0; \
 	fi; \
 	cp $(COMBINED) $(COMBINED_IDE); \
@@ -1162,13 +1118,7 @@ test-arm64-boot: $(COMBINED)
 # the sweep. Skipped, not passed, without the private script or
 # vocabularies.
 test-meta-b6b: $(COMBINED)
-	@for f in tests/test_meta_b6b.py forth/dict/meta-compiler.fth \
-		forth/dict/target-x86.fth; do \
-		if [ ! -f $$f ]; then \
-			echo "SKIPPED: test-meta-b6b: private file absent ($$f)"; \
-			exit 0; \
-		fi; \
-	done; \
+	@$(RUN_MODE) test-meta-b6b --private tests/test_meta_b6b.py forth/dict/meta-compiler.fth forth/dict/target-x86.fth --tree tests/test_meta_b6b.py forth/dict/meta-compiler.fth forth/dict/target-x86.fth; $(RUN_MODE_END); \
 	$(MAKE) --no-print-directory test-meta META_FIXTURES=test_meta_b6b
 
 # Run Cortex-M33 boot test (cross-compile + QEMU mps2-an505)
@@ -1215,14 +1165,7 @@ test-ahci-write: $(COMBINED) $(AHCI_SCRATCH)
 # PRIVATE_REPO set and the test absent fails.
 test-pipeline:
 	@echo "Running pipeline integration test..."
-	@if [ ! -f $(PRIVATE_REPO)/tests/test_pipeline_integration.py ]; then \
-		if [ "$(origin PRIVATE_REPO)" = file ]; then \
-			echo "SKIPPED (public mode: PRIVATE_REPO absent): test-pipeline, 16 checks not run"; \
-			exit 0; \
-		fi; \
-		echo "FAIL: PRIVATE_REPO set ($(origin PRIVATE_REPO)) to $(PRIVATE_REPO), its test absent"; \
-		exit 1; \
-	fi; \
+	@$(RUN_MODE) test-pipeline --private tests/test_pipeline_integration.py; $(RUN_MODE_END); \
 	if [ -f tools/translator/Makefile ]; then \
 		$(MAKE) -s -C tools/translator >/dev/null || exit 1; \
 	fi; \
@@ -1239,17 +1182,22 @@ test-pipeline:
 # not ship it, and says so instead of failing on a missing directory.
 # UBT end to end (private TASK_PIPELINE_E2E_REWRITE): translate i8042prt.sys,
 # catalog the vocabulary in a fixture image under build/pipeline-e2e.d, find
-# it with CATALOG-FIND, load it, call a translated port word. Skipped, not
-# passed, when the private test, the translator or the binary is absent.
+# it with CATALOG-FIND, load it, call a translated port word. SKIPPED in
+# public mode (tests/run_mode.py); in private mode the translator absent,
+# or the binary absent or not its sha256, fails.
 T_PIPELINE_E2E ?= 300
+# The translated driver: ReactOS 0.4.15 x86's i8042prt.sys, kept out of
+# every repo (private tools/translator/tests/data/README-i8042prt.md).
+I8042PRT_SHA256 = 031ba298a2ded32a6d664afa46e8be2919d28b83bc1badf14d0e17aeddb16515
 test-pipeline-e2e: $(COMBINED)
-	@for f in $(PRIVATE_REPO)/tests/test_pipeline_e2e.py tools/translator/Makefile \
-		tools/translator/tests/data/i8042prt.sys; do \
-		if [ ! -f $$f ]; then \
-			echo "SKIPPED: test-pipeline-e2e: input absent ($$f)"; \
-			exit 0; \
-		fi; \
-	done; \
+	@$(RUN_MODE) test-pipeline-e2e --private tests/test_pipeline_e2e.py --tree tools/translator/Makefile; $(RUN_MODE_END); \
+	f=tools/translator/tests/data/i8042prt.sys; \
+	if [ "$$(sha256sum $$f 2>/dev/null | cut -d' ' -f1)" != $(I8042PRT_SHA256) ]; then \
+		echo "FAIL: private mode: $$f absent or not sha256 $(I8042PRT_SHA256):"; \
+		echo "  the i8042prt.sys of the ReactOS 0.4.15 x86 build (FileVersion 42.4.15), in no repo;"; \
+		echo "  see tools/translator/tests/data/README-i8042prt.md (private repo)"; \
+		exit 1; \
+	fi; \
 	$(MAKE) -s -C tools/translator >/dev/null; \
 	PIDF=$(BUILD)/pipeline-e2e.d/qemu.pid; $(QEMU_KILL); \
 	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-pipeline-e2e --base $(TEST_PORT_BASE); \
@@ -1380,6 +1328,7 @@ test-forth83: $(COMBINED)
 	@PIDF=$(BUILD)/forth83.d/qemu.pid; $(QEMU_KILL); \
 	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-forth83 --base $(TEST_PORT_BASE); \
 	echo "Running FORTH83 gates..."; \
+	PRIVATE_REPO='$(PRIVATE_REPO)' PRIVATE_REPO_ORIGIN='$(origin PRIVATE_REPO)' \
 	timeout --foreground $(T_FORTH83) python3 tests/test_forth83.py $$(($(TEST_PORT_BASE)+117))
 
 test-translator:
