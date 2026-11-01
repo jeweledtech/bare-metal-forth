@@ -12,14 +12,16 @@ if [ ! -f "$IMG" ]; then
     exit 1
 fi
 
+LABEL="$(dirname "$0")/label.sh"
+SUDO="$SUDO" bash "$LABEL" --check "$TFTP_ROOT"
+
 $SUDO cp "$IMG" "$TFTP_ROOT/forth.img"
 
 SIZE=$(stat -c%s "$IMG")
-MD5=$(md5sum "$IMG" | cut -d' ' -f1)
 
 echo "Pushed $IMG -> $TFTP_ROOT/forth.img"
 echo "  Size: $SIZE bytes"
-echo "  MD5:  $MD5"
+SUDO="$SUDO" bash "$LABEL" "$TFTP_ROOT" "$IMG"
 echo ""
 echo "HP can now PXE boot to get the new image."
 echo "On HP: press F9, select Network Boot (or Realtek PXE)"

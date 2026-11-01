@@ -25,6 +25,8 @@ echo "Provenance (staged tree):"
 MANIFEST=$(bash tools/pxe/tree-hash.sh "$TREE")
 echo "  manifest: $MANIFEST"
 
+SUDO="$SUDO" bash tools/pxe/label.sh --check "$TREE"
+
 $SUDO cp -r "$TREE"/. "$TFTP_ROOT"/
 
 # Verify what actually landed (deploy provenance discipline):
@@ -45,6 +47,10 @@ if [ "$DEP" != "$STG" ]; then
     exit 1
 fi
 echo "Deployed OK: our-files hash $DEP"
+# The label, after DEP == STG (which hashes the copy as staged):
+# build/combined.img gives the hash and build date, and the read-back
+# fails unless the pushed forth.img is that image.
+SUDO="$SUDO" bash tools/pxe/label.sh "$TFTP_ROOT" build/combined.img
 echo ""
 echo "=== CUTOVER (manual, iron session ONLY -- not applied) ==="
 echo "In the dnsmasq config, change:"
