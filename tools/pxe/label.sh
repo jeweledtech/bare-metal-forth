@@ -5,8 +5,9 @@
 #                              has a memdisk entry; run BEFORE any copy
 #   label.sh <root> <image>    after the copy: write <root>/forth.img.sha256
 #                              (sha256sum form), rewrite entry 0's title to
-#                              "ForthOS - memdisk <build date, UTC> <sha8>",
-#                              read both back
+#                              "ForthOS - memdisk <sha8> pushed <date, UTC>",
+#                              read both back. The date is the push date:
+#                              an image's mtime is reset by a copy.
 # Writes go through $SUDO (default sudo; the root is root-owned). The
 # "ForthOS - memdisk" prefix is what test_g6_chain finds the menu by.
 set -e -o pipefail
@@ -34,8 +35,8 @@ ROOT="${1:?usage: label.sh <root> <image>}"
 IMG="${2:?usage: label.sh <root> <image>}"
 entry_line "$ROOT"
 SHA=$(sha256sum "$IMG" | cut -d' ' -f1)
-DATE=$(date -u -r "$IMG" +%F)
-TITLE="ForthOS - memdisk $DATE ${SHA:0:8}"
+DATE=$(date -u +%F)
+TITLE="ForthOS - memdisk ${SHA:0:8} pushed $DATE"
 
 printf '%s  forth.img\n' "$SHA" | $SUDO tee "$ROOT/forth.img.sha256" >/dev/null
 $SUDO sed -i "${N}s|.*|menuentry \"$TITLE\" {|" "$ROOT/grub/grub.cfg"
@@ -51,5 +52,5 @@ GOT=$(sed -n "${N}p" "$ROOT/grub/grub.cfg")
     exit 1
 }
 echo "  sha256: $SHA"
-echo "  date:   $DATE (build, UTC)"
+echo "  pushed: $DATE (UTC)"
 echo "  title:  $TITLE"
