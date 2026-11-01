@@ -8,11 +8,12 @@ own mktemp directory, SUDO empty), never at /srv/tftp:
     B  entry 0 as the live 2026-10-30 relabel
     C  no grub/grub.cfg: refused, nothing copied
     D  a cfg with no memdisk entry: refused, nothing copied
+    E  an image whose mtime is 2020-01-01: labelled with the push date
   push-grub.sh (make pxe-push-grub) on a copy of the staged build/tftp.
 A labelled push writes forth.img.sha256 (sha256sum form) next to the
 image and rewrites only entry 0's title to
-  ForthOS - memdisk <the image's build date, UTC, YYYY-MM-DD> <sha256[:8]>
-keeping the "ForthOS - memdisk" prefix test_g6_chain finds the menu by;
+  ForthOS - memdisk <sha256[:8]> pushed <the push date, UTC, YYYY-MM-DD>
+(the push date, not the image's mtime, which a copy resets; P15) keeping the "ForthOS - memdisk" prefix test_g6_chain finds the menu by;
 the staged tree stays unlabelled (test_g6_chain.py:649).
 """
 import datetime
@@ -32,7 +33,8 @@ COMMITTED = os.path.join(PXE, 'grub.cfg')
 ENTRY0 = re.compile(r'^menuentry "ForthOS( -)? memdisk')
 RELABEL = 'menuentry "ForthOS memdisk 2026-10-01 6fac2873 (old build)" {'
 OLD = b'old'
-TOTAL = 18
+TOTAL = 19
+OLD_MTIME = 1577836800  # 2020-01-01 00:00 UTC
 
 PASS = FAIL = 0
 
@@ -58,11 +60,19 @@ for p in ('push.sh', 'push-grub.sh', 'label.sh'):
           f'{sha256(f) if os.path.exists(f) else "(absent)"}')
 print(f'  input: tests/test_pxe_label.py {sha256(os.path.abspath(__file__))}')
 SHA = sha256(IMG)
-DATE = datetime.datetime.fromtimestamp(
-    os.stat(IMG).st_mtime, datetime.timezone.utc).strftime('%Y-%m-%d')
-TITLE = f'menuentry "ForthOS - memdisk {DATE} {SHA[:8]}" {{'
-print(f'  image: build/combined.img {SHA}, build date (UTC) {DATE}')
-print(f'  expected entry 0: {TITLE}')
+
+
+def today():
+    return datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d')
+
+
+def title(date):
+    return f'menuentry "ForthOS - memdisk {SHA[:8]} pushed {date}" {{'
+
+
+DATES = {today()}  # the push date, read before and after the pushes
+print(f'  image: build/combined.img {SHA}')
+print(f'  expected entry 0: {title(today())}')
 
 SCRATCH = tempfile.mkdtemp(prefix='pxe-label-')
 
@@ -107,12 +117,15 @@ def sha_file_ok(root):
 
 
 def labelled_one_line(root, seeded):
-    """Entry 0 is TITLE, and the cfg differs from the seed there only."""
+    """Entry 0 is the title with a push date, and the cfg differs from
+    the seed there only."""
     now = cfg_lines(root)
     i = entry0(seeded)
     diff = [k for k in range(max(len(now), len(seeded)))
             if k >= len(now) or k >= len(seeded) or now[k] != seeded[k]]
-    return now[i] == TITLE if i is not None and i < len(now) else False, diff == [i]
+    ok = i is not None and i < len(now) and \
+        now[i] in {title(d) for d in DATES | {today()}}
+    return ok, diff == [i]
 
 
 committed = open(COMMITTED).read()
@@ -123,11 +136,14 @@ try:
     check('P1 exit 0', r.returncode == 0, r.stderr[-200:])
     check('P2 forth.img is the image', sha256(os.path.join(a, 'forth.img')) == SHA)
     check('P3 forth.img.sha256 is "<sha256>  forth.img"', sha_file_ok(a))
-    title, one = labelled_one_line(a, committed.split('\n'))
-    check(f'P4 entry 0 reads {TITLE}', title, cfg_lines(a)[entry0(committed.split(chr(10)))])
+    DATES.add(today())
+    ok, one = labelled_one_line(a, committed.split('\n'))
+    check(f'P4 entry 0 reads {title("<push date>")}', ok,
+          cfg_lines(a)[entry0(committed.split(chr(10)))])
     check('P5 the cfg differs from the seed in that line only', one)
-    check('P6 the output prints the sha256, the date and the title',
-          SHA in r.stdout and DATE in r.stdout and TITLE[11:-3] in r.stdout,
+    check('P6 the output prints the sha256, the push date and the title',
+          SHA in r.stdout and any(d in r.stdout and title(d)[11:-3] in r.stdout
+                                  for d in DATES),
           r.stdout[-300:])
 
     print('\npush.sh, seed B: entry 0 as the live relabel')
@@ -135,8 +151,9 @@ try:
     b = seed('B', b_cfg)
     r = run('push.sh', b, IMG)
     check('P7 exit 0', r.returncode == 0, r.stderr[-200:])
-    title, one = labelled_one_line(b, b_cfg.split('\n'))
-    check(f'P8 entry 0 reads {TITLE}', title)
+    DATES.add(today())
+    ok, one = labelled_one_line(b, b_cfg.split('\n'))
+    check('P8 entry 0 reads the title with the push date', ok)
     check('P9 the cfg differs from the seed in that line only', one)
 
     print('\npush.sh, seed C: no grub/grub.cfg')
@@ -155,6 +172,17 @@ try:
     check('P14 forth.img still the old 3 bytes',
           open(os.path.join(d, 'forth.img'), 'rb').read() == OLD)
 
+    print('\npush.sh, seed E: an image whose mtime is 2020-01-01')
+    e = seed('E', committed)
+    old_img = os.path.join(SCRATCH, 'old-mtime.img')
+    shutil.copyfile(IMG, old_img)
+    os.utime(old_img, (OLD_MTIME, OLD_MTIME))
+    r = run('push.sh', e, old_img)
+    DATES.add(today())
+    got = cfg_lines(e)[entry0(committed.split('\n'))]
+    check('P15 labelled with the push date, not the mtime (2020-01-01)',
+          got in {title(d) for d in DATES} and '2020-01-01' not in got, got)
+
     print('\npush-grub.sh, a copy of the staged build/tftp')
     g = os.path.join(SCRATCH, 'G')
     shutil.copytree(TREE, g)
@@ -162,8 +190,9 @@ try:
     r = run('push-grub.sh', g)
     check('G1 exit 0', r.returncode == 0, (r.stdout + r.stderr)[-300:])
     check('G2 forth.img.sha256 is "<sha256>  forth.img"', sha_file_ok(g))
-    title, one = labelled_one_line(g, staged)
-    check(f'G3 entry 0 reads {TITLE}', title and one)
+    DATES.add(today())
+    ok, one = labelled_one_line(g, staged)
+    check('G3 entry 0 reads the title with the push date', ok and one)
     check('G4 the staged build/tftp/grub/grub.cfg still the committed cfg',
           open(os.path.join(TREE, 'grub', 'grub.cfg')).read() == committed)
 finally:
