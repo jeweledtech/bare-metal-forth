@@ -1768,7 +1768,18 @@ send('  255 AND TR-BUF 512 ROT FILL 0 ;', 1.0)
 send("' ORD SEC-READ-VEC !  TR-BUF RD-BUF-ADDR !", 0.5)
 send("' OWR SEC-WRITE-VEC !", 0.5)
 send(f'{BASE} OWN-BASE !  225 OWN-LEN !', 0.5)
-send('4096 MEM-BASE !', 0.3)
+# The kernel source is the untouched image, as on iron, where MEM-BASE is
+# memdisk's RAM copy of forth.img (Decision B).  QEMU's loader device puts
+# build/bmforth.img (boot sector + kernel, memdisk's layout) at 0xF10000,
+# test-only use of the reserve (private TASK_UNICORN_WRITER memory plan
+# v3).  Until 2026-11-02 this was 4096, live low RAM: KRN-SAMPLE 2's
+# sector then covered 0xD600-0xD7FF, and the Phase 1 layout put
+# isr_tick_count (0xD780) there, so a timer tick between ABE-KWRITE and
+# KRN-CHK failed the control.
+check('pristine image at 0xF10000: its first kernel cell is kernel.bin\'s',
+      val('HEX F10200 @ DECIMAL')[0] == int.from_bytes(open('build/kernel.bin', 'rb').read(4), 'little'),
+      'loader device missing from the test-install recipe?')
+send('15794176 MEM-BASE !', 0.3)
 send('100 ESP-BASE !  64 ESP-LEN !', 0.5)
 send('VBR-FIX VBR-TPL !', 0.5)
 

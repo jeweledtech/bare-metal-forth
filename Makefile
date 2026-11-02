@@ -770,7 +770,7 @@ test-log-decode-layout:
 # Run the INSTALL write-allowlist gate (Piece 1).
 # Needs $(COMBINED): INSTALL is block-loaded off the catalog, not
 # embedded, so the block store has to be attached.
-test-install: $(COMBINED) $(BOOTLOADER) $(VBR)
+test-install: $(COMBINED) $(BOOTLOADER) $(VBR) $(IMAGE)
 	@cp $(COMBINED) $(COMBINED_IDE)
 	@PIDF=$(BUILD)/test-install.pid; $(QEMU_KILL); \
 	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-install --base $(TEST_PORT_BASE); \
@@ -778,6 +778,7 @@ test-install: $(COMBINED) $(BOOTLOADER) $(VBR)
 	echo "Running INSTALL allowlist test..."; \
 	$(QEMU) -drive file=$(COMBINED),format=raw,if=floppy \
 		-drive file=$(COMBINED_IDE),format=raw,if=ide,index=1 \
+		-device loader,file=$(IMAGE),addr=0xF10000,force-raw=on \
 		-serial tcp:127.0.0.1:$$PORT,server=on,wait=off \
 		-display none -daemonize -pidfile $$PIDF; \
 	sleep 2; \
