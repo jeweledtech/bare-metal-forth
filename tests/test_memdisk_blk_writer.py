@@ -16,7 +16,9 @@ HP analog (the M4 persistence path on real iron):
   5. The still-dirty buffer now flushes cleanly to the AHCI disk;
      verified by AHCI-READ of the target LBA.
 
-Skips the AHCI half cleanly on free builds (no ahci.fth).
+The mode (tests/run_mode.py, private TASK_PUBLIC_CLONE_SUITE R7): the
+AHCI half is private. Public mode runs scenario B's 8 checks and names the
+12 not run; private mode with ahci.fth absent from the tree fails.
 """
 
 import os
@@ -28,6 +30,7 @@ import tempfile
 import time
 
 import qemu_pid  # tests/qemu_pid.py: pidfile-based QEMU cleanup
+import run_mode
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 4483
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -38,6 +41,10 @@ LDLINUX = '/usr/lib/syslinux/modules/bios/ldlinux.c32'
 MEMDISK = '/usr/lib/syslinux/memdisk'
 
 MEMDISK_PIDFILE = os.path.join(ROOT, qemu_pid.pidfile('memdisk'))
+
+# 8 checks in scenario B, 12 in the AHCI half (its chk sites).
+MODE = run_mode.resolve(ROOT, private=('forth/dict/ahci.fth',), tree=('forth/dict/ahci.fth',))
+TOTAL = 20 if MODE.private else 8
 
 def kill():
     qemu_pid.kill_pidfile(MEMDISK_PIDFILE)
@@ -135,8 +142,7 @@ def main():
             print(f'INSTRUMENT FAIL: {p} not installed -- no score')
             sys.exit(3)
 
-    have_ahci = os.path.exists(
-        os.path.join(ROOT, 'forth', 'dict', 'ahci.fth'))
+    have_ahci = MODE.private
 
     ok = 0
     fail = 0
@@ -238,16 +244,16 @@ def main():
             r = cmd(s, 'DEPTH .')
             chk('final stack balance', r, '0 ')
         else:
-            out.write('  (free build: AHCI half skipped)\n')
+            out.write('  SKIPPED: public mode (PRIVATE_REPO absent): the AHCI half, 12 checks\n')
 
         s.close()
     finally:
         kill()
         shutil.rmtree(tftp_root, ignore_errors=True)
 
-    out.write(f'\nPassed: {ok}/{ok+fail}\n')
+    out.write('\n' + MODE.line(ok, TOTAL, MODE.not_run(20 - 8)) + '\n')
     out.flush()
-    sys.exit(1 if fail else 0)
+    sys.exit(0 if not fail and ok == TOTAL else 1)
 
 if __name__ == '__main__':
     main()

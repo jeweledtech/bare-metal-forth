@@ -385,6 +385,10 @@ def main():
                     bad += 1
     _, recipes = makefile()
     for r, fx in inv.items():
+        # A recipe whose scripts are all absent here starts no QEMU this
+        # tree can see; the drift loop above skips the same keys.
+        if all(f'{r}{"/" + f if f != "-" else ""}' in absent for f in fx):
+            continue
         body = '\n'.join(ln for _, ln in recipes.get(r, []))
         loop = any(f != '-' for f in fx)
         if not re.search(r'\$\(PORTS_FREE\) --recipe ' + re.escape(r) + (r' --fixture ' if loop else r' --base'), body):

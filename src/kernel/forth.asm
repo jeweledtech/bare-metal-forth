@@ -4164,48 +4164,7 @@ DEFCODE "BLOCK", BLOCK, 0
     pop eax                     ; block#
     call blk_find_buffer        ; EDI=buffer addr, EBX=header addr, CF=needs load
     jnc .cached
-
-    ; Need to load block data into buffer
-    push edi                    ; Save buffer addr
-    push ebx                    ; Save header addr
-    mov eax, [ebx]              ; block#
-
-    ; Check if we booted from memdisk (RAM-backed image)
-    cmp dword [BLK_IMAGE_BASE], 0
-    jne .ram_path
-
-    ; --- ATA PIO path (QEMU / real disk) ---
-    shl eax, 1                  ; LBA = block# * 2
-    add eax, BLOCKS_LBA_BASE   ; + base offset in combined image
-    mov ebx, eax                ; EBX = LBA for ata_read_sector
-    ; Read first sector
-    call ata_read_sector
-    jc .read_error
-    ; Read second sector (EDI already advanced by rep insw)
-    inc ebx
-    call ata_read_sector
-    jc .read_error
-    jmp .load_done
-
-    ; --- RAM path (memdisk PXE boot) ---
-.ram_path:
-    call ram_read_block
-
-.load_done:
-    pop ebx                     ; Restore header addr
-    ; Mark valid
-    or dword [ebx + 4], BLK_BUF_FLAG_VALID
-    pop edi                     ; Restore buffer addr (original start)
-    push edi                    ; Push result
-    NEXT
-
-.read_error:
-    pop ebx
-    pop edi
-    ; Return buffer addr anyway (may contain garbage)
-    push edi
-    NEXT
-
+    call blk_read               ; returns only on a good read
 .cached:
     push edi
     NEXT
@@ -4446,19 +4405,7 @@ DEFCODE "LIST", LIST, 0
     ; Get block buffer (reads from disk if needed)
     call blk_find_buffer
     jnc .have_data
-    ; Need to read
-    push edi
-    push ebx
-    mov eax, [ebx]
-    shl eax, 1
-    add eax, BLOCKS_LBA_BASE   ; + base offset in combined image
-    mov ebx, eax
-    call ata_read_sector
-    inc ebx
-    call ata_read_sector
-    pop ebx
-    or dword [ebx + 4], BLK_BUF_FLAG_VALID
-    pop edi
+    call blk_read               ; returns only on a good read
 
 .have_data:
     PUSHRSP esi                 ; Save Forth IP
@@ -4518,32 +4465,8 @@ DEFCODE "LOAD", LOAD, 0
     ; Get block buffer
     call blk_find_buffer
     jnc .have_data
-    ; Need to read block data into buffer
-    push eax
-    push edi
-    push ebx
-    mov eax, [ebx]              ; block# from header
-
-    cmp dword [BLK_IMAGE_BASE], 0
-    jne .load_ram
-
-    ; ATA PIO path
-    shl eax, 1
-    add eax, BLOCKS_LBA_BASE
-    mov ebx, eax
-    call ata_read_sector
-    inc ebx
-    call ata_read_sector
-    jmp .load_read_done
-
-.load_ram:
-    call ram_read_block
-
-.load_read_done:
-    pop ebx
-    or dword [ebx + 4], BLK_BUF_FLAG_VALID
-    pop edi
-    pop eax
+    call blk_read               ; returns only on a good read
+    mov eax, [ebx]              ; block#
 
 .have_data:
     ; No NUL stamp here: block parsing is terminated by word_'s
@@ -4583,28 +4506,7 @@ DEFCODE "-->", CHAIN, F_IMMEDIATE
     ; Get next block buffer
     call blk_find_buffer
     jnc .have_next
-    push edi
-    push ebx
-    mov eax, [ebx]
-
-    cmp dword [BLK_IMAGE_BASE], 0
-    jne .chain_ram
-
-    shl eax, 1
-    add eax, BLOCKS_LBA_BASE
-    mov ebx, eax
-    call ata_read_sector
-    inc ebx
-    call ata_read_sector
-    jmp .chain_read_done
-
-.chain_ram:
-    call ram_read_block
-
-.chain_read_done:
-    pop ebx
-    or dword [ebx + 4], BLK_BUF_FLAG_VALID
-    pop edi
+    call blk_read               ; returns only on a good read
 
 .have_next:
     ; No NUL stamp (Bug #34 -- see LOAD's .have_data comment);
@@ -7094,6 +6996,50 @@ ata_read_sector:
     clc
 .done:
     ret
+
+; ----------------------------------------------------------------------------
+; blk_read - read block [EBX] into its buffer EDI, from the memdisk image or
+; over ATA PIO, and mark it valid. A failed read is an error (Forth-83
+; BLOCK has no flag): prints "BLOCK READ FAIL <n>" and takes ABORT's route,
+; leaving the buffer not valid, so the next read of it tries again.
+; Input: EBX = header addr, EDI = buffer addr. Preserves EBX, EDI, ESI.
+; Clobbers EAX, ECX, EDX. Returns only on a good read.
+; ----------------------------------------------------------------------------
+blk_read:
+    push edi
+    push ebx
+    mov eax, [ebx]              ; block#
+    cmp dword [BLK_IMAGE_BASE], 0
+    jne .ram
+    shl eax, 1                  ; LBA = block# * 2
+    add eax, BLOCKS_LBA_BASE    ; + base offset in combined image
+    mov ebx, eax
+    call ata_read_sector
+    jc .fail
+    inc ebx                     ; EDI already advanced by rep insw
+    call ata_read_sector
+    jc .fail
+    jmp .good
+.ram:
+    call ram_read_block
+.good:
+    pop ebx
+    or dword [ebx + 4], BLK_BUF_FLAG_VALID
+    pop edi
+    ret
+.fail:
+    pop ebx                     ; header addr
+    mov eax, [ebx]              ; block#
+    push eax
+    mov esi, msg_blk_read_fail  ; ESI is free: abort_common reloads IP
+    call print_string
+    pop eax
+    call print_unsigned         ; blk# in current BASE
+    mov al, 13
+    call print_char
+    mov al, 10
+    call print_char
+    jmp abort_common
 
 ; ----------------------------------------------------------------------------
 ; ram_read_block - Copy one 1024-byte block from memdisk RAM image
