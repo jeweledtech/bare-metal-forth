@@ -40,6 +40,7 @@ Run: python3 tests/test_doc_drift.py    (prints the standard Passed: n/n)
 import hashlib
 import os
 import re
+import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -106,6 +107,15 @@ def normalise(block):
     return '\n'.join(out)
 
 
+def tracked(repo, path):
+    """path is a file git tracks in repo (inside it, ls-files lists it)."""
+    rel = os.path.relpath(path, repo)
+    if rel.startswith('..'):
+        return False
+    return subprocess.run(['git', '-C', repo, 'ls-files', '--error-unmatch', '--', rel],
+                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
+
+
 def gate_a():
     print('Gate A: chainload menuentry copies in prose')
     cfg = read(GRUB_CFG)
@@ -155,6 +165,22 @@ def gate_a():
     check('gate A found at least one doc copy to check', total > 0,
           'zero menuentry blocks found in any scanned doc -- the '
           'MENUENTRY_RE or DOCS_TO_SCAN list has gone stale')
+
+    # DD0 (private TASK_PUBLIC_CLONE_SUITE D2): a scanned doc this repo
+    # does not track must be the private repo's tracked copy, never an
+    # untracked file on this disk (two were, with the 08-19 corrections
+    # in neither repo until 2026-11-01).
+    priv = os.path.normpath(os.path.join(
+        ROOT, os.environ.get('PRIVATE_REPO', '../forthos-vocabularies')))
+    stray = []
+    for rel in DOCS_TO_SCAN:
+        path = os.path.join(ROOT, rel)
+        if not os.path.exists(path) or tracked(ROOT, path):
+            continue
+        if not tracked(priv, path):
+            stray.append(path)
+    check('DD0 each scanned doc not tracked here is the private repo\'s tracked copy',
+          not stray, f'scanned, tracked in neither repo: {stray}')
 
     # Counting assertion: a block matcher that swallows two entries as
     # one match passes all marker checks but silently drops coverage.
