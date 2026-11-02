@@ -5,21 +5,32 @@ docs/finding-kernel-block-read-error-2026-10-31.md).
 
 BLOCK's ATA path jumped to .read_error on a failed sector read and pushed
 the buffer address anyway, with no message: the caller got whatever the
-buffer held before, and LOAD interpreted it.  The fix prints
-"BLOCK READ FAIL <n>" and takes ABORT's route.
+buffer held before.  LOAD, --> and LIST had their own copies of the read,
+which never tested the error and marked the buffer valid anyway, so a
+failed read was cached as a good block.  The fix is one read routine for
+all four (blk_read): "BLOCK READ FAIL <n>", ABORT's route, the buffer
+valid only after a good read.
 
 One boot, floppy + IDE scratch copies of the combined image, as
 test-blk-evict.  BAD is a block past the IDE copy's end, so the drive
 refuses the read (ERR); both are derived from the image and forth.asm.
 
-  C0  (fatal control) BAD lies past the disk's end, and 1 BLOCK reads
-      block 1's first and last bytes as on disk: the ATA path works.
+  C0  (fatal control) BAD lies past the disk's end, the copy's last block
+      (NBLK-1, written by this script on the copy only) holds -->, NBLK
+      lies past the end, and 1 BLOCK reads block 1's first and last bytes
+      as on disk: the ATA path works.
   E1  BAD BLOCK DEPTH . -- the message, and no number after it.
   E2  DEPTH . -- 0: no address left.
   E3  a definition calling BAD BLOCK stops there (7 6 * . not run).
   E4  BAD LOAD -- the message, nothing interpreted; BLK and DEPTH 0.
   E5  BAD BLOCK again -- the message again (the buffer was not kept valid).
+  E7  NBLK-1 LOAD chains with --> into NBLK: the message for NBLK,
+      nothing interpreted.
+  E8  BAD LIST -- the message, and no listed lines.
   E6  after all of it, 1 BLOCK C@ . DEPTH . -- block 1's first byte, 0.
+
+Before E6 the script sends two lines that are procedure, not scored
+(amendment 1): ABORT and ONLY FORTH DEFINITIONS DECIMAL.
 """
 import hashlib
 import os
@@ -59,6 +70,9 @@ HEADER = SECTOR + equ('KERNEL_PADDED_SIZE')
 NBLK = (os.path.getsize(COMBINED) - HEADER) // BSIZE
 BAD = NBLK + 100
 MSG = f'BLOCK READ FAIL {BAD}'
+LAST = NBLK - 1
+MSG7 = f'BLOCK READ FAIL {NBLK}'
+TOTAL = 9
 
 failures = []
 checks = 0
@@ -81,6 +95,9 @@ def nums(text):
 
 shutil.copyfile(COMBINED, FLOPPY)
 shutil.copyfile(COMBINED, IDE)
+with open(IDE, 'r+b') as f:                 # E7's chain: the copy's last block is -->
+    f.seek(HEADER + LAST * BSIZE)
+    f.write(b'-->'.ljust(BSIZE, b' '))
 disk = open(IDE, 'rb').read()
 B1 = disk[HEADER + BSIZE: HEADER + 2 * BSIZE]
 for p in (COMBINED, ASM, os.path.abspath(__file__)):
@@ -111,9 +128,12 @@ try:
         return body
 
     b = send('DECIMAL 1 BLOCK DUP C@ . 1023 + C@ .')
-    check(f'C0 BAD {BAD} lies past the disk ({len(disk) // SECTOR} sectors), and 1 BLOCK '
-          f'reads block 1 as on disk ({B1[0]} {B1[-1]})',
+    check(f'C0 BAD {BAD} and NBLK {NBLK} lie past the disk ({len(disk) // SECTOR} sectors), '
+          f'block {LAST} on the copy holds -->, and 1 BLOCK reads block 1 as on disk '
+          f'({B1[0]} {B1[-1]})',
           HEADER // SECTOR + 2 * BAD >= len(disk) // SECTOR
+          and HEADER // SECTOR + 2 * NBLK >= len(disk) // SECTOR
+          and disk[HEADER + LAST * BSIZE:][:4] == b'--> '
           and nums(b)[:2] == [str(B1[0]), str(B1[-1])], f'({b.strip()!r})', fatal=True)
 
     b = send(f'{BAD} BLOCK DEPTH .')
@@ -137,8 +157,18 @@ try:
     b = send(f'{BAD} BLOCK DROP')
     check('E5 a second BLOCK reads again: the message again', MSG in b, f'({b.strip()!r})')
 
-    # Housekeeping, not scored: whatever the lines above left (a stack item,
-    # a search order or BASE from an interpreted buffer) does not reach E6.
+    b = send(f'{LAST} LOAD')
+    check(f'E7 {LAST} LOAD chains with --> into {NBLK}: "{MSG7}", nothing interpreted (no "?" line)',
+          MSG7 in b and ' ?' not in b, f'({b.strip()!r})')
+
+    b = send(f'{BAD} LIST')
+    listed = re.findall(r'(?m)^\s*(?:1[0-5]|\d) ?: ', b)   # LIST: '<n>: ' (forth.asm LIST)
+    check(f'E8 {BAD} LIST: the message, and no listed lines',
+          MSG in b and not listed, f'({len(listed)} listed lines; {b.strip()[:120]!r})')
+
+    # Procedure, not scored (amendment 1): whatever the lines above left (a
+    # stack item, a search order or BASE from an interpreted buffer) does
+    # not reach E6.
     send('ABORT')
     send('ONLY FORTH DEFINITIONS DECIMAL')
     b = send('1 BLOCK C@ . DEPTH .')
@@ -152,5 +182,5 @@ finally:
     qemu_pid.kill_pidfile(PF)
     proc.wait(timeout=10)
 
-print(f'Passed: {checks - len(failures)}/7', flush=True)
-sys.exit(0 if not failures and checks == 7 else 1)
+print(f'Passed: {checks - len(failures)}/{TOTAL}', flush=True)
+sys.exit(0 if not failures and checks == TOTAL else 1)
