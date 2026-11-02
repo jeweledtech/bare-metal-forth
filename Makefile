@@ -156,10 +156,8 @@ RUN_MODE_END = rc=$$?; [ $$rc = 10 ] && exit 0; [ $$rc = 0 ] || exit 1
 PAID_VOCABS = ahci rtl8168 ntfs auto-detect fat32 surveyor file-editor-disk log-harness cd-atapi hal-machines atapi-ahci
 
 check-sync:
-	@if [ ! -d "$(PRIVATE_REPO)/forth/dict" ]; then \
-		echo "SKIPPED: private repo not found at $(PRIVATE_REPO)"; \
-		exit 0; \
-	fi; \
+	@$(RUN_MODE) check-sync --reason 'no private repo to compare'; $(RUN_MODE_END); \
+	echo "Running check-sync..."; \
 	FAIL=0; \
 	for v in $(PAID_VOCABS); do \
 		LOCAL="forth/dict/$$v.fth"; \
@@ -1487,8 +1485,8 @@ test-file-stream: $(IMAGE)
 # DISK-SURVEY placement gate: adversarial GPT layouts.
 # The test authors each disk with sgdisk and launches its
 # own QEMU per layout, so no QEMU is started here.
-# Skipped when surveyor.fth is absent (paid tier) or when
-# sgdisk is unavailable.
+# Public mode skips it through run_mode (surveyor.fth is
+# private); sgdisk unavailable FAILs (a host tool, not a mode).
 # The $(COMBINED) prerequisite is only demandable on the full
 # tier: on the free tier surveyor.fth does not exist, so make
 # would fail resolving embedded.bin before the skip guard below
@@ -1500,26 +1498,15 @@ SURVEY_DEPS =
 endif
 
 test-survey: $(SURVEY_DEPS)
-	@REASON=""; \
-	if [ ! -f forth/dict/surveyor.fth ]; then \
-		REASON="surveyor.fth absent (paid tier)"; \
-	elif ! command -v sgdisk >/dev/null 2>&1; then \
-		REASON="sgdisk not installed"; \
-	fi; \
-	if [ -n "$$REASON" ]; then \
-		echo "########################################"; \
-		echo "## NOT RUN: DISK-SURVEY placement gate"; \
-		echo "## reason: $$REASON"; \
-		echo "## No survey coverage in this run."; \
-		echo "## A green build here does NOT mean the"; \
-		echo "## survey was tested."; \
-		echo "########################################"; \
-		exit 0; \
-	fi; \
+	@$(RUN_MODE) test-survey --tree forth/dict/surveyor.fth --reason 'needs the private vocabularies'; $(RUN_MODE_END); \
 	QPIDDIR=$(BUILD)/test-survey.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
 	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-survey --base $(TEST_PORT_BASE); \
 	PORT=$$(($(TEST_PORT_BASE)+100)); \
 	echo "=== DISK-SURVEY layouts (ports $$PORT-$$((PORT+5))) ==="; \
+	if ! command -v sgdisk >/dev/null 2>&1; then \
+		echo "FAIL: test-survey needs sgdisk (not installed)"; \
+		exit 1; \
+	fi; \
 	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_SURVEY) python3 tests/test_survey_layouts.py $$PORT
 
 # Run metacompiler tests (5 files, x86 self-hosting verification)
