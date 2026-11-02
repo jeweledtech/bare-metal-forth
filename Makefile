@@ -29,6 +29,10 @@ else
   BUILD_TIER = free
   ACTIVE_IMAGE = $(IMAGE_FREE)
 endif
+# A target that needs the private vocabularies builds no image in the free
+# tier: its run-mode guard skips (public mode) or fails (private mode)
+# before one is needed (private TASK_PUBLIC_CLONE_SUITE).
+FULL_ONLY = $(if $(filter full,$(BUILD_TIER)),$(1))
 
 # Default target — builds whichever tier the working tree supports
 all: $(ACTIVE_IMAGE)
@@ -63,6 +67,13 @@ EMBED_VOCABS_FREE = forth/dict/hardware.fth forth/dict/hal.fth forth/dict/port-m
     forth/dict/file-browser-form.fth
 
 EMBEDDED_FREE = $(BUILD)/embedded-free.bin
+# The free tier builds the usual names (kernel.bin, bmforth.img,
+# combined.img) from the free set: a public clone has no private file to
+# embed (private TASK_PUBLIC_CLONE_SUITE, Q1). kernel.bin then equals
+# kernel-free.bin (test-public-clone P3).
+ifeq ($(BUILD_TIER),free)
+  EMBED_VOCABS := $(EMBED_VOCABS_FREE)
+endif
 KERNEL_FREE = $(BUILD)/kernel-free.bin
 
 # For tools/evidence-snapshot.sh: make expands its own variable
@@ -214,7 +225,7 @@ run-serial: $(ACTIVE_IMAGE)
 
 # All vocabulary sources — anything that should land in the catalog
 VOCAB_SOURCES := $(wildcard forth/dict/*.fth) \
-                 $(wildcard ../forthos-vocabularies/forth/dict/*.fth)
+                 $(wildcard $(PRIVATE_REPO)/forth/dict/*.fth)
 
 # Create blank 2.5MB blocks disk (2560 x 1K blocks): code store above the
 # 320-block MIRROR reservation (216-535) ends past block 2048
@@ -415,8 +426,9 @@ test-dict-bounds: $(ACTIVE_IMAGE)
 # Physical allocator gate: PHYS-RELEASE/PHYS-AUDIT/owner tags.
 # Boot allocations come from embedded AHCI/RTL8168/NTFS vocabs,
 # so the plain kernel image suffices (no block storage).
-test-phys-alloc: $(ACTIVE_IMAGE)
-	@PIDF=$(BUILD)/test-phys-alloc.pid; $(QEMU_KILL); \
+test-phys-alloc: $(call FULL_ONLY,$(ACTIVE_IMAGE))
+	@$(RUN_MODE) test-phys-alloc --tree forth/dict/ahci.fth --reason 'needs the private vocabularies'; $(RUN_MODE_END); \
+	PIDF=$(BUILD)/test-phys-alloc.pid; $(QEMU_KILL); \
 	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-phys-alloc --base $(TEST_PORT_BASE); \
 	echo "Running physical allocator test..."; \
 	$(QEMU) -drive file=$(ACTIVE_IMAGE),format=raw,if=floppy \
@@ -500,8 +512,9 @@ test-hal: $(COMBINED)
 # HAL NET-SEND contract (docs/TASK_HAL_NET_SEND.md): ne2k_pci binds it,
 # no NIC leaves it unbound. Serial on +12, the dgram netdev on +13/+14
 # (unused before).
-test-hal-net: $(COMBINED)
-	@QPIDDIR=$(BUILD)/test-hal-net.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
+test-hal-net: $(call FULL_ONLY,$(COMBINED))
+	@$(RUN_MODE) test-hal-net --tree forth/dict/ahci.fth --reason 'needs the private vocabularies'; $(RUN_MODE_END); \
+	QPIDDIR=$(BUILD)/test-hal-net.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
 	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-hal-net --base $(TEST_PORT_BASE); \
 	echo "Running HAL NET-SEND test..."; \
 	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_HAL_NET) python3 tests/test_hal_net.py \
@@ -518,23 +531,25 @@ test-hal-match: $(COMBINED)
 
 # The private machine entries, dry-run (forthos-vocabularies); SKIPPED
 # without them. Serial on +6.
-test-hal-match-hp: $(COMBINED)
+test-hal-match-hp: $(call FULL_ONLY,$(COMBINED))
 	@$(RUN_MODE) test-hal-match-hp --private forth/dict/hal-machines.fth tests/test_hal_match_hp.py --tree forth/dict/hal-machines.fth tests/test_hal_match_hp.py; $(RUN_MODE_END); \
 	QPIDDIR=$(BUILD)/test-hal-match-hp.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
 	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-hal-match-hp --base $(TEST_PORT_BASE); \
 	PORT=$$(($(TEST_PORT_BASE)+6)); \
 	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_HAL_MATCH_HP) python3 tests/test_hal_match_hp.py $$PORT
 
-test-pad-move: $(COMBINED)
-	@QPIDDIR=$(BUILD)/test-pad-move.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
+test-pad-move: $(call FULL_ONLY,$(COMBINED))
+	@$(RUN_MODE) test-pad-move --tree forth/dict/ahci.fth --reason 'needs the private vocabularies'; $(RUN_MODE_END); \
+	QPIDDIR=$(BUILD)/test-pad-move.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
 	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-pad-move --base $(TEST_PORT_BASE); \
 	echo "Running kernel-pad move test..."; \
 	PORT=$$(($(TEST_PORT_BASE)+69)); \
 	PRIVATE_REPO='$(PRIVATE_REPO)' PRIVATE_REPO_ORIGIN='$(origin PRIVATE_REPO)' \
 	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_PAD_MOVE) python3 tests/test_pad_move.py $$PORT
 
-test-interp-abort: $(COMBINED)
-	@QPIDDIR=$(BUILD)/test-interp.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
+test-interp-abort: $(call FULL_ONLY,$(COMBINED))
+	@$(RUN_MODE) test-interp-abort --tree forth/dict/ahci.fth --reason 'needs the private vocabularies'; $(RUN_MODE_END); \
+	QPIDDIR=$(BUILD)/test-interp.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
 	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-interp-abort --base $(TEST_PORT_BASE); \
 	echo "Running interpreter-correctness test..."; \
 	PORT=$$(($(TEST_PORT_BASE)+68)); \
@@ -571,9 +586,10 @@ test-vocabs: $(COMBINED) test-mirror
 	done
 
 # Run GUI vocabulary tests (paid tier — skipped if files absent)
-test-gui: $(COMBINED)
-	@cp $(COMBINED) $(COMBINED_IDE)
-	@$(GUI_KILL_ALL); \
+test-gui: $(call FULL_ONLY,$(COMBINED))
+	@$(RUN_MODE) test-gui --tree $(addprefix tests/,$(addsuffix .py,$(GUI_TESTS_ALL))); $(RUN_MODE_END); \
+	cp $(COMBINED) $(COMBINED_IDE) || exit 1; \
+	$(GUI_KILL_ALL); \
 	trap '$(GUI_KILL_ALL)' EXIT INT TERM HUP PIPE; set -e; \
 	for test in $(GUI_TESTS); do \
 		if [ ! -f tests/$$test.py ]; then continue; fi; \
@@ -603,7 +619,7 @@ test-gui: $(COMBINED)
 T_LOG_HARNESS     ?= 25
 T_LOG_HARNESS_NIC ?= 30
 
-test-log-harness-nic: $(COMBINED)
+test-log-harness-nic: $(call FULL_ONLY,$(COMBINED))
 	@$(RUN_MODE) test-log-harness-nic --private forth/dict/log-harness.fth tests/test_log_harness_nic.py --tree forth/dict/log-harness.fth tests/test_log_harness_nic.py; $(RUN_MODE_END); \
 	PIDF=$(BUILD)/test-log-harness-nic.pid; $(QEMU_KILL); \
 	PCAP=$(BUILD)/log-harness-nic.pcap; rm -f $$PCAP; \
@@ -621,7 +637,7 @@ test-log-harness-nic: $(COMBINED)
 	timeout --foreground $(T_LOG_HARNESS_NIC) python3 tests/test_log_harness_nic.py \
 		$$(($(TEST_PORT_BASE)+46)) $$PCAP $$(($(TEST_PORT_BASE)+48))
 
-test-log-harness: $(COMBINED)
+test-log-harness: $(call FULL_ONLY,$(COMBINED))
 	@$(RUN_MODE) test-log-harness --private forth/dict/log-harness.fth tests/test_log_harness.py --tree forth/dict/log-harness.fth tests/test_log_harness.py; $(RUN_MODE_END); \
 	PIDF=$(BUILD)/test-log-harness.pid; $(QEMU_KILL); \
 	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-log-harness --base $(TEST_PORT_BASE); \
@@ -647,7 +663,7 @@ test-log-harness: $(COMBINED)
 T_LOG_RESTORE    ?= 600
 T_LOG_VALIDATION ?= 400
 
-test-log-restore: $(COMBINED)
+test-log-restore: $(call FULL_ONLY,$(COMBINED))
 	@$(RUN_MODE) test-log-restore --private forth/dict/log-harness.fth tests/test_log_restore.py --tree forth/dict/log-harness.fth; $(RUN_MODE_END); \
 	PIDF=$(BUILD)/log-restore.d/qemu.pid; $(QEMU_KILL); \
 	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-log-restore --base $(TEST_PORT_BASE); \
@@ -658,7 +674,7 @@ test-log-restore: $(COMBINED)
 # LOG-HARNESS Phase 3b, send-only (private TASK_LOG_PHASE3B_SEND.md):
 # LOG-SEND's five frames from an NE2000 pcap, checked against the model.
 T_LOG_SEND ?= 300
-test-log-send: $(COMBINED)
+test-log-send: $(call FULL_ONLY,$(COMBINED))
 	@$(RUN_MODE) test-log-send --private forth/dict/log-harness.fth tests/test_log_send.py --tree forth/dict/log-harness.fth; $(RUN_MODE_END); \
 	PIDF=$(BUILD)/log-send.d/qemu.pid; $(QEMU_KILL); \
 	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-log-send --base $(TEST_PORT_BASE); \
@@ -700,8 +716,9 @@ test-reload-vocab: $(COMBINED)
 # (private TASK_RESOLVE_DEPS_EVERY_NAME). Fixture image under
 # build/resolve-deps.d.
 T_RESOLVE_DEPS ?= 300
-test-resolve-deps: $(COMBINED)
-	@PIDF=$(BUILD)/resolve-deps.d/qemu.pid; $(QEMU_KILL); \
+test-resolve-deps: $(call FULL_ONLY,$(COMBINED))
+	@$(RUN_MODE) test-resolve-deps --tree forth/dict/ahci.fth --reason 'needs the private vocabularies'; $(RUN_MODE_END); \
+	PIDF=$(BUILD)/resolve-deps.d/qemu.pid; $(QEMU_KILL); \
 	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-resolve-deps --base $(TEST_PORT_BASE); \
 	echo "Running RESOLVE-DEPS every-name gates..."; \
 	timeout --foreground $(T_RESOLVE_DEPS) python3 tests/test_resolve_deps.py $$(($(TEST_PORT_BASE)+112))
@@ -714,7 +731,7 @@ test-load-vocab: $(COMBINED)
 	timeout --foreground $(T_LOAD_VOCAB) python3 tests/test_load_vocab.py $$(($(TEST_PORT_BASE)+106))
 
 T_DLG2FORM ?= 200
-test-dlg2form: $(COMBINED)
+test-dlg2form: $(call FULL_ONLY,$(COMBINED))
 	@$(RUN_MODE) test-dlg2form --private tools/dlg2form.py tests/test_dlg2form.py; $(RUN_MODE_END); \
 	PIDF=$(BUILD)/dlg2form.d/qemu.pid; $(QEMU_KILL); \
 	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-dlg2form --base $(TEST_PORT_BASE); \
@@ -725,7 +742,7 @@ test-dlg2form: $(COMBINED)
 # RTL8168's IP-CKSUM against RFC 1071 (private TASK_RTL8168_CKSUM): three
 # 20-byte vectors typed into the guest, word level (QEMU has no RTL8168).
 T_RTL8168_CKSUM ?= 120
-test-rtl8168-cksum: $(COMBINED)
+test-rtl8168-cksum: $(call FULL_ONLY,$(COMBINED))
 	@$(RUN_MODE) test-rtl8168-cksum --private forth/dict/rtl8168.fth tests/test_rtl8168_cksum.py --tree forth/dict/rtl8168.fth; $(RUN_MODE_END); \
 	PIDF=$(BUILD)/rtl8168-cksum.d/qemu.pid; $(QEMU_KILL); \
 	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-rtl8168-cksum --base $(TEST_PORT_BASE); \
@@ -733,7 +750,7 @@ test-rtl8168-cksum: $(COMBINED)
 	timeout --foreground $(T_RTL8168_CKSUM) python3 $(PRIVATE_REPO)/tests/test_rtl8168_cksum.py \
 		$$(($(TEST_PORT_BASE)+107))
 
-test-log-validation: $(COMBINED)
+test-log-validation: $(call FULL_ONLY,$(COMBINED))
 	@$(RUN_MODE) test-log-validation --private forth/dict/log-harness.fth tests/test_log_validation.py --tree forth/dict/log-harness.fth tests/test_log_validation.py; $(RUN_MODE_END); \
 	PIDF=$(BUILD)/log-validation.d/qemu.pid; $(QEMU_KILL); \
 	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-log-validation --base $(TEST_PORT_BASE); \
@@ -751,9 +768,10 @@ test-log-decode-layout:
 # Run the INSTALL write-allowlist gate (Piece 1).
 # Needs $(COMBINED): INSTALL is block-loaded off the catalog, not
 # embedded, so the block store has to be attached.
-test-install: $(COMBINED) $(BOOTLOADER) $(VBR)
-	@cp $(COMBINED) $(COMBINED_IDE)
-	@PIDF=$(BUILD)/test-install.pid; $(QEMU_KILL); \
+test-install: $(call FULL_ONLY,$(COMBINED) $(BOOTLOADER) $(VBR))
+	@$(RUN_MODE) test-install --tree forth/dict/ahci.fth --reason 'needs the private vocabularies'; $(RUN_MODE_END); \
+	cp $(COMBINED) $(COMBINED_IDE) || exit 1; \
+	PIDF=$(BUILD)/test-install.pid; $(QEMU_KILL); \
 	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-install --base $(TEST_PORT_BASE); \
 	PORT=$$(($(TEST_PORT_BASE)+3)); \
 	echo "Running INSTALL allowlist test..."; \
@@ -799,8 +817,9 @@ test-vbr: $(VBR) $(KERNEL) $(IMAGE)
 # the PXE-freshness incidents this project has already paid for.
 # Known gap: nothing asserts WHICH tree booted; make ordering is
 # the guarantee. See the docket's carried items.
-test-g6: grub-net $(VBR) $(KERNEL)
-	@QPIDDIR=$(BUILD)/test-g6.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
+test-g6: $(call FULL_ONLY,grub-net $(VBR) $(KERNEL))
+	@$(RUN_MODE) test-g6 --tree forth/dict/ahci.fth --reason 'needs the private vocabularies'; $(RUN_MODE_END); \
+	QPIDDIR=$(BUILD)/test-g6.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
 	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-g6 --base $(TEST_PORT_BASE); \
 	echo "Running G6 chain harness..."; \
 	PORT=$$(($(TEST_PORT_BASE)+95)); \
@@ -1006,8 +1025,9 @@ T_UEFI_BOOT ?= 135
 T_UEFI_NETBOOT ?= 30
 T_ARM64_BOOT ?= 720
 T_CORTEXM ?= 600
-test-firstboot: $(COMBINED)
-	@PIDF=$(BUILD)/firstboot-lan.pid; $(QEMU_KILL); \
+test-firstboot: $(call FULL_ONLY,$(COMBINED))
+	@$(RUN_MODE) test-firstboot --tree forth/dict/ahci.fth --reason 'needs the private vocabularies'; $(RUN_MODE_END); \
+	( PIDF=$(BUILD)/firstboot-lan.pid; $(QEMU_KILL); \
 	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; \
 	$(PORTS_FREE) --recipe test-firstboot --base $(TEST_PORT_BASE) || exit 1; \
 	cp $(COMBINED) $(COMBINED_IDE); \
@@ -1021,8 +1041,8 @@ test-firstboot: $(COMBINED)
 		-display none -daemonize -pidfile $$PIDF || exit 1; \
 	sleep 2; \
 	python3 tests/test_firstboot.py $$(($(TEST_PORT_BASE)+88)) $(COMBINED) \
-		$$(($(TEST_PORT_BASE)+89)) lan $(COMBINED_IDE)
-	@PIDF=$(BUILD)/firstboot-offline.pid; $(QEMU_KILL); \
+		$$(($(TEST_PORT_BASE)+89)) lan $(COMBINED_IDE) ) && \
+	( PIDF=$(BUILD)/firstboot-offline.pid; $(QEMU_KILL); \
 	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; \
 	cp $(COMBINED) $(COMBINED_IDE); \
 	echo "Running FIRSTBOOT wizard test (offline)..."; \
@@ -1034,7 +1054,7 @@ test-firstboot: $(COMBINED)
 		-display none -daemonize -pidfile $$PIDF || exit 1; \
 	sleep 2; \
 	python3 tests/test_firstboot.py $$(($(TEST_PORT_BASE)+84)) $(COMBINED) \
-		$$(($(TEST_PORT_BASE)+85)) offline $(COMBINED_IDE)
+		$$(($(TEST_PORT_BASE)+85)) offline $(COMBINED_IDE) )
 
 # S"/."/ABORT" laydown suite (crafts blocks in buffer memory; no
 # block storage image needed, same tier as test-dict-bounds).
@@ -1099,7 +1119,7 @@ lint:
 # In make test (private TASK_TWO_OVER: it carries TARGET-ARM64's 2OVER
 # check). Skipped, not passed, without the private vocabularies or
 # qemu-system-aarch64.
-test-arm64-boot: $(COMBINED)
+test-arm64-boot: $(call FULL_ONLY,$(COMBINED))
 	@$(RUN_MODE) test-arm64-boot --private forth/dict/meta-compiler.fth forth/dict/arm64-asm.fth forth/dict/target-arm64.fth --tree forth/dict/meta-compiler.fth forth/dict/arm64-asm.fth forth/dict/target-arm64.fth; $(RUN_MODE_END); \
 	if ! command -v qemu-system-aarch64 >/dev/null 2>&1; then \
 		echo "SKIPPED (environment: qemu-system-aarch64 absent): test-arm64-boot"; \
@@ -1117,7 +1137,7 @@ test-arm64-boot: $(COMBINED)
 # (private TASK_TWO_OVER). test-meta (all six, about 30 min) stays outside
 # the sweep. Skipped, not passed, without the private script or
 # vocabularies.
-test-meta-b6b: $(COMBINED)
+test-meta-b6b: $(call FULL_ONLY,$(COMBINED))
 	@$(RUN_MODE) test-meta-b6b --private tests/test_meta_b6b.py forth/dict/meta-compiler.fth forth/dict/target-x86.fth --tree tests/test_meta_b6b.py forth/dict/meta-compiler.fth forth/dict/target-x86.fth; $(RUN_MODE_END); \
 	$(MAKE) --no-print-directory test-meta META_FIXTURES=test_meta_b6b
 
@@ -1198,7 +1218,7 @@ T_PIPELINE_E2E ?= 300
 # The translated driver: ReactOS 0.4.15 x86's i8042prt.sys, kept out of
 # every repo (private tools/translator/tests/data/README-i8042prt.md).
 I8042PRT_SHA256 = 031ba298a2ded32a6d664afa46e8be2919d28b83bc1badf14d0e17aeddb16515
-test-pipeline-e2e: $(COMBINED)
+test-pipeline-e2e: $(call FULL_ONLY,$(COMBINED))
 	@$(RUN_MODE) test-pipeline-e2e --private tests/test_pipeline_e2e.py --tree tools/translator/Makefile; $(RUN_MODE_END); \
 	f=tools/translator/tests/data/i8042prt.sys; \
 	if [ "$$(sha256sum $$f 2>/dev/null | cut -d' ' -f1)" != $(I8042PRT_SHA256) ]; then \
@@ -1269,8 +1289,9 @@ test-search-order: $(COMBINED)
 # Ctrl+C read by KEY leaves the console's next line alone (private
 # TASK_ABORT_ROUTES).
 T_ABORT_ROUTES ?= 300
-test-abort-routes: $(COMBINED)
-	@PIDF=$(BUILD)/abort-routes.d/qemu.pid; $(QEMU_KILL); \
+test-abort-routes: $(call FULL_ONLY,$(COMBINED))
+	@$(RUN_MODE) test-abort-routes --tree forth/dict/ahci.fth --reason 'needs the private vocabularies'; $(RUN_MODE_END); \
+	PIDF=$(BUILD)/abort-routes.d/qemu.pid; $(QEMU_KILL); \
 	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-abort-routes --base $(TEST_PORT_BASE); \
 	echo "Running abort route gates..."; \
 	timeout --foreground $(T_ABORT_ROUTES) python3 tests/test_abort_routes.py $$(($(TEST_PORT_BASE)+122))
@@ -1341,14 +1362,9 @@ test-forth83: $(COMBINED)
 	timeout --foreground $(T_FORTH83) python3 tests/test_forth83.py $$(($(TEST_PORT_BASE)+117))
 
 test-translator:
-	@test -f tools/translator/Makefile || { \
-		echo "test-translator: tools/translator/Makefile not present."; \
-		echo "  The UBT translator suite lives in the private forthos-vocabularies tree"; \
-		echo "  (tools/translator/ is gitignored in this repo). This is not a broken checkout;"; \
-		echo "  check out forthos-vocabularies alongside and copy or link tools/translator/ here."; \
-		exit 3; }
-	@echo "Running UBT translator test suite..."
-	@$(MAKE) -C tools/translator test
+	@$(RUN_MODE) test-translator --tree tools/translator/Makefile; $(RUN_MODE_END); \
+	echo "Running UBT translator test suite..."; \
+	$(MAKE) -C tools/translator test
 
 # Offline GRUB cfg gates: drift, converter pin, scan fatality
 # UEFI-2 red (docs/evidence/uefi-2-prereg-2026-09-28.md): at `ok`, QEMU's
@@ -1377,6 +1393,7 @@ test-memdisk: $(COMBINED)
 	@QPIDDIR=$(BUILD)/test-memdisk.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
 	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-memdisk --base $(TEST_PORT_BASE); \
 	echo "Running memdisk boot test (pxelinux -> memdisk)..."; \
+	PRIVATE_REPO='$(PRIVATE_REPO)' PRIVATE_REPO_ORIGIN='$(origin PRIVATE_REPO)' \
 	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_MEMDISK) python3 tests/test_memdisk_blk_writer.py $$(($(TEST_PORT_BASE)+65))
 
 # UEFI-1 red (docs/evidence/uefi-1-prereg-2026-09-28.md): a rootless replica
@@ -1386,8 +1403,9 @@ test-memdisk: $(COMBINED)
 # UEFI-3/4 gate (docs/TASK_UEFI_3_4.md): the stick replica under OVMF (no CSM,
 # multiboot2 kernel + module, framebuffer) and SeaBIOS (legacy, memdisk);
 # serial on +74, monitor (screen dump) on +76.
-test-uefi-boot: $(COMBINED)
-	@QPIDDIR=$(BUILD)/test-uefi-boot.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
+test-uefi-boot: $(call FULL_ONLY,$(COMBINED))
+	@$(RUN_MODE) test-uefi-boot --tree forth/dict/ahci.fth --reason 'needs the private vocabularies'; $(RUN_MODE_END); \
+	QPIDDIR=$(BUILD)/test-uefi-boot.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
 	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-uefi-boot --base $(TEST_PORT_BASE); \
 	echo "Running UEFI boot gate (OVMF, no CSM, multiboot2)..."; \
 	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_UEFI_BOOT) python3 -u tests/test_uefi_boot.py $$(($(TEST_PORT_BASE)+74)) $$(($(TEST_PORT_BASE)+76)) $(COMBINED)
@@ -1395,8 +1413,9 @@ test-uefi-boot: $(COMBINED)
 # UEFI network boot gate (docs/TASK_UEFI_3_4.md): OVMF boots the staged GRUB
 # tree over QEMU's own DHCP/TFTP; serial on +71 (unused before).  Never
 # touches the live PXE server.
-test-uefi-netboot: grub-net
-	@QPIDDIR=$(BUILD)/test-uefi-netboot.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
+test-uefi-netboot: $(call FULL_ONLY,grub-net)
+	@$(RUN_MODE) test-uefi-netboot --tree forth/dict/ahci.fth --reason 'needs the private vocabularies'; $(RUN_MODE_END); \
+	QPIDDIR=$(BUILD)/test-uefi-netboot.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
 	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-uefi-netboot --base $(TEST_PORT_BASE); \
 	echo "Running UEFI network boot gate (OVMF, TFTP)..."; \
 	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_UEFI_NETBOOT) python3 -u tests/test_uefi_netboot.py $$(($(TEST_PORT_BASE)+71))
@@ -1415,7 +1434,7 @@ test-pxe-label: $(COMBINED) grub-net
 # Doc drift gate: docs someone types from must match their artifact
 test-doc-drift:
 	@echo "Running doc drift gates..."
-	@python3 tests/test_doc_drift.py
+	@PRIVATE_REPO='$(PRIVATE_REPO)' PRIVATE_REPO_ORIGIN='$(origin PRIVATE_REPO)' python3 tests/test_doc_drift.py
 
 # Makefile wiring gate: every test-* target wired into test: or
 # exempted with a true reason (two orphans + one silently-broken

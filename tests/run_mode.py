@@ -20,9 +20,11 @@ A wholly private test in public mode prints, and exits 0:
   SKIPPED (public mode: PRIVATE_REPO absent): <target>, T checks not run
 
 As a command, for recipes (before any QEMU):
-  python3 tests/run_mode.py <target> [--private p ...] [--tree p ...]
+  python3 tests/run_mode.py <target> [--private p ...] [--tree p ...] [--reason r]
 exits 0 to run; prints the SKIPPED line and exits 10 (the recipe then
-exits 0); prints the FAIL line and exits 1.
+exits 0); prints the FAIL line and exits 1. The SKIPPED line ends
+"<target>, the test is private", or "<target>, <r>" (private
+TASK_PUBLIC_CLONE_SUITE: "needs the private vocabularies").
 """
 import os
 import sys
@@ -75,14 +77,17 @@ def resolve(root, private=(), tree=()):
 
 def main(argv):
     target, private, tree, into = argv[0], [], [], None
-    for a in argv[1:]:
-        if a in ('--private', '--tree'):
+    reason, args = 'the test is private', iter(argv[1:])
+    for a in args:
+        if a == '--reason':
+            reason = next(args)
+        elif a in ('--private', '--tree'):
             into = private if a == '--private' else tree
         else:
             into.append(a)
     m = resolve(os.getcwd(), private, tree)
     if not m.private:
-        print(f'SKIPPED (public mode: PRIVATE_REPO absent): {target}, the test is private',
+        print(f'SKIPPED (public mode: PRIVATE_REPO absent): {target}, {reason}',
               flush=True)
         sys.exit(SKIP_EXIT)
     sys.exit(0)

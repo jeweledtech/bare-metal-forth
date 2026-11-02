@@ -43,6 +43,8 @@ import re
 import subprocess
 import sys
 
+import run_mode
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 PASS = 0
@@ -82,12 +84,23 @@ def read(rel):
 # saying which kind it is.
 
 GRUB_CFG = 'tools/pxe/grub.cfg'
-DOCS_TO_SCAN = [
+# Two of the four are private docs, scanned from the private repo's
+# tracked copies (private TASK_PUBLIC_CLONE_SUITE D2); in public mode their
+# 10 checks, gate A's and DD0 are not run (run_mode's line names 12).
+PUBLIC_DOCS = [
     'tools/pxe/RUNBOOK-G6.md',
-    'docs/TASK_INSTALL_BOOT_ENTRY.md',
-    'docs/superpowers/specs/2026-08-05-g6-chain-design.md',
     'README.md',
 ]
+PRIVATE_DOCS = [
+    'docs/TASK_INSTALL_BOOT_ENTRY.md',
+    'docs/specs/2026-08-05-g6-chain-design.md',
+]
+MODE = run_mode.resolve(ROOT, private=PRIVATE_DOCS)
+DOCS_TO_SCAN = [(rel, os.path.join(ROOT, rel)) for rel in PUBLIC_DOCS]
+if MODE.private:
+    DOCS_TO_SCAN += [(rel, os.path.join(MODE.repo, rel)) for rel in PRIVATE_DOCS]
+TOTAL = 66 if MODE.private else 54
+PRIVATE_CHECKS = 12
 
 MENUENTRY_RE = re.compile(
     r'menuentry\s+"ForthOS \(installed to disk\)"\s*\{.*?\n[>\s~]*\}',
@@ -128,14 +141,13 @@ def gate_a():
     shipped_n = normalise(shipped.group(0))
 
     total = 0
-    for rel in DOCS_TO_SCAN:
-        path = os.path.join(ROOT, rel)
+    for rel, path in DOCS_TO_SCAN:
         if not os.path.exists(path):
             # Tier/gitignore reality: some of these live only in the
             # private tree.  Absent is fine; SILENTLY absent is not.
             print(f'  note: {rel} not present in this checkout (tier)')
             continue
-        text = read(rel)
+        text = open(path, encoding='utf-8').read()
         for m in MENUENTRY_RE.finditer(text):
             total += 1
             block = m.group(0)
@@ -161,37 +173,32 @@ def gate_a():
                       'the marker is now false')
 
     # Fail closed: finding nothing means the regex rotted, not that
-    # every doc is clean.
-    check('gate A found at least one doc copy to check', total > 0,
-          'zero menuentry blocks found in any scanned doc -- the '
-          'MENUENTRY_RE or DOCS_TO_SCAN list has gone stale')
+    # every doc is clean.  The blocks are in the private docs, so in
+    # public mode this check is one of the 12 not run.
+    if MODE.private:
+        check('gate A found at least one doc copy to check', total > 0,
+              'zero menuentry blocks found in any scanned doc -- the '
+              'MENUENTRY_RE or DOCS_TO_SCAN list has gone stale')
 
     # DD0 (private TASK_PUBLIC_CLONE_SUITE D2): a scanned doc this repo
     # does not track must be the private repo's tracked copy, never an
     # untracked file on this disk (two were, with the 08-19 corrections
     # in neither repo until 2026-11-01).
-    priv = os.path.normpath(os.path.join(
-        ROOT, os.environ.get('PRIVATE_REPO', '../forthos-vocabularies')))
-    stray = []
-    for rel in DOCS_TO_SCAN:
-        path = os.path.join(ROOT, rel)
-        if not os.path.exists(path) or tracked(ROOT, path):
-            continue
-        if not tracked(priv, path):
-            stray.append(path)
-    check('DD0 each scanned doc not tracked here is the private repo\'s tracked copy',
-          not stray, f'scanned, tracked in neither repo: {stray}')
+    if MODE.private:
+        stray = [path for _, path in DOCS_TO_SCAN
+                 if not tracked(ROOT, path) and not tracked(MODE.repo, path)]
+        check('DD0 each scanned doc not tracked here is the private repo\'s tracked copy',
+              not stray, f'scanned, tracked in neither repo: {stray}')
 
     # Counting assertion: a block matcher that swallows two entries as
     # one match passes all marker checks but silently drops coverage.
     # Count raw declarations independently of the block matcher.
     DECL_RE = re.compile(
         r'menuentry\s+"ForthOS \(installed to disk\)"')
-    for rel in DOCS_TO_SCAN:
-        path = os.path.join(ROOT, rel)
+    for rel, path in DOCS_TO_SCAN:
         if not os.path.exists(path):
             continue
-        text = read(rel)
+        text = open(path, encoding='utf-8').read()
         declared = len(DECL_RE.findall(text))
         matched = len(MENUENTRY_RE.findall(text))
         if declared > 0:
@@ -683,5 +690,5 @@ if __name__ == '__main__':
     gate_c()
     print()
     gate_d()
-    print(f'\nPassed: {PASS}/{PASS + FAIL}')
-    sys.exit(0 if FAIL == 0 else 1)
+    print('\n' + MODE.line(PASS, TOTAL, MODE.not_run(PRIVATE_CHECKS)))
+    sys.exit(0 if FAIL == 0 and PASS == TOTAL else 1)
