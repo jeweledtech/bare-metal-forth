@@ -67,7 +67,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 7,
-    "source": "tests/test_block_read_error.py:97"
+    "source": "tests/test_block_read_error.py:114"
    }
   ]
  },
@@ -139,13 +139,13 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 104,
-    "source": "$(PRIVATE_REPO)/tests/test_dlg2form.py:538"
+    "source": "$(PRIVATE_REPO)/tests/test_dlg2form.py:542"
    },
    {
     "form": "tcp:127.0.0.1:P",
     "kind": "monitor",
     "offset": 105,
-    "source": "$(PRIVATE_REPO)/tests/test_dlg2form.py:539"
+    "source": "$(PRIVATE_REPO)/tests/test_dlg2form.py:543"
    }
   ]
  },
