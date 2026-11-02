@@ -886,6 +886,16 @@ test-blk-evict: $(COMBINED)
 	PORT=$$(($(TEST_PORT_BASE)+66)); \
 	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_BLK_EVICT) python3 tests/test_blk_evict.py $$PORT $(COMBINED)
 
+# Kernel BLOCK on a failed ATA read: "BLOCK READ FAIL <n>" and ABORT's
+# route, never the old buffer (private TASK_KERNEL_BLOCK_READ_ERROR).
+# Floppy + IDE scratch copies of $(COMBINED); the script launches QEMU.
+test-block-read-error: $(COMBINED)
+	@QPIDDIR=$(BUILD)/test-block-read-error.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
+	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-block-read-error --base $(TEST_PORT_BASE); \
+	echo "Running block read-error test..."; \
+	PORT=$$(($(TEST_PORT_BASE)+7)); \
+	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_BLOCK_READ_ERROR) python3 tests/test_block_read_error.py $$PORT $(COMBINED)
+
 # xHCI vocab gate (docket step 2a): BAR64-MASK + PCI-BAR64@,
 # block-loaded from forth/dict/xhci.fth via catalog THRU.  Needs
 # block storage (combined image) AND the target device: -M pc
@@ -1003,6 +1013,7 @@ T_BLOCK_RELOAD ?= 25
 # About 2x measured (2026-10-11): blk-evict 27 s, mirror 30 s, interp-abort
 # 44 s, pad-move 17 s. A limit is never raised as a fix.
 T_BLK_EVICT ?= 60
+T_BLOCK_READ_ERROR ?= 60
 T_MIRROR ?= 60
 T_INTERP_ABORT ?= 90
 T_PAD_MOVE ?= 40
@@ -1576,7 +1587,7 @@ test-meta: $(COMBINED)
 #     its output as evidence, and it never gates a build.  If it must ever
 #     gate something, the gate goes on a deterministic artefact derived from
 #     it and pinned -- the treatment the Ghidra oracle already has.
-test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-log-send test-dlg2form test-rtl8168-cksum test-stack-floor test-vga-wrap test-reload-vocab test-load-vocab test-resolve-deps test-vbr test-grub-cfg test-pxe-label test-uefi-boot test-uefi-netboot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-mirror test-interp-abort test-pad-move test-hal test-hal-net test-hal-match test-hal-match-hp test-network test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline test-pipeline-e2e test-net-flush-lf test-console-band test-window-focus test-free-boot test-search-order test-abort-routes test-vocab-dedup test-phys-refuse test-window-forms test-read-flags test-double-cell test-forth83 test-arm64-boot test-meta-b6b test-public-clone check-sync
+test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-block-read-error test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-log-send test-dlg2form test-rtl8168-cksum test-stack-floor test-vga-wrap test-reload-vocab test-load-vocab test-resolve-deps test-vbr test-grub-cfg test-pxe-label test-uefi-boot test-uefi-netboot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-mirror test-interp-abort test-pad-move test-hal test-hal-net test-hal-match test-hal-match-hp test-network test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline test-pipeline-e2e test-net-flush-lf test-console-band test-window-focus test-free-boot test-search-order test-abort-routes test-vocab-dedup test-phys-refuse test-window-forms test-read-flags test-double-cell test-forth83 test-arm64-boot test-meta-b6b test-public-clone check-sync
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)
@@ -1661,4 +1672,4 @@ grub-net: $(COMBINED) tools/pxe/grub.cfg
 pxe-push-grub: grub-net
 	@bash tools/pxe/push-grub.sh
 
-.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined usb-image check-coverage desk-hashes check-kernel-size test test-blk-evict test-mirror test-interp-abort test-pad-move test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-log-send test-dlg2form test-rtl8168-cksum test-stack-floor test-vga-wrap test-reload-vocab test-load-vocab test-resolve-deps test-pipeline-e2e test-net-flush-lf test-console-band test-window-focus test-free-boot test-search-order test-abort-routes test-vocab-dedup test-phys-refuse test-window-forms test-read-flags test-double-cell test-forth83 test-meta-b6b pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-grub-cfg test-pxe-label test-g6 test-uefi-netboot test-hal test-hal-net test-hal-match test-hal-match-hp
+.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined usb-image check-coverage desk-hashes check-kernel-size test test-blk-evict test-block-read-error test-mirror test-interp-abort test-pad-move test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-log-send test-dlg2form test-rtl8168-cksum test-stack-floor test-vga-wrap test-reload-vocab test-load-vocab test-resolve-deps test-pipeline-e2e test-net-flush-lf test-console-band test-window-focus test-free-boot test-search-order test-abort-routes test-vocab-dedup test-phys-refuse test-window-forms test-read-flags test-double-cell test-forth83 test-meta-b6b pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-grub-cfg test-pxe-label test-g6 test-uefi-netboot test-hal test-hal-net test-hal-match test-hal-match-hp

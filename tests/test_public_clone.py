@@ -5,8 +5,8 @@ TASK_PUBLIC_CLONE_SUITE).
 A clone of this repo's committed HEAD in a mktemp directory, with no
 private repo beside it (public mode at the Makefile default), host only:
 no QEMU is started.
-  P1 (73) make -n <t> never stops at "No rule to make target", for every
-          target on test: (the pinned 73 and the clone's test: line).
+  P1 (74) make -n <t> never stops at "No rule to make target", for every
+          target on test: (the pinned 74 and the clone's test: line).
   P2 (26) each skip-whole target runs its run-mode guard first, ends with
           its exact SKIPPED line, exits 0 and builds no build/combined.img.
   P3 (1)  the free tier builds the usual names from the free set:
@@ -32,10 +32,11 @@ import sys
 import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-TOTAL = 106
+TOTAL = 107
 
-# The 28 that run on the free kernel in a public clone (measured, M1/M2).
-RUN = '''test-xhci test-pci-bar test-block-reload test-blk-evict test-stack-floor
+# The 29 that run on the free kernel in a public clone (measured, M1/M2;
+# test-block-read-error added by private TASK_KERNEL_BLOCK_READ_ERROR).
+RUN = '''test-xhci test-pci-bar test-block-reload test-blk-evict test-block-read-error test-stack-floor
 test-vga-wrap test-reload-vocab test-load-vocab test-vbr test-pxe-label test-uefi2-gdt
 test-carrier-write-safe test-memdisk test-mirror test-hal test-hal-match test-network
 test-vocabs test-integration test-file-stream test-net-flush-lf test-console-band
@@ -58,7 +59,7 @@ test-pci-typing test-squote-laydown test-log-decode-layout test-grub-cfg test-do
 test-make-wiring test-port-inventory test-kill-traps test-pipeline
 test-free-boot test-public-clone'''.split()
 ALL = RUN + list(SKIP) + SELF_SKIP + OTHER
-assert (len(RUN), len(SKIP), len(SELF_SKIP), len(OTHER), len(set(ALL))) == (28, 26, 2, 17, 73)
+assert (len(RUN), len(SKIP), len(SELF_SKIP), len(OTHER), len(set(ALL))) == (29, 26, 2, 17, 74)
 
 PASS = FAIL = 0
 
