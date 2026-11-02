@@ -29,3 +29,34 @@ or shows whatever the buffer held before. Not yet driven in QEMU.
 
 A pre-registered red that drives a real failed ATA read in QEMU and shows
 the old buffer returned, before any change to forth.asm.
+
+## Boot paths and the end-of-image bound (2026-11-02; for the ESP32 work)
+
+Observed in QEMU (2026-11-02): a BLOCK past the end of the IDE disk returns
+an address with no message, and a second BLOCK of it returns whatever the
+buffer was refilled with. LOAD interprets it.
+
+BLOCK reads its medium two ways, and only the drive bounds either:
+- **The RAM path** (BLK_IMAGE_BASE set): PXE and the USB stick (BIOS, both
+  through memdisk; boot.asm reads memdisk's mBFT `diskbuf`), and UEFI (the
+  multiboot2 module). `ram_read_block` copies from the base plus the
+  offset with no bound, so a block past the image is whatever RAM follows
+  it. This is the path the HP uses.
+- **The ATA path** (BLK_IMAGE_BASE 0): an installed VBR boot and QEMU's
+  IDE disk. The drive refuses a read past its end; the kernel ignored the
+  refusal (this finding).
+
+A bound whose size travels with the image, a count written by the build
+into block 0 (reserved "for boot info"), gives every path the same check.
+A size from the boot handoff (memdisk's mBFT disksize, the UEFI module's
+size) covers only the boot paths that have one.
+
+**For an ESP32 port** (or any edge device with no BIOS, GRUB or ATA): the
+block image sits in flash or RAM behind a pointer, which is the RAM path's
+shape. It needs a read path that copies from a base pointer, as
+`ram_read_block` does, and the image as built, block 0 included. With the
+bound taken from block 0, no handoff code is needed for that device. With
+a handoff-based bound it would need a third source of the size.
+
+Tracked privately: TASK_KERNEL_BLOCK_READ_ERROR (D2, pad measured per
+option).
