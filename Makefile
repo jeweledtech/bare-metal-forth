@@ -1,7 +1,26 @@
 # Bare-Metal Forth Makefile
 # The Ship Builder's System
 
-NASM = nasm
+# nasm is pinned: the committed kernel hashes are nasm 2.16.01's (3.01
+# builds a different kernel.bin).  NASM names the binary, from the command
+# line (make NASM=/path/to/nasm) or the environment; it is exported so the
+# Python tools and tests that assemble use the same one.  Any other version
+# is refused before anything builds (clean and help excepted).
+NASM ?= nasm
+export NASM
+NASM_PIN := 2.16.01
+ifneq ($(filter-out clean help,$(MAKECMDGOALS))$(if $(MAKECMDGOALS),,all),)
+NASM_GOT := $(word 3,$(shell $(NASM) -v 2>/dev/null))
+ifneq ($(NASM_GOT),$(NASM_PIN))
+$(info nasm: '$(NASM)' is $(if $(NASM_GOT),version $(NASM_GOT),not runnable); this build needs $(NASM_PIN).)
+$(info nasm: install 2.16.01 beside your system nasm, then point NASM at it:)
+$(info nasm:   curl -LO https://www.nasm.us/pub/nasm/releasebuilds/2.16.01/nasm-2.16.01.tar.xz)
+$(info nasm:   tar xf nasm-2.16.01.tar.xz && cd nasm-2.16.01)
+$(info nasm:   ./configure --prefix=$$HOME/.local/opt/nasm-2.16.01 && make && make install)
+$(info nasm:   make NASM=$$HOME/.local/opt/nasm-2.16.01/bin/nasm ...   (or export NASM=...))
+$(error nasm $(NASM_PIN) required)
+endif
+endif
 QEMU = qemu-system-i386
 QEMU64 = qemu-system-x86_64
 

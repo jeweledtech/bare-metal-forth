@@ -133,7 +133,7 @@ def kernel(tag, extra):
     subprocess.run([sys.executable, os.path.join(ROOT, 'tools', 'embed-vocabs.py'), eb] +
                    [os.path.join(ROOT, v) for v in embed] + [fx], check=True, capture_output=True)
     kb = os.path.join(FX, f'kernel-{tag}.bin')
-    subprocess.run(['nasm', '-f', 'bin', f'-dEMBED_FILE="{eb}"', '-o', kb, ASM], check=True)
+    subprocess.run([os.environ.get('NASM', 'nasm'), '-f', 'bin', f'-dEMBED_FILE="{eb}"', '-o', kb, ASM], check=True)
     img = os.path.join(FX, f'{tag}.img')
     open(img, 'wb').write(open(os.path.join(B, 'boot.bin'), 'rb').read() + open(kb, 'rb').read())
     return img
