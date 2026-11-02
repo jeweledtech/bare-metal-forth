@@ -793,6 +793,54 @@
    }
   ]
  },
+ "test-urw-canvas": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 129,
+    "source": "$(PRIVATE_REPO)/tests/test_urw_canvas.py:160"
+   },
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "monitor",
+    "offset": 130,
+    "source": "$(PRIVATE_REPO)/tests/test_urw_canvas.py:161"
+   }
+  ]
+ },
+ "test-vbe-boot": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 127,
+    "source": "tests/test_vbe_boot.py:83"
+   },
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "monitor",
+    "offset": 128,
+    "source": "tests/test_vbe_boot.py:84"
+   }
+  ]
+ },
+ "test-vbe-nostub": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 131,
+    "source": "tests/test_vbe_nostub.py:224"
+   },
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "monitor",
+    "offset": 132,
+    "source": "tests/test_vbe_nostub.py:225"
+   }
+  ]
+ },
  "test-vbr": {
   "-": [
    {

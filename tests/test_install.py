@@ -1570,10 +1570,14 @@ check('alive after G5-R3', alive())
 # ---------------------------------------------------------------
 print("\nTest 46b: proven loader frozen; loader DAPs disjoint")
 # boot.bin is the iron-proven memdisk loader. Its DAP is dd 1 at
-# offset 467 -- FROZEN facts about a shipped artifact, so hardcoding
+# offset 472 -- FROZEN facts about a shipped artifact, so hardcoding
 # is correct here: any change to either is the alarm firing, and
 # the fix is to justify touching the proven loader, not to update
-# this number. Disjoint patterns (01 00 00 00 vs EF BE AD DE) are
+# this number.  Justified once: 467 -> 472 (owner 2026-11-02, branch
+# unicorn-writer only; docs/DECISIONS.md "boot.bin touched for the BIOS
+# VBE opt-in"): the 5-byte far call to vbe_stub ahead of the DAP.
+# Merging to master needs Brenden's sign-off after HP validation.
+# Disjoint patterns (01 00 00 00 vs EF BE AD DE) are
 # what let the two gates attribute a failure to the right binary.
 with open('build/boot.bin', 'rb') as f:
     bootbin = f.read()
@@ -1583,8 +1587,8 @@ legacy_re = re.compile(
 legacy_hits = [m.start() for m in legacy_re.finditer(bootbin)]
 check('boot.bin: exactly one dd-1 DAP (proven loader intact)',
       len(legacy_hits) == 1, f'matches at {legacy_hits}')
-check('boot.bin: DAP LBA still at frozen offset 467',
-      bool(legacy_hits) and legacy_hits[0] + 8 == 467,
+check('boot.bin: DAP LBA still at frozen offset 472',
+      bool(legacy_hits) and legacy_hits[0] + 8 == 472,
       f'moved to {legacy_hits[0] + 8 if legacy_hits else None}')
 # Disjointness, both directions: a sentinel DAP appearing in
 # boot.bin means someone edited the proven loader toward the

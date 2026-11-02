@@ -9,7 +9,9 @@ Three disciplines under test (spec D2 / Section 2):
    hits AND on multiple hits (single-source-of-truth, the
    VBR-LBA-OFF discipline).
 3. Drift gate: committed tools/pxe/grub.cfg == generated, entry
-   order frozen in the BIOS branch (0=memdisk, 1=chainload), one UEFI
+   order frozen in the BIOS branch (0=memdisk, 1=chainload, then
+   2=URWriter graphics: memdisk with `vbe`, private TASK_UNICORN_WRITER
+   Phase 1, appended so 0 and 1 keep their numbers), one UEFI
    multiboot2 entry in the other, timeout=5, default=0,
    biosdisk+probe GUID loop (search has no --part-uuid at all),
    and chainloader only inside the found-guard.
@@ -141,11 +143,21 @@ ents = [i for i, l in enumerate(lines) if l.startswith('menuentry')]
 pc_ents = [i for i in ents if branches and pc_i[0] < i < else_i[0]]
 efi_ents = [i for i in ents if branches and else_i[0] < i < fi_i[0]]
 check('every menuentry inside a branch', branches and len(pc_ents) + len(efi_ents) == len(ents))
-check('exactly two BIOS menuentries', len(pc_ents) == 2)
+check('exactly three BIOS menuentries', len(pc_ents) == 3)
 check('BIOS entry 0 is memdisk',
-      len(pc_ents) == 2 and 'memdisk' in lines[pc_ents[0]])
+      len(pc_ents) == 3 and 'memdisk' in lines[pc_ents[0]])
 check('BIOS entry 1 is chainload',
-      len(pc_ents) == 2 and 'installed' in lines[pc_ents[1]])
+      len(pc_ents) == 3 and 'installed' in lines[pc_ents[1]])
+# Entry 2 (owner 2026-11-01, TASK_UNICORN_WRITER Phase 1): the dedicated
+# graphics label.  Same image as entry 0; memdisk's command line carries
+# `vbe`, the only thing that makes the kernel's vbe_stub set a mode.
+ent2 = lines[pc_ents[2]:pc_ents[2] + 4] if len(pc_ents) == 3 else []
+check('BIOS entry 2 is URWriter: memdisk harddisk vbe, /forth.img',
+      ent2 == ['menuentry "ForthOS - URWriter (graphics)" {',
+               '    linux16 /memdisk harddisk vbe',
+               '    initrd16 /forth.img', '}'], repr(ent2))
+check('only entry 2 passes vbe to memdisk',
+      sum(1 for l in lines if l.startswith('    linux16 ') and ' vbe' in l) == 1)
 efi_body = lines[efi_ents[0]:fi_i[0]] if len(efi_ents) == 1 else []
 check('one UEFI menuentry: multiboot2 + module2 /forth.img, efi_gop',
       len(efi_ents) == 1 and '    multiboot2 /forth.img' in efi_body

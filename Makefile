@@ -1567,6 +1567,44 @@ test-net-receive-replace:
 	@echo "Running net-receive save-and-update tests..."
 	@python3 tests/test_net_receive_replace.py
 
+# BIOS VBE opt-in at boot (private TASK_UNICORN_WRITER Phase 1; the kernel
+# and boot-sector halves are public): boot.asm far-calls forth.asm's
+# vbe_stub, which sets a 32-bpp LFB mode only when memdisk's command line
+# says `vbe`.  Floppy, memdisk, memdisk + vbe; QEMU's info pci and
+# screendump are the authorities.  Serial +127, monitor +128.
+T_VBE_BOOT ?= 300
+test-vbe-boot: $(IMAGE) $(COMBINED)
+	@QPIDDIR=$(BUILD)/test-vbe-boot.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
+	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-vbe-boot --base $(TEST_PORT_BASE); \
+	echo "Running BIOS VBE opt-in boot test..."; \
+	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_VBE_BOOT) python3 tests/test_vbe_boot.py \
+		$$(($(TEST_PORT_BASE)+127)) $$(($(TEST_PORT_BASE)+128))
+
+# VBE cells on the boot paths that never call vbe_stub (private
+# TASK_UNICORN_WRITER Phase 1, owner 2026-11-02): vbr.bin on SeaBIOS and
+# multiboot2 under OVMF + GRUB EFI.  The cells are poisoned at
+# kernel_start through QEMU's gdb stub (a Unix socket under build/) and
+# must read 0 at the prompt.  Serial +131, monitor +132.
+T_VBE_NOSTUB ?= 300
+test-vbe-nostub: $(VBR) $(KERNEL) $(COMBINED)
+	@QPIDDIR=$(BUILD)/test-vbe-nostub.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
+	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-vbe-nostub --base $(TEST_PORT_BASE); \
+	echo "Running VBE no-stub boot paths test..."; \
+	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_VBE_NOSTUB) python3 tests/test_vbe_nostub.py \
+		$$(($(TEST_PORT_BASE)+131)) $$(($(TEST_PORT_BASE)+132))
+
+# URW-CANVAS (private TASK_UNICORN_WRITER Phase 1): GRUB netboot, menu
+# entry "ForthOS - URWriter (graphics)", the canvas words and CANVAS-DEMO
+# checked on QEMU's screendump.  Serial +129, monitor +130.
+T_URW_CANVAS ?= 300
+test-urw-canvas: $(COMBINED)
+	@$(RUN_MODE) test-urw-canvas --private forth/dict/urw-canvas.fth tests/test_urw_canvas.py; $(RUN_MODE_END); \
+	QPIDDIR=$(BUILD)/test-urw-canvas.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
+	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-urw-canvas --base $(TEST_PORT_BASE); \
+	echo "Running URW-CANVAS (GRUB URWriter label) gates..."; \
+	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_URW_CANVAS) python3 $(PRIVATE_REPO)/tests/test_urw_canvas.py \
+		$$(($(TEST_PORT_BASE)+129)) $$(($(TEST_PORT_BASE)+130))
+
 # Run all tests (lint first, then functional tests)
 # Reachability audit 2026-09-21 (docs/evidence/make-target-reachability-2026-09-21.md):
 # test-translator was NOT in this list.  The UBT suite -- 25 suites, 115
@@ -1594,7 +1632,7 @@ test-net-receive-replace:
 #     its output as evidence, and it never gates a build.  If it must ever
 #     gate something, the gate goes on a deterministic artefact derived from
 #     it and pinned -- the treatment the Ghidra oracle already has.
-test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-log-send test-dlg2form test-rtl8168-cksum test-stack-floor test-vga-wrap test-reload-vocab test-load-vocab test-resolve-deps test-vbr test-grub-cfg test-pxe-label test-nasm-pin test-net-receive-replace test-uefi-boot test-uefi-netboot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-mirror test-interp-abort test-pad-move test-hal test-hal-net test-hal-match test-hal-match-hp test-network test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline test-pipeline-e2e test-net-flush-lf test-console-band test-window-focus test-free-boot test-search-order test-abort-routes test-vocab-dedup test-phys-refuse test-window-forms test-read-flags test-double-cell test-forth83 test-arm64-boot test-meta-b6b check-sync
+test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-log-send test-dlg2form test-rtl8168-cksum test-stack-floor test-vga-wrap test-reload-vocab test-load-vocab test-resolve-deps test-vbr test-grub-cfg test-pxe-label test-nasm-pin test-net-receive-replace test-vbe-boot test-vbe-nostub test-urw-canvas test-uefi-boot test-uefi-netboot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-mirror test-interp-abort test-pad-move test-hal test-hal-net test-hal-match test-hal-match-hp test-network test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline test-pipeline-e2e test-net-flush-lf test-console-band test-window-focus test-free-boot test-search-order test-abort-routes test-vocab-dedup test-phys-refuse test-window-forms test-read-flags test-double-cell test-forth83 test-arm64-boot test-meta-b6b check-sync
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)
@@ -1679,4 +1717,4 @@ grub-net: $(COMBINED) tools/pxe/grub.cfg
 pxe-push-grub: grub-net
 	@bash tools/pxe/push-grub.sh
 
-.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined usb-image check-coverage desk-hashes check-kernel-size test test-blk-evict test-mirror test-interp-abort test-pad-move test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-log-send test-dlg2form test-rtl8168-cksum test-stack-floor test-vga-wrap test-reload-vocab test-load-vocab test-resolve-deps test-pipeline-e2e test-net-flush-lf test-console-band test-window-focus test-free-boot test-search-order test-abort-routes test-vocab-dedup test-phys-refuse test-window-forms test-read-flags test-double-cell test-forth83 test-meta-b6b pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-grub-cfg test-pxe-label test-nasm-pin test-net-receive-replace test-g6 test-uefi-netboot test-hal test-hal-net test-hal-match test-hal-match-hp
+.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined usb-image check-coverage desk-hashes check-kernel-size test test-blk-evict test-mirror test-interp-abort test-pad-move test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-log-send test-dlg2form test-rtl8168-cksum test-stack-floor test-vga-wrap test-reload-vocab test-load-vocab test-resolve-deps test-pipeline-e2e test-net-flush-lf test-console-band test-window-focus test-free-boot test-search-order test-abort-routes test-vocab-dedup test-phys-refuse test-window-forms test-read-flags test-double-cell test-forth83 test-meta-b6b pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-grub-cfg test-pxe-label test-nasm-pin test-net-receive-replace test-vbe-boot test-vbe-nostub test-urw-canvas test-g6 test-uefi-netboot test-hal test-hal-net test-hal-match test-hal-match-hp
