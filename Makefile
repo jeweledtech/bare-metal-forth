@@ -1121,6 +1121,15 @@ test-meta-b6b: $(COMBINED)
 	@$(RUN_MODE) test-meta-b6b --private tests/test_meta_b6b.py forth/dict/meta-compiler.fth forth/dict/target-x86.fth --tree tests/test_meta_b6b.py forth/dict/meta-compiler.fth forth/dict/target-x86.fth; $(RUN_MODE_END); \
 	$(MAKE) --no-print-directory test-meta META_FIXTURES=test_meta_b6b
 
+# A public clone's make test skips, never drops (private
+# TASK_PUBLIC_CLONE_SUITE): a clone of HEAD in a mktemp directory, no
+# private repo beside it, host only. PUBLIC_CLONE_PATCH (a `git diff HEAD`
+# file) is applied to the clone first: the green gate before a commit.
+PUBLIC_CLONE_PATCH ?=
+test-public-clone:
+	@echo "Running public-clone test..."
+	@python3 tests/test_public_clone.py $(PUBLIC_CLONE_PATCH)
+
 # Run Cortex-M33 boot test (cross-compile + QEMU mps2-an505)
 test-cortexm: $(COMBINED)
 	@cp $(COMBINED) $(COMBINED_IDE)
@@ -1561,7 +1570,7 @@ test-meta: $(COMBINED)
 #     its output as evidence, and it never gates a build.  If it must ever
 #     gate something, the gate goes on a deterministic artefact derived from
 #     it and pinned -- the treatment the Ghidra oracle already has.
-test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-log-send test-dlg2form test-rtl8168-cksum test-stack-floor test-vga-wrap test-reload-vocab test-load-vocab test-resolve-deps test-vbr test-grub-cfg test-pxe-label test-uefi-boot test-uefi-netboot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-mirror test-interp-abort test-pad-move test-hal test-hal-net test-hal-match test-hal-match-hp test-network test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline test-pipeline-e2e test-net-flush-lf test-console-band test-window-focus test-free-boot test-search-order test-abort-routes test-vocab-dedup test-phys-refuse test-window-forms test-read-flags test-double-cell test-forth83 test-arm64-boot test-meta-b6b check-sync
+test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-log-send test-dlg2form test-rtl8168-cksum test-stack-floor test-vga-wrap test-reload-vocab test-load-vocab test-resolve-deps test-vbr test-grub-cfg test-pxe-label test-uefi-boot test-uefi-netboot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-mirror test-interp-abort test-pad-move test-hal test-hal-net test-hal-match test-hal-match-hp test-network test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline test-pipeline-e2e test-net-flush-lf test-console-band test-window-focus test-free-boot test-search-order test-abort-routes test-vocab-dedup test-phys-refuse test-window-forms test-read-flags test-double-cell test-forth83 test-arm64-boot test-meta-b6b test-public-clone check-sync
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)
