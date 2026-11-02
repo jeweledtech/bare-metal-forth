@@ -333,6 +333,265 @@ COM1_PORT       equ 0x3F8
 KERNEL_CODE_SEL equ 0x08
 KERNEL_DATA_SEL equ 0x10
 
+; ============================================================================
+; Kernel entry and the BIOS VBE stub (private TASK_UNICORN_WRITER Phase 1)
+; ============================================================================
+; KERNEL_ORG (0x7E00) is where boot.asm and vbr.asm jump in protected mode:
+; a jump to kernel_start.  KERNEL_ORG + 8 is vbe_stub, 16-bit code that
+; boot.asm calls FAR in real mode (BIOS alive) after loading the kernel and
+; before A20 / protected mode.  The stub, its data and its mode table sit
+; below 0x10000 so real mode reaches them with DS = 0 (asserted below).
+;
+; Opt-in: the stub sets a graphics mode only when memdisk's command line
+; carries the word `vbe` (the PXE label "ForthOS - URWriter (graphics)":
+; linux16 /memdisk harddisk vbe).  Otherwise it records "not requested"
+; and the console stays VGA text.  Either way it writes the six result
+; cells at VBE_CELLS (0x280BC-0x280D3) and sets vbe_fresh.  vbe_fresh is
+; in the kernel image, so every boot starts it at 0: kernel_start zeroes
+; the cells unless this boot's stub wrote them (vbr.asm and multiboot2
+; never call the stub; a warm reboot cannot leave old values behind).
+;
+; Usable: supported, colour, graphics, linear-framebuffer (attributes
+; 0x99), 32 bpp, direct colour (model 6), 8:8:8 masks at bits 16/8/0.
+; Every usable mode (up to VBE_MAX_MODES) is recorded for VBE-MODES; the
+; one set is the usable mode earliest in vbe_prefs.
+;
+; Cells (physical, little-endian):
+;   0x280BC VBE-MODE    mode number set (0 = none)
+;   0x280C0 FB-ADDR     PhysBasePtr of the set mode
+;   0x280C4 FB-PITCH    bytes per scan line (LinBytesPerScanLine on VBE 3+)
+;   0x280C8 FB-W        0x280CC FB-H
+;   0x280D0 byte 0 FB-BPP, byte 1 VBE-STATUS, byte 2 modes the BIOS
+;           listed (VBE-OFFERED, capped at 255), byte 3 VBE major version
+; In the kernel image (reset by every load): vbe_modes, the usable modes
+; (VBE-MODES), and vbe_depths, how many supported LFB graphics modes the
+; BIOS offers at 8/15/16/24/32 bpp (VBE-DEPTHS) -- what to report when
+; no usable mode exists.
+; VBE-STATUS: 0 not requested, 1 set, 2 4F00h failed, 3 no suitable mode,
+;             4 4F02h failed.
+VBE_CELLS        equ 0x280BC
+VBE_CELLS_SEG    equ 0x2800              ; real-mode segment for the cells
+VBE_SCRATCH_SEG  equ 0x2820              ; 0x28200 VbeInfoBlock, 0x28400 ModeInfoBlock
+VBE_MI           equ 0x200               ; ModeInfoBlock offset in the scratch segment
+VBE_MAX_MODES    equ 32
+VBE_ST_SET       equ 1
+VBE_ST_NOINFO    equ 2
+VBE_ST_NOMODE    equ 3
+VBE_ST_SETFAIL   equ 4
+
+kernel_entry:
+    jmp kernel_start
+    times 8 - ($ - kernel_entry) db 0x90  ; vbe_stub at KERNEL_ORG + 8 (boot.asm)
+
+[BITS 16]
+vbe_stub:
+    pushad
+    push ds
+    push es
+    push fs
+    push gs
+    xor ax, ax
+    mov ds, ax
+    mov ax, VBE_CELLS_SEG
+    mov fs, ax
+    xor eax, eax
+    mov [fs:0xBC], eax
+    mov [fs:0xC0], eax
+    mov [fs:0xC4], eax
+    mov [fs:0xC8], eax
+    mov [fs:0xCC], eax
+    mov [fs:0xD0], eax
+    mov byte [vbe_fresh], 1
+    ; memdisk's command line: INT 13h vector -> "$INT13SF" -> mBFT -> mdi
+    les bx, [0x4C]
+    cmp dword [es:bx + 3], 0x544E4924     ; "$INT"
+    jne .done
+    cmp dword [es:bx + 7], 0x46533331     ; "13SF"
+    jne .done
+    mov eax, [es:bx + 27]                 ; mBFT physical address
+    test eax, eax
+    jz .done
+    mov si, ax
+    and si, 0x000F
+    shr eax, 4
+    mov es, ax
+    cmp dword [es:si], 0x5446426D         ; "mBFT"
+    jne .done
+    les di, [es:si + 52]                  ; mdi cmdline (far pointer)
+    mov cx, 256                           ; scan bound
+    mov dl, ' '                           ; previous character
+.scan:
+    mov al, [es:di]
+    test al, al
+    jz .done
+    cmp dl, ' '
+    jne .next
+    cmp word [es:di], 'vb'
+    jne .next
+    cmp byte [es:di + 2], 'e'
+    jne .next
+    mov ah, [es:di + 3]
+    test ah, ah
+    jz .wanted
+    cmp ah, ' '
+    je .wanted
+.next:
+    mov dl, al
+    inc di
+    loop .scan
+    jmp .done
+.wanted:
+    mov ax, VBE_SCRATCH_SEG
+    mov es, ax
+    mov dword [es:0], 'VBE2'              ; ask for VBE 2.0+ info
+    mov ax, 0x4F00
+    xor di, di
+    int 0x10
+    mov byte [fs:0xD1], VBE_ST_NOINFO
+    cmp ax, 0x004F
+    jne .done
+    cmp dword [es:0], 'VESA'
+    jne .done
+    mov al, [es:5]                        ; VbeVersion, major byte
+    mov [fs:0xD3], al
+    mov si, [es:0x0E]                     ; VideoModePtr, offset
+    mov ax, [es:0x10]                     ; VideoModePtr, segment
+    mov gs, ax
+    xor bp, bp                            ; best rank so far (0 = none)
+.mode:
+    mov cx, [gs:si]
+    cmp cx, 0xFFFF
+    je .chosen
+    add si, 2
+    push cx
+    mov ax, 0x4F01
+    mov di, VBE_MI
+    int 0x10
+    pop cx
+    cmp ax, 0x004F
+    jne .mode
+    cmp byte [fs:0xD2], 255               ; VBE-OFFERED
+    je .counted
+    inc byte [fs:0xD2]
+.counted:
+    mov ax, [es:VBE_MI]                   ; ModeAttributes
+    and ax, 0x91                          ; supported, graphics, LFB
+    cmp ax, 0x91
+    jne .mode
+    mov al, [es:VBE_MI + 0x19]            ; BitsPerPixel -> vbe_depths slot
+    mov bx, vbe_depth_bpp
+.depth:
+    cmp al, [bx]
+    je .dhit
+    inc bx
+    cmp bx, vbe_depth_bpp + 5
+    jb .depth
+    jmp .judge
+.dhit:
+    inc byte [bx + (vbe_depths - vbe_depth_bpp)]
+.judge:
+    mov ax, [es:VBE_MI]                   ; usable?
+    and ax, 0x99
+    cmp ax, 0x99
+    jne .mode
+    cmp byte [es:VBE_MI + 0x19], 32
+    jne .mode
+    cmp byte [es:VBE_MI + 0x1B], 6
+    jne .mode
+    cmp dword [es:VBE_MI + 0x1F], 0x08081008  ; R 8@16, G 8@...
+    jne .mode
+    cmp word [es:VBE_MI + 0x23], 0x0008       ; ...8, B 8@0
+    jne .mode
+    movzx bx, byte [vbe_nmodes]           ; record it (mode, w, h, bpp, model)
+    cmp bx, VBE_MAX_MODES
+    jae .rank
+    shl bx, 3
+    mov [vbe_modes + bx], cx
+    mov ax, [es:VBE_MI + 0x12]
+    mov [vbe_modes + bx + 2], ax
+    mov ax, [es:VBE_MI + 0x14]
+    mov [vbe_modes + bx + 4], ax
+    mov word [vbe_modes + bx + 6], 0x0620 ; 32 bpp, model 6
+    inc byte [vbe_nmodes]
+.rank:
+    mov ax, [es:VBE_MI + 0x12]
+    mov dx, [es:VBE_MI + 0x14]
+    push si
+    mov si, vbe_prefs
+    mov bx, VBE_NPREFS                    ; rank of the first preference
+.pref:
+    cmp ax, [si]
+    jne .pnext
+    cmp dx, [si + 2]
+    je .phit
+.pnext:
+    add si, 4
+    dec bx
+    jnz .pref
+    jmp .pdone
+.phit:
+    cmp bx, bp
+    jbe .pdone
+    mov bp, bx
+    mov [fs:0xBC], cx
+    mov eax, [es:VBE_MI + 0x28]           ; PhysBasePtr
+    mov [fs:0xC0], eax
+    movzx eax, word [es:VBE_MI + 0x10]    ; BytesPerScanLine
+    cmp byte [fs:0xD3], 3
+    jb .pitch
+    movzx eax, word [es:VBE_MI + 0x32]    ; LinBytesPerScanLine (VBE 3.0)
+.pitch:
+    mov [fs:0xC4], eax
+    movzx eax, word [es:VBE_MI + 0x12]
+    mov [fs:0xC8], eax
+    movzx eax, word [es:VBE_MI + 0x14]
+    mov [fs:0xCC], eax
+.pdone:
+    pop si
+    jmp .mode
+.chosen:
+    mov byte [fs:0xD1], VBE_ST_NOMODE
+    test bp, bp
+    jz .clear
+    mov bx, [fs:0xBC]
+    or bx, 0x4000                         ; linear framebuffer
+    mov ax, 0x4F02
+    int 0x10
+    mov byte [fs:0xD1], VBE_ST_SETFAIL
+    cmp ax, 0x004F
+    jne .clear
+    mov byte [fs:0xD1], VBE_ST_SET
+    mov byte [fs:0xD0], 32
+    jmp .done
+.clear:
+    xor eax, eax                          ; no mode set: no framebuffer to name
+    mov [fs:0xBC], eax
+    mov [fs:0xC0], eax
+    mov [fs:0xC4], eax
+    mov [fs:0xC8], eax
+    mov [fs:0xCC], eax
+.done:
+    pop gs
+    pop fs
+    pop es
+    pop ds
+    popad
+    retf
+
+; Preferred modes, best first (the HP panel is 1366x768).
+vbe_prefs:
+    dw 1366, 768, 1360, 768, 1280, 800, 1280, 768, 1024, 768, 800, 600, 640, 480
+VBE_NPREFS equ ($ - vbe_prefs) / 4
+vbe_fresh:  db 0                          ; 1 = this boot's stub wrote VBE_CELLS
+vbe_nmodes: db 0                          ; usable modes recorded in vbe_modes
+vbe_depth_bpp: db 8, 15, 16, 24, 32
+vbe_depths: db 0, 0, 0, 0, 0              ; LFB graphics modes offered per depth
+    align 4
+vbe_modes:  times VBE_MAX_MODES * 8 db 0  ; mode, w, h (words), bpp, model (bytes)
+vbe_end:
+times ((vbe_end - $$) > (0x10000 - KERNEL_ORG)) * -1 db 0   ; real mode reach (DS = 0)
+[BITS 32]
+
 kernel_start:
     ; UEFI-2: run on the kernel's own GDT, first thing.  Until now the
     ; kernel ran on the boot sector's GDT (boot.asm:282-310, at 0x7D90 in
@@ -351,6 +610,16 @@ kernel_start:
     ; Initialize stacks
     mov esp, DATA_STACK_TOP
     mov ebp, RETURN_STACK_TOP
+
+    ; VBE cells: only this boot's vbe_stub may leave values there
+    cmp byte [vbe_fresh], 0
+    jne .vbe_fresh
+    xor eax, eax
+    mov edi, VBE_CELLS
+    mov ecx, 6
+    cld
+    rep stosd
+.vbe_fresh:
 
     ; Initialize serial port (COM1) for debugging
     call init_serial
@@ -3099,6 +3368,52 @@ DEFCODE "BOOT-MODE", BOOT_MODE, 0
     cmp dword [BLK_IMAGE_BASE], 0
     setne al
     push eax
+    NEXT
+
+; ---- BIOS VBE framebuffer (vbe_stub; 0 unless a `vbe` boot set a mode) ----
+; FB-ADDR FB-PITCH FB-W FB-H FB-BPP ( -- n ), VBE-MODE ( -- mode ),
+; VBE-STATUS ( -- 0..4 ), VBE-VERSION ( -- major ),
+; VBE-MODES ( -- addr n ) the usable modes, 8 bytes each: mode w h (u16),
+; bpp model (u8); VBE-OFFERED ( -- n ) how many modes the BIOS listed;
+; VBE-DEPTHS ( -- addr ) 5 counts: LFB graphics modes at 8/15/16/24/32 bpp.
+DEFCODE "VBE-MODE", VBE_MODE, 0
+    push dword [VBE_CELLS]
+    NEXT
+DEFCODE "FB-ADDR", FB_ADDR, 0
+    push dword [VBE_CELLS + 4]
+    NEXT
+DEFCODE "FB-PITCH", FB_PITCH, 0
+    push dword [VBE_CELLS + 8]
+    NEXT
+DEFCODE "FB-W", FB_W, 0
+    push dword [VBE_CELLS + 12]
+    NEXT
+DEFCODE "FB-H", FB_H, 0
+    push dword [VBE_CELLS + 16]
+    NEXT
+DEFCODE "FB-BPP", FB_BPP, 0
+    movzx eax, byte [VBE_CELLS + 20]
+    push eax
+    NEXT
+DEFCODE "VBE-STATUS", VBE_STATUS, 0
+    movzx eax, byte [VBE_CELLS + 21]
+    push eax
+    NEXT
+DEFCODE "VBE-VERSION", VBE_VERSION, 0
+    movzx eax, byte [VBE_CELLS + 23]
+    push eax
+    NEXT
+DEFCODE "VBE-MODES", VBE_MODES, 0
+    push dword vbe_modes
+    movzx eax, byte [vbe_nmodes]
+    push eax
+    NEXT
+DEFCODE "VBE-OFFERED", VBE_OFFERED, 0
+    movzx eax, byte [VBE_CELLS + 22]
+    push eax
+    NEXT
+DEFCODE "VBE-DEPTHS", VBE_DEPTHS, 0
+    push dword vbe_depths
     NEXT
 
 ; SCREEN ( -- addr ) the text buffer the screen shows: 0xB8000 on a BIOS

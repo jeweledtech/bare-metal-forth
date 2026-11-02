@@ -33,6 +33,7 @@
 KERNEL_OFFSET       equ 0x7E00      ; Where we load the kernel
 KERNEL_SECTORS      equ 224          ; 224 sectors = 112KB (matches kernel padding)
 STACK_TOP           equ 0x7C00      ; Stack below bootloader (grows down)
+VBE_STUB            equ KERNEL_OFFSET + 8  ; forth.asm vbe_stub (kernel_entry + 8)
 
 ; ============================================================================
 ; Entry Point
@@ -178,6 +179,11 @@ start:
 .no_memdisk:
     xor ax, ax
     mov es, ax
+
+    ; Kernel's real-mode VBE stub (forth.asm vbe_stub): sets a graphics
+    ; mode only when memdisk's command line says `vbe`; always records
+    ; the result cells at 0x280BC.  Far call: CS may not be 0 here.
+    call 0x0000:VBE_STUB
 
     ; Enable A20 line
     call enable_a20

@@ -161,7 +161,7 @@ PRIVATE_REPO ?= ../forthos-vocabularies
 # exits 0; 1 FAIL (PRIVATE_REPO set and absent, or present without a file).
 RUN_MODE = PRIVATE_REPO='$(PRIVATE_REPO)' PRIVATE_REPO_ORIGIN='$(origin PRIVATE_REPO)' python3 tests/run_mode.py
 RUN_MODE_END = rc=$$?; [ $$rc = 10 ] && exit 0; [ $$rc = 0 ] || exit 1
-PAID_VOCABS = ahci rtl8168 ntfs auto-detect fat32 surveyor file-editor-disk log-harness cd-atapi hal-machines atapi-ahci
+PAID_VOCABS = ahci rtl8168 ntfs auto-detect fat32 surveyor file-editor-disk log-harness cd-atapi hal-machines atapi-ahci urw-canvas
 
 check-sync:
 	@if [ ! -d "$(PRIVATE_REPO)/forth/dict" ]; then \

@@ -375,3 +375,25 @@ access is never removed.
 
 **Built:** slice 1 (the mechanism and the display contract), public
 ecfd978, docs/TASK_HAL_DISPLAY.md.
+
+## boot.bin touched for the BIOS VBE opt-in (November 2026)
+
+**Decision (owner, 2026-11-02; branch `unicorn-writer` only):** The
+iron-proven memdisk loader `boot.bin` gains one 5-byte instruction,
+`call 0x0000:0x7E08` (`9A 08 7E 00 00`), in real mode after the kernel is
+loaded and before A20 / protected mode. It calls `vbe_stub` in the kernel
+image, which sets a 32-bpp linear-framebuffer VBE mode only when memdisk's
+command line carries the word `vbe` (the GRUB entry "ForthOS - URWriter
+(graphics)"). Without `vbe` the stub only reads memory (the mBFT and the
+command line) and writes the six result cells at 0x280BC; it makes no BIOS
+call.
+
+**Consequences:**
+- The loader's DAP moved from offset 467 to 472. `tests/test_install.py`
+  Test 46b pins the new offset, citing this entry. The installer is
+  unaffected: it patches `vbr.bin` (VBR-LBA-OFF), not `boot.bin`.
+- vbr.bin and the multiboot2 entry never call the stub; `kernel_start`
+  zeroes the result cells for them (`test-vbe-nostub`).
+- **Merging to master needs Brenden's sign-off after HP validation.** That
+  validation boots all three BIOS GRUB entries on the HP: the existing
+  memdisk entry, the chainload entry, and the URWriter entry.
