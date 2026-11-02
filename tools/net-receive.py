@@ -8,6 +8,15 @@ and writes results to disk.
 Usage:
     python3 net-receive.py [--port 6666] [--outdir ./extracted/] [--verbose]
 
+Save-and-update: a sender that sets FLAG_REPLACE on chunk 0 (URWRITER's
+saves) overwrites <outdir>/<name> and keeps the previous version as one
+<name>.bak.  Only a session that saw EOF with no gaps replaces; anything
+else is written as <name>.partial and the good file is left alone.  A
+replace name must be a plain file name (no separators, not '.'/'..'/empty)
+or the session is refused and nothing is written.  Without the flag
+(FILE-STREAM) an existing file is never overwritten: the new one is
+numbered <stem>.1<ext>, <stem>.2<ext>, ...
+
 Protocol:
     See docs/2026-04-28-substrate-design.md for the framing specification.
     24-byte common header on all packets, 256-byte filename in chunk 0 only.
@@ -36,6 +45,7 @@ CHUNK0_EXTRA = FILENAME_SIZE  # Additional bytes in chunk 0 after common header
 
 FLAG_EOF = 0x0001
 FLAG_SPARSE = 0x0002
+FLAG_REPLACE = 0x0004     # chunk 0: overwrite <name>, keep one <name>.bak
 
 # struct format for common header (big-endian)
 HEADER_FMT = ">IIIIHH"
@@ -57,6 +67,8 @@ class Session:
     start_time: float = field(default_factory=time.time)
     last_activity: float = field(default_factory=time.time)
     complete: bool = False
+    replace: bool = False     # FLAG_REPLACE on chunk 0
+    eof_seen: bool = False    # the EOF frame arrived
 
 
 # ---------------------------------------------------------------------------
@@ -86,6 +98,7 @@ def parse_header(data: bytes) -> dict | None:
         "flags": flags,
         "eof": bool(flags & FLAG_EOF),
         "sparse": bool(flags & FLAG_SPARSE),
+        "replace": bool(flags & FLAG_REPLACE),
     }
 
 
@@ -148,8 +161,61 @@ def reassemble(session: Session) -> tuple[bytes, list[int]]:
     return result, gaps
 
 
+def _safe_name(name: str) -> bool:
+    """A replace target must be a plain file name inside outdir."""
+    if name in ("", ".", "..") or "/" in name or "\\" in name or "\x00" in name:
+        return False
+    return Path(name).name == name and not Path(name).is_absolute()
+
+
+def _finalize_replace(session: Session, outdir: Path, verbose: bool) -> dict:
+    """Save-and-update: overwrite <name>, keeping one <name>.bak."""
+    file_bytes, gaps = reassemble(session)
+    name = session.filename
+    entry = {
+        "filename": name,
+        "size": len(file_bytes),
+        "sha256": None,
+        "chunks_received": len(session.received_chunks),
+        "chunks_expected": (max(session.received_chunks.keys()) + 1
+                            if session.received_chunks else 0),
+        "gaps": gaps,
+        "duration_ms": int((time.time() - session.start_time) * 1000),
+        "session_id": f"0x{session.session_id:08x}",
+        "replaced": False,
+        "backup": None,
+    }
+    if not _safe_name(name):
+        entry.update(status="refused", output_path=None)
+        if verbose:
+            print(f"  [refused] replace name {name!r}: not a plain file name",
+                  file=sys.stderr)
+        return entry
+    out_path = outdir / name
+    if gaps or not session.eof_seen:
+        partial = outdir / (name + ".partial")
+        partial.write_bytes(file_bytes)
+        entry.update(status="incomplete", output_path=str(partial))
+    else:
+        tmp = outdir / f".{name}.{session.session_id:08x}.tmp"
+        tmp.write_bytes(file_bytes)
+        if out_path.exists():
+            bak = outdir / (name + ".bak")
+            os.replace(out_path, bak)
+            entry.update(replaced=True, backup=str(bak))
+        os.replace(tmp, out_path)
+        entry.update(status="complete", output_path=str(out_path),
+                     sha256=hashlib.sha256(file_bytes).hexdigest())
+    if verbose:
+        print(f"  [{entry['status']}] {name}: {len(file_bytes)} bytes, "
+              f"replaced={entry['replaced']}", file=sys.stderr)
+    return entry
+
+
 def finalize_session(session: Session, outdir: Path, verbose: bool = False) -> dict:
     """Reassemble, verify, write file, return log entry."""
+    if session.replace:
+        return _finalize_replace(session, outdir, verbose)
     file_bytes, gaps = reassemble(session)
 
     # Compute SHA-256
@@ -194,6 +260,8 @@ def finalize_session(session: Session, outdir: Path, verbose: bool = False) -> d
         "session_id": f"0x{session.session_id:08x}",
         "status": status,
         "output_path": str(out_path),
+        "replaced": False,
+        "backup": None,
     }
 
     if verbose:
@@ -201,6 +269,69 @@ def finalize_session(session: Session, outdir: Path, verbose: bool = False) -> d
               f"SHA-256={sha256 or 'N/A'}", file=sys.stderr)
 
     return log_entry
+
+
+def handle_datagram(sessions: dict, data: bytes, outdir: Path,
+                    verbose: bool = False, addr=None) -> dict | None:
+    """One received datagram: store it; on EOF finalize and return the log."""
+    header = parse_header(data)
+    if header is None:
+        if verbose:
+            print(f"  [skip] Non-FBLK packet from {addr}", file=sys.stderr)
+        return None
+
+    sid = header["session_id"]
+    idx = header["chunk_index"]
+
+    # Create or retrieve session
+    if sid not in sessions:
+        if idx == 0:
+            filename = parse_chunk0_filename(data)
+            sessions[sid] = Session(
+                session_id=sid,
+                filename=filename,
+                total_size=header["total_size"],
+                replace=header["replace"],
+            )
+            if verbose:
+                print(f"  [new] session 0x{sid:08x}: {filename} "
+                      f"({header['total_size']} bytes)", file=sys.stderr)
+        else:
+            # Missed chunk 0 -- create session with placeholder
+            sessions[sid] = Session(
+                session_id=sid,
+                filename=f"unknown_{sid:08x}",
+                total_size=header["total_size"],
+            )
+            if verbose:
+                print(f"  [warn] session 0x{sid:08x}: missed chunk 0",
+                      file=sys.stderr)
+
+    session = sessions[sid]
+    session.last_activity = time.time()
+
+    # Extract and store payload
+    payload = extract_payload(data, idx)
+
+    if header["sparse"]:
+        # Sparse chunk: payload should be treated as zeros
+        payload = b"\x00" * header["payload_len"]
+
+    # Only store up to declared payload_len
+    payload = payload[:header["payload_len"]]
+    session.received_chunks[idx] = payload
+    session.max_chunk_seen = max(session.max_chunk_seen, idx)
+
+    if verbose and idx % 100 == 0 and idx > 0:
+        print(f"  [progress] 0x{sid:08x}: chunk {idx}", file=sys.stderr)
+
+    # Check for completion
+    if header["eof"]:
+        session.eof_seen = True
+        log_entry = finalize_session(session, outdir, verbose)
+        del sessions[sid]
+        return log_entry
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -230,61 +361,9 @@ def run_receiver(port: int, outdir: Path, timeout: float, verbose: bool):
                 _expire_stale(sessions, outdir, timeout, verbose)
                 continue
 
-            header = parse_header(data)
-            if header is None:
-                if verbose:
-                    print(f"  [skip] Non-FBLK packet from {addr}", file=sys.stderr)
-                continue
-
-            sid = header["session_id"]
-            idx = header["chunk_index"]
-
-            # Create or retrieve session
-            if sid not in sessions:
-                if idx == 0:
-                    filename = parse_chunk0_filename(data)
-                    sessions[sid] = Session(
-                        session_id=sid,
-                        filename=filename,
-                        total_size=header["total_size"],
-                    )
-                    if verbose:
-                        print(f"  [new] session 0x{sid:08x}: {filename} "
-                              f"({header['total_size']} bytes)", file=sys.stderr)
-                else:
-                    # Missed chunk 0 — create session with placeholder
-                    sessions[sid] = Session(
-                        session_id=sid,
-                        filename=f"unknown_{sid:08x}",
-                        total_size=header["total_size"],
-                    )
-                    if verbose:
-                        print(f"  [warn] session 0x{sid:08x}: missed chunk 0",
-                              file=sys.stderr)
-
-            session = sessions[sid]
-            session.last_activity = time.time()
-
-            # Extract and store payload
-            payload = extract_payload(data, idx)
-
-            if header["sparse"]:
-                # Sparse chunk: payload should be treated as zeros
-                payload = b"\x00" * header["payload_len"]
-
-            # Only store up to declared payload_len
-            payload = payload[:header["payload_len"]]
-            session.received_chunks[idx] = payload
-            session.max_chunk_seen = max(session.max_chunk_seen, idx)
-
-            if verbose and idx % 100 == 0 and idx > 0:
-                print(f"  [progress] 0x{sid:08x}: chunk {idx}", file=sys.stderr)
-
-            # Check for completion
-            if header["eof"]:
-                log_entry = finalize_session(session, outdir, verbose)
+            log_entry = handle_datagram(sessions, data, outdir, verbose, addr)
+            if log_entry is not None:
                 print(json.dumps(log_entry), flush=True)
-                del sessions[sid]
 
     except KeyboardInterrupt:
         print(f"\nStopping. {len(sessions)} sessions in flight.", file=sys.stderr)
