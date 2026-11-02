@@ -14,6 +14,11 @@
 \ button that ended it (BUTTON: x y w "l" id,
 \ UI-PARSER's WTO-CID), IDCANCEL on Esc.
 \ Tab moves focus, Enter on a button ends.
+\ A button given a word by CID-WIRE runs
+\ it on Enter instead, and the dialog goes
+\ on, as a dialog procedure handles
+\ WM_COMMAND (private
+\ TASK_REACTOS_NOTEPAD_FORMS).
 \ On exit PAGE clears the screen and puts
 \ the console cursor at 0,0, so the console
 \ never scrolls a stale form.
@@ -225,6 +230,25 @@ VARIABLE DD-R
   DUP CH-SPACE = IF
     DROP DL-NEXT DL-SCROLL EXIT THEN
   IC-BS = IF DL-PREV DL-SCROLL THEN ;
+
+\ ---- Control ID to action -------------
+\ Every button with control ID cid gets
+\ xt; n is how many. xt 0 unwires.
+VARIABLE CW-N
+: CID-WIRE ( xt cid -- n )
+  0 CW-N !
+  WT-COUNT @ DUP 0 > IF
+    0 DO
+      I DL-WA
+      DUP WTO-TYPE + C@ WT-BUTTON = IF
+        DUP WTO-CID + @ 2 PICK = IF
+          2 PICK OVER WTO-XT + !
+          1 CW-N +!
+        THEN
+      THEN DROP
+    LOOP
+  ELSE DROP THEN
+  2DROP CW-N @ ;
 HEX
 
 VARIABLE DR-ID
@@ -238,6 +262,11 @@ VARIABLE DR-DONE
 : DR-END ( id -- )
   DR-ID !  TRUE DR-DONE ! ;
 
+\ The focused widget's word (CID-WIRE).
+: DR-XT ( -- xt )
+  FOCUS-IDX @ WT-ESIZE * WT-BASE +
+  WTO-XT + @ ;
+
 : DR-KEY ( key -- )
   DUP KEY-ESC = IF
     DROP IDCANCEL DR-END EXIT THEN
@@ -245,7 +274,8 @@ VARIABLE DR-DONE
     DROP FOCUS-NEXT EXIT THEN
   KEY-ENTER = IF
     FOCUSED-TYPE WT-BUTTON = IF
-      DR-CID DR-END
+      DR-XT ?DUP IF EXECUTE
+      ELSE DR-CID DR-END THEN
     THEN
     FOCUSED-TYPE WT-DROPBOX = IF
       DL-TRY-OPEN
