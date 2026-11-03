@@ -1623,7 +1623,7 @@ test-vbe-nostub: $(VBR) $(KERNEL) $(COMBINED)
 # entry "ForthOS - URWriter (graphics)", the canvas words and CANVAS-DEMO
 # checked on QEMU's screendump.  Serial +129, monitor +130.
 T_URW_CANVAS ?= 300
-test-urw-canvas: $(COMBINED)
+test-urw-canvas: $(call FULL_ONLY,$(COMBINED))
 	@$(RUN_MODE) test-urw-canvas --private forth/dict/urw-canvas.fth tests/test_urw_canvas.py; $(RUN_MODE_END); \
 	QPIDDIR=$(BUILD)/test-urw-canvas.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
 	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-urw-canvas --base $(TEST_PORT_BASE); \

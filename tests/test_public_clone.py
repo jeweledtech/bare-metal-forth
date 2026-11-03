@@ -5,9 +5,9 @@ TASK_PUBLIC_CLONE_SUITE).
 A clone of this repo's committed HEAD in a mktemp directory, with no
 private repo beside it (public mode at the Makefile default), host only:
 no QEMU is started.
-  P1 (74) make -n <t> never stops at "No rule to make target", for every
-          target on test: (the pinned 74 and the clone's test: line).
-  P2 (26) each skip-whole target runs its run-mode guard first, ends with
+  P1 (79) make -n <t> never stops at "No rule to make target", for every
+          target on test: (the pinned 79 and the clone's test: line).
+  P2 (27) each skip-whole target runs its run-mode guard first, ends with
           its exact SKIPPED line, exits 0 and builds no build/combined.img.
   P3 (1)  the free tier builds the usual names from the free set:
           build/kernel.bin = build/kernel-free.bin.
@@ -32,34 +32,37 @@ import sys
 import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-TOTAL = 107
+TOTAL = 113
 
-# The 29 that run on the free kernel in a public clone (measured, M1/M2;
-# test-block-read-error added by private TASK_KERNEL_BLOCK_READ_ERROR).
+# The 31 that run on the free kernel in a public clone (measured, M1/M2;
+# test-block-read-error added by private TASK_KERNEL_BLOCK_READ_ERROR;
+# test-vbe-boot and test-vbe-nostub by private TASK_UNICORN_WRITER, measured
+# in a public clone 2026-11-02).
 RUN = '''test-xhci test-pci-bar test-block-reload test-blk-evict test-block-read-error test-stack-floor
 test-vga-wrap test-reload-vocab test-load-vocab test-vbr test-pxe-label test-uefi2-gdt
 test-carrier-write-safe test-memdisk test-mirror test-hal test-hal-match test-network
 test-vocabs test-integration test-file-stream test-net-flush-lf test-console-band
 test-window-focus test-search-order test-vocab-dedup test-window-forms test-double-cell
-test-forth83'''.split()
-# The 26 that skip whole, and the reason each names.
+test-forth83 test-vbe-boot test-vbe-nostub'''.split()
+# The 27 that skip whole, and the reason each names.
 PRIVATE_TEST = '''test-log-harness test-log-harness-nic test-log-restore test-log-validation
 test-log-send test-dlg2form test-rtl8168-cksum test-hal-match-hp test-pipeline-e2e
-test-arm64-boot test-meta-b6b test-gui test-translator'''.split()
+test-arm64-boot test-meta-b6b test-gui test-translator test-urw-canvas'''.split()
 NEEDS_VOCABS = '''test-firstboot test-install test-resolve-deps test-uefi-boot
 test-uefi-netboot test-g6 test-hal-net test-interp-abort test-pad-move test-abort-routes
 test-phys-alloc'''.split()
 SKIP = {t: 'the test is private' for t in PRIVATE_TEST}
 SKIP.update({t: 'needs the private vocabularies' for t in NEEDS_VOCABS + ['test-survey']})
 SKIP['check-sync'] = 'no private repo to compare'
-# The 2 whose scripts print SKIPPED themselves, and the other 17.
+# The 2 whose scripts print SKIPPED themselves, and the other 19 (test-nasm-pin
+# and test-net-receive-replace host-only, private TASK_UNICORN_WRITER).
 SELF_SKIP = ['test-phys-refuse', 'test-read-flags']
 OTHER = '''lint check-coverage test-smoke test-loops test-abort test-dict-bounds
 test-pci-typing test-squote-laydown test-log-decode-layout test-grub-cfg test-doc-drift
 test-make-wiring test-port-inventory test-kill-traps test-pipeline
-test-free-boot test-public-clone'''.split()
+test-free-boot test-public-clone test-nasm-pin test-net-receive-replace'''.split()
 ALL = RUN + list(SKIP) + SELF_SKIP + OTHER
-assert (len(RUN), len(SKIP), len(SELF_SKIP), len(OTHER), len(set(ALL))) == (29, 26, 2, 17, 74)
+assert (len(RUN), len(SKIP), len(SELF_SKIP), len(OTHER), len(set(ALL))) == (31, 27, 2, 19, 79)
 
 PASS = FAIL = 0
 
