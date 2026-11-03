@@ -5,9 +5,9 @@ TASK_PUBLIC_CLONE_SUITE).
 A clone of this repo's committed HEAD in a mktemp directory, with no
 private repo beside it (public mode at the Makefile default), host only:
 no QEMU is started.
-  P1 (74) make -n <t> never stops at "No rule to make target", for every
+  P1 (75) make -n <t> never stops at "No rule to make target", for every
           target on test: (the pinned 74 and the clone's test: line).
-  P2 (26) each skip-whole target runs its run-mode guard first, ends with
+  P2 (27) each skip-whole target runs its run-mode guard first, ends with
           its exact SKIPPED line, exits 0 and builds no build/combined.img.
   P3 (1)  the free tier builds the usual names from the free set:
           build/kernel.bin = build/kernel-free.bin.
@@ -32,7 +32,7 @@ import sys
 import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-TOTAL = 107
+TOTAL = 109
 
 # The 29 that run on the free kernel in a public clone (measured, M1/M2;
 # test-block-read-error added by private TASK_KERNEL_BLOCK_READ_ERROR).
@@ -42,7 +42,7 @@ test-carrier-write-safe test-memdisk test-mirror test-hal test-hal-match test-ne
 test-vocabs test-integration test-file-stream test-net-flush-lf test-console-band
 test-window-focus test-search-order test-vocab-dedup test-window-forms test-double-cell
 test-forth83'''.split()
-# The 26 that skip whole, and the reason each names.
+# The 27 that skip whole, and the reason each names.
 PRIVATE_TEST = '''test-log-harness test-log-harness-nic test-log-restore test-log-validation
 test-log-send test-dlg2form test-rtl8168-cksum test-hal-match-hp test-pipeline-e2e
 test-arm64-boot test-meta-b6b test-gui test-translator'''.split()
@@ -52,6 +52,7 @@ test-phys-alloc'''.split()
 SKIP = {t: 'the test is private' for t in PRIVATE_TEST}
 SKIP.update({t: 'needs the private vocabularies' for t in NEEDS_VOCABS + ['test-survey']})
 SKIP['check-sync'] = 'no private repo to compare'
+SKIP['test-check-sync'] = 'no private repo to compare'
 # The 2 whose scripts print SKIPPED themselves, and the other 17.
 SELF_SKIP = ['test-phys-refuse', 'test-read-flags']
 OTHER = '''lint check-coverage test-smoke test-loops test-abort test-dict-bounds
@@ -59,7 +60,7 @@ test-pci-typing test-squote-laydown test-log-decode-layout test-grub-cfg test-do
 test-make-wiring test-port-inventory test-kill-traps test-pipeline
 test-free-boot test-public-clone'''.split()
 ALL = RUN + list(SKIP) + SELF_SKIP + OTHER
-assert (len(RUN), len(SKIP), len(SELF_SKIP), len(OTHER), len(set(ALL))) == (29, 26, 2, 17, 74)
+assert (len(RUN), len(SKIP), len(SELF_SKIP), len(OTHER), len(set(ALL))) == (29, 27, 2, 17, 75)
 
 PASS = FAIL = 0
 
