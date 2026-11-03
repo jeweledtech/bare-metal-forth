@@ -794,7 +794,7 @@ test-install: $(call FULL_ONLY,$(COMBINED) $(BOOTLOADER) $(VBR) $(IMAGE))
 	echo "Running INSTALL allowlist test..."; \
 	$(QEMU) -drive file=$(COMBINED),format=raw,if=floppy \
 		-drive file=$(COMBINED_IDE),format=raw,if=ide,index=1 \
-		-device loader,file=$(IMAGE),addr=0xF10000,force-raw=on \
+		-device loader,file=$(IMAGE),addr=0x3310000,force-raw=on \
 		-serial tcp:127.0.0.1:$$PORT,server=on,wait=off \
 		-display none -daemonize -pidfile $$PIDF; \
 	sleep 2; \

@@ -50,8 +50,11 @@ Address Range           Size        Purpose
 0x30000 - 0x7FFFF       320 KB      Dictionary space
 0xB8000 - 0xB8F9F       4000 B      VGA text buffer (80 x 25 x 2 bytes)
 0x100000 - 0x3FFFFF     3 MB        Physical allocation pool (DMA buffers)
-0x400000 - 0xFFFFFF     12 MB       Application region, BIOS boots: Unicorn and Rainbows
-                                    Writer (private; canvas back-buffer at 0x400000, 5 MB)
+0x400000 -              UEFI boots: the boot module (block image) moved to MB2_MOVE_TO,
+                                    its size from 0x400000 (about 4.1 MB at 4096 blocks)
+0x1000000 - 0x23FFFFF   20 MB       FILE-BROWSER's NTFS maps (MAP-BASE and its offsets)
+0x2800000 - 0x33FFFFF   12 MB       Application region: Unicorn and Rainbows Writer (private;
+                                    canvas back-buffer at 0x2800000, 5 MB; memory plan v4)
 VBE LFB (PhysBasePtr)               BIOS VBE framebuffer when a `vbe` boot set a mode (MMIO)
 ```
 
