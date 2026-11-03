@@ -139,13 +139,13 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 104,
-    "source": "$(PRIVATE_REPO)/tests/test_dlg2form.py:544"
+    "source": "$(PRIVATE_REPO)/tests/test_dlg2form.py:735"
    },
    {
     "form": "tcp:127.0.0.1:P",
     "kind": "monitor",
     "offset": 105,
-    "source": "$(PRIVATE_REPO)/tests/test_dlg2form.py:545"
+    "source": "$(PRIVATE_REPO)/tests/test_dlg2form.py:736"
    }
   ]
  },
@@ -809,13 +809,13 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 129,
-    "source": "$(PRIVATE_REPO)/tests/test_urw_canvas.py:160"
+    "source": "$(PRIVATE_REPO)/tests/test_urw_canvas.py:218"
    },
    {
     "form": "tcp:127.0.0.1:P",
     "kind": "monitor",
     "offset": 130,
-    "source": "$(PRIVATE_REPO)/tests/test_urw_canvas.py:161"
+    "source": "$(PRIVATE_REPO)/tests/test_urw_canvas.py:219"
    }
   ]
  },
@@ -841,13 +841,13 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 131,
-    "source": "tests/test_vbe_nostub.py:226"
+    "source": "tests/test_vbe_nostub.py:227"
    },
    {
     "form": "tcp:127.0.0.1:P",
     "kind": "monitor",
     "offset": 132,
-    "source": "tests/test_vbe_nostub.py:227"
+    "source": "tests/test_vbe_nostub.py:228"
    }
   ]
  },

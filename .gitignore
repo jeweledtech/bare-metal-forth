@@ -65,6 +65,12 @@ forth/dict/port-monitor-form.fth
 forth/dict/iyuv-about-form.fth
 forth/dict/mfc-keyboard-form.fth
 forth/dict/input-keyseq-form.fth
+# ReactOS notepad, from ~/corpus (private TASK_REACTOS_NOTEPAD_FORMS):
+# dlg2form and imports2forth output, and its demo; private files only
+forth/dict/ros-notepad-goto-form.fth
+forth/dict/ros-notepad-printing-form.fth
+forth/dict/ros-notepad-imports.fth
+forth/dict/ros-notepad.fth
 # Private test fixture (TASK_DLG2FORM_ITEMS), copied here to build
 forth/dict/items-test-form.fth
 
