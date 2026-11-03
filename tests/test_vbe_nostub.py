@@ -19,8 +19,9 @@ writes POISON into the six cells and a CONTROL value at 0x280F0, which
 nothing in the kernel touches (0x280D4-0x280FF is unassigned,
 docs/ARCHITECTURE.md), and lets it run.  The control reading back proves
 the write landed and survived to the prompt; the cells reading 0 then
-prove kernel_start cleared them.  The gdb stub is a Unix socket under
-build/ (no TCP port).
+prove kernel_start cleared them.  The gdb stub is a Unix socket in a
+short temp directory (no TCP port; under build/ its path passes the
+108-byte sun_path limit in a checkout at a long path).
 
 Legs (serial on argv[1], monitor on argv[2]):
   R  vbr.bin (DAP LBA baked to 1) + kernel.bin as a SeaBIOS hard disk;
@@ -217,7 +218,7 @@ def run_leg(leg, cmd, screendump):
     pidf = qemu_pid.pidfile('vbe-nostub-' + leg)
     qemu_pid.kill_pidfile(pidf)
     err = os.path.join(ROOT, 'build', f'vbe-nostub-{leg}-qemu.err')
-    gdbpath = os.path.join(ROOT, 'build', f'vbe-nostub-{leg}.gdb')
+    gdbpath = os.path.join(SOCKDIR, f'{leg}.gdb')
     if os.path.exists(gdbpath):
         os.remove(gdbpath)
     cmd = cmd + [
@@ -250,6 +251,7 @@ print(f'  poison {POISON:#x} at {CELLS:#x}..{CELLS + 23:#x}, '
 
 # R: vbr.bin + kernel.bin, SeaBIOS hard disk (test_vbr_boot.py's layout)
 work = tempfile.mkdtemp(prefix='forthos-vbe-nostub-')
+SOCKDIR = tempfile.mkdtemp(prefix='fvn-')
 try:
     vbr = bytearray(open(VBR, 'rb').read())
     dap = re.compile(b'\x10\x00..\x00\x7e\x00\x00\xef\xbe\xad\xde\x00\x00\x00\x00',
@@ -324,6 +326,7 @@ try:
     check('M5 mb2: console answers 5', '5 ok' in five, five)
 finally:
     shutil.rmtree(work, ignore_errors=True)
+    shutil.rmtree(SOCKDIR, ignore_errors=True)
 
 print(f'\nPassed: {PASS}/{TOTAL}')
 sys.exit(0 if PASS == TOTAL and FAIL == 0 else 1)
