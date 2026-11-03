@@ -195,6 +195,18 @@ check-sync:
 		printf '%s\n' "$$LEAK" | sed 's/^/LEAK RISK (tracked in private, on disk here, not ignored here): /'; \
 		FAIL=1; \
 	fi; \
+	COPIES=$$(git -C "$(PRIVATE_REPO)" ls-files | while IFS= read -r f; do \
+		[ -e "$$f" ] || continue; \
+		git ls-files --error-unmatch -- "$$f" >/dev/null 2>&1 && continue; \
+		git check-ignore -q -- "$$f" || continue; \
+		case " $(addprefix forth/dict/,$(addsuffix .fth,$(PAID_VOCABS))) " in *" $$f "*) continue;; esac; \
+		case "$$f" in tests/*/*) ;; tests/*.py) continue;; esac; \
+		echo "C $$f"; \
+		cmp -s "$$f" "$(PRIVATE_REPO)/$$f" || echo "D $$f"; \
+	done); \
+	printf '%s\n' "$$COPIES" | sed -n 's/^D /DIVERGED: /p'; \
+	if printf '%s\n' "$$COPIES" | grep -q '^D '; then FAIL=1; fi; \
+	echo "check-sync: $$(printf '%s\n' "$$COPIES" | grep -c '^C ') build copies compared"; \
 	if [ $$FAIL -ne 0 ]; then \
 		echo "check-sync FAILED: paid files diverged, missing, or at leak risk"; \
 		exit 1; \
