@@ -22,6 +22,20 @@ memdisk / pxelinux.0 / ldlinux.c32 default to the Ubuntu package paths
 FORTHOS_LDLINUX override them.  Absent, the N and V legs cannot run and
 the suite fails, naming the package.
 
+Two more memdisk `vbe` boots run under QEMU's gdb stub (Brenden's review,
+2026-11-06: on VBE 3.0+ the stub must judge the linear colour masks,
+ModeInfoBlock 0x36-0x3B, not the banked ones at 0x1F-0x24, since the mode
+it sets is the linear one).  A hardware breakpoint on the instruction
+after the stub's 4F01h `int 0x10` (found in kernel.bin by its bytes, not
+hard-coded; each stop is checked against guest memory, since pxelinux and
+memdisk run near 0x7E00 too) stops the guest at every mode-info return,
+and the test overwrites one mask set with a BGR layout (R 8@0, G 8@8,
+B 8@16) before the stub reads it:
+  L  linear masks BGR, banked left as the BIOS wrote them -> no mode
+  B  banked masks BGR, linear left as the BIOS wrote them -> a mode
+L0 records QEMU's own linear masks (the authority that the V leg's
+mode is still found once the stub reads them).
+
 Not covered here: the vbr.asm and multiboot2 entries, which never call
 the stub; kernel_start zeroes the cells for them (vbe_fresh = 0).
 """
@@ -46,9 +60,16 @@ MEMDISK = os.environ.get('FORTHOS_MEMDISK', '/usr/lib/syslinux/memdisk')
 PXELINUX = os.environ.get('FORTHOS_PXELINUX', '/usr/lib/PXELINUX/pxelinux.0')
 LDLINUX = os.environ.get('FORTHOS_LDLINUX',
                          '/usr/lib/syslinux/modules/bios/ldlinux.c32')
+KERNEL = os.path.join(ROOT, 'build', 'kernel.bin')
 PREFS = [(1366, 768), (1360, 768), (1280, 800), (1280, 768),
          (1024, 768), (800, 600), (640, 480)]
-TOTAL = 23
+KERNEL_ORG = 0x7E00
+MI = 0x28400                    # VBE_SCRATCH_SEG * 16 + VBE_MI: the ModeInfoBlock
+# mov ax, 0x4F01 / mov di, VBE_MI / int 0x10: the stub's mode-info call
+MI_CALL = bytes.fromhex('b8014f' 'bf0002' 'cd10')
+MASKS_888 = bytes.fromhex('081008080800')   # R 8@16, G 8@8, B 8@0
+MASKS_BGR = bytes.fromhex('080008081008')   # R 8@0,  G 8@8, B 8@16
+TOTAL = 31
 PASS = FAIL = 0
 
 
@@ -163,6 +184,131 @@ def run_leg(leg, args):
         qemu_pid.kill_pidfile(pidf)
 
 
+class Gdb:
+    """Just enough of the gdb remote protocol (as in test_vbe_nostub.py)."""
+
+    def __init__(self, path, budget=20):
+        t0 = time.time()
+        while True:
+            try:
+                self.s = socket.socket(socket.AF_UNIX)
+                self.s.connect(path)
+                break
+            except OSError:
+                if time.time() - t0 > budget:
+                    raise
+                time.sleep(0.2)
+        self.s.settimeout(1)
+
+    def recv(self, budget):
+        buf, t0 = b'', time.time()
+        while time.time() - t0 < budget:
+            try:
+                d = self.s.recv(4096)
+            except socket.timeout:
+                continue
+            if not d:
+                break
+            buf += d
+            m = re.search(rb'\$([^#]*)#[0-9a-fA-F]{2}', buf)
+            if m:
+                self.s.sendall(b'+')
+                return m.group(1).decode()
+        raise TimeoutError(f'gdb: no reply in {budget} s ({buf[-80:]!r})')
+
+    def cmd(self, body, budget=10):
+        ck = sum(body.encode()) & 0xFF
+        self.s.sendall(f'${body}#{ck:02x}'.encode())
+        return self.recv(budget)
+
+    def read(self, addr, n):
+        return bytes.fromhex(self.cmd(f'm{addr:x},{n:x}'))
+
+    def write(self, addr, data):
+        return self.cmd(f'M{addr:x},{len(data):x}:{data.hex()}')
+
+    def eip(self):
+        return int.from_bytes(bytes.fromhex(self.cmd('g')[64:72]), 'little')
+
+    def close(self):
+        try:
+            self.s.sendall(b'$D#44')
+        except OSError:
+            pass
+        self.s.close()
+
+
+def stub_addrs():
+    """(after the 4F01h int 0x10, kernel_start) from kernel.bin's bytes."""
+    k = open(KERNEL, 'rb').read()
+    hits = [m.start() for m in re.finditer(re.escape(MI_CALL), k)]
+    assert len(hits) == 1, f'4F01h call found {len(hits)} times in kernel.bin'
+    assert k[0] == 0xE9, 'kernel_entry is not a near jmp'
+    ks = KERNEL_ORG + 5 + int.from_bytes(k[1:5], 'little', signed=True)
+    return KERNEL_ORG + hits[0] + len(MI_CALL), ks, k
+
+
+def patch_masks(gdbpath, field, budget=120):
+    """Stop at every 4F01h return of the stub, record the BIOS's linear
+    masks of each usable 32-bpp direct-colour mode, overwrite the 6 mask
+    bytes at MI + field with MASKS_BGR; detach at kernel_start."""
+    ret, ks, k = stub_addrs()
+    want_ret = k[ret - len(MI_CALL) - KERNEL_ORG:ret - KERNEL_ORG]
+    want_ks = k[ks - KERNEL_ORG:ks - KERNEL_ORG + 8]
+    g = Gdb(gdbpath)
+    hits, spurious, lin = 0, 0, []
+    try:
+        for a in (ret, ks):
+            assert g.cmd(f'Z1,{a:x},1') == 'OK'
+        t0 = time.time()
+        while time.time() - t0 < budget:
+            g.s.sendall(b'$c#63')
+            g.recv(budget)
+            pc = g.eip()
+            if pc == ks and g.read(ks, 8) == want_ks:
+                break
+            if pc == ret and g.read(ret - len(MI_CALL), len(MI_CALL)) == want_ret:
+                hits += 1
+                mi = g.read(MI, 0x3C)
+                if (int.from_bytes(mi[0:2], 'little') & 0x99) == 0x99 \
+                        and mi[0x19] == 32 and mi[0x1B] == 6:
+                    lin.append(mi[0x36:0x3C].hex())
+                g.write(MI + field, MASKS_BGR)
+            else:
+                spurious += 1
+            # step off the breakpoint before continuing
+            g.cmd(f'z1,{pc:x},1') if pc in (ret, ks) else None
+            g.cmd('s', budget)
+            if pc in (ret, ks):
+                g.cmd(f'Z1,{pc:x},1')
+        else:
+            raise TimeoutError('kernel_start never reached')
+        for a in (ret, ks):
+            g.cmd(f'z1,{a:x},1')
+        return {'ret': hex(ret), 'kernel_start': hex(ks), 'hits': hits,
+                'spurious': spurious, 'linear': sorted(set(lin)), 'usable32': len(lin)}
+    finally:
+        g.close()
+        time.sleep(0.3)
+        monitor('cont', wait=0.5)    # QEMU pauses the VM when gdb detaches
+
+
+def run_patched(leg, args, field):
+    sock = os.path.join(SOCKDIR, f'{leg}.gdb')
+    pidf = boot(leg, args + ['-S', '-chardev', f'socket,id=gdb0,path={sock},server=on,wait=off',
+                             '-gdb', 'chardev:gdb0'])
+    try:
+        info = patch_masks(sock, field)
+        s = ser.connect_and_sync(SPORT, budget=90)
+        q = nums(ser.send_until_prompt(s, Q, budget=20)[0])
+        five = ser.send_until_prompt(s, '2 3 + .', budget=10)[0]
+        size = screen_size(os.path.join(ROOT, 'build', f'vbe-{leg}.ppm'))
+        s.close()
+        return q, five, size, info
+    finally:
+        qemu_pid.kill_pidfile(pidf)
+
+
 print('=== VBE opt-in at boot (vbe_stub, FB-* words) ===')
 for p, pkg in ((MEMDISK, 'syslinux-common'), (PXELINUX, 'pxelinux'),
                (LDLINUX, 'syslinux-common')):
@@ -234,6 +380,37 @@ check('V14 vbe: VBE-OFFERED >= the usable modes, and >= all LFB depths counted',
       and off >= sum(depths), extra)
 check('V15 vbe: VBE-DEPTHS 32-bpp count >= the usable modes recorded',
       len(depths) == 5 and depths[4] >= len(table), extra)
+v_wh = (w, h)
+
+# L and B: one mask set rewritten at every 4F01h return (gdb stub)
+SOCKDIR = tempfile.mkdtemp(prefix='fvb-')
+try:
+    d = tftp_root(' vbe')
+    q, five, size, info = run_patched('linbad', net(d), 0x36)
+    shutil.rmtree(d)
+    print(f'  linear masks BGR: {q} screen {size} gdb {info}')
+    st, mode, fb, pitch, w, h, bpp, ver, bm = (q + [None] * 9)[:9]
+    check('L0 QEMU VBE 3 BIOS: every usable 32-bpp mode has linear masks 8@16 8@8 8@0',
+          info['usable32'] >= 1 and info['linear'] == [MASKS_888.hex()], info)
+    check('L1 linear masks rewritten at every 4F01h return (VBE-VERSION 3)',
+          info['hits'] >= 1 and ver == 3, f"hits {info['hits']} version {ver}")
+    check('L2 linear masks BGR: VBE-STATUS 3 (no mode), VBE-MODE 0, FB-ADDR 0',
+          st == 3 and mode == 0 and fb == 0, q)
+    check('L3 linear masks BGR: QEMU shows text mode (720x400)', size == (720, 400), size)
+    check('L4 linear masks BGR: console answers 5', '5 ok' in five, five)
+
+    d = tftp_root(' vbe')
+    q, five, size, info = run_patched('bankbad', net(d), 0x1F)
+    shutil.rmtree(d)
+    print(f'  banked masks BGR: {q} screen {size} gdb {info}')
+    st, mode, fb, pitch, w, h, bpp, ver, bm = (q + [None] * 9)[:9]
+    check('B1 banked masks BGR, linear intact: VBE-STATUS 1, FB-BPP 32, the V leg\'s FB-W x FB-H',
+          st == 1 and bpp == 32 and (w, h) == v_wh and info['hits'] >= 1, f'{q} V {v_wh}')
+    check('B2 banked masks BGR: QEMU shows FB-W x FB-H', size == (w, h) and st == 1,
+          f'{size} vs {(w, h)}')
+    check('B3 banked masks BGR: console answers 5', '5 ok' in five, five)
+finally:
+    shutil.rmtree(SOCKDIR, ignore_errors=True)
 
 print(f'\nPassed: {PASS}/{TOTAL}')
 sys.exit(0 if PASS == TOTAL and FAIL == 0 else 1)
