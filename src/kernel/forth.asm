@@ -352,7 +352,9 @@ KERNEL_DATA_SEL equ 0x10
 ; never call the stub; a warm reboot cannot leave old values behind).
 ;
 ; Usable: supported, colour, graphics, linear-framebuffer (attributes
-; 0x99), 32 bpp, direct colour (model 6), 8:8:8 masks at bits 16/8/0.
+; 0x99), 32 bpp, direct colour (model 6), 8:8:8 masks at bits 16/8/0
+; (the banked masks at 0x1F on VBE < 3.0, the linear ones at 0x36 on 3.0+:
+; the mode set is the LFB one).
 ; Every usable mode (up to VBE_MAX_MODES) is recorded for VBE-MODES; the
 ; one set is the usable mode earliest in vbe_prefs.
 ;
@@ -498,9 +500,14 @@ vbe_stub:
     jne .mode
     cmp byte [es:VBE_MI + 0x1B], 6
     jne .mode
-    cmp dword [es:VBE_MI + 0x1F], 0x08081008  ; R 8@16, G 8@...
+    mov bx, 0x1F                          ; banked masks (VBE 1.2-2.0)
+    cmp byte [fs:0xD3], 3
+    jb .masks
+    mov bx, 0x36                          ; VBE 3.0: LinRedMaskSize.., the LFB's
+.masks:
+    cmp dword [es:VBE_MI + bx], 0x08081008    ; R 8@16, G 8@...
     jne .mode
-    cmp word [es:VBE_MI + 0x23], 0x0008       ; ...8, B 8@0
+    cmp word [es:VBE_MI + bx + 4], 0x0008     ; ...8, B 8@0
     jne .mode
     movzx bx, byte [vbe_nmodes]           ; record it (mode, w, h, bpp, model)
     cmp bx, VBE_MAX_MODES
