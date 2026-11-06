@@ -378,7 +378,7 @@ ecfd978, docs/TASK_HAL_DISPLAY.md.
 
 ## boot.bin touched for the BIOS VBE opt-in (November 2026)
 
-**Decision (owner, 2026-11-02; branch `unicorn-writer` only):** The
+**Decision (Lynx, 2026-11-02; pending Brenden sign-off; branch `unicorn-writer` only):** The
 iron-proven memdisk loader `boot.bin` gains one 5-byte instruction,
 `call 0x0000:0x7E08` (`9A 08 7E 00 00`), in real mode after the kernel is
 loaded and before A20 / protected mode. It calls `vbe_stub` in the kernel
