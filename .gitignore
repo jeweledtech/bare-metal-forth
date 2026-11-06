@@ -71,6 +71,9 @@ forth/dict/ros-notepad-goto-form.fth
 forth/dict/ros-notepad-printing-form.fth
 forth/dict/ros-notepad-imports.fth
 forth/dict/ros-notepad.fth
+# imports2forth, a private tool, copied here for tools/translator's
+# test-buttons (private TASK_ROS_NOTEPAD_SLICE_B amendment 2 f)
+tools/imports2forth.py
 # Private test fixture (TASK_DLG2FORM_ITEMS), copied here to build
 forth/dict/items-test-form.fth
 
@@ -238,3 +241,10 @@ video-demos/assets/
 video-demos/edit/
 # HP disk survey: tracked redacted in the private repo; the original stays local
 docs/hp-disk-survey-2026-04-13.txt
+# Photos dropped at the tree root: evidence goes to the private repo
+/*.jpg
+/*.jpeg
+/*.png
+/*.JPG
+/*.JPEG
+/*.PNG
