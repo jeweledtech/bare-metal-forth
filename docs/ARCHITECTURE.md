@@ -49,7 +49,6 @@ Address Range           Size        Purpose
 0x29C00 - 0x29C3F       64 B        ISR hook table (16 IRQ dispatch slots)
 0x30000 - 0x7FFFF       320 KB      Dictionary space
 0xB8000 - 0xB8F9F       4000 B      VGA text buffer (80 x 25 x 2 bytes)
-0x100000 - 0x3FFFFF     3 MB        Physical allocation pool (DMA buffers)
 0x400000 -              UEFI boots: the boot module (block image) moved to MB2_MOVE_TO,
                                     its size from 0x400000 (about 4.1 MB at 4096 blocks)
 0x1000000 - 0x23FFFFF   20 MB       FILE-BROWSER's NTFS maps (MAP-BASE and its offsets)
@@ -189,7 +188,7 @@ SURVEYOR is block-loaded (unembedded 2026-09-01 to fit the physical allocator wi
 ## Physical Memory Allocation
 
 `PHYS-ALLOC` is a bump allocator for DMA buffers:
-- Pool: 0x100000 (1MB) to 0x400000 (4MB)
+- Pool: 0x100000 (1MB) to PHYS-TOP 0x200000 (2MB), hardware.fth
 - Returns page-aligned (4KB) physical addresses
 - No paging means virtual = physical (identity-mapped)
 - Used by AHCI (command list, FIS, command table, sector buffer) and RTL8168 (TX descriptor, TX buffer)
