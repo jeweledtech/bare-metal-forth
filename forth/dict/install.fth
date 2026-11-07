@@ -75,7 +75,7 @@ CREATE IO-BUF 512 ALLOT
 \ the flag it uses kept on the stack, so a
 \ hook cannot steer one. A hook's contract:
 \   ( code a b c -- ), leaving nothing.
-\ Codes: 19457 bind, 19458 refusal (1-13),
+\ Codes: 19457 bind, 19458 refusal (1-14),
 \ 19459/19460 SAFE-WRITE call/return,
 \ 19462/19463 GPT-WRITE call/return. LIC-OLD
 \ holds a vector's xt from before a bind,
@@ -1171,12 +1171,15 @@ CREATE ESP-SAVE 2048 ALLOT
     -1 ESP-OK? ! -1 ;
 
 \ Re-read the samples and compare. No
-\ baseline or a failed read = 0, same as
-\ a mismatch -- fail closed.
+\ baseline, no reader, or a failed read
+\ = 0, same as a mismatch -- fail closed.
 : ESP-SAME? ( -- flag )
     ESP-OK? @ 0= IF 0 EXIT THEN
     ESP-BASE @ 0= IF 0 EXIT THEN
     ESP-LEN @ 4 < IF 0 EXIT THEN
+    SEC-READ-VEC @ 0= IF
+        0 19458 14 0 0 LIC-EVENT EXIT
+    THEN
     4 0 DO
         I ESP-RD 0= IF 0 UNLOOP EXIT THEN
         RD-BUF-ADDR @
