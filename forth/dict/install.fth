@@ -75,8 +75,9 @@ CREATE IO-BUF 512 ALLOT
 \ the flag it uses kept on the stack, so a
 \ hook cannot steer one. A hook's contract:
 \   ( code a b c -- ), leaving nothing.
-\ Codes: 19457 bind, 19458 refusal, 19459
-\ write call, 19460 write return. LIC-OLD
+\ Codes: 19457 bind, 19458 refusal (1-13),
+\ 19459/19460 SAFE-WRITE call/return,
+\ 19462/19463 GPT-WRITE call/return. LIC-OLD
 \ holds a vector's xt from before a bind,
 \ and is stored only while a hook is bound.
 VARIABLE LIC-HOOK
@@ -391,7 +392,9 @@ VARIABLE FS-FIRST
 \ FREE-EXTENT's MAP-TRUSTED? posture: an
 \ untrusted or absent survey also refuses.
 : FREE-SLOT ( -- flag )
-    SEC-READ-VEC @ 0= IF 0 EXIT THEN
+    SEC-READ-VEC @ 0= IF
+        0 19458 6 0 0 LIC-EVENT EXIT
+    THEN
     RD-BUF-ADDR @ 0= IF 0 EXIT THEN
     MAP-TRUSTED? 0= IF 0 EXIT THEN
     0 FS-OCC !  -1 FS-FIRST !
@@ -500,7 +503,9 @@ DECIMAL
 \ here. Every failure path disarms fully.
 : GPT-ARM ( -- flag )
     GW-DISARM
-    SEC-READ-VEC @ 0= IF 0 EXIT THEN
+    SEC-READ-VEC @ 0= IF
+        0 19458 7 0 0 LIC-EVENT EXIT
+    THEN
     RD-BUF-ADDR @ 0= IF 0 EXIT THEN
     FS-SLOT @ DUP 0<
     SWAP GPT-ENT-MAX < 0= OR IF 0 EXIT THEN
@@ -538,11 +543,15 @@ DECIMAL
 
 : GPT-WRITE ( buf lba -- )
     DUP GPT-PERMIT? 0=
+    DUP IF 19458 4 3 PICK 1 LIC-EVENT THEN
     ABORT" INSTALL: refuse, not a GPT sector"
     SEC-WRITE-VEC @ 0=
+    DUP IF 19458 5 3 PICK 1 LIC-EVENT THEN
     ABORT" INSTALL: refuse, no writer bound"
     SWAP 1 SWAP
+    19462 3 PICK 3 PICK 3 PICK LIC-EVENT
     SEC-WRITE-VEC @ EXECUTE
+    DUP 19463 SWAP 0 0 LIC-EVENT
     ABORT" INSTALL: GPT write failed" ;
 
 \ ============================================
@@ -745,8 +754,12 @@ DECIMAL
 : ADD-PARTITION ( entry -- flag )
     AP-ENT !
     GW-ARMED @ 0= IF 0 EXIT THEN
-    SEC-WRITE-VEC @ 0= IF 0 EXIT THEN
-    SEC-READ-VEC @ 0= IF 0 EXIT THEN
+    SEC-WRITE-VEC @ 0= IF
+        0 19458 8 0 0 LIC-EVENT EXIT
+    THEN
+    SEC-READ-VEC @ 0= IF
+        0 19458 9 0 0 LIC-EVENT EXIT
+    THEN
     RD-BUF-ADDR @ 0= IF 0 EXIT THEN
     AP-ENT @ 0= IF 0 EXIT THEN
     \ 1. Read the primary entry sector
@@ -839,7 +852,9 @@ DECIMAL
     SWAP 12 + @ FOS-UG3 = AND ;
 
 : GUID-ABSENT? ( -- flag )
-    SEC-READ-VEC @ 0= IF 0 EXIT THEN
+    SEC-READ-VEC @ 0= IF
+        0 19458 10 0 0 LIC-EVENT EXIT
+    THEN
     RD-BUF-ADDR @ 0= IF 0 EXIT THEN
     GPT-ARR-LBA GPT-ARR-SECS +
     GPT-ARR-LBA DO
@@ -935,7 +950,9 @@ VARIABLE LBA0-OK?
 \ pristine memdisk source present, and LBA 0
 \ reads back flag=0 with the signature.
 : ABE-READY? ( -- flag )
-    SEC-READ-VEC @ 0= IF 0 EXIT THEN
+    SEC-READ-VEC @ 0= IF
+        0 19458 11 0 0 LIC-EVENT EXIT
+    THEN
     RD-BUF-ADDR @ 0= IF 0 EXIT THEN
     MEM-BASE @ 0= IF 0 EXIT THEN
     0 1 SEC-READ-VEC @ EXECUTE IF
@@ -1142,7 +1159,9 @@ CREATE ESP-SAVE 2048 ALLOT
     0 ESP-OK? !
     ESP-BASE @ 0= IF 0 EXIT THEN
     ESP-LEN @ 4 < IF 0 EXIT THEN
-    SEC-READ-VEC @ 0= IF 0 EXIT THEN
+    SEC-READ-VEC @ 0= IF
+        0 19458 12 0 0 LIC-EVENT EXIT
+    THEN
     RD-BUF-ADDR @ 0= IF 0 EXIT THEN
     4 0 DO
         I ESP-RD 0= IF 0 UNLOOP EXIT THEN
@@ -1175,7 +1194,9 @@ VARIABLE GPT-SAVE
 \ excluded: unreachable by construction
 \ (allowlist), and G3 is a tripwire.
 : GPT-SUM ( -- sum -1 | 0 )
-    SEC-READ-VEC @ 0= IF 0 EXIT THEN
+    SEC-READ-VEC @ 0= IF
+        0 19458 13 0 0 LIC-EVENT EXIT
+    THEN
     RD-BUF-ADDR @ 0= IF 0 EXIT THEN
     CRC-BEGIN
     34 1 DO
