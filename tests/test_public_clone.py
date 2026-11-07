@@ -5,7 +5,7 @@ TASK_PUBLIC_CLONE_SUITE).
 A clone of this repo's committed HEAD in a mktemp directory, with no
 private repo beside it (public mode at the Makefile default), host only:
 no QEMU is started.
-  P1 (75) make -n <t> never stops at "No rule to make target", for every
+  P1 (76) make -n <t> never stops at "No rule to make target", for every
           target on test: (the pinned 74 and the clone's test: line).
   P2 (27) each skip-whole target runs its run-mode guard first, ends with
           its exact SKIPPED line, exits 0 and builds no build/combined.img.
@@ -32,16 +32,17 @@ import sys
 import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-TOTAL = 109
+TOTAL = 110
 
-# The 29 that run on the free kernel in a public clone (measured, M1/M2;
+# The 30 that run in a public clone: 29 on the free kernel, and the host-only
+# test-sync-copies (private TASK_SYNC_COPIES). (Measured, M1/M2;
 # test-block-read-error added by private TASK_KERNEL_BLOCK_READ_ERROR).
 RUN = '''test-xhci test-pci-bar test-block-reload test-blk-evict test-block-read-error test-stack-floor
 test-vga-wrap test-reload-vocab test-load-vocab test-vbr test-pxe-label test-uefi2-gdt
 test-carrier-write-safe test-memdisk test-mirror test-hal test-hal-match test-network
 test-vocabs test-integration test-file-stream test-net-flush-lf test-console-band
 test-window-focus test-search-order test-vocab-dedup test-window-forms test-double-cell
-test-forth83'''.split()
+test-forth83 test-sync-copies'''.split()
 # The 27 that skip whole, and the reason each names.
 PRIVATE_TEST = '''test-log-harness test-log-harness-nic test-log-restore test-log-validation
 test-log-send test-dlg2form test-rtl8168-cksum test-hal-match-hp test-pipeline-e2e
@@ -60,7 +61,7 @@ test-pci-typing test-squote-laydown test-log-decode-layout test-grub-cfg test-do
 test-make-wiring test-port-inventory test-kill-traps test-pipeline
 test-free-boot test-public-clone'''.split()
 ALL = RUN + list(SKIP) + SELF_SKIP + OTHER
-assert (len(RUN), len(SKIP), len(SELF_SKIP), len(OTHER), len(set(ALL))) == (29, 27, 2, 17, 75)
+assert (len(RUN), len(SKIP), len(SELF_SKIP), len(OTHER), len(set(ALL))) == (30, 27, 2, 17, 76)
 
 PASS = FAIL = 0
 
