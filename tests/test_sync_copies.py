@@ -61,7 +61,9 @@ def pair(top, priv_files, pub_tracked, pub_untracked, gitignore, priv_untracked=
     write(pub, '.gitignore', gitignore)
     for rel, data in pub_tracked.items():
         write(pub, rel, data)
-    git(pub, 'add', '-A')
+    # -f: a tracked path may also match an ignore line (shared.txt does);
+    # plain add -A would leave it untracked (the green's 7/13, 2026-11-06)
+    git(pub, 'add', '-f', '-A')
     git(pub, 'commit', '-q', '-m', 'q')
     for rel, data in pub_untracked.items():
         write(pub, rel, data)
