@@ -1,4 +1,4 @@
-# Claude Code Task: DISASM Vocabulary
+# Task: DISASM Vocabulary
 # LMI-Style 32-bit In-System Disassembler
 
 ## Context

@@ -590,7 +590,7 @@ until #33d is resolved.
 
 **Gates at close:** ARM64 interactive Phases 1–3,
 14/14; x86 suite 192/192 across 16 suites
-(baseline corrected from "190+" per CLAUDE.md;
+(baseline corrected from "190+" per the working notes;
 `test-pipeline` excluded by design).
 
 ## Bug #33d — colon definition non-response (OPEN)

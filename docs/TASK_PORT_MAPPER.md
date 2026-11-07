@@ -1,4 +1,4 @@
-# Claude Code Task: Hardware Port Mapper Vocabulary
+# Task: Hardware Port Mapper Vocabulary
 
 ## Context
 

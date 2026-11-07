@@ -987,7 +987,7 @@ Membership: every test-* target wired or exempted
   PASS: test-network broken with reason
         reason: NameError blocks_b in start_qemu_pair (stale return from a refactor), observed 2026-08-30 -- make test-network cannot run at all
   PASS: test-pipeline exempt with reason
-        reason: UBT translator pipeline, not a kernel suite; excluded from make test by design (docs/CLAUDE.md)
+        reason: UBT translator pipeline, not a kernel suite; excluded from make test by design (<working notes>)
   PASS: test-smoke wired into test:
   PASS: test-squote-laydown wired into test:
   PASS: test-squote-laydown-backstop0 exempt with reason

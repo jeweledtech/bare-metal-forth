@@ -1483,14 +1483,14 @@ Membership: every test-* target wired or exempted
   PASS: test-pci-typing wired into test:
   PASS: test-phys-alloc wired into test:
   PASS: test-pipeline exempt with reason
-        reason: UBT translator pipeline, not a kernel suite; excluded from make test by design (docs/CLAUDE.md)
+        reason: UBT translator pipeline, not a kernel suite; excluded from make test by design (<working notes>)
   PASS: test-smoke wired into test:
   PASS: test-squote-laydown wired into test:
   PASS: test-squote-laydown-backstop0 exempt with reason
         reason: needs the throwaway -DDICT_BACKSTOP=0 image (make backstop0); one-shot liveness proof with its own evidence total, pinned out of the sweep by the suite docstring
   PASS: test-survey wired into test:
   PASS: test-translator exempt with reason
-        reason: UBT translator suite, not a kernel suite; excluded from make test by design (docs/CLAUDE.md) -- own grammar, own log; nightly target, schedule HELD (nineteenth rule, 2026-09-14) until the PE32+ path reds on offset-00
+        reason: UBT translator suite, not a kernel suite; excluded from make test by design (<working notes>) -- own grammar, own log; nightly target, schedule HELD (nineteenth rule, 2026-09-14) until the PE32+ path reds on offset-00
   PASS: test-vbr wired into test:
   PASS: test-vocabs wired into test:
   PASS: test-xhci wired into test:
