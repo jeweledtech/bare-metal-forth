@@ -115,6 +115,7 @@ forth/dict/target-cortex-m.fth
 # forthos-vocabularies; the test-log-harness* recipes stay public and
 # print SKIPPED when these are absent.
 forth/dict/log-harness.fth
+forth/dict/lic-observe.fth
 tests/test_log_harness.py
 tests/test_log_harness_nic.py
 tests/test_log_validation.py

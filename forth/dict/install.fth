@@ -68,6 +68,25 @@ VARIABLE SEC-WRITE-VEC
 
 CREATE IO-BUF 512 ALLOT
 
+\ ---- The licensing observer's hook ----
+\ 0 = no observer (private TASK_PHASE_A_
+\ LICENSING_OBSERVER). Each decision below
+\ calls LIC-EVENT after it is made, with
+\ the flag it uses kept on the stack, so a
+\ hook cannot steer one. A hook's contract:
+\   ( code a b c -- ), leaving nothing.
+\ Codes: 19457 bind, 19458 refusal, 19459
+\ write call, 19460 write return. LIC-OLD
+\ holds a vector's xt from before a bind,
+\ and is stored only while a hook is bound.
+VARIABLE LIC-HOOK
+VARIABLE LIC-OLD
+
+: LIC-EVENT ( code a b c -- )
+    LIC-HOOK @ ?DUP IF EXECUTE
+    ELSE 2DROP 2DROP THEN
+;
+
 \ This kernel has no U< -- every compare is
 \ signed -- so an LBA with bit 31 set reads
 \ as negative. That is load-bearing here,
@@ -82,11 +101,15 @@ CREATE IO-BUF 512 ALLOT
 
 : SAFE-WRITE ( buf lba -- )
     DUP OWN-EXTENT? 0=
+    DUP IF 19458 1 3 PICK 1 LIC-EVENT THEN
     ABORT" INSTALL: refuse, outside extent"
     SEC-WRITE-VEC @ 0=
+    DUP IF 19458 2 3 PICK 1 LIC-EVENT THEN
     ABORT" INSTALL: refuse, no writer bound"
     SWAP 1 SWAP                 \ lba 1 buf
+    19459 3 PICK 3 PICK 3 PICK LIC-EVENT
     SEC-WRITE-VEC @ EXECUTE     \ flag
+    DUP 19460 SWAP 0 0 LIC-EVENT
     ABORT" INSTALL: write failed"
 ;
 
@@ -96,10 +119,14 @@ CREATE IO-BUF 512 ALLOT
 \ if the name resolves in the current search
 \ order. Not finding it is not an error --
 \ that is the free tier, and the vector
-\ simply stays unbound.
+\ simply stays unbound. WORD's name is
+\ NUL-terminated; it is passed to the
+\ hook as it is.
 : BIND-WRITER ( "name" -- )
-    WORD FIND NIP
-    DUP IF WRITER! ELSE DROP THEN
+    WORD DUP FIND NIP       \ c-addr xt|0
+    LIC-HOOK @ IF SEC-WRITE-VEC @ LIC-OLD ! THEN
+    DUP IF DUP WRITER! THEN
+    0<> SWAP >R >R 19457 1 R> R> LIC-EVENT
 ;
 
 : INSTALL-STATUS ( -- )
@@ -122,8 +149,10 @@ VARIABLE SEC-READ-VEC
 VARIABLE RD-BUF-ADDR
 
 : BIND-READER ( "name" -- )
-    WORD FIND NIP
-    DUP IF SEC-READ-VEC ! ELSE DROP THEN
+    WORD DUP FIND NIP       \ c-addr xt|0
+    LIC-HOOK @ IF SEC-READ-VEC @ LIC-OLD ! THEN
+    DUP IF DUP SEC-READ-VEC ! THEN
+    0<> SWAP >R >R 19457 2 R> R> LIC-EVENT
 ;
 
 \ ---- FREE-EXTENT ----
@@ -202,7 +231,9 @@ VARIABLE FE-PE
 \ the placement check that holds when the
 \ survey is wrong.
 : FE-VERIFY ( -- flag )
-    SEC-READ-VEC @ 0= IF 0 EXIT THEN
+    SEC-READ-VEC @ 0= IF
+        0 19458 3 0 0 LIC-EVENT EXIT
+    THEN
     RD-BUF-ADDR @ 0= IF 0 EXIT THEN
     FE-CAND @ FE-NEED @ + FE-CAND @ DO
         I 1 SEC-READ-VEC @ EXECUTE IF
