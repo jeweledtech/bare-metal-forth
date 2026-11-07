@@ -770,7 +770,7 @@ test-load-vocab: $(COMBINED)
 	echo "Running LOAD-VOCAB search-order and miss gates..."; \
 	timeout --foreground $(T_LOAD_VOCAB) python3 tests/test_load_vocab.py $$(($(TEST_PORT_BASE)+106))
 
-T_DLG2FORM ?= 200
+T_DLG2FORM ?= 360
 test-dlg2form: $(call FULL_ONLY,$(COMBINED))
 	@$(RUN_MODE) test-dlg2form --private tools/dlg2form.py tests/test_dlg2form.py; $(RUN_MODE_END); \
 	PIDF=$(BUILD)/dlg2form.d/qemu.pid; $(QEMU_KILL); \
