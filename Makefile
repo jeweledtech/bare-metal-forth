@@ -711,9 +711,9 @@ test-log-send: $(call FULL_ONLY,$(COMBINED))
 # TASK_PHASE_A_LICENSING_OBSERVER §7): base/off/on runs of one sequence must
 # match field by field, and each tier decision leaves one record. The script
 # is private and runs in place; it builds its own base image in a mkdtemp.
-# T_LIC_OBSERVE: about twice the measured build (1.3 s) plus four boots
-# (2026-11-06, ruling U3). Offset +127: serial.
-T_LIC_OBSERVE ?= 120
+# T_LIC_OBSERVE: about twice the measured run, 82 s at 30 checks (amendment
+# 4, 2026-11-06; was 120 at 16 checks, ruling U3). Offset +127: serial.
+T_LIC_OBSERVE ?= 170
 test-lic-observe: $(call FULL_ONLY,$(COMBINED))
 	@$(RUN_MODE) test-lic-observe --private tests/test_lic_observe.py --tree forth/dict/log-harness.fth; $(RUN_MODE_END); \
 	PIDF=$(BUILD)/lic-observe.d/qemu.pid; $(QEMU_KILL); \
