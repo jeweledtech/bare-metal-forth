@@ -75,7 +75,7 @@ CREATE IO-BUF 512 ALLOT
 \ the flag it uses kept on the stack, so a
 \ hook cannot steer one. A hook's contract:
 \   ( code a b c -- ), leaving nothing.
-\ Codes: 19457 bind, 19458 refusal (1-14),
+\ Codes: 19457 bind, 19458 refusal (1-21),
 \ 19459/19460 SAFE-WRITE call/return,
 \ 19462/19463 GPT-WRITE call/return. LIC-OLD
 \ holds a vector's xt from before a bind,
@@ -615,6 +615,9 @@ DECIMAL
 \ order, reading each into the buffer.
 \ Returns nonzero on success.
 : AP-EARR-CRC ( -- flag )
+    SEC-READ-VEC @ 0= IF
+        0 19458 15 0 0 LIC-EVENT EXIT
+    THEN
     CRC-BEGIN
     GPT-ARR-LBA GPT-ARR-SECS + GPT-ARR-LBA
     DO
@@ -633,6 +636,9 @@ DECIMAL
 \ +0x0C, bounded, and refused if out of
 \ range. Returns nonzero on success.
 : AP-HDR-PATCH ( lba -- flag )
+    SEC-READ-VEC @ 0= IF
+        DROP 0 19458 16 0 0 LIC-EVENT EXIT
+    THEN
     DUP 1 SEC-READ-VEC @ EXECUTE IF
         DROP 0 EXIT
     THEN
@@ -661,6 +667,9 @@ DECIMAL
 \ Verify the entry sector at the given LBA
 \ matches IO-BUF (the written content).
 : AP-VERIFY-SEC ( lba -- flag )
+    SEC-READ-VEC @ 0= IF
+        DROP 0 19458 17 0 0 LIC-EVENT EXIT
+    THEN
     1 SEC-READ-VEC @ EXECUTE IF
         0 EXIT
     THEN
@@ -701,6 +710,9 @@ DECIMAL
 \ would leave an internally inconsistent
 \ backup GPT.
 : AP-VERIFY-BARR ( -- flag )
+    SEC-READ-VEC @ 0= IF
+        0 19458 18 0 0 LIC-EVENT EXIT
+    THEN
     CRC-BEGIN
     GW-BHDR @ GPT-ARR-SECS -
     DUP GPT-ARR-SECS + SWAP DO
@@ -718,6 +730,9 @@ DECIMAL
 \ This is the final proof that what was
 \ written is what the firmware will read.
 : AP-VERIFY-HDR ( lba -- flag )
+    SEC-READ-VEC @ 0= IF
+        DROP 0 19458 19 0 0 LIC-EVENT EXIT
+    THEN
     1 SEC-READ-VEC @ EXECUTE IF
         0 EXIT
     THEN
@@ -1250,6 +1265,9 @@ VARIABLE GPT-SAVE
 \ Validates the write path; image content
 \ is proven only at iron G6. Fail closed.
 : KRN-CHK ( i -- flag )
+    SEC-READ-VEC @ 0= IF
+        DROP 0 19458 20 0 0 LIC-EVENT EXIT
+    THEN
     DUP KRN-LBA 1
     SEC-READ-VEC @ EXECUTE IF
         DROP 0 EXIT
@@ -1258,6 +1276,9 @@ VARIABLE GPT-SAVE
 
 \ Step-6 VBR readback vs the built image.
 : VBR-CHK ( -- flag )
+    SEC-READ-VEC @ 0= IF
+        0 19458 21 0 0 LIC-EVENT EXIT
+    THEN
     OWN-BASE @ 1
     SEC-READ-VEC @ EXECUTE IF 0 EXIT THEN
     VBR-IMG RD-BUF-ADDR @ SEC=? ;
