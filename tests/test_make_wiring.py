@@ -343,6 +343,14 @@ check('this gate (test-make-wiring) is itself in test:',
       'test-make-wiring' in wired,
       'a gate absent from the aggregate is the defect it polices')
 
+print('\nSub-make -k: test-translator')
+# The recipe, continuations folded: its rule line, then each tab line.
+_tt = re.search(r'^test-translator:.*\n((?:\t.*\n)*)', _folded, re.M)
+check('test-translator runs the translator suite under -k',
+      bool(_tt) and '$(MAKE) -k -C tools/translator test' in _tt.group(1),
+      'without -k a failing sub-target hides every later one '
+      '(TASK_ROS_NOTEPAD_SLICE_B option (B))')
+
 print('\nEmbed-stripper red fixture: unclosed ( refuses the build')
 # The stripper's sys.exit branch (348912b) executes only in a state
 # the tree never contains -- every build and every sweep passes
