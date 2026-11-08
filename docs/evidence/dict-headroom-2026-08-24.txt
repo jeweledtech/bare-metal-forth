@@ -36,7 +36,7 @@ harness does not (metacompiler in particular).
    is reachable in normal use (57.6% gone before anything loads),
    and the region above 0x80000 is unclaimed, so an overrun today
    writes into nothing and appears to work.
-2. ARCHITECTURE-CUSTODIAN.md 3.2 (claude.ai Project store, not in
+2. ARCHITECTURE-CUSTODIAN.md 3.2 (off-repo project store, not in
    git -- needs mirroring there): "ten iterations on one moderately
    large driver could exhaust the dictionary" was flagged as
    unmeasured; against ~122KB free after a full load it now reads

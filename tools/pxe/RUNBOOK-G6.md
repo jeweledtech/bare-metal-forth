@@ -767,7 +767,7 @@ boots:**
 - [ ] As-built notes appended to `docs/TASK_INSTALL_BOOT_ENTRY.md`,
       mirrored to the private repo **by absolute path**, project
       copy updated (three-store discipline: repo, private mirror,
-      claude.ai Project store — an edit in one is not an edit in
+      off-repo project store — an edit in one is not an edit in
       the others).
 
 ### Numbers the as-built notes may cite
@@ -782,7 +782,7 @@ boots:**
       falsify something, grep for it." Run `make test`, sum the
       `^Passed:` lines, and say **measured per-suite** when you
       write it. The value's history lives in the test-count lineage
-      section of `BUILD-DOCKET.md` (claude.ai project store) —
+      section of `BUILD-DOCKET.md` (off-repo project store) —
       record the new measurement there. On a free-tier checkout the
       line count is 16 and a lower sum; that is tier, not
       regression, so **carry the line count next to the sum**.

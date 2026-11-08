@@ -68,6 +68,26 @@ VARIABLE SEC-WRITE-VEC
 
 CREATE IO-BUF 512 ALLOT
 
+\ ---- The licensing observer's hook ----
+\ 0 = no observer (private TASK_PHASE_A_
+\ LICENSING_OBSERVER). Each decision below
+\ calls LIC-EVENT after it is made, with
+\ the flag it uses kept on the stack, so a
+\ hook cannot steer one. A hook's contract:
+\   ( code a b c -- ), leaving nothing.
+\ Codes: 19457 bind, 19458 refusal (1-14),
+\ 19459/19460 SAFE-WRITE call/return,
+\ 19462/19463 GPT-WRITE call/return. LIC-OLD
+\ holds a vector's xt from before a bind,
+\ and is stored only while a hook is bound.
+VARIABLE LIC-HOOK
+VARIABLE LIC-OLD
+
+: LIC-EVENT ( code a b c -- )
+    LIC-HOOK @ ?DUP IF EXECUTE
+    ELSE 2DROP 2DROP THEN
+;
+
 \ This kernel has no U< -- every compare is
 \ signed -- so an LBA with bit 31 set reads
 \ as negative. That is load-bearing here,
@@ -82,11 +102,15 @@ CREATE IO-BUF 512 ALLOT
 
 : SAFE-WRITE ( buf lba -- )
     DUP OWN-EXTENT? 0=
+    DUP IF 19458 1 3 PICK 1 LIC-EVENT THEN
     ABORT" INSTALL: refuse, outside extent"
     SEC-WRITE-VEC @ 0=
+    DUP IF 19458 2 3 PICK 1 LIC-EVENT THEN
     ABORT" INSTALL: refuse, no writer bound"
     SWAP 1 SWAP                 \ lba 1 buf
+    19459 3 PICK 3 PICK 3 PICK LIC-EVENT
     SEC-WRITE-VEC @ EXECUTE     \ flag
+    DUP 19460 SWAP 0 0 LIC-EVENT
     ABORT" INSTALL: write failed"
 ;
 
@@ -96,10 +120,14 @@ CREATE IO-BUF 512 ALLOT
 \ if the name resolves in the current search
 \ order. Not finding it is not an error --
 \ that is the free tier, and the vector
-\ simply stays unbound.
+\ simply stays unbound. WORD's name is
+\ NUL-terminated; it is passed to the
+\ hook as it is.
 : BIND-WRITER ( "name" -- )
-    WORD FIND NIP
-    DUP IF WRITER! ELSE DROP THEN
+    WORD DUP FIND NIP       \ c-addr xt|0
+    LIC-HOOK @ IF SEC-WRITE-VEC @ LIC-OLD ! THEN
+    DUP IF DUP WRITER! THEN
+    0<> SWAP >R >R 19457 1 R> R> LIC-EVENT
 ;
 
 : INSTALL-STATUS ( -- )
@@ -122,8 +150,10 @@ VARIABLE SEC-READ-VEC
 VARIABLE RD-BUF-ADDR
 
 : BIND-READER ( "name" -- )
-    WORD FIND NIP
-    DUP IF SEC-READ-VEC ! ELSE DROP THEN
+    WORD DUP FIND NIP       \ c-addr xt|0
+    LIC-HOOK @ IF SEC-READ-VEC @ LIC-OLD ! THEN
+    DUP IF DUP SEC-READ-VEC ! THEN
+    0<> SWAP >R >R 19457 2 R> R> LIC-EVENT
 ;
 
 \ ---- FREE-EXTENT ----
@@ -202,7 +232,9 @@ VARIABLE FE-PE
 \ the placement check that holds when the
 \ survey is wrong.
 : FE-VERIFY ( -- flag )
-    SEC-READ-VEC @ 0= IF 0 EXIT THEN
+    SEC-READ-VEC @ 0= IF
+        0 19458 3 0 0 LIC-EVENT EXIT
+    THEN
     RD-BUF-ADDR @ 0= IF 0 EXIT THEN
     FE-CAND @ FE-NEED @ + FE-CAND @ DO
         I 1 SEC-READ-VEC @ EXECUTE IF
@@ -360,7 +392,9 @@ VARIABLE FS-FIRST
 \ FREE-EXTENT's MAP-TRUSTED? posture: an
 \ untrusted or absent survey also refuses.
 : FREE-SLOT ( -- flag )
-    SEC-READ-VEC @ 0= IF 0 EXIT THEN
+    SEC-READ-VEC @ 0= IF
+        0 19458 6 0 0 LIC-EVENT EXIT
+    THEN
     RD-BUF-ADDR @ 0= IF 0 EXIT THEN
     MAP-TRUSTED? 0= IF 0 EXIT THEN
     0 FS-OCC !  -1 FS-FIRST !
@@ -469,7 +503,9 @@ DECIMAL
 \ here. Every failure path disarms fully.
 : GPT-ARM ( -- flag )
     GW-DISARM
-    SEC-READ-VEC @ 0= IF 0 EXIT THEN
+    SEC-READ-VEC @ 0= IF
+        0 19458 7 0 0 LIC-EVENT EXIT
+    THEN
     RD-BUF-ADDR @ 0= IF 0 EXIT THEN
     FS-SLOT @ DUP 0<
     SWAP GPT-ENT-MAX < 0= OR IF 0 EXIT THEN
@@ -507,11 +543,15 @@ DECIMAL
 
 : GPT-WRITE ( buf lba -- )
     DUP GPT-PERMIT? 0=
+    DUP IF 19458 4 3 PICK 1 LIC-EVENT THEN
     ABORT" INSTALL: refuse, not a GPT sector"
     SEC-WRITE-VEC @ 0=
+    DUP IF 19458 5 3 PICK 1 LIC-EVENT THEN
     ABORT" INSTALL: refuse, no writer bound"
     SWAP 1 SWAP
+    19462 3 PICK 3 PICK 3 PICK LIC-EVENT
     SEC-WRITE-VEC @ EXECUTE
+    DUP 19463 SWAP 0 0 LIC-EVENT
     ABORT" INSTALL: GPT write failed" ;
 
 \ ============================================
@@ -714,8 +754,12 @@ DECIMAL
 : ADD-PARTITION ( entry -- flag )
     AP-ENT !
     GW-ARMED @ 0= IF 0 EXIT THEN
-    SEC-WRITE-VEC @ 0= IF 0 EXIT THEN
-    SEC-READ-VEC @ 0= IF 0 EXIT THEN
+    SEC-WRITE-VEC @ 0= IF
+        0 19458 8 0 0 LIC-EVENT EXIT
+    THEN
+    SEC-READ-VEC @ 0= IF
+        0 19458 9 0 0 LIC-EVENT EXIT
+    THEN
     RD-BUF-ADDR @ 0= IF 0 EXIT THEN
     AP-ENT @ 0= IF 0 EXIT THEN
     \ 1. Read the primary entry sector
@@ -808,7 +852,9 @@ DECIMAL
     SWAP 12 + @ FOS-UG3 = AND ;
 
 : GUID-ABSENT? ( -- flag )
-    SEC-READ-VEC @ 0= IF 0 EXIT THEN
+    SEC-READ-VEC @ 0= IF
+        0 19458 10 0 0 LIC-EVENT EXIT
+    THEN
     RD-BUF-ADDR @ 0= IF 0 EXIT THEN
     GPT-ARR-LBA GPT-ARR-SECS +
     GPT-ARR-LBA DO
@@ -904,7 +950,9 @@ VARIABLE LBA0-OK?
 \ pristine memdisk source present, and LBA 0
 \ reads back flag=0 with the signature.
 : ABE-READY? ( -- flag )
-    SEC-READ-VEC @ 0= IF 0 EXIT THEN
+    SEC-READ-VEC @ 0= IF
+        0 19458 11 0 0 LIC-EVENT EXIT
+    THEN
     RD-BUF-ADDR @ 0= IF 0 EXIT THEN
     MEM-BASE @ 0= IF 0 EXIT THEN
     0 1 SEC-READ-VEC @ EXECUTE IF
@@ -1111,7 +1159,9 @@ CREATE ESP-SAVE 2048 ALLOT
     0 ESP-OK? !
     ESP-BASE @ 0= IF 0 EXIT THEN
     ESP-LEN @ 4 < IF 0 EXIT THEN
-    SEC-READ-VEC @ 0= IF 0 EXIT THEN
+    SEC-READ-VEC @ 0= IF
+        0 19458 12 0 0 LIC-EVENT EXIT
+    THEN
     RD-BUF-ADDR @ 0= IF 0 EXIT THEN
     4 0 DO
         I ESP-RD 0= IF 0 UNLOOP EXIT THEN
@@ -1121,12 +1171,15 @@ CREATE ESP-SAVE 2048 ALLOT
     -1 ESP-OK? ! -1 ;
 
 \ Re-read the samples and compare. No
-\ baseline or a failed read = 0, same as
-\ a mismatch -- fail closed.
+\ baseline, no reader, or a failed read
+\ = 0, same as a mismatch -- fail closed.
 : ESP-SAME? ( -- flag )
     ESP-OK? @ 0= IF 0 EXIT THEN
     ESP-BASE @ 0= IF 0 EXIT THEN
     ESP-LEN @ 4 < IF 0 EXIT THEN
+    SEC-READ-VEC @ 0= IF
+        0 19458 14 0 0 LIC-EVENT EXIT
+    THEN
     4 0 DO
         I ESP-RD 0= IF 0 UNLOOP EXIT THEN
         RD-BUF-ADDR @
@@ -1144,7 +1197,9 @@ VARIABLE GPT-SAVE
 \ excluded: unreachable by construction
 \ (allowlist), and G3 is a tripwire.
 : GPT-SUM ( -- sum -1 | 0 )
-    SEC-READ-VEC @ 0= IF 0 EXIT THEN
+    SEC-READ-VEC @ 0= IF
+        0 19458 13 0 0 LIC-EVENT EXIT
+    THEN
     RD-BUF-ADDR @ 0= IF 0 EXIT THEN
     CRC-BEGIN
     34 1 DO

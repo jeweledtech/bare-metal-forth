@@ -172,7 +172,7 @@ PRIVATE_REPO ?= ../forthos-vocabularies
 # exits 0; 1 FAIL (PRIVATE_REPO set and absent, or present without a file).
 RUN_MODE = PRIVATE_REPO='$(PRIVATE_REPO)' PRIVATE_REPO_ORIGIN='$(origin PRIVATE_REPO)' python3 tests/run_mode.py
 RUN_MODE_END = rc=$$?; [ $$rc = 10 ] && exit 0; [ $$rc = 0 ] || exit 1
-PAID_VOCABS = ahci rtl8168 ntfs auto-detect fat32 surveyor file-editor-disk log-harness cd-atapi hal-machines atapi-ahci urw-canvas
+PAID_VOCABS = ahci rtl8168 ntfs auto-detect fat32 surveyor file-editor-disk log-harness lic-observe cd-atapi hal-machines atapi-ahci urw-canvas
 
 check-sync:
 	@$(RUN_MODE) check-sync --reason 'no private repo to compare'; $(RUN_MODE_END); \
@@ -726,6 +726,21 @@ test-log-send: $(call FULL_ONLY,$(COMBINED))
 	timeout --foreground $(T_LOG_SEND) python3 $(PRIVATE_REPO)/tests/test_log_send.py \
 		$$(($(TEST_PORT_BASE)+101)) $$(($(TEST_PORT_BASE)+102)) $$(($(TEST_PORT_BASE)+103))
 
+# LIC-OBSERVE, the in-process licensing observer (private
+# TASK_PHASE_A_LICENSING_OBSERVER §7): base/off/on runs of one sequence must
+# match field by field, and each tier decision leaves one record. The script
+# is private and runs in place; it builds its own base image in a mkdtemp.
+# T_LIC_OBSERVE: about twice the measured run, 82 s at 30 checks (amendment
+# 4, 2026-11-06; was 120 at 16 checks, ruling U3). Offset +127: serial.
+T_LIC_OBSERVE ?= 170
+test-lic-observe: $(call FULL_ONLY,$(COMBINED))
+	@$(RUN_MODE) test-lic-observe --private tests/test_lic_observe.py --tree forth/dict/log-harness.fth; $(RUN_MODE_END); \
+	PIDF=$(BUILD)/lic-observe.d/qemu.pid; $(QEMU_KILL); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-lic-observe --base $(TEST_PORT_BASE); \
+	echo "Running LIC-OBSERVE (Phase A) gates..."; \
+	timeout --foreground $(T_LIC_OBSERVE) python3 $(PRIVATE_REPO)/tests/test_lic_observe.py \
+		$$(($(TEST_PORT_BASE)+127))
+
 # Data-stack floor guard (Bug #35, private TASK_STACK_FLOOR): a . on an
 # empty stack, then what DEPTH and .S read; four fresh boots.
 T_STACK_FLOOR ?= 120
@@ -774,7 +789,7 @@ test-load-vocab: $(COMBINED)
 	echo "Running LOAD-VOCAB search-order and miss gates..."; \
 	timeout --foreground $(T_LOAD_VOCAB) python3 tests/test_load_vocab.py $$(($(TEST_PORT_BASE)+106))
 
-T_DLG2FORM ?= 200
+T_DLG2FORM ?= 360
 test-dlg2form: $(call FULL_ONLY,$(COMBINED))
 	@$(RUN_MODE) test-dlg2form --private tools/dlg2form.py tests/test_dlg2form.py; $(RUN_MODE_END); \
 	PIDF=$(BUILD)/dlg2form.d/qemu.pid; $(QEMU_KILL); \
@@ -1685,7 +1700,7 @@ test-urw-canvas: $(call FULL_ONLY,$(COMBINED))
 #     its output as evidence, and it never gates a build.  If it must ever
 #     gate something, the gate goes on a deterministic artefact derived from
 #     it and pinned -- the treatment the Ghidra oracle already has.
-test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-block-read-error test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-log-send test-dlg2form test-rtl8168-cksum test-stack-floor test-vga-wrap test-reload-vocab test-load-vocab test-resolve-deps test-vbr test-grub-cfg test-pxe-label test-nasm-pin test-net-receive-replace test-vbe-boot test-vbe-nostub test-urw-canvas test-uefi-boot test-uefi-netboot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-mirror test-interp-abort test-pad-move test-hal test-hal-net test-hal-match test-hal-match-hp test-network test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline test-pipeline-e2e test-net-flush-lf test-console-band test-window-focus test-free-boot test-search-order test-abort-routes test-vocab-dedup test-phys-refuse test-window-forms test-read-flags test-double-cell test-forth83 test-arm64-boot test-meta-b6b test-public-clone test-sync-copies test-check-sync check-sync
+test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-block-read-error test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-log-send test-lic-observe test-dlg2form test-rtl8168-cksum test-stack-floor test-vga-wrap test-reload-vocab test-load-vocab test-resolve-deps test-vbr test-grub-cfg test-pxe-label test-nasm-pin test-net-receive-replace test-vbe-boot test-vbe-nostub test-urw-canvas test-uefi-boot test-uefi-netboot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-mirror test-interp-abort test-pad-move test-hal test-hal-net test-hal-match test-hal-match-hp test-network test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline test-pipeline-e2e test-net-flush-lf test-console-band test-window-focus test-free-boot test-search-order test-abort-routes test-vocab-dedup test-phys-refuse test-window-forms test-read-flags test-double-cell test-forth83 test-arm64-boot test-meta-b6b test-public-clone test-sync-copies test-check-sync check-sync
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)
@@ -1770,4 +1785,4 @@ grub-net: $(COMBINED) tools/pxe/grub.cfg
 pxe-push-grub: grub-net
 	@bash tools/pxe/push-grub.sh
 
-.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined usb-image check-coverage desk-hashes check-kernel-size test test-blk-evict test-block-read-error test-mirror test-interp-abort test-pad-move test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-log-send test-dlg2form test-rtl8168-cksum test-stack-floor test-vga-wrap test-reload-vocab test-load-vocab test-resolve-deps test-pipeline-e2e test-net-flush-lf test-console-band test-window-focus test-free-boot test-search-order test-abort-routes test-vocab-dedup test-phys-refuse test-window-forms test-read-flags test-double-cell test-forth83 test-meta-b6b pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-check-sync test-sync-copies test-grub-cfg test-pxe-label test-nasm-pin test-net-receive-replace test-vbe-boot test-vbe-nostub test-urw-canvas test-g6 test-uefi-netboot test-hal test-hal-net test-hal-match test-hal-match-hp
+.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined usb-image check-coverage desk-hashes check-kernel-size test test-blk-evict test-block-read-error test-mirror test-interp-abort test-pad-move test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-log-send test-lic-observe test-dlg2form test-rtl8168-cksum test-stack-floor test-vga-wrap test-reload-vocab test-load-vocab test-resolve-deps test-pipeline-e2e test-net-flush-lf test-console-band test-window-focus test-free-boot test-search-order test-abort-routes test-vocab-dedup test-phys-refuse test-window-forms test-read-flags test-double-cell test-forth83 test-meta-b6b pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-check-sync test-sync-copies test-grub-cfg test-pxe-label test-nasm-pin test-net-receive-replace test-vbe-boot test-vbe-nostub test-urw-canvas test-g6 test-uefi-netboot test-hal test-hal-net test-hal-match test-hal-match-hp

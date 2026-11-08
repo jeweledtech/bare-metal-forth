@@ -1,4 +1,4 @@
-# Claude Code Task: ECHOPORT — Live Hardware Port Activity Recorder
+# Task: ECHOPORT — Live Hardware Port Activity Recorder
 
 ## Background
 

@@ -66,10 +66,11 @@ forth/dict/iyuv-about-form.fth
 forth/dict/mfc-keyboard-form.fth
 forth/dict/input-keyseq-form.fth
 # ReactOS notepad, from ~/corpus (private TASK_REACTOS_NOTEPAD_FORMS):
-# dlg2form and imports2forth output, and its demo; private files only
+# dlg2form, imports2forth and buttons2forth output, and its demo; private
 forth/dict/ros-notepad-goto-form.fth
 forth/dict/ros-notepad-printing-form.fth
 forth/dict/ros-notepad-imports.fth
+forth/dict/ros-notepad-buttons.fth
 forth/dict/ros-notepad.fth
 # imports2forth, a private tool, copied here for tools/translator's
 # test-buttons (private TASK_ROS_NOTEPAD_SLICE_B amendment 2 f)
@@ -118,6 +119,7 @@ forth/dict/target-cortex-m.fth
 # forthos-vocabularies; the test-log-harness* recipes stay public and
 # print SKIPPED when these are absent.
 forth/dict/log-harness.fth
+forth/dict/lic-observe.fth
 tests/test_log_harness.py
 tests/test_log_harness_nic.py
 tests/test_log_validation.py
@@ -200,7 +202,7 @@ docs/2026-04-30_-_Mentor_Touchbase
 docs/MENTOR_SESSION_REFERENCE.docx
 docs/plans/
 
-# Claude Code session state + working memory -- internal, never publish
+# Local session state and working notes -- internal, never publish
 .claude/
 
 # Driver corpus: Microsoft- and Apple-copyrighted binaries.  The corpus lives in

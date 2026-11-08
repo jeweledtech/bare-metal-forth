@@ -1,6 +1,6 @@
 # ForthOS: NE2000 Multi-Block Vocabulary Transfer
 **Date:** 2026-03-19  
-**Status:** Ready for Claude Code  
+**Status:** Ready  
 **Commit base:** `52912c8` (296 tests passing)  
 **Goal:** Transfer a complete Forth vocabulary (PIT-TIMER, 5 blocks) from instance A to instance B over Ethernet, load it on B with `THRU`, and execute a word from it. This is the "dictionary sharing over network" feature from the original vision.
 

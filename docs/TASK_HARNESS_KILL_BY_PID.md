@@ -11,7 +11,7 @@
 ## 1. Why now
 
 This is the last open item from the finding. Two of its three fixes landed
-(per-worktree `TEST_PORT_BASE`, the `docs/CLAUDE.md` broad-kill replacement);
+(per-worktree `TEST_PORT_BASE`, the working notes' broad-kill replacement);
 the 55 Makefile recipes still tear down by name pattern.
 
 It is being done now because the machine is quiet and one session owns the
@@ -40,7 +40,7 @@ The cost is not the lost minutes. It is that a red suite stops meaning
 | `TEST_PORT_BASE` | — | done (`65a5cdd`), no change |
 
 Out of scope: the three translator corpus suites, anything under
-`tools/translator/`, and `docs/CLAUDE.md` (already corrected).
+`tools/translator/`, and the project's working notes (already corrected).
 
 ---
 

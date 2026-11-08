@@ -4,7 +4,7 @@ A test-infrastructure defect that produces intermittent failures which
 *look like code regressions but are not*. Recorded so the next person who
 hits "Failed to find an available port" or a mid-suite `BrokenPipeError`
 does not chase it through the kernel. Read-only audit; the fixes are
-scoped below (per-worktree ports and the CLAUDE.md advice are done; the
+scoped below (per-worktree ports and the working-notes advice are done; the
 Makefile recipes are not).
 
 > Reconciles two independently-written drafts (one in the main tree, one
@@ -44,12 +44,12 @@ two checkouts (a main tree and a `firstboot` worktree) both defaulted to
 
 ## A broader instance — the documented pre-launch kill
 
-`docs/CLAUDE.md`'s QEMU guidance used to say "always `pkill -9 -f qemu ||
+The project's working notes used to say, as QEMU guidance, "always `pkill -9 -f qemu ||
 true` before starting new instances." That kills **every QEMU on the
 machine by name**, regardless of port — so any session following the
 advice killed every other session's QEMUs. This is the wider version of
 the same mistake: a name kill that cannot tell its own process from
-anyone else's. **Replaced 2026-10-01** — `docs/CLAUDE.md` now says *never*
+anyone else's. **Replaced 2026-10-01** — the working notes now say *never*
 `pkill -9 -f qemu`, start with a known PID and kill only that PID.
 
 ## Blast radius
@@ -110,7 +110,7 @@ something."
    range; `?=` still lets CI/the user pin it. Optionally also have a recipe
    refuse to start when its serial port is already bound (`ss -tln`), so a
    collision fails loudly instead of killing or hijacking.
-3. **Replace the CLAUDE.md pre-launch kill — DONE (2026-10-01).** See the
+3. **Replace the working notes' pre-launch kill — DONE (2026-10-01).** See the
    "broader instance" section.
 
 Either (1) or (2) alone reduces the collisions; **both** remove the

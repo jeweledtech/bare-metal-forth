@@ -158,7 +158,7 @@ must change. Only if a genuine ANS `FIND` is wanted later.
   every pinned image hash moves — sequence after the HP trip, same
   constraint as the wizard branch (now merged).
 - Docs that mention `FIND` as if it were ANS: grep `docs/` and correct in
-  the same change. Word count (`CLAUDE.md` "222 dictionary words") is
+  the same change. Word count (the working notes' "222 dictionary words") is
   unchanged by a rename; `make check-kernel-size` moves by bytes.
 
 ### Red first
