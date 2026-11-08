@@ -1415,7 +1415,7 @@ test-forth83: $(COMBINED)
 test-translator:
 	@$(RUN_MODE) test-translator --tree tools/translator/Makefile; $(RUN_MODE_END); \
 	echo "Running UBT translator test suite..."; \
-	$(MAKE) -C tools/translator test
+	$(MAKE) -k -C tools/translator test
 
 # Offline GRUB cfg gates: drift, converter pin, scan fatality
 # UEFI-2 red (docs/evidence/uefi-2-prereg-2026-09-28.md): at `ok`, QEMU's
