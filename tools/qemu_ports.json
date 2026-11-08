@@ -35,19 +35,19 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 50,
-    "source": "tests/test_arm64_boot.py:219"
+    "source": "tests/test_arm64_boot.py:200"
    },
    {
     "form": "tcp:127.0.0.1:P",
     "kind": "monitor",
     "offset": 51,
-    "source": "tests/test_arm64_boot.py:220"
+    "source": "tests/test_arm64_boot.py:201"
    },
    {
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 52,
-    "source": "tests/test_arm64_boot.py:436"
+    "source": "tests/test_arm64_boot.py:417"
    }
   ]
  },

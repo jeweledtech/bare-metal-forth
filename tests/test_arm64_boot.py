@@ -37,34 +37,15 @@ QEMU_ARM64 = 'qemu-system-aarch64'
 
 
 def get_vocab_blocks(vocab_name):
-    try:
-        result = subprocess.run(
-            [sys.executable, '-c', f"""
-import sys, os
-sys.path.insert(0, os.path.join('{PROJECT_DIR}', 'tools'))
-from importlib.machinery import SourceFileLoader
-wc = SourceFileLoader('wc', os.path.join(
-    '{PROJECT_DIR}', 'tools', 'write-catalog.py'
-)).load_module()
-vocabs = wc.scan_vocabs(os.path.join(
-    '{PROJECT_DIR}', 'forth', 'dict'))
-_nc = (len(vocabs) + wc.CATALOG_DATA_LINES - 1) // wc.CATALOG_DATA_LINES
-nb = 1 + _nc
-for v in vocabs:
-    nb = wc.place_vocab(nb, v['blocks_needed'])
-    if v['name'] == '{vocab_name}':
-        print(f"{{nb}} {{nb + v['blocks_needed'] - 1}}")
-        break
-    nb += v['blocks_needed']
-"""],
-            capture_output=True, text=True, timeout=10
-        )
-        if result.stdout.strip():
-            parts = result.stdout.strip().split()
-            return int(parts[0]), int(parts[1])
-    except Exception:
-        pass
-    return None, None
+    # The range the machine reads: tools/catalog_layout.py parses the
+    # catalog out of the built build/blocks.img.  Re-deriving the layout
+    # from forth/dict/ counted the .fth files only, so it missed the raw
+    # VBR-TEMPLATE entry: at 91 entries the catalog takes 7 blocks, not 6,
+    # and ARM64-ASM was loaded from 67-99 instead of 68-100.
+    sys.path.insert(0, os.path.join(PROJECT_DIR, 'tools'))
+    import catalog_layout
+    return catalog_layout.vocab_blocks(
+        vocab_name, os.path.join(BUILD_DIR, 'blocks.img'))
 
 
 def connect(port, timeout=10, retries=20):
