@@ -23,6 +23,17 @@
 \ Usage, as a button's word:
 \   ' IMPORTS-SHOW 1 CID-WIRE DROP
 \
+\ Per-button records (private
+\ TASK_ROS_NOTEPAD_BUTTON_PANEL), from
+\ buttons2forth, after the table's IMP-END:
+\   519 1 IMP-BUTTON
+\   S" user32.dll!EndDialog" IMP-CALL
+\   S" 0x464" IMP-POST  ...  IMP-END
+\ What a button's branch may call, every
+\ path followed. IMPORTS-BUTTON
+\ ( dialog cid -- ) shows one button's
+\ panel; P there opens IMPORTS-SHOW.
+\
 \ ============================================
 
 VOCABULARY IMPORTS
@@ -41,6 +52,14 @@ VARIABLE IMP-TABLE
 VARIABLE IMP-NFN
 VARIABLE IMP-NDLL
 0 IMP-TABLE !
+\ The button records: a list, newest
+\ first. A record: link, dialog, cid,
+\ calls, posts (cells), then entries
+\ (tag 3 a call, 4 a post, 0 the end).
+VARIABLE IMP-BTNS
+VARIABLE IMP-NBTN
+VARIABLE IMP-BOPEN
+0 IMP-BTNS !  0 IMP-NBTN !  0 IMP-BOPEN !
 
 : IMP-ALIGN ( -- ) HERE @ 3 + -4 AND HERE ! ;
 \ A counted copy at HERE: S" text is
@@ -53,12 +72,42 @@ VARIABLE IMP-NDLL
 : IMP-PROGRAM ( addr len -- )
   IMP-ALIGN HERE @ IMP-NAME ! IMP-STR,
   HERE @ IMP-TABLE !
-  0 IMP-NFN !  0 IMP-NDLL ! ;
+  0 IMP-NFN !  0 IMP-NDLL !
+  0 IMP-BTNS !  0 IMP-NBTN !  0 IMP-BOPEN ! ;
 : IMP-DLL ( addr len -- )
   1 C, IMP-STR,  1 IMP-NDLL +! ;
 : IMP-FN ( addr len -- )
   2 C, IMP-STR,  1 IMP-NFN +! ;
-: IMP-END ( -- ) 0 C, IMP-ALIGN ;
+\ Ends the table, or the open record.
+: IMP-END ( -- ) 0 C, IMP-ALIGN  0 IMP-BOPEN ! ;
+
+\ ---- The button records ------------------
+: IMP-BUTTON ( dialog cid -- )
+  IMP-BOPEN @ IF 0 C, THEN IMP-ALIGN
+  HERE @ IMP-BTNS @ , IMP-BTNS !
+  SWAP , ,  0 , 0 ,
+  -1 IMP-BOPEN !  1 IMP-NBTN +! ;
+\ An entry of the open record; n the
+\ count's offset. None open: refused.
+: IMP-ENTRY ( addr len tag n -- )
+  IMP-BOPEN @ 0= IF
+    2DROP 2DROP ." IMP: no IMP-BUTTON" CR
+    EXIT THEN
+  >R C, IMP-STR,  1 IMP-BTNS @ R> + +! ;
+: IMP-CALL ( addr len -- ) 3 12 IMP-ENTRY ;
+: IMP-POST ( addr len -- ) 4 16 IMP-ENTRY ;
+
+\ The record of button cid of dialog
+\ dialog, or 0.
+: IMP-BFIND ( dialog cid -- rec | 0 )
+  IMP-BTNS @
+  BEGIN DUP WHILE
+    DUP 4 + @ 3 PICK =
+    OVER 8 + @ 3 PICK = AND IF
+      NIP NIP EXIT THEN
+    @
+  REPEAT
+  NIP NIP ;
 
 \ ---- Drawing -----------------------------
 VARIABLE IM-X
@@ -139,6 +188,52 @@ VARIABLE IM-P
     IM-P @ IM-PAGE
     KEY DUP 32 = IF
       IM-P @ IM-PAGES MOD 1 + IM-P !
+    THEN
+    27 =
+  UNTIL ;
+
+\ ---- One button's panel ------------------
+VARIABLE IB-D
+VARIABLE IB-C
+VARIABLE IB-R
+
+\ Entry k of record r's entries: as
+\ IM-ENTRY, a post as `posts 0x...`.
+: IB-ENTRY ( e k -- )
+  DUP 20 MOD 5 + IM-ROW
+  20 < 0= IF 40 IM-X ! THEN
+  DUP C@ 4 = IF S" posts " IM-TXT THEN
+  1 + DUP 1 + SWAP C@ IM-TXT ;
+
+: IB-PAGE ( -- )
+  VGA-CLS  0 IM-ROW
+  IMP-NAME @ DUP 1 + SWAP C@ IM-TXT
+  S" : dialog " IM-TXT  IB-D @ IM-N
+  S" , button " IM-TXT  IB-C @ IM-N
+  3 IM-ROW  S" P: whole program  Esc: back" IM-TXT
+  1 IM-ROW
+  IB-R @ 0= IF
+    S" No record for this button." IM-TXT EXIT
+  THEN
+  S" What this button may call (every path of its branch):"
+  IM-TXT
+  2 IM-ROW  S" Imports: " IM-TXT  IB-R @ 12 + @ IM-N
+  S"   Posted messages: " IM-TXT  IB-R @ 16 + @ IM-N
+  IB-R @ 20 + 0
+  BEGIN OVER C@ WHILE
+    DUP 40 < IF 2DUP IB-ENTRY THEN
+    1 + SWAP IM-NEXT SWAP
+  REPEAT 2DROP ;
+
+\ P or p: the whole program's page;
+\ Esc: back. Nothing loaded: returns.
+: IMPORTS-BUTTON ( dialog cid -- )
+  IMP-TABLE @ 0= IF 2DROP EXIT THEN
+  2DUP IMP-BFIND IB-R !  IB-C ! IB-D !
+  BEGIN
+    IB-PAGE
+    KEY DUP 80 = OVER 112 = OR IF
+      IMPORTS-SHOW
     THEN
     27 =
   UNTIL ;
