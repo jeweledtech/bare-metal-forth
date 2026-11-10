@@ -394,6 +394,11 @@ call.
   unaffected: it patches `vbr.bin` (VBR-LBA-OFF), not `boot.bin`.
 - vbr.bin and the multiboot2 entry never call the stub; `kernel_start`
   zeroes the result cells for them (`test-vbe-nostub`).
-- **Merging to master needs Brenden's sign-off after HP validation.** That
-  validation boots all three BIOS GRUB entries on the HP: the existing
-  memdisk entry, the chainload entry, and the URWriter entry.
+- **HP validation is done:** all three BIOS GRUB entries (the existing
+  memdisk entry, the chainload entry, and the URWriter entry) booted on the
+  HP on 2026-11-09, over PXE (evidence: private d7b9a17,
+  docs/evidence/urwriter-phase1-hp-20261109/).
+- **Merging to master is still pending.** The remaining criterion is
+  graphics mode working from USB as well as PXE. That is deferred and
+  belongs to the boot-path-independent graphics trigger proposal (Phase 2),
+  unless Brenden rules to merge Phase 1 now with USB tracked as a follow-up.
