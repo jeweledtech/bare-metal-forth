@@ -95,6 +95,22 @@ if ss -ulnp 2>/dev/null | grep -q ':69 '; then
 else
     fail "Nothing listening on TFTP port 69"
 fi
+
+# Transfer logging: tools/hp-portread-capture.py confirms a PXE boot
+# from the RRQ lines in.tftpd writes to the tftpd-hpa journal, and
+# in.tftpd writes them only with --verbose (private
+# TASK_TFTP_TRANSFER_LOGGING). Config and running process are checked
+# separately: an edit without a restart logs nothing.
+if grep -Eq '^TFTP_OPTIONS=.*--verbose' /etc/default/tftpd-hpa 2>/dev/null; then
+    pass "/etc/default/tftpd-hpa TFTP_OPTIONS has --verbose"
+else
+    fail "/etc/default/tftpd-hpa TFTP_OPTIONS lacks --verbose (no RRQ lines for the HP capture)"
+fi
+if pgrep -a in.tftpd 2>/dev/null | grep -q -- '--verbose'; then
+    pass "running in.tftpd has --verbose"
+else
+    fail "running in.tftpd lacks --verbose (restart tftpd-hpa after the config edit)"
+fi
 echo ""
 
 # --- 4. Boot files in TFTP root ---
