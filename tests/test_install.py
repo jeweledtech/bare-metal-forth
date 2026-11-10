@@ -1573,10 +1573,10 @@ print("\nTest 46b: proven loader frozen; loader DAPs disjoint")
 # offset 472 -- FROZEN facts about a shipped artifact, so hardcoding
 # is correct here: any change to either is the alarm firing, and
 # the fix is to justify touching the proven loader, not to update
-# this number.  Justified once: 467 -> 472 (owner 2026-11-02, branch
-# unicorn-writer only; docs/DECISIONS.md "boot.bin touched for the BIOS
-# VBE opt-in"): the 5-byte far call to vbe_stub ahead of the DAP.
-# Merging to master needs Brenden's sign-off after HP validation.
+# this number.  Justified once: 467 -> 472 (owner 2026-11-02;
+# docs/DECISIONS.md "boot.bin touched for the BIOS VBE opt-in"): the
+# 5-byte far call to vbe_stub ahead of the DAP.  Merged to master
+# 2026-11-09 (082036d) by owner ruling, after HP validation over PXE.
 # Disjoint patterns (01 00 00 00 vs EF BE AD DE) are
 # what let the two gates attribute a failure to the right binary.
 with open('build/boot.bin', 'rb') as f:

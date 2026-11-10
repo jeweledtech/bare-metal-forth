@@ -398,7 +398,8 @@ call.
   memdisk entry, the chainload entry, and the URWriter entry) booted on the
   HP on 2026-11-09, over PXE (evidence: private d7b9a17,
   docs/evidence/urwriter-phase1-hp-20261109/).
-- **Merging to master is still pending.** The remaining criterion is
-  graphics mode working from USB as well as PXE. That is deferred and
-  belongs to the boot-path-independent graphics trigger proposal (Phase 2),
-  unless Brenden rules to merge Phase 1 now with USB tracked as a follow-up.
+- **Merged to master 2026-11-09 (082036d) with one criterion open:**
+  graphics mode working from USB as well as PXE. Tracked in private
+  TASK_URW_USB_GRAPHICS; it belongs to the Phase 2 boot-path-independent
+  graphics trigger. tests/test_grub_cfg.py Test 8 pins the stick menu's
+  current absence and fails once a USB URWriter entry lands.

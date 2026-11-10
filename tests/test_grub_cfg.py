@@ -27,6 +27,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GEN = os.path.join(ROOT, 'tools', 'pxe', 'gen-grub-cfg.py')
 FTH = os.path.join(ROOT, 'forth', 'dict', 'install.fth')
 COMMITTED = os.path.join(ROOT, 'tools', 'pxe', 'grub.cfg')
+USB = os.path.join(ROOT, 'tools', 'make-uefi-usb.sh')
 
 PASS = FAIL = 0
 
@@ -49,7 +50,7 @@ def check(name, ok, detail=''):
 # being importable, or the one failure mode it exists to survive
 # (wrong/missing code) is the one that suppresses it.
 #
-# All four, not just this file.  Test 3 is a DRIFT GATE comparing
+# All five, not just this file.  Test 3 is a DRIFT GATE comparing
 # COMMITTED against what GEN produces from FTH, so a log naming
 # only the harness would attest to a comparison whose two sides
 # could both have moved.  BEFORE exec_module, which RUNS GEN.
@@ -57,7 +58,8 @@ _unreadable = []
 for _label, _p in (('harness', os.path.abspath(__file__)),
                    ('gen-grub-cfg', GEN),
                    ('install.fth', FTH),
-                   ('grub.cfg', COMMITTED)):
+                   ('grub.cfg', COMMITTED),
+                   ('make-uefi-usb.sh', USB)):
     try:
         with open(_p, 'rb') as _f:
             _h = hashlib.sha256(_f.read()).hexdigest()
@@ -233,6 +235,31 @@ else:
               r.returncode == 0, r.stderr[:200])
     finally:
         os.unlink(cfg_path)
+
+print('Test 8: USB stick menu has no URWriter entry yet (open criterion)')
+# DECISIONS.md "boot.bin touched for the BIOS VBE opt-in": Phase 1 merged
+# with one criterion open, graphics from USB as well as PXE (private
+# TASK_URW_USB_GRAPHICS). The stick's menu is the GRUBCFG heredoc in
+# tools/make-uefi-usb.sh. This pins today's absence so the record cannot
+# go stale: when a USB URWriter entry lands, this FAILS on purpose. Then
+# close the criterion in DECISIONS.md and the task doc and replace this
+# test with the positive pin. Parse exact: the heredoc must be found
+# exactly once and be non-empty, or the absence check proves nothing.
+with open(USB, encoding='utf-8') as _f:
+    _usb = _f.read().splitlines()
+_open = [i for i, l in enumerate(_usb) if l.rstrip().endswith("<< 'GRUBCFG'")]
+_close = [i for i, l in enumerate(_usb) if l == 'GRUBCFG']
+_body = (_usb[_open[0] + 1:_close[0]]
+         if len(_open) == 1 and len(_close) == 1 and _close[0] > _open[0]
+         else [])
+check('stick menu located: one GRUBCFG heredoc in make-uefi-usb.sh, '
+      'with menuentries',
+      any(l.strip().startswith('menuentry') for l in _body),
+      f'opens {len(_open)}, closes {len(_close)}, {len(_body)} lines')
+check('stick menu has no URWriter entry and no vbe '
+      '(open: private TASK_URW_USB_GRAPHICS; failing = it landed, close the record)',
+      bool(_body) and not any('URWriter' in l or 'vbe' in l.split()
+                              for l in _body))
 
 print(f'\nPassed: {PASS}/{PASS + FAIL}')
 sys.exit(1 if FAIL else 0)
