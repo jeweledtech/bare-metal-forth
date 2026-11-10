@@ -1570,10 +1570,14 @@ check('alive after G5-R3', alive())
 # ---------------------------------------------------------------
 print("\nTest 46b: proven loader frozen; loader DAPs disjoint")
 # boot.bin is the iron-proven memdisk loader. Its DAP is dd 1 at
-# offset 467 -- FROZEN facts about a shipped artifact, so hardcoding
+# offset 472 -- FROZEN facts about a shipped artifact, so hardcoding
 # is correct here: any change to either is the alarm firing, and
 # the fix is to justify touching the proven loader, not to update
-# this number. Disjoint patterns (01 00 00 00 vs EF BE AD DE) are
+# this number.  Justified once: 467 -> 472 (owner 2026-11-02, branch
+# unicorn-writer only; docs/DECISIONS.md "boot.bin touched for the BIOS
+# VBE opt-in"): the 5-byte far call to vbe_stub ahead of the DAP.
+# Merging to master needs Brenden's sign-off after HP validation.
+# Disjoint patterns (01 00 00 00 vs EF BE AD DE) are
 # what let the two gates attribute a failure to the right binary.
 with open('build/boot.bin', 'rb') as f:
     bootbin = f.read()
@@ -1583,8 +1587,8 @@ legacy_re = re.compile(
 legacy_hits = [m.start() for m in legacy_re.finditer(bootbin)]
 check('boot.bin: exactly one dd-1 DAP (proven loader intact)',
       len(legacy_hits) == 1, f'matches at {legacy_hits}')
-check('boot.bin: DAP LBA still at frozen offset 467',
-      bool(legacy_hits) and legacy_hits[0] + 8 == 467,
+check('boot.bin: DAP LBA still at frozen offset 472',
+      bool(legacy_hits) and legacy_hits[0] + 8 == 472,
       f'moved to {legacy_hits[0] + 8 if legacy_hits else None}')
 # Disjointness, both directions: a sentinel DAP appearing in
 # boot.bin means someone edited the proven loader toward the
@@ -1768,7 +1772,18 @@ send('  255 AND TR-BUF 512 ROT FILL 0 ;', 1.0)
 send("' ORD SEC-READ-VEC !  TR-BUF RD-BUF-ADDR !", 0.5)
 send("' OWR SEC-WRITE-VEC !", 0.5)
 send(f'{BASE} OWN-BASE !  225 OWN-LEN !', 0.5)
-send('4096 MEM-BASE !', 0.3)
+# The kernel source is the untouched image, as on iron, where MEM-BASE is
+# memdisk's RAM copy of forth.img (Decision B).  QEMU's loader device puts
+# build/bmforth.img (boot sector + kernel, memdisk's layout) at 0x3310000,
+# test-only use of the reserve (private TASK_UNICORN_WRITER memory plan
+# v4; 0xF10000 under plan v3 until the plan moved off 0x400000).  Until 2026-11-02 this was 4096, live low RAM: KRN-SAMPLE 2's
+# sector then covered 0xD600-0xD7FF, and the Phase 1 layout put
+# isr_tick_count (0xD780) there, so a timer tick between ABE-KWRITE and
+# KRN-CHK failed the control.
+check('pristine image at 0x3310000: its first kernel cell is kernel.bin\'s',
+      val('HEX 3310200 @ DECIMAL')[0] == int.from_bytes(open('build/kernel.bin', 'rb').read(4), 'little'),
+      'loader device missing from the test-install recipe?')
+send('53542912 MEM-BASE !', 0.3)
 send('100 ESP-BASE !  64 ESP-LEN !', 0.5)
 send('VBR-FIX VBR-TPL !', 0.5)
 

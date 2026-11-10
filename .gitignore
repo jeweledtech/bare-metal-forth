@@ -55,6 +55,9 @@ forth/dict/surveyor-deep.fth
 forth/dict/surveyor-detail.fth
 forth/dict/stub-dispatch.fth
 forth/dict/file-editor-disk.fth
+# Unicorn and Rainbows Writer modules: private (PRIVATE-OWNED, TASK_UNICORN_WRITER)
+forth/dict/urw-*.fth
+forth/dict/urwriter.fth
 forth/dict/disk-survey-form.fth
 forth/dict/port-monitor.fth
 forth/dict/port-monitor-form.fth

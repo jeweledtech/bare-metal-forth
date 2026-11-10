@@ -1,7 +1,26 @@
 # Bare-Metal Forth Makefile
 # The Ship Builder's System
 
-NASM = nasm
+# nasm is pinned: the committed kernel hashes are nasm 2.16.01's (3.01
+# builds a different kernel.bin).  NASM names the binary, from the command
+# line (make NASM=/path/to/nasm) or the environment; it is exported so the
+# Python tools and tests that assemble use the same one.  Any other version
+# is refused before anything builds (clean and help excepted).
+NASM ?= nasm
+export NASM
+NASM_PIN := 2.16.01
+ifneq ($(filter-out clean help,$(MAKECMDGOALS))$(if $(MAKECMDGOALS),,all),)
+NASM_GOT := $(word 3,$(shell $(NASM) -v 2>/dev/null))
+ifneq ($(NASM_GOT),$(NASM_PIN))
+$(info nasm: '$(NASM)' is $(if $(NASM_GOT),version $(NASM_GOT),not runnable); this build needs $(NASM_PIN).)
+$(info nasm: install 2.16.01 beside your system nasm, then point NASM at it:)
+$(info nasm:   curl -LO https://www.nasm.us/pub/nasm/releasebuilds/2.16.01/nasm-2.16.01.tar.xz)
+$(info nasm:   tar xf nasm-2.16.01.tar.xz && cd nasm-2.16.01)
+$(info nasm:   ./configure --prefix=$$HOME/.local/opt/nasm-2.16.01 && make && make install)
+$(info nasm:   make NASM=$$HOME/.local/opt/nasm-2.16.01/bin/nasm ...   (or export NASM=...))
+$(error nasm $(NASM_PIN) required)
+endif
+endif
 QEMU = qemu-system-i386
 QEMU64 = qemu-system-x86_64
 
@@ -153,7 +172,7 @@ PRIVATE_REPO ?= ../forthos-vocabularies
 # exits 0; 1 FAIL (PRIVATE_REPO set and absent, or present without a file).
 RUN_MODE = PRIVATE_REPO='$(PRIVATE_REPO)' PRIVATE_REPO_ORIGIN='$(origin PRIVATE_REPO)' python3 tests/run_mode.py
 RUN_MODE_END = rc=$$?; [ $$rc = 10 ] && exit 0; [ $$rc = 0 ] || exit 1
-PAID_VOCABS = ahci rtl8168 ntfs auto-detect fat32 surveyor file-editor-disk log-harness lic-observe cd-atapi hal-machines atapi-ahci
+PAID_VOCABS = ahci rtl8168 ntfs auto-detect fat32 surveyor file-editor-disk log-harness lic-observe cd-atapi hal-machines atapi-ahci urw-canvas
 
 check-sync:
 	@$(RUN_MODE) check-sync --reason 'no private repo to compare'; $(RUN_MODE_END); \
@@ -808,7 +827,7 @@ test-log-decode-layout:
 # Run the INSTALL write-allowlist gate (Piece 1).
 # Needs $(COMBINED): INSTALL is block-loaded off the catalog, not
 # embedded, so the block store has to be attached.
-test-install: $(call FULL_ONLY,$(COMBINED) $(BOOTLOADER) $(VBR))
+test-install: $(call FULL_ONLY,$(COMBINED) $(BOOTLOADER) $(VBR) $(IMAGE))
 	@$(RUN_MODE) test-install --tree forth/dict/ahci.fth --reason 'needs the private vocabularies'; $(RUN_MODE_END); \
 	cp $(COMBINED) $(COMBINED_IDE) || exit 1; \
 	PIDF=$(BUILD)/test-install.pid; $(QEMU_KILL); \
@@ -817,6 +836,7 @@ test-install: $(call FULL_ONLY,$(COMBINED) $(BOOTLOADER) $(VBR))
 	echo "Running INSTALL allowlist test..."; \
 	$(QEMU) -drive file=$(COMBINED),format=raw,if=floppy \
 		-drive file=$(COMBINED_IDE),format=raw,if=ide,index=1 \
+		-device loader,file=$(IMAGE),addr=0x3310000,force-raw=on \
 		-serial tcp:127.0.0.1:$$PORT,server=on,wait=off \
 		-display none -daemonize -pidfile $$PIDF; \
 	sleep 2; \
@@ -1602,6 +1622,57 @@ test-meta: $(COMBINED)
 	done
 	@echo "Metacompiler tests complete!"
 
+# net-receive.py save-and-update (private TASK_UNICORN_WRITER): a sender's
+# FLAG_REPLACE overwrites <outdir>/<name> and keeps one <name>.bak; partial,
+# no-EOF and unsafe-name saves never touch the good file.  Host-only.
+# nasm pinned to 2.16.01 (private TASK_UNICORN_WRITER rule 5): make -n
+# with fake nasm binaries; host-only.
+test-nasm-pin:
+	@echo "Running nasm pin gates..."
+	@python3 tests/test_nasm_pin.py
+
+test-net-receive-replace:
+	@echo "Running net-receive save-and-update tests..."
+	@python3 tests/test_net_receive_replace.py
+
+# BIOS VBE opt-in at boot (private TASK_UNICORN_WRITER Phase 1; the kernel
+# and boot-sector halves are public): boot.asm far-calls forth.asm's
+# vbe_stub, which sets a 32-bpp LFB mode only when memdisk's command line
+# says `vbe`.  Floppy, memdisk, memdisk + vbe; QEMU's info pci and
+# screendump are the authorities.  Serial +127, monitor +128.
+T_VBE_BOOT ?= 300
+test-vbe-boot: $(IMAGE) $(COMBINED)
+	@QPIDDIR=$(BUILD)/test-vbe-boot.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
+	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-vbe-boot --base $(TEST_PORT_BASE); \
+	echo "Running BIOS VBE opt-in boot test..."; \
+	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_VBE_BOOT) python3 tests/test_vbe_boot.py \
+		$$(($(TEST_PORT_BASE)+127)) $$(($(TEST_PORT_BASE)+128))
+
+# VBE cells on the boot paths that never call vbe_stub (private
+# TASK_UNICORN_WRITER Phase 1, owner 2026-11-02): vbr.bin on SeaBIOS and
+# multiboot2 under OVMF + GRUB EFI.  The cells are poisoned at
+# kernel_start through QEMU's gdb stub (a Unix socket under build/) and
+# must read 0 at the prompt.  Serial +131, monitor +132.
+T_VBE_NOSTUB ?= 300
+test-vbe-nostub: $(VBR) $(KERNEL) $(COMBINED)
+	@QPIDDIR=$(BUILD)/test-vbe-nostub.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
+	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-vbe-nostub --base $(TEST_PORT_BASE); \
+	echo "Running VBE no-stub boot paths test..."; \
+	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_VBE_NOSTUB) python3 tests/test_vbe_nostub.py \
+		$$(($(TEST_PORT_BASE)+131)) $$(($(TEST_PORT_BASE)+132))
+
+# URW-CANVAS (private TASK_UNICORN_WRITER Phase 1): GRUB netboot, menu
+# entry "ForthOS - URWriter (graphics)", the canvas words and CANVAS-DEMO
+# checked on QEMU's screendump.  Serial +129, monitor +130.
+T_URW_CANVAS ?= 300
+test-urw-canvas: $(call FULL_ONLY,$(COMBINED))
+	@$(RUN_MODE) test-urw-canvas --private forth/dict/urw-canvas.fth tests/test_urw_canvas.py; $(RUN_MODE_END); \
+	QPIDDIR=$(BUILD)/test-urw-canvas.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
+	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-urw-canvas --base $(TEST_PORT_BASE); \
+	echo "Running URW-CANVAS (GRUB URWriter label) gates..."; \
+	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_URW_CANVAS) python3 $(PRIVATE_REPO)/tests/test_urw_canvas.py \
+		$$(($(TEST_PORT_BASE)+129)) $$(($(TEST_PORT_BASE)+130))
+
 # Run all tests (lint first, then functional tests)
 # Reachability audit 2026-09-21 (docs/evidence/make-target-reachability-2026-09-21.md):
 # test-translator was NOT in this list.  The UBT suite -- 25 suites, 115
@@ -1629,7 +1700,7 @@ test-meta: $(COMBINED)
 #     its output as evidence, and it never gates a build.  If it must ever
 #     gate something, the gate goes on a deterministic artefact derived from
 #     it and pinned -- the treatment the Ghidra oracle already has.
-test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-block-read-error test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-log-send test-lic-observe test-dlg2form test-rtl8168-cksum test-stack-floor test-vga-wrap test-reload-vocab test-load-vocab test-resolve-deps test-vbr test-grub-cfg test-pxe-label test-uefi-boot test-uefi-netboot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-mirror test-interp-abort test-pad-move test-hal test-hal-net test-hal-match test-hal-match-hp test-network test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline test-pipeline-e2e test-net-flush-lf test-console-band test-window-focus test-free-boot test-search-order test-abort-routes test-vocab-dedup test-phys-refuse test-window-forms test-read-flags test-double-cell test-forth83 test-arm64-boot test-meta-b6b test-public-clone test-sync-copies test-check-sync check-sync
+test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-block-read-error test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-log-send test-lic-observe test-dlg2form test-rtl8168-cksum test-stack-floor test-vga-wrap test-reload-vocab test-load-vocab test-resolve-deps test-vbr test-grub-cfg test-pxe-label test-nasm-pin test-net-receive-replace test-vbe-boot test-vbe-nostub test-urw-canvas test-uefi-boot test-uefi-netboot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-mirror test-interp-abort test-pad-move test-hal test-hal-net test-hal-match test-hal-match-hp test-network test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline test-pipeline-e2e test-net-flush-lf test-console-band test-window-focus test-free-boot test-search-order test-abort-routes test-vocab-dedup test-phys-refuse test-window-forms test-read-flags test-double-cell test-forth83 test-arm64-boot test-meta-b6b test-public-clone test-sync-copies test-check-sync check-sync
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)
@@ -1714,4 +1785,4 @@ grub-net: $(COMBINED) tools/pxe/grub.cfg
 pxe-push-grub: grub-net
 	@bash tools/pxe/push-grub.sh
 
-.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined usb-image check-coverage desk-hashes check-kernel-size test test-blk-evict test-block-read-error test-mirror test-interp-abort test-pad-move test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-log-send test-lic-observe test-dlg2form test-rtl8168-cksum test-stack-floor test-vga-wrap test-reload-vocab test-load-vocab test-resolve-deps test-pipeline-e2e test-net-flush-lf test-console-band test-window-focus test-free-boot test-search-order test-abort-routes test-vocab-dedup test-phys-refuse test-window-forms test-read-flags test-double-cell test-forth83 test-meta-b6b pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-check-sync test-sync-copies test-grub-cfg test-pxe-label test-g6 test-uefi-netboot test-hal test-hal-net test-hal-match test-hal-match-hp
+.PHONY: all run run-gui run-serial debug check clean help iso blocks run-blocks run-blocks-gui write-block write-catalog combined usb-image check-coverage desk-hashes check-kernel-size test test-blk-evict test-block-read-error test-mirror test-interp-abort test-pad-move test-smoke test-loops test-vocabs test-gui test-integration test-flush test-network test-ahci-write test-file-stream test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-log-send test-lic-observe test-dlg2form test-rtl8168-cksum test-stack-floor test-vga-wrap test-reload-vocab test-load-vocab test-resolve-deps test-pipeline-e2e test-net-flush-lf test-console-band test-window-focus test-free-boot test-search-order test-abort-routes test-vocab-dedup test-phys-refuse test-window-forms test-read-flags test-double-cell test-forth83 test-meta-b6b pxe-setup pxe-push pxe-status grub-net pxe-push-grub free run-free check-sync test-check-sync test-sync-copies test-grub-cfg test-pxe-label test-nasm-pin test-net-receive-replace test-vbe-boot test-vbe-nostub test-urw-canvas test-g6 test-uefi-netboot test-hal test-hal-net test-hal-match test-hal-match-hp

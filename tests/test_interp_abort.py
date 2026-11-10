@@ -153,7 +153,7 @@ eb = os.path.join(CTL, 'embedded.bin')
 subprocess.run([sys.executable, os.path.join(ROOT, 'tools', 'embed-vocabs.py'), eb] + vlist,
                check=True, capture_output=True)
 kb = os.path.join(CTL, 'kernel.bin')
-subprocess.run(['nasm', '-f', 'bin', f'-dEMBED_FILE="{eb}"', '-o', kb, ASM], check=True, cwd=ROOT)
+subprocess.run([os.environ.get('NASM', 'nasm'), '-f', 'bin', f'-dEMBED_FILE="{eb}"', '-o', kb, ASM], check=True, cwd=ROOT)
 CTL_IMG = os.path.join(CTL, 'control.img')
 open(CTL_IMG, 'wb').write(open(os.path.join(B, 'boot.bin'), 'rb').read() + open(kb, 'rb').read())
 
