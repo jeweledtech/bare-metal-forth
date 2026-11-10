@@ -132,6 +132,16 @@ tools/log_hp_dryrun.py
 forth/dict/hal-machines.fth
 tests/test_hal_match_hp.py
 
+# Private tests run by public recipes with --private; canonical in
+# forthos-vocabularies. Listed here so every machine's sync copies them
+# and `git add tests/` cannot sweep them in (private TASK_SYNC_COPIES).
+tests/test_dlg2form.py
+tests/test_log_decode_layout.py
+tests/test_log_restore.py
+tests/test_log_send.py
+tests/test_rtl8168_cksum.py
+tests/test_write_floor.py
+
 # Paid tests
 tests/test_ahci_write.py
 tests/test_disk_survey.py
