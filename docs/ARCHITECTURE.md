@@ -49,8 +49,10 @@ Address Range           Size        Purpose
 0x29C00 - 0x29C3F       64 B        ISR hook table (16 IRQ dispatch slots)
 0x30000 - 0x7FFFF       320 KB      Dictionary space
 0xB8000 - 0xB8F9F       4000 B      VGA text buffer (80 x 25 x 2 bytes)
-0x400000 -              UEFI boots: the boot module (block image) moved to MB2_MOVE_TO,
-                                    its size from 0x400000 (about 4.1 MB at 4096 blocks)
+0x400000 - 0x7FFFFF    4 MB max    UEFI boots: the boot module (block image) moved to MB2_MOVE_TO,
+                                    its size from 0x400000 (0x3FC200 at 3968 blocks). Cap: OVMF's
+                                    map has no room past 0x800000, so the whole image stays <= 4 MB
+                                    (3983 blocks fit, 3984 refused; measured 2026-11-10)
 0x1000000 - 0x23FFFFF   20 MB       FILE-BROWSER's NTFS maps (MAP-BASE and its offsets)
 0x2800000 - 0x33FFFFF   12 MB       Application region: Unicorn and Rainbows Writer (private;
                                     canvas back-buffer at 0x2800000, 5 MB; memory plan v4)

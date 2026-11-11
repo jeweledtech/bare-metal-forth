@@ -271,12 +271,12 @@ run-serial: $(ACTIVE_IMAGE)
 VOCAB_SOURCES := $(wildcard forth/dict/*.fth) \
                  $(wildcard $(PRIVATE_REPO)/forth/dict/*.fth)
 
-# Create blank 2.5MB blocks disk (2560 x 1K blocks): code store above the
-# 320-block MIRROR reservation (216-535) ends past block 2048
-BLOCKS_COUNT = 2560
+# Create blank 3.875MB blocks disk (3968 x 1K blocks; code store past block 2048, MIRROR 216-535; fonts):
+# with the kernel the image stays under 4 MB, the UEFI module-move cap (forth.asm MB2_MOVE_TO; 3983 max)
+BLOCKS_COUNT = 3968
 $(BLOCKS): | $(BUILD)
 	dd if=/dev/zero of=$(BLOCKS) bs=1024 count=$(BLOCKS_COUNT)
-	@echo "Block disk created: $(BLOCKS) (2.5MB, $(BLOCKS_COUNT) blocks)"
+	@echo "Block disk created: $(BLOCKS) (3.875MB, $(BLOCKS_COUNT) blocks)"
 blocks: $(BLOCKS)
 
 # Stamp file proves the catalog has been written into $(BLOCKS)
