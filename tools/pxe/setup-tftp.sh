@@ -22,7 +22,7 @@ sudo tee /etc/default/tftpd-hpa > /dev/null <<EOF
 TFTP_USERNAME="tftp"
 TFTP_DIRECTORY="$TFTP_ROOT"
 TFTP_ADDRESS=":69"
-TFTP_OPTIONS="--secure --create"
+TFTP_OPTIONS="--secure --create --verbose"
 EOF
 
 sudo systemctl enable tftpd-hpa

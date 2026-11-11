@@ -15,7 +15,10 @@ The --boot-path flag records INTENT only. At stop, the actual path is
 detected from evidence on this box (a PXE boot leaves a TFTP fetch of the
 boot file in the capture window; USB cannot be positively confirmed from the
 listener) and appended; a flag/evidence conflict is flagged loudly. The
-header no longer asserts the flag as an observation.
+header no longer asserts the flag as an observation. A fetch counts only
+when its RRQ comes from the HP's own address: --hp-ip, else the dhcp-host
+line for --hp-mac in --pxe-conf (the lease the HP's firmware and GRUB fetch
+from; 10.42.0.100 is ForthOS's netcon source, used only after boot).
 
 Usage:
     python3 tools/hp-portread-capture.py --boot-path pxe \
@@ -28,6 +31,7 @@ Stop with Ctrl+C; the log is flushed per-packet, so a hard stop loses nothing.
 import argparse
 import datetime
 import hashlib
+import re
 import socket
 import subprocess
 import sys
@@ -49,14 +53,48 @@ def _run(cmd):
         return 127, str(e)
 
 
-def detect_boot_path(start_dt, stop_dt, bootfile, hp_mac, dhcp_log):
+_IPV4 = re.compile(r'\d{1,3}(?:\.\d{1,3}){3}')
+_RRQ = re.compile(r'\bRRQ from (\S+) filename (\S+)')
+
+
+def resolve_hp_ip(flag, conf, mac):
+    """The HP's address for attributing TFTP fetches: (ip, source) or
+    (None, why). The flag wins. Otherwise exactly one dhcp-host line in the
+    PXE dnsmasq conf naming the MAC (any case) with exactly one IPv4 field;
+    zero lines, several, or an unreadable conf give None, never a guess."""
+    if flag:
+        return flag, '--hp-ip flag'
+    try:
+        with open(conf) as f:
+            lines = f.read().splitlines()
+    except OSError as e:
+        return None, f'{conf} not readable ({e})'
+    hits = []
+    for line in lines:
+        s = line.strip()
+        if not s.startswith('dhcp-host='):
+            continue
+        fields = [x.strip() for x in s[len('dhcp-host='):].split(',')]
+        if mac.lower() in (x.lower() for x in fields):
+            hits.append([x for x in fields if _IPV4.fullmatch(x)])
+    if not hits:
+        return None, f'no dhcp-host line for {mac} in {conf}'
+    if len(hits) > 1 or len(hits[0]) != 1:
+        return None, (f'{len(hits)} dhcp-host line(s) for {mac} in {conf}, '
+                      f'addresses {hits}: ambiguous')
+    return hits[0][0], f'dhcp-host for {mac} in {conf}'
+
+
+def detect_boot_path(start_dt, stop_dt, bootfile, hp_mac, dhcp_log, *, hp_ip):
     """Independently observe how the HP booted during the capture window,
     instead of trusting the --boot-path flag (which only records intent).
 
     The listener runs on the dev box and cannot see USB enumeration on the
     HP, so it can never positively confirm a USB boot. But a PXE boot leaves
     a side effect on THIS box: a TFTP fetch of the boot file. So:
-      - a TFTP fetch of <bootfile>/forth.img in the window -> 'pxe' (+ cite)
+      - an RRQ from the HP's address (hp_ip) in the window -> 'pxe' (+ cite);
+        RRQs from other addresses are listed as not counted
+      - hp_ip unknown and no DHCP evidence                  -> 'undetermined'
       - a log was readable but shows no such fetch          -> USB is
         consistent, but say it is not independently confirmed
       - no log readable at all                              -> 'undetermined'
@@ -68,17 +106,28 @@ def detect_boot_path(start_dt, stop_dt, bootfile, hp_mac, dhcp_log):
     base = bootfile.rsplit('/', 1)[-1]
     ev = []
 
-    # 1) tftpd-hpa journal: in.tftpd logs an RRQ line per fetch.
+    # 1) tftpd-hpa journal: in.tftpd --verbose logs
+    #    "RRQ from <ip> filename <file>" per request. Only the HP's address
+    #    counts: a fetch from any other client says nothing about the HP.
     rc, out = _run(['journalctl', '-u', 'tftpd-hpa', '--no-pager',
                     '--since', since, '--until', until])
     journal_readable = (rc == 0)
     if journal_readable:
-        hits = [l for l in out.splitlines()
-                if 'RRQ' in l or base in l or 'forth.img' in l]
-        if hits:
-            ev.append('tftpd-hpa journal, in capture window:')
-            ev += ['    ' + h for h in hits[:6]]
+        rrq = [(m.group(1), l) for l in out.splitlines()
+               for m in [_RRQ.search(l)] if m]
+        mine = [l for ip, l in rrq if hp_ip is not None and ip == hp_ip]
+        other = [l for ip, l in rrq if hp_ip is None or ip != hp_ip]
+        if mine:
+            ev.append(f'tftpd-hpa journal, RRQ from the HP ({hp_ip}) '
+                      'in capture window:')
+            ev += ['    ' + h for h in mine[:6]]
             return 'pxe', ev
+        if other:
+            why = (f'not from the HP ({hp_ip})' if hp_ip is not None
+                   else 'HP address unknown')
+            ev.append(f'{len(other)} RRQ line(s) in the window not counted '
+                      f'({why}):')
+            ev += ['    ' + h for h in other[:3]]
 
     # 2) forthos-pxe DHCP log: DHCPACK + bootfile to the HP MAC. Typically
     #    root-only (640); try, and degrade if unreadable.
@@ -100,12 +149,20 @@ def detect_boot_path(start_dt, stop_dt, bootfile, hp_mac, dhcp_log):
         ev += ['    ' + h for h in dhcp_hits[-6:]]
         return 'pxe', ev
 
-    # No positive PXE evidence. Distinguish "USB-consistent" (a log was
-    # readable and clean) from "undetermined" (nothing was readable).
-    if journal_readable or dhcp_readable:
-        if journal_readable:
-            ev.append('tftpd-hpa journal readable; no TFTP fetch of '
-                      f'{base}/forth.img in the window.')
+    # No positive PXE evidence. Without the HP's address the journal cannot
+    # rule out a fetch from it, so it cannot support "USB-consistent".
+    if hp_ip is None and not dhcp_readable:
+        ev.append('HP address unknown: the journal cannot attribute or rule '
+                  'out a fetch from the HP.')
+        ev.append(f'{dhcp_log}: not readable ({ev_dhcp_err}).')
+        return 'undetermined', ev
+
+    # Distinguish "USB-consistent" (a log was readable and clean) from
+    # "undetermined" (nothing was readable).
+    if (journal_readable and hp_ip is not None) or dhcp_readable:
+        if journal_readable and hp_ip is not None:
+            ev.append('tftpd-hpa journal readable; no RRQ from the HP '
+                      f'({hp_ip}) in the window.')
         if not dhcp_readable:
             ev.append(f'{dhcp_log}: not readable ({ev_dhcp_err}).')
         ev.append('Consistent with a USB boot, but the listener cannot '
@@ -143,7 +200,15 @@ def main():
                     help='HP NIC MAC, for DHCP-log detection')
     ap.add_argument('--dhcp-log', default='/var/log/forthos-pxe.log',
                     help='forthos-pxe DHCP log, for boot-path detection')
+    ap.add_argument('--hp-ip', default=None,
+                    help="HP's address for TFTP-fetch attribution; default: "
+                         'the dhcp-host line for --hp-mac in --pxe-conf')
+    ap.add_argument('--pxe-conf', default='/etc/forthos-pxe-dnsmasq.conf',
+                    help='forthos-pxe dnsmasq config (dhcp-host source)')
     args = ap.parse_args()
+    hp_ip, hp_ip_source = resolve_hp_ip(args.hp_ip, args.pxe_conf, args.hp_mac)
+    hp_ip_line = (f'{hp_ip} ({hp_ip_source})' if hp_ip
+                  else f'unknown ({hp_ip_source})')
 
     # --deployed has no correct default for a USB boot: the PXE tree is
     # never what a USB run boots, so a stale-hash abort was guaranteed.
@@ -195,6 +260,7 @@ def main():
         f'boot path (intended): {args.boot_path}  '
         f'(flag only; observed path appended at stop)\n'
         f'listener:       udp/:{args.port}\n'
+        f'HP address (TFTP attribution): {hp_ip_line}\n'
         f'=======================================\n'
     )
 
@@ -223,9 +289,11 @@ def main():
             # Record the OBSERVED boot path from evidence in the window,
             # never the --boot-path flag. A flag/evidence conflict is loud.
             observed, ev = detect_boot_path(
-                start_dt, stop_dt, args.bootfile, args.hp_mac, args.dhcp_log)
+                start_dt, stop_dt, args.bootfile, args.hp_mac, args.dhcp_log,
+                hp_ip=hp_ip)
             foot = [f'boot path (intended, --boot-path flag): {args.boot_path}',
-                    f'boot path (observed from this box):      {observed}']
+                    f'boot path (observed from this box):      {observed}',
+                    f'HP address (TFTP attribution):          {hp_ip_line}']
             foot += ['    ' + e for e in ev]
             # Only a POSITIVE pxe detection (a TFTP fetch in the window)
             # proves the flag wrong. An unconfirmed usb or undetermined

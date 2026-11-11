@@ -5,8 +5,8 @@ TASK_PUBLIC_CLONE_SUITE).
 A clone of this repo's committed HEAD in a mktemp directory, with no
 private repo beside it (public mode at the Makefile default), host only:
 no QEMU is started.
-  P1 (82) make -n <t> never stops at "No rule to make target", for every
-          target on test: (the pinned 82 and the clone's test: line).
+  P1 (83) make -n <t> never stops at "No rule to make target", for every
+          target on test: (the pinned 83 and the clone's test: line).
   P2 (29) each skip-whole target runs its run-mode guard first, ends with
           its exact SKIPPED line, exits 0 and builds no build/combined.img.
   P3 (1)  the free tier builds the usual names from the free set:
@@ -32,7 +32,7 @@ import sys
 import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-TOTAL = 118
+TOTAL = 119
 
 # The 32 that run in a public clone: 31 on the free kernel, and the host-only
 # test-sync-copies (private TASK_SYNC_COPIES). (Measured, M1/M2;
@@ -56,15 +56,17 @@ SKIP = {t: 'the test is private' for t in PRIVATE_TEST}
 SKIP.update({t: 'needs the private vocabularies' for t in NEEDS_VOCABS + ['test-survey']})
 SKIP['check-sync'] = 'no private repo to compare'
 SKIP['test-check-sync'] = 'no private repo to compare'
-# The 2 whose scripts print SKIPPED themselves, and the other 19 (test-nasm-pin
-# and test-net-receive-replace host-only, private TASK_UNICORN_WRITER).
+# The 2 whose scripts print SKIPPED themselves, and the other 20 (test-nasm-pin
+# and test-net-receive-replace host-only, private TASK_UNICORN_WRITER;
+# test-capture-boot-path host-only, private TASK_TFTP_TRANSFER_LOGGING).
 SELF_SKIP = ['test-phys-refuse', 'test-read-flags']
 OTHER = '''lint check-coverage test-smoke test-loops test-abort test-dict-bounds
 test-pci-typing test-squote-laydown test-log-decode-layout test-grub-cfg test-doc-drift
 test-make-wiring test-port-inventory test-kill-traps test-pipeline
-test-free-boot test-public-clone test-nasm-pin test-net-receive-replace'''.split()
+test-free-boot test-public-clone test-nasm-pin test-net-receive-replace
+test-capture-boot-path'''.split()
 ALL = RUN + list(SKIP) + SELF_SKIP + OTHER
-assert (len(RUN), len(SKIP), len(SELF_SKIP), len(OTHER), len(set(ALL))) == (32, 29, 2, 19, 82)
+assert (len(RUN), len(SKIP), len(SELF_SKIP), len(OTHER), len(set(ALL))) == (32, 29, 2, 20, 83)
 
 PASS = FAIL = 0
 
