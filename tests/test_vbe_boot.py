@@ -36,6 +36,20 @@ B 8@16) before the stub reads it:
 L0 records QEMU's own linear masks (the authority that the V leg's
 mode is still found once the stub reads them).
 
+The console on the framebuffer (private TASK_UNICORN_WRITER Phase 2 slice
+(b), owner 2026-11-10: the kernel's UEFI-4 console with the Terminus font,
+in a right-hand panel beside the page; its buffers out of 0x80000-0xA0000):
+  F5 / N5  text boots: SCREEN = 0xB8000, FB-CON 0 0 0 0
+  V16 vbe: SCREEN = forth.asm FB_SHADOW, and FB_SHADOW..FB_DRAWN + 4000
+      lies outside 0x80000-0xA0000
+  V17 vbe: FB-CON = FB-W - 640, FB-H - 400, 640, 400 (bottom right)
+  V18 vbe: the panel on QEMU's screen is SCREEN's 2,000 cells drawn in
+      the FNT1 font read from build/combined.img, VGA palette, the cursor
+      (glyph rows 14-15 in the foreground) at CURSOR-CELL only
+  V19 vbe: "5 ok" (the answer to 2 3 + .) is among those cells
+  V20 vbe: every pixel outside the panel is black (the console draws
+      only in its panel)
+
 Not covered here: the vbr.asm and multiboot2 entries, which never call
 the stub; kernel_start zeroes the cells for them (vbe_fresh = 0).
 """
@@ -69,7 +83,14 @@ MI = 0x28400                    # VBE_SCRATCH_SEG * 16 + VBE_MI: the ModeInfoBlo
 MI_CALL = bytes.fromhex('b8014f' 'bf0002' 'cd10')
 MASKS_888 = bytes.fromhex('081008080800')   # R 8@16, G 8@8, B 8@0
 MASKS_BGR = bytes.fromhex('080008081008')   # R 8@0,  G 8@8, B 8@16
-TOTAL = 31
+TOTAL = 38
+FONT_BLK = 536                  # forth.asm FONT_BLK: FNT1, the console font
+COMBINED_HEADER = 512 + 0x1C000
+PALETTE = [0x000000, 0x0000AA, 0x00AA00, 0x00AAAA, 0xAA0000, 0xAA00AA, 0xAA5500, 0xAAAAAA,
+           0x555555, 0x5555FF, 0x55FF55, 0x55FFFF, 0xFF5555, 0xFF55FF, 0xFFFF55, 0xFFFFFF]
+_asm = open(os.path.join(ROOT, 'src', 'kernel', 'forth.asm')).read()
+SHADOW = int(re.search(r'^FB_SHADOW\s+equ\s+(0x[0-9A-Fa-f]+)', _asm, re.M).group(1), 16)
+DRAWN = int(re.search(r'^FB_DRAWN\s+equ\s+(0x[0-9A-Fa-f]+)', _asm, re.M).group(1), 16)
 PASS = FAIL = 0
 
 
@@ -143,6 +164,67 @@ def screen_size(path):
     return int(w), int(h)
 
 
+def read_ppm(path):
+    with open(path, 'rb') as f:
+        data = f.read()
+    parts = data.split(b'\n', 3)
+    w, h = (int(t) for t in parts[1].split())
+    return w, h, parts[3]
+
+
+def pmem(addr, size, name):
+    path = os.path.join(ROOT, 'build', name)
+    if os.path.exists(path):
+        os.remove(path)
+    monitor(f'pmemsave {addr} {size} "{path}"', wait=1.0)
+    t0 = time.time()
+    while (not os.path.exists(path) or os.path.getsize(path) < size) and time.time() - t0 < 5:
+        time.sleep(0.1)
+    return open(path, 'rb').read() if os.path.exists(path) else b''
+
+
+def panel_cells(ppm, mem, x0, y0, cursor):
+    """The cells whose pixels at (x0, y0) + cell differ from mem drawn in
+    the FNT1 font (host-side, from build/combined.img) and the palette."""
+    w, h, rgb = ppm
+    with open(COMBINED, 'rb') as f:
+        f.seek(COMBINED_HEADER + FONT_BLK * 1024 + 16)
+        font = f.read(95 * 16)
+    bad = []
+    for i in range(2000):
+        ch, at = mem[2 * i], mem[2 * i + 1]
+        fg, bg = PALETTE[at & 15], PALETTE[(at >> 4) & 7]
+        g = font[(ch - 0x20) * 16:(ch - 0x1F) * 16] if 0x20 <= ch <= 0x7E else bytes(16)
+        cx, cy = x0 + (i % 80) * 8, y0 + (i // 80) * 16
+        ok = True
+        for r in range(16):
+            bits = 0xFF if (i == cursor and r >= 14) else g[r]
+            for b in range(8):
+                x, y = cx + b, cy + r
+                if not (0 <= x < w and 0 <= y < h):
+                    ok = False
+                    break
+                o = (y * w + x) * 3
+                got = (rgb[o] << 16) | (rgb[o + 1] << 8) | rgb[o + 2]
+                if got != (fg if bits & (0x80 >> b) else bg):
+                    ok = False
+                    break
+            if not ok:
+                break
+        if not ok:
+            bad.append(i)
+    return bad
+
+
+def console_q(s):
+    """SCREEN, then FB-CON's x y w h (None where the reply has no number)."""
+    r = ser.send_until_prompt(s, 'SCREEN U. FB-CON . . . .', budget=20)[0]
+    v = nums(r)
+    if len(v) != 5:
+        return None, None
+    return v[0], (v[4], v[3], v[2], v[1])
+
+
 def nums(reply):
     line = [l for l in reply.splitlines() if l.strip().endswith('ok')]
     return [int(t) for t in re.findall(r'-?\d+', line[-1])] if line else []
@@ -158,6 +240,8 @@ def run_leg(leg, args):
         s = ser.connect_and_sync(SPORT, budget=90)
         q = nums(ser.send_until_prompt(s, Q, budget=20)[0])
         five = ser.send_until_prompt(s, '2 3 + .', budget=10)[0]
+        con = console_q(s)
+        CON[leg] = con
         table, extra = [], []
         if q and q[0] == 1:
             # No ?DO in this kernel, and DO compiles only inside a
@@ -178,6 +262,20 @@ def run_leg(leg, args):
             table = [tuple(v[i:i + 5]) for i in range(0, len(v) - len(v) % 5, 5)]
         pci = monitor('info pci') if q and q[0] == 1 else ''
         size = screen_size(os.path.join(ROOT, 'build', f'vbe-{leg}.ppm'))
+        if leg == 'vbe':
+            # the panel: once more at a quiet prompt, then memory and screen
+            ser.send_until_prompt(s, '2 3 + .', budget=10)
+            cur = nums(ser.send_until_prompt(s, 'CURSOR-CELL U.', budget=10)[0])
+            ser.send_until_prompt(s, '2 3 + .', budget=10)
+            scr = con[0] if con[0] is not None else 0xB8000
+            mem = pmem(scr, 4000, 'vbe-panel.bin')
+            c = pmem(cur[0], 4, 'vbe-cursor.bin') if cur else b''
+            ppm_path = os.path.join(ROOT, 'build', 'vbe-panel.ppm')
+            if os.path.exists(ppm_path):
+                os.remove(ppm_path)
+            monitor('screendump ' + ppm_path, wait=2.0)
+            PANEL['mem'], PANEL['ppm'] = mem, read_ppm(ppm_path)
+            PANEL['cursor'] = int.from_bytes(c, 'little', signed=True) if len(c) == 4 else None
         s.close()
         return q, five, table, pci, size, extra
     finally:
@@ -309,6 +407,7 @@ def run_patched(leg, args, field):
         qemu_pid.kill_pidfile(pidf)
 
 
+CON, PANEL = {}, {}
 print('=== VBE opt-in at boot (vbe_stub, FB-* words) ===')
 for p, pkg in ((MEMDISK, 'syslinux-common'), (PXELINUX, 'pxelinux'),
                (LDLINUX, 'syslinux-common')):
@@ -324,6 +423,8 @@ check('F1 floppy: VBE-STATUS 0 and every cell 0', q[:8] == [0] * 8, q)
 check('F2 floppy: BOOT-MODE 0', q[8:9] == [0], q)
 check('F3 floppy: console answers 5', '5 ok' in five, five)
 check('F4 floppy: QEMU shows text mode (720x400)', size == (720, 400), size)
+check('F5 floppy: SCREEN 0xB8000, FB-CON 0 0 0 0 (no framebuffer console)',
+      CON.get('floppy') == (0xB8000, (0, 0, 0, 0)), CON.get('floppy'))
 
 # N: memdisk without vbe
 net = lambda d: ['-netdev', f'user,id=n0,tftp={d},bootfile=pxelinux.0',
@@ -336,6 +437,8 @@ check('N1 memdisk, no vbe: VBE-STATUS 0 and every cell 0', q[:8] == [0] * 8, q)
 check('N2 memdisk, no vbe: BOOT-MODE 1', q[8:9] == [1], q)
 check('N3 memdisk, no vbe: console answers 5', '5 ok' in five, five)
 check('N4 memdisk, no vbe: QEMU shows text mode (720x400)', size == (720, 400), size)
+check('N5 memdisk, no vbe: SCREEN 0xB8000, FB-CON 0 0 0 0 (no framebuffer console)',
+      CON.get('novbe') == (0xB8000, (0, 0, 0, 0)), CON.get('novbe'))
 
 # V: memdisk with vbe
 d = tftp_root(' vbe')
@@ -381,6 +484,36 @@ check('V14 vbe: VBE-OFFERED >= the usable modes, and >= all LFB depths counted',
 check('V15 vbe: VBE-DEPTHS 32-bpp count >= the usable modes recorded',
       len(depths) == 5 and depths[4] >= len(table), extra)
 v_wh = (w, h)
+scr, rect = CON.get('vbe') or (None, None)
+print(f'  console: SCREEN {scr and hex(scr)} FB-CON {rect}; FB_SHADOW {hex(SHADOW)} FB_DRAWN {hex(DRAWN)}')
+check('V16 vbe: SCREEN = FB_SHADOW, and the console buffers lie outside 0x80000-0xA0000',
+      scr == SHADOW and (DRAWN + 4000 <= 0x80000 or SHADOW >= 0xA0000),
+      f'SCREEN {scr} FB_SHADOW {hex(SHADOW)} FB_DRAWN {hex(DRAWN)}')
+want_rect = (w - 640, h - 400, 640, 400) if w and h else None
+check('V17 vbe: FB-CON = FB-W - 640, FB-H - 400, 640, 400 (the bottom-right panel)',
+      rect == want_rect, f'{rect} want {want_rect}')
+mem, ppm, cur = PANEL.get('mem', b''), PANEL.get('ppm'), PANEL.get('cursor')
+x0, y0 = (w - 640, h - 400) if w and h else (0, 0)
+bad = panel_cells(ppm, mem, x0, y0, cur) if ppm and len(mem) == 4000 else list(range(2000))
+check('V18 vbe: the panel shows SCREEN\'s 2000 cells in the FNT1 font, the cursor at CURSOR-CELL',
+      not bad and cur is not None, f'{len(bad)} cells differ (first {bad[:8]}); CURSOR-CELL {cur}')
+txt = ''.join(chr(mem[2 * i]) if len(mem) == 4000 and 0x20 <= mem[2 * i] < 0x7F else ' '
+              for i in range(2000))
+at = txt.rfind('5 ok')
+check('V19 vbe: "5 ok" is in the panel, drawn',
+      at >= 0 and not any(at <= b < at + 4 for b in bad), f'at {at}, differing {bad[:8]}')
+outside = 0
+if ppm:
+    pw, ph, rgb = ppm
+    for y in range(ph):
+        for x in range(pw):
+            if x >= x0 and y >= y0:
+                continue
+            o = (y * pw + x) * 3
+            if rgb[o:o + 3] != b'\x00\x00\x00':
+                outside += 1
+check('V20 vbe: every pixel outside the panel is black', ppm is not None and outside == 0,
+      f'{outside} non-black pixels outside the panel')
 
 # L and B: one mask set rewritten at every 4F01h return (gdb stub)
 SOCKDIR = tempfile.mkdtemp(prefix='fvb-')

@@ -20,6 +20,7 @@ in the register 2026-10-12.
   OVMF:
   B1  control: GRUB's UEFI menu title reaches serial (else INSTRUMENT FAIL).
   B2  the kernel's report: `MB2: module <start>-<end>`, a line per window
+      (two: the console buffers left 0x80000 for window 1)
       (three), no `REFUSED` (a module inside a window is moved above them
       first: `MB2: module moved to <start>-<end>`).
   B3  banner + ok.  B4  `MB2: framebuffer console on`.
@@ -49,8 +50,10 @@ in the register 2026-10-12.
       SMBIOS table (last = start + SMBIOS.'s own len - 1) and the XSDT (last
       = r + its header length - 1, read in the guest).
   U15 (OVMF): FW-FOLLOW? refuses, by name and owner, the module start
-      (module), 0x7E00 (window 1), 0x100000 (window 2), 0x80000 (window 3),
-      flag 0 each; the system table passes (-1, silent).  DEPTH 0.
+      (module), 0x7E00 (window 1), 0x100000 (window 2), and the console's
+      text buffer FB_SHADOW (window 1: the console buffers moved out of
+      0x80000-0xA0000, private TASK_UNICORN_WRITER Phase 2 slice (b)),
+      flag 0 each; the system table and 0x80000 pass (-1, silent).  DEPTH 0.
   U17 / L15: FW-SPAN? checks a range: 0xFFF00 is firmware memory (not
       ForthOS's, map type not 1: the control), and 0xFFF00 len 0x200 ends
       inside window 2; refused `Probe at 000FFF00-001000FF: ForthOS memory
@@ -64,7 +67,7 @@ in the register 2026-10-12.
       equal to QEMU's own `info pci` BAR0 (0xC000000000 with the default CPU),
       and flagged `above 4 GiB: unreachable`; under SeaBIOS
       an 8-digit base below 4 GiB, no flag.
-  U5-U8 / L5-L8 (both legs): the display contract's FB-BASE = 0x80000 (OVMF)
+  U5-U8 / L5-L8 (both legs): the display contract's FB-BASE = FB_SHADOW (OVMF)
       / 0xB8000 (SeaBIOS);
       HELLO-RUN's form and notepad's editor (entered with the New button,
       so RAW-SCAN's wait runs) leave their text in that memory (pmemsave),
@@ -119,6 +122,8 @@ SCRIPT = os.path.join(ROOT, 'tools', 'make-uefi-usb.sh')
 ASM = os.path.join(ROOT, 'src', 'kernel', 'forth.asm')
 IMG = sys.argv[3] if len(sys.argv) > 3 else os.path.join(ROOT, 'build', 'combined.img')
 OUT = os.path.join(ROOT, 'build', 'uefi-stick-test.img')
+_asm = open(os.path.join(ROOT, 'src', 'kernel', 'forth.asm')).read()
+SHADOW = '%X' % int(re.search(r'^FB_SHADOW\s+equ\s+(0x[0-9A-Fa-f]+)', _asm, re.M).group(1), 16)
 OVMF_CODE = '/usr/share/OVMF/OVMF_CODE_4M.fd'
 OVMF_VARS = '/usr/share/OVMF/OVMF_VARS_4M.fd'
 MEMDISK = '/usr/lib/syslinux/memdisk'
@@ -653,7 +658,8 @@ try:
               f'(st {st} ct {ct} ep {ep} tb {tb} last {tb_last} xsdt {xs} last {xs_last} len {xl}; '
               f'boot {boot5}; {b.strip()[:300]!r})')
         mod = boot5.get('mod', 0)
-        probes = [(mod, 'module'), (0x7E00, 'window 1'), (0x100000, 'window 2'), (0x80000, 'window 3')]
+        probes = [(mod, 'module'), (0x7E00, 'window 1'), (0x100000, 'window 2'),
+                  (int(SHADOW, 16), 'window 1')]
         send(s, 'ONLY FORTH DEFINITIONS ALSO FWMEM HEX 0 FW-SAY !')
         res = []
         for a, owner in probes:
@@ -661,9 +667,11 @@ try:
             res.append(f'Probe at {a:08X}: ForthOS memory ({owner}), not followed' in b and last_num(b) == '0')
         b = send(s, f'{boot5.get("st", 0):X} S" Probe" FW-FOLLOW? .')
         passes = last_num(b) == '-1' and 'Probe at' not in b
+        b = send(s, '80000 S" Probe" FW-FOLLOW? .')
+        passes = passes and last_num(b) == '-1' and 'Probe at' not in b
         send(s, 'PREVIOUS DECIMAL')
-        check('U15 FW-FOLLOW? refuses the module and windows 1-3 by name and owner (flag 0); '
-              'the system table passes, silent', all(res) and passes and mod > 0,
+        check('U15 FW-FOLLOW? refuses the module, windows 1-2 and the console buffer by name and '
+              'owner (flag 0); the system table and 0x80000 pass, silent', all(res) and passes and mod > 0,
               f'(refusals {res}, system table {passes}, module {mod:#x})')
 
     def raw_send(s, text, settle=3.0):
@@ -694,7 +702,7 @@ try:
 
     def screens(fw, s, tag):
         """The forms and the editor draw on this firmware's screen."""
-        want = '80000' if fw == 'ovmf' else 'B8000'
+        want = SHADOW if fw == 'ovmf' else 'B8000'
         b = send(s, 'HEX ALSO HAL FB-BASE . PREVIOUS DECIMAL')
         check(f'{tag}5 the display contract: FB-BASE = {want}', last_num(b) == want, f'({b.strip()!r})')
         # the drawn cursor's cell (window step 2b): CURSOR-CELL's address,
@@ -762,8 +770,9 @@ try:
     moved = re.search(r'MB2: module moved to ([0-9A-F]{8})-([0-9A-F]{8})', plain)
     final = moved or mod                # where BLK_IMAGE_BASE must point
     wins = re.findall(r'MB2: window ([0-9A-F]{8})-([0-9A-F]{8}) available ([0-9A-F]{8}) of ([0-9A-F]{8})', plain)
-    check('B2 report: module range, three windows, no REFUSED',
-          bool(mod) and len(wins) == 3 and 'REFUSED' not in plain,
+    check('B2 report: module range, two windows (the console buffers inside window 1), no REFUSED',
+          bool(mod) and len(wins) == 2 and 'REFUSED' not in plain
+          and not any(w[0] == '00080000' for w in wins),
           f'(module {mod.groups() if mod else None}, windows {wins})')
     check('B3 banner + ok', seen_ok)
     m5 = re.search(r'MB2: ACPI RSDP bytes ([0-9A-F]{8}), SMBIOS entry point bytes ([0-9A-F]{8}), '
@@ -802,7 +811,7 @@ try:
         # C1-C4: the drawn cursor (window step 2b): typed characters, then
         # Ctrl+W into a KEY-based window (TH, as test_window_focus) and back
         def cursor_dump(tag):
-            mem = screen_mem('80000', f'cursor-{tag}.bin')
+            mem = screen_mem(SHADOW, f'cursor-{tag}.bin')
             dump = os.path.join(work, f'cursor-{tag}.ppm')
             mon_cmd(f'screendump {dump}')
             return text_of(mem), cursor_cells(dump, mem)
