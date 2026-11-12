@@ -1092,6 +1092,7 @@ T_HAL_MATCH_HP ?= 25
 # words; 50.5 s before discovery, 17.7 s before the apps). 66.8 s (2026-10-13,
 # two runs) with the firmware memory and range checks: 135.
 T_UEFI_BOOT ?= 135
+T_FAT32_READ ?= 240
 # About 2x measured (2026-10-12): uefi-netboot 12 s (three runs; grub-net staging included).
 T_UEFI_NETBOOT ?= 30
 T_ARM64_BOOT ?= 720
@@ -1481,6 +1482,16 @@ test-uefi-boot: $(call FULL_ONLY,$(COMBINED))
 	echo "Running UEFI boot gate (OVMF, no CSM, multiboot2)..."; \
 	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_UEFI_BOOT) python3 -u tests/test_uefi_boot.py $$(($(TEST_PORT_BASE)+74)) $$(($(TEST_PORT_BASE)+76)) $(COMBINED)
 
+# FAT32 read gate (private TASK_KERNEL_PAD_HEADROOM): FAT32 loaded from
+# blocks reads a pinned FAT32 ESP on q35 AHCI and refuses a FAT16 one, under
+# OVMF and SeaBIOS/memdisk; serial on +133 (unused before).
+test-fat32-read: $(call FULL_ONLY,$(COMBINED))
+	@$(RUN_MODE) test-fat32-read --tree forth/dict/fat32.fth --reason 'needs the private vocabularies'; $(RUN_MODE_END); \
+	QPIDDIR=$(BUILD)/test-fat32-read.d; mkdir -p $$QPIDDIR; $(QEMU_KILL_DIR); \
+	trap '$(QEMU_KILL_DIR)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-fat32-read --base $(TEST_PORT_BASE); \
+	echo "Running FAT32 read gate (FAT32 and FAT16 ESPs, OVMF and SeaBIOS)..."; \
+	QEMU_PIDDIR=$$QPIDDIR timeout --foreground $(T_FAT32_READ) python3 -u tests/test_fat32_read.py $$(($(TEST_PORT_BASE)+133)) $(COMBINED)
+
 # UEFI network boot gate (docs/TASK_UEFI_3_4.md): OVMF boots the staged GRUB
 # tree over QEMU's own DHCP/TFTP; serial on +71 (unused before).  Never
 # touches the live PXE server.
@@ -1707,7 +1718,7 @@ test-urw-canvas: $(call FULL_ONLY,$(COMBINED))
 #     its output as evidence, and it never gates a build.  If it must ever
 #     gate something, the gate goes on a deterministic artefact derived from
 #     it and pinned -- the treatment the Ghidra oracle already has.
-test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-block-read-error test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-log-send test-lic-observe test-dlg2form test-rtl8168-cksum test-stack-floor test-vga-wrap test-reload-vocab test-load-vocab test-resolve-deps test-vbr test-grub-cfg test-capture-boot-path test-pxe-label test-nasm-pin test-net-receive-replace test-vbe-boot test-vbe-nostub test-urw-canvas test-uefi-boot test-uefi-netboot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-mirror test-interp-abort test-pad-move test-hal test-hal-net test-hal-match test-hal-match-hp test-network test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline test-pipeline-e2e test-net-flush-lf test-console-band test-window-focus test-free-boot test-search-order test-abort-routes test-vocab-dedup test-phys-refuse test-window-forms test-read-flags test-double-cell test-forth83 test-arm64-boot test-meta-b6b test-public-clone test-sync-copies test-check-sync check-sync
+test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-block-read-error test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-log-send test-lic-observe test-dlg2form test-rtl8168-cksum test-stack-floor test-vga-wrap test-reload-vocab test-load-vocab test-resolve-deps test-vbr test-grub-cfg test-capture-boot-path test-pxe-label test-nasm-pin test-net-receive-replace test-vbe-boot test-vbe-nostub test-urw-canvas test-uefi-boot test-fat32-read test-uefi-netboot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-mirror test-interp-abort test-pad-move test-hal test-hal-net test-hal-match test-hal-match-hp test-network test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline test-pipeline-e2e test-net-flush-lf test-console-band test-window-focus test-free-boot test-search-order test-abort-routes test-vocab-dedup test-phys-refuse test-window-forms test-read-flags test-double-cell test-forth83 test-arm64-boot test-meta-b6b test-public-clone test-sync-copies test-check-sync check-sync
 	@echo "All tests passed!"
 
 # Create ISO (requires xorriso)
