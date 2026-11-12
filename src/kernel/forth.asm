@@ -2686,6 +2686,7 @@ DEFCODE ":", COLON, 0
     ; Hide the word during compilation
     mov eax, [VAR_LATEST]
     or byte [eax + 4], F_HIDDEN
+    mov dword [leave_chain], 0  ; no open DO..LOOP (TASK_KERNEL_LEAVE_F83)
     
     ; Enter compile mode
     mov dword [VAR_STATE], 1
@@ -2914,6 +2915,9 @@ DEFCODE "DO", DO, F_IMMEDIATE
     mov eax, [VAR_HERE]
     mov dword [eax], DODO       ; Compile XT (not code_DODO!)
     add dword [VAR_HERE], 4
+    ; Save the enclosing loop's LEAVE chain; this loop starts empty
+    push dword [leave_chain]
+    mov dword [leave_chain], 0
     ; Push address for LOOP to know where to branch back
     push dword [VAR_HERE]
     NEXT
@@ -2943,6 +2947,8 @@ DEFCODE "LOOP", LOOP, F_IMMEDIATE
     mov eax, [VAR_HERE]
     mov [eax], ebx
     add dword [VAR_HERE], 4
+    call resolve_leaves        ; this loop's LEAVEs branch to HERE
+    pop dword [leave_chain]    ; the enclosing loop's chain (from DO)
     NEXT
 
 ; Runtime (LOOP)
@@ -2979,6 +2985,8 @@ DEFCODE "+LOOP", PLOOP, F_IMMEDIATE
     mov eax, [VAR_HERE]
     mov [eax], ebx
     add dword [VAR_HERE], 4
+    call resolve_leaves        ; this loop's LEAVEs branch to HERE
+    pop dword [leave_chain]    ; the enclosing loop's chain (from DO)
     NEXT
 
 ; Runtime (+LOOP)
@@ -3020,12 +3028,47 @@ DEFCODE "J", J, 0
     push eax
     NEXT
 
-; LEAVE - Exit loop immediately
-DEFCODE "LEAVE", LEAVE, 0
-    ; Set index = limit to force exit
-    mov eax, [ebp + 4]         ; limit
-    mov [ebp], eax             ; index = limit
+; LEAVE - Forth-83 (docs/references/FORTH83.TXT:2747-2757): transfers
+; execution to just beyond the next LOOP or +LOOP and discards the loop
+; parameters (private TASK_KERNEL_LEAVE_F83).  Immediate: compiles
+; (LEAVE) and a cell that holds the previous chain link until LOOP or
+; +LOOP (resolve_leaves) overwrites it with the forward offset.  Before
+; 2026-11-12 LEAVE set index = limit and the loop body ran on (Forth-79).
+DEFCODE "LEAVE", LEAVE, F_IMMEDIATE
+    mov eax, [VAR_HERE]
+    mov dword [eax], DOLEAVE    ; Compile XT
+    mov ebx, [leave_chain]
+    mov [eax + 4], ebx          ; link to the previous unresolved LEAVE
+    add eax, 4
+    mov [leave_chain], eax      ; this cell heads the chain
+    add dword [VAR_HERE], 8
     NEXT
+
+; (LEAVE) runtime: discard limit and index, branch by the inline offset
+DEFCODE "(LEAVE)", DOLEAVE, 0
+    add ebp, 8
+    lodsd
+    add esi, eax
+    NEXT
+
+; resolve_leaves: point every cell on leave_chain at VAR_HERE (just past
+; the LOOP/+LOOP that called it), in (LOOP)'s offset form: target minus
+; the address after the cell.  Touches eax, ebx, ecx only; no stack use
+; besides its own return address.
+resolve_leaves:
+    mov ecx, [leave_chain]
+.next:
+    test ecx, ecx
+    jz .done
+    mov ebx, [ecx]              ; next link
+    mov eax, [VAR_HERE]
+    sub eax, ecx
+    sub eax, 4
+    mov [ecx], eax
+    mov ecx, ebx
+    jmp .next
+.done:
+    ret
 
 ; UNLOOP - Remove loop parameters from return stack
 DEFCODE "UNLOOP", UNLOOP, 0
@@ -7222,6 +7265,7 @@ abort_common:                       ; HAL: an unbound vector joins here
     mov [ebx], eax
 .no_def:
     mov dword [VAR_DEF_HERE], 0
+    mov dword [leave_chain], 0
     mov dword [VAR_STATE], 0
     mov esp, DATA_STACK_TOP
     mov ebp, RETURN_STACK_TOP
@@ -7637,6 +7681,7 @@ more_lines:         dd 0            ; Lines printed since last pause
 
 ; Net console state (UDP output mirror)
 focus_hook:             dd 0        ; xt run on Ctrl+W, 0 = none
+leave_chain:            dd 0        ; open loop's unresolved LEAVE cells (DO..LOOP)
 focus_busy:             db 0
                         align 4
 net_console_enabled:    db 0        ; 1 = mirror output to UDP
