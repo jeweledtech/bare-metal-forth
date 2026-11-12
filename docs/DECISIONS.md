@@ -427,6 +427,13 @@ free) with no boot-time cost. The free build embeds neither and is unchanged
 - SURVEYOR loads with `LOAD-VOCAB`, which brings FAT32 through its
   `REQUIRES:` line. A raw `THRU` of SURVEYOR's range now fails at its
   `ALSO FAT32`. The G6 harness and RUNBOOK-G6 §3a changed to match; iron
-  has not yet run the new sequence.
+  has not yet run the new sequence. DESK-CARD-G6 D3 types the same
+  `LOAD-VOCAB` line, and loads FILE-STREAM before its `ALSO`.
+- An installed-to-disk boot loses FAT32 and FILE-STREAM: it has no block
+  store (the installer writes the VBR and kernel only), so `LOAD-VOCAB`
+  finds nothing there. No installed-boot flow or card used either; they
+  return with the installed block store. The specific capability lost
+  until then is listing the EFI partition from an installed boot
+  (`FAT32-LS` after `ALSO FAT32`).
 - Detail, measurements and test changes: private
   `docs/TASK_KERNEL_PAD_HEADROOM.md`.

@@ -57,9 +57,6 @@ i8042 block range       1800  ______   ( 1800 + ceil(lines/16) - 1;
                                          112 lines -> 1806 on 2026-09-05 )
 combined.img MD5        ______________________________________
   $ md5sum build/combined.img      # ONLY after `make grub-net`, which re-cats
-SURVEYOR catalog range  ______  ______   ( "<n> <m> THRU" )
-  $ python3 tools/catalog_layout.py SURVEYOR      # 1107 1178 on 2026-09-05
-  Against the SAME build/blocks.img you just staged into.
 i8042 vocabulary name   ______________   ( I8042PRT on 2026-09-05 -- this is
                                            the D1 `USING` target; a mismatch
                                            types ? and kills the leg )
@@ -191,8 +188,16 @@ DECIMAL                \ not optional
 ### D3. If time remains
 
 - FILE-STREAM a driver off the HP's NTFS (proven path, 2026-04-29;
-  `ALSO`, not `USING`)
-- SURVEYOR sanity via range from section A
+  `ALSO`, not `USING`). FILE-STREAM is not embedded since 2026-11-11
+  (private TASK_KERNEL_PAD_HEADROOM): type `S" FILE-STREAM" LOAD-VOCAB`
+  before the `ALSO`, or the `ALSO` prints `?`.
+- SURVEYOR sanity, typed as RUNBOOK-G6 §3a and `tests/test_g6_chain.py`
+  (`RUNBOOK-3A-BEGIN`) type it. A `THRU` of SURVEYOR's range stops at its
+  `ALSO FAT32`: FAT32 is not embedded since 2026-11-11.
+
+```forth
+S" SURVEYOR" LOAD-VOCAB      \ five skip lines; FAT32 loads with it
+```
 
 ---
 
