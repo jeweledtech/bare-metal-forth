@@ -7713,6 +7713,10 @@ times (RETURN_STACK_TOP - (KERNEL_ORG + KERNEL_PADDED_SIZE) - RETURN_STACK_MIN) 
 ; tools/pad_report.py prints the free pad on every kernel build.
 KERNEL_PAD_FLOOR    equ 2048
 times ((KERNEL_PADDED_SIZE - ($ - $$)) < KERNEL_PAD_FLOOR) * -1 db 0
+; Free-pad warning (owner, 2026-11-11): below KERNEL_PAD_WARN bytes free,
+; tools/pad_report.py prints a WARNING line; the build still succeeds.
+; An equ emits no bytes.
+KERNEL_PAD_WARN     equ 4096
 
 ; Pad kernel to match bootloader's KERNEL_SECTORS (KERNEL_PADDED_SIZE bytes)
 times KERNEL_PADDED_SIZE - ($ - $$) db 0
