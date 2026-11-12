@@ -25,7 +25,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 75,
-    "source": "Makefile:1243"
+    "source": "Makefile:1244"
    }
   ]
  },
@@ -139,13 +139,13 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 104,
-    "source": "$(PRIVATE_REPO)/tests/test_dlg2form.py:751"
+    "source": "$(PRIVATE_REPO)/tests/test_dlg2form.py:762"
    },
    {
     "form": "tcp:127.0.0.1:P",
     "kind": "monitor",
     "offset": 105,
-    "source": "$(PRIVATE_REPO)/tests/test_dlg2form.py:752"
+    "source": "$(PRIVATE_REPO)/tests/test_dlg2form.py:763"
    }
   ]
  },
@@ -175,7 +175,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 55,
-    "source": "Makefile:1566"
+    "source": "Makefile:1577"
    }
   ]
  },
@@ -185,25 +185,25 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 84,
-    "source": "Makefile:1101"
+    "source": "Makefile:1102"
    },
    {
     "form": "tcp:127.0.0.1:P",
     "kind": "monitor",
     "offset": 85,
-    "source": "Makefile:1101"
+    "source": "Makefile:1102"
    },
    {
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 88,
-    "source": "Makefile:1101"
+    "source": "Makefile:1102"
    },
    {
     "form": "tcp:127.0.0.1:P",
     "kind": "monitor",
     "offset": 89,
-    "source": "Makefile:1101"
+    "source": "Makefile:1102"
    }
   ]
  },
@@ -213,7 +213,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 50,
-    "source": "Makefile:1174"
+    "source": "Makefile:1175"
    }
   ]
  },
@@ -223,7 +223,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 117,
-    "source": "tests/test_forth83.py:77"
+    "source": "tests/test_forth83.py:79"
    }
   ]
  },
@@ -545,7 +545,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 80,
-    "source": "Makefile:1620"
+    "source": "Makefile:1631"
    }
   ]
  },
@@ -651,6 +651,16 @@
    }
   ]
  },
+ "test-port-stop": {
+  "-": [
+   {
+    "form": "tcp:127.0.0.1:P",
+    "kind": "serial",
+    "offset": 134,
+    "source": "tests/test_port_stop.py:89"
+   }
+  ]
+ },
  "test-read-flags": {
   "-": [
    {
@@ -717,7 +727,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 98,
-    "source": "Makefile:1134"
+    "source": "Makefile:1135"
    }
   ]
  },
@@ -727,7 +737,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 99,
-    "source": "Makefile:1147"
+    "source": "Makefile:1148"
    }
   ]
  },
