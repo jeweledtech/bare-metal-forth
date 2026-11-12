@@ -31,7 +31,7 @@ HEX
 VARIABLE FW-SAY
 
 : .FW-OWNER ( n -- )
-    DUP 4 = IF DROP ." module" EXIT THEN
+    DUP 3 = IF DROP ." module" EXIT THEN
     ." window " 30 + EMIT ;
 
 : .FW-TYPE ( type -- )

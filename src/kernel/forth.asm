@@ -196,8 +196,10 @@ ATA_CTRL            equ 0x3F6
 
 ; VGA
 VGA_TEXT            equ 0xB8000
-FB_SHADOW           equ 0x80000         ; UEFI-4: the text buffer in RAM (no VGA text mode)
-FB_DRAWN            equ 0x81000         ; what the framebuffer shows, cell by cell (SCREEN-FLUSH)
+FB_SHADOW           equ 0x2A000         ; the framebuffer console's text buffer in RAM (UEFI-4, BIOS VBE)
+FB_DRAWN            equ 0x2B000         ; what the framebuffer shows, cell by cell (SCREEN-FLUSH)
+FB_CON_W            equ 80 * 8          ; the console on the framebuffer, in pixels: 80 x 25
+FB_CON_H            equ 25 * 16         ; cells of the 8x16 font
 FONT_BLK            equ 536             ; UEFI-4: write-catalog.py FONT_RESERVED.start
 VGA_WIDTH           equ 80
 VGA_HEIGHT          equ 25
@@ -716,7 +718,8 @@ kernel_start:
     and al, ~0x03                   ; Clear bits 0+1 = unmask IRQ0 + IRQ1
     out PIC1_DATA, al
 
-    ; Clear screen
+    ; Clear screen (the framebuffer console first, on a BIOS VBE boot)
+    call fb_vbe_setup
     call init_screen
 
     ; Initialize 8042 keyboard controller (needed on real hardware)
@@ -848,6 +851,10 @@ fb_width:       dd 0
 fb_height:      dd 0
 fb_font:        dd 0                    ; first glyph (char 0x20), 16 B each; 0 = no font
 fb_on:          db 0                    ; 1 = print_char mirrors to the framebuffer
+    align 4
+fb_con_x:       dd 0                    ; the console's top-left pixel (FB-CON): 0, 0 on
+fb_con_y:       dd 0                    ; UEFI; the bottom-right panel on BIOS VBE
+fb_coff:        dd 0                    ; fb_con_y * fb_pitch + fb_con_x * 4
 fb_seen:        db 0, 0, 0              ; GRUB's framebuffer tag: bpp, type, 1 = present
 ; HAL phase 0: firmware tables GRUB passed (the legacy scans don't work
 ; under UEFI): the ACPI RSDP (tag 15, else 14) and the SMBIOS entry point
@@ -868,14 +875,14 @@ mb2_mmap_drop:  dd 0
 mb2_mmap:       times MB2_MMAP_MAX * 12 db 0
 
 ; Windows the kernel owns (docs/ARCHITECTURE.md memory map): data stack,
-; kernel, return stack, variables, buffers, IDT, dictionary; and the
-; physical allocation pool.  [lo, hi) pairs.
+; kernel, return stack, variables, buffers (the console's FB_SHADOW and
+; FB_DRAWN among them), IDT, dictionary; and the physical allocation pool.
+; [lo, hi) pairs.
     align 4
 mb2_windows:
     dd 0x00000500, 0x00080000
     dd 0x00100000, 0x00400000
-    dd FB_SHADOW, FB_DRAWN + 0x1000     ; UEFI-4: the text buffer and what the screen shows
-MB2_NWINDOWS equ 3
+MB2_NWINDOWS equ 2
 ; the module's final range follows the windows: together, what ForthOS owns
 ; (mb2_owned); [0, 0) on a BIOS boot
 mb2_mod_start:  dd 0
@@ -1286,7 +1293,7 @@ mb2_memtype:
     pop esi
     ret
 
-; mb2_owned: EAX = an address -> EAX = 1-3 the window, 4 the module, 0 not
+; mb2_owned: EAX = an address -> EAX = 1-2 the window, 3 the module, 0 not
 ; ForthOS's.  Keeps every other register.
 mb2_owned:
     push esi
@@ -3424,7 +3431,8 @@ DEFCODE "VBE-DEPTHS", VBE_DEPTHS, 0
     NEXT
 
 ; SCREEN ( -- addr ) the text buffer the screen shows: 0xB8000 on a BIOS
-; boot, FB_SHADOW on a UEFI boot with a framebuffer (docs/TASK_UEFI_SCREEN.md)
+; text boot, FB_SHADOW with a framebuffer console (UEFI with a framebuffer,
+; BIOS VBE; docs/TASK_UEFI_SCREEN.md)
 DEFCODE "SCREEN", SCREEN, 0
     push dword [vga_base]
     NEXT
@@ -3433,6 +3441,23 @@ DEFCODE "SCREEN", SCREEN, 0
 ; (a no-op on a BIOS boot)
 DEFCODE "SCREEN-FLUSH", SCREEN_FLUSH, 0
     call fb_flush
+    NEXT
+
+; FB-CON ( -- x y w h ) the framebuffer console's rectangle, in pixels: the
+; bottom-right panel on a BIOS VBE boot, 0 0 640 400 on UEFI, 0 0 0 0
+; without one (URW-CANVAS keeps its flushes out of it)
+DEFCODE "FB-CON", FB_CON, 0
+    xor eax, eax
+    xor edx, edx
+    cmp byte [fb_on], 0
+    je .off
+    mov eax, FB_CON_W
+    mov edx, FB_CON_H
+.off:
+    push dword [fb_con_x]
+    push dword [fb_con_y]
+    push eax
+    push edx
     NEXT
 
 ; CURSOR! ( cell -- ) the cursor to a cell, row * 80 + col: the CRTC on a
@@ -3542,7 +3567,7 @@ DEFCODE "MB2-RSDP", MB2_RSDP, 0
 
 ; MB2-MEMTYPE ( addr -- type ): its type in the multiboot2 memory map kept
 ; at boot (1 available, 2 reserved, 3 ACPI reclaimable, 4 ACPI NVS, 5 bad),
-; 0 = not in it.  MB2-OWNED ( addr -- 0|n ): 1-3 the kernel window, 4 the
+; 0 = not in it.  MB2-OWNED ( addr -- 0|n ): 1-2 the kernel window, 3 the
 ; module, 0 not ForthOS's.  MB2-MMAP ( -- addr n ): the kept copy, [base,
 ; end, type] each; n = 0 without a multiboot2 map (docs/TASK_HAL_FWMEM.md)
 DEFCODE "MB2-MEMTYPE", MB2_MEMTYPE, 0
@@ -3557,7 +3582,7 @@ DEFCODE "MB2-OWNED", MB2_OWNED, 0
     push eax
     NEXT
 
-; MB2-OWNED-IN ( addr len -- 0|1-4 ): the first owned range (as MB2-OWNED
+; MB2-OWNED-IN ( addr len -- 0|1-3 ): the first owned range (as MB2-OWNED
 ; numbers them) that the bytes [addr, addr+len) overlap; len 0 is the
 ; address alone.  The end saturates at 4 GiB: a range never wraps to 0.
 DEFCODE "MB2-OWNED-IN", MB2_OWNED_IN, 0
@@ -5845,6 +5870,7 @@ fb_cell:
     shl edx, 5                          ; pixel x * 4 bytes = column * 32
     add eax, edx
     add eax, [fb_addr]
+    add eax, [fb_coff]                  ; where the console sits
     mov edi, eax
     mov ecx, 16
 .row:
@@ -5906,6 +5932,43 @@ fb_flush:
     pop esi
     pop edx
     pop eax
+.ret:
+    ret
+
+; fb_vbe_setup (URWriter Phase 2): a BIOS boot whose vbe_stub set a 32-bpp
+; mode (VBE-STATUS 1) of at least 640x400, with the image in RAM (memdisk,
+; BLK_IMAGE_BASE) holding the font at FONT_BLK -> the UEFI-4 console draws
+; on that framebuffer too, an 80x25 panel at the bottom right (FB-CON);
+; the text buffer moves to FB_SHADOW.  Otherwise nothing changes.
+fb_vbe_setup:
+    cmp word [VBE_CELLS + 20], 0x0120   ; FB-BPP 32, VBE-STATUS 1
+    jne .ret
+    mov eax, [VBE_CELLS + 12]
+    sub eax, FB_CON_W
+    jb .ret
+    mov edx, [VBE_CELLS + 16]
+    sub edx, FB_CON_H
+    jb .ret
+    mov ecx, [BLK_IMAGE_BASE]
+    jecxz .ret
+    add ecx, COMBINED_HEADER_SIZE + FONT_BLK * BLOCK_SIZE
+    cmp dword [ecx], 'FNT1'
+    jne .ret
+    cmp word [ecx + 4], 0x5F20          ; first 0x20, count 95
+    jne .ret
+    add ecx, 16
+    mov [fb_font], ecx
+    mov [fb_con_x], eax
+    mov [fb_con_y], edx
+    mov esi, VBE_CELLS + 4              ; FB-ADDR FB-PITCH FB-W FB-H, in
+    mov edi, fb_addr                    ; fb_addr fb_pitch fb_width fb_height order
+    mov ecx, 4
+    rep movsd
+    imul edx, [fb_pitch]
+    lea eax, [edx + eax * 4]
+    mov [fb_coff], eax
+    mov dword [vga_base], FB_SHADOW
+    mov byte [fb_on], 1
 .ret:
     ret
 
@@ -7544,7 +7607,7 @@ ser_col:        dd 0     ; the column print_char kept before the deferred wrap (
 con_top:        dd 0     ; the console's band (CON-REGION): first row
 con_rows:       dd VGA_HEIGHT ; and its height
 wrap_rows:      dd 0     ; bit y: row y continues row y-1 (a deferred wrap made it)
-vga_base:       dd VGA_TEXT             ; the text buffer: VGA, or FB_SHADOW on UEFI-4
+vga_base:       dd VGA_TEXT             ; the text buffer: VGA, or FB_SHADOW (framebuffer console)
 
 ; Ctrl+C break handler state
 ctrl_held:      db 0                ; 1 = Ctrl key currently pressed

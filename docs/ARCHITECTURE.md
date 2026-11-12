@@ -47,6 +47,10 @@ Address Range           Size        Purpose
 0x29200                              Block buffer guard byte (NUL)
 0x29400 - 0x29BFF       2 KB        IDT (256 x 8-byte entries)
 0x29C00 - 0x29C3F       64 B        ISR hook table (16 IRQ dispatch slots)
+0x2A000 - 0x2BFFF       8 KB        Framebuffer console (UEFI, BIOS VBE): FB_SHADOW 0x2A000 the
+                                    text buffer (SCREEN), FB_DRAWN 0x2B000 what the screen shows;
+                                    80 x 25 x 2 B each.  Was 0x80000-0x81FFF to 2026-11-11: nothing
+                                    goes in 0x80000-0x9FFFF (BIOS EBDA and PXE stacks below 0xA0000)
 0x30000 - 0x7FFFF       320 KB      Dictionary space
 0xB8000 - 0xB8F9F       4000 B      VGA text buffer (80 x 25 x 2 bytes)
 0x400000 - 0x7FFFFF    4 MB max    UEFI boots: the boot module (block image) moved to MB2_MOVE_TO,
