@@ -11,7 +11,9 @@ Images are copied into build/vocab-dedup.d first (never booted in place).
 Public cases (always): PCI-ENUM again (embedded), FIRSTBOOT (block-loaded
 in both the full and the free build; REQUIRES four vocabularies embedded in
 both, one per line), FIRSTBOOT again. Private cases (private mode, below): AHCI again, SURVEYOR (REQUIRES AHCI
-NTFS FAT32 HARDWARE, surveyor.fth:6; all four embedded, so four skip lines),
+NTFS FAT32 HARDWARE, surveyor.fth:6; AHCI, NTFS and HARDWARE embedded, FAT32
+block-loaded since 2026-11-11, so FAT32 loads and its own REQUIRES: AHCI
+HARDWARE, fat32.fth:6, resolves too: five skip lines, AHCI and HARDWARE twice),
 SURVEYOR again, INSTALL (REQUIRES SURVEYOR). Each step measures HERE, counts
 the "<name> present, skipped" lines (each REQUIRES resolves exactly once per
 load), and counts dictionary headers directly: the guest's
@@ -44,6 +46,13 @@ Pin history:
   before wiring: 14/15 (four skip lines, each dependency one header).
   Now four skip lines, one each, from surveyor.fth:6.
   Was (to 2026-10-30): skips(r5) == {'AHCI': 1}.
+- 2026-11-11, a recorded change (private TASK_KERNEL_PAD_HEADROOM, owner
+  ruling A): fat32.fth left EMBED_VOCABS. The boot check no longer counts
+  FAT32 among the embedded and asserts it has no header at boot; the
+  SURVEYOR check expects FAT32 loaded (one header) and AHCI 2, NTFS 1,
+  HARDWARE 2 skip lines, from surveyor.fth:6 and fat32.fth:6.
+  Was (to 2026-11-11): skips(r5) == {'AHCI': 1, 'NTFS': 1, 'FAT32': 1,
+  'HARDWARE': 1}.
 """
 import atexit, hashlib, os, re, socket, struct, subprocess, sys, time
 
@@ -196,9 +205,11 @@ qemu_pid.check_launch(r, PF, PORT, 'vocab-dedup')
 s = ser.connect_and_sync(PORT, budget=60)
 
 h0, c0, _ = step(s, 'boot', None)
-check('boot: the embedded vocabularies checked here have one header each',
+check('boot: the embedded vocabularies checked here have one header each'
+      + (' and FAT32 (block-loaded) none' if PRIVATE else ''),
       all(c0[k] == 1 for k in ('PCI-ENUM', 'HARDWARE', 'UI-CORE', 'UI-PARSER', 'UI-EVENTS', 'GUI-HARVEST',
-                               'CATALOG-RESOLVER') + (('AHCI', 'AHCI-INIT', 'NTFS', 'FAT32') if PRIVATE else ())),
+                               'CATALOG-RESOLVER') + (('AHCI', 'AHCI-INIT', 'NTFS') if PRIVATE else ()))
+      and (c0['FAT32'] == 0 if PRIVATE else True),
       f'{c0}')
 
 print('-- public cases')
@@ -228,9 +239,11 @@ else:
     check('AHCI again: one AHCI, one AHCI-INIT, one PCI-ENUM', (c4['AHCI'], c4['AHCI-INIT'], c4['PCI-ENUM']) == (1, 1, 1),
           f'{c4}')
     h5, c5, r5 = step(s, 'S" SURVEYOR" LOAD-VOCAB', 'S" SURVEYOR" LOAD-VOCAB')
-    # surveyor.fth:6: REQUIRES: AHCI NTFS FAT32 HARDWARE (all four embedded)
-    check('SURVEYOR loads once; its REQUIRES (AHCI NTFS FAT32 HARDWARE) resolved exactly once, one skip line each',
-          c5['SURVEYOR'] == 1 and skips(r5) == {'AHCI': 1, 'NTFS': 1, 'FAT32': 1, 'HARDWARE': 1},
+    # surveyor.fth:6: REQUIRES: AHCI NTFS FAT32 HARDWARE; FAT32 is block-loaded,
+    # so it loads here and fat32.fth:6 REQUIRES: AHCI HARDWARE resolves too
+    check('SURVEYOR loads once and FAT32 with it; skip lines AHCI 2, NTFS 1, HARDWARE 2 '
+          '(surveyor.fth:6 and fat32.fth:6), none for FAT32',
+          c5['SURVEYOR'] == 1 and c5['FAT32'] == 1 and skips(r5) == {'AHCI': 2, 'NTFS': 1, 'HARDWARE': 2},
           f'{skips(r5)} {c5}')
     check('SURVEYOR: no copy of its dependencies',
           all(c5[k] == 1 for k in ('AHCI-INIT', 'AHCI', 'PCI-ENUM', 'HARDWARE', 'NTFS', 'FAT32')), f'{c5}')

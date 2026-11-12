@@ -95,8 +95,12 @@ def depth(s):
 # six moved files.  The "with" side is today's list plus them (where they
 # sat before the move, 3f58be6^), so a vocabulary embedded later (hal.fth,
 # 2026-10-12) counts on both sides and doesn't read as the move shrinking.
+# A vocabulary unembedded later counts on neither side: file-browser-form sat
+# after file-stream, which left the list 2026-11-11 (private
+# TASK_KERNEL_PAD_HEADROOM), so it now goes after hello-app; K4 compares
+# sizes only, so the position does not change the figure.
 MOVED = {'notepad-form': 'file-editor-disk', 'notepad': 'notepad-form', 'hello-form': 'notepad',
-         'hello-app': 'hello-form', 'file-browser-form': 'file-stream', 'file-browser': 'file-browser-form'}
+         'hello-app': 'hello-form', 'file-browser-form': 'hello-app', 'file-browser': 'file-browser-form'}
 mk = open(os.path.join(ROOT, 'Makefile')).read()
 now = re.search(r'^EMBED_VOCABS = (.*)$', mk, re.M).group(1).split()
 pre = list(now)

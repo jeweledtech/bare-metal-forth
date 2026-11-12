@@ -384,17 +384,29 @@ disagree with the harness.** Type what the green harness types;
 check it against that region if anything differs.
 
 Neither `surveyor.fth` nor `install.fth` is in `EMBED_VOCABS`
-(`Makefile:49`; SURVEYOR was unembedded 2026-09-01 to make room
+(`Makefile:74`; SURVEYOR was unembedded 2026-09-01 to make room
 for the physical allocator) — both need block loads, SURVEYOR
 first: `install.fth` does `ALSO SURVEYOR` at load time, and
-`ALSO <undefined>` corrupts the dictionary. `LOAD-VOCAB` is
-broken on this boot path (`'F ?'` then wedge), so the documented
-workaround is a literal `THRU` of each catalog range. Get the
-four numbers **at the desk** and carry them; do not try to
+`ALSO <undefined>` corrupts the dictionary. Since 2026-11-11
+(private TASK_KERNEL_PAD_HEADROOM) FAT32 and FILE-STREAM are not
+embedded either, so SURVEYOR loads with `S" SURVEYOR" LOAD-VOCAB`,
+which loads FAT32 from blocks through SURVEYOR's `REQUIRES:` line
+and skips the embedded AHCI, NTFS and HARDWARE. It prints five
+skip lines: AHCI, NTFS, AHCI, HARDWARE, HARDWARE. A raw `THRU` of
+SURVEYOR's range would hit its `ALSO FAT32` with FAT32 undefined.
+INSTALL still loads by a literal `THRU` of its catalog range. Get
+those two numbers **at the desk** and carry them; do not try to
 compute them at the console:
 
+> **⚠ Not yet seen on iron (2026-11-11).** The `LOAD-VOCAB` line
+> below replaced `DECIMAL <first> <last> THRU` for SURVEYOR. It is
+> green in QEMU (`tests/test_g6_chain.py`), but the HP has not run
+> this typed sequence. On 2026-08-06 a `LOAD-VOCAB` on this boot
+> path died with `'F ?'` then a wedge; its cause was never recorded.
+> On the next iron trip, photograph the reply to the `LOAD-VOCAB`
+> line before typing anything else.
+
 ```sh
-python3 tools/catalog_layout.py SURVEYOR     # prints "<n> <m> THRU"
 python3 tools/catalog_layout.py INSTALL      # prints "<n> <m> THRU"
 ```
 
@@ -404,7 +416,7 @@ could disagree with it. Run it against the *same* image you are
 about to boot.
 
 ```forth
-DECIMAL <first> <last> THRU  \ SURVEYOR range from the generator above
+S" SURVEYOR" LOAD-VOCAB      \ five skip lines; FAT32 loads with it
 DECIMAL <first> <last> THRU  \ INSTALL range from the generator above
 USING AHCI
 AHCI-INIT

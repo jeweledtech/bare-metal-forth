@@ -71,7 +71,7 @@ $(VBR): $(SRC_BOOT)/vbr.asm | $(BUILD)
 # Embedded vocabularies (evaluated at boot, no block storage needed)
 # The demo apps (hello, notepad, file browser) are block-loaded, not
 # embedded (TASK_KERNEL_PAD_MOVE): S" NOTEPAD" LOAD-VOCAB etc. first.
-EMBED_VOCABS = forth/dict/hardware.fth forth/dict/hal.fth forth/dict/port-mapper.fth forth/dict/echoport.fth forth/dict/pci-enum.fth forth/dict/catalog-resolver.fth forth/dict/ahci.fth forth/dict/rtl8168.fth forth/dict/ntfs.fth forth/dict/auto-detect.fth forth/dict/fat32.fth forth/dict/ui-core.fth forth/dict/ui-parser.fth forth/dict/ui-events.fth forth/dict/gui-harvest.fth forth/dict/ps2-keyboard.fth forth/dict/file-editor-core.fth forth/dict/file-editor-disk.fth forth/dict/file-stream.fth
+EMBED_VOCABS = forth/dict/hardware.fth forth/dict/hal.fth forth/dict/port-mapper.fth forth/dict/echoport.fth forth/dict/pci-enum.fth forth/dict/catalog-resolver.fth forth/dict/ahci.fth forth/dict/rtl8168.fth forth/dict/ntfs.fth forth/dict/auto-detect.fth forth/dict/ui-core.fth forth/dict/ui-parser.fth forth/dict/ui-events.fth forth/dict/gui-harvest.fth forth/dict/ps2-keyboard.fth forth/dict/file-editor-core.fth forth/dict/file-editor-disk.fth
 EMBEDDED = $(BUILD)/embedded.bin
 
 # Free-tier vocabularies (public-tracked only, no paid/gitignored content)
