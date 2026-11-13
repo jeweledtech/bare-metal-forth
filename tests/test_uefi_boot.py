@@ -20,8 +20,8 @@ in the register 2026-10-12.
   OVMF:
   B1  control: GRUB's UEFI menu title reaches serial (else INSTRUMENT FAIL).
   B2  the kernel's report: `MB2: module <start>-<end>`, a line per window
-      (two: the console buffers left 0x80000 for window 1)
-      (three), no `REFUSED` (a module inside a window is moved above them
+      (two: the console buffers left 0x80000 for window 1),
+      no `REFUSED` (a module inside a window is moved above them
       first: `MB2: module moved to <start>-<end>`).
   B3  banner + ok.  B4  `MB2: framebuffer console on`.
   B5  `MB2: ACPI RSDP bytes n, SMBIOS entry point bytes m, EFI system
