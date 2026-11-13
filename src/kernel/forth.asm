@@ -6003,6 +6003,7 @@ fb_vbe_setup:
     mov [fb_font], ecx
     mov [fb_con_x], eax
     mov [fb_con_y], edx
+    cld                                 ; rep movsd below: kernel_start's cld is skipped on vbe boots
     mov esi, VBE_CELLS + 4              ; FB-ADDR FB-PITCH FB-W FB-H, in
     mov edi, fb_addr                    ; fb_addr fb_pitch fb_width fb_height order
     mov ecx, 4
