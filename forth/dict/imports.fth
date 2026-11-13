@@ -33,6 +33,10 @@
 \ path followed. IMPORTS-BUTTON
 \ ( dialog cid -- ) shows one button's
 \ panel; P there opens IMPORTS-SHOW.
+\ Menu items (private TASK_ROS_NOTEPAD_
+\ MENUS) use the same records, keyed
+\ menu id: IMPORTS-ITEM ( menu id -- ).
+\ More than 40 entries: Space pages.
 \
 \ ============================================
 
@@ -192,10 +196,15 @@ VARIABLE IM-P
     27 =
   UNTIL ;
 
-\ ---- One button's panel ------------------
+\ ---- One button's or menu item's panel ---
 VARIABLE IB-D
 VARIABLE IB-C
 VARIABLE IB-R
+\ 0 a dialog button, 1 a menu item
+\ (private TASK_ROS_NOTEPAD_MENUS).
+VARIABLE IB-KIND
+VARIABLE IB-P
+VARIABLE IB-LO
 
 \ Entry k of record r's entries: as
 \ IM-ENTRY, a post as `posts 0x...`.
@@ -205,38 +214,83 @@ VARIABLE IB-R
   DUP C@ 4 = IF S" posts " IM-TXT THEN
   1 + DUP 1 + SWAP C@ IM-TXT ;
 
-: IB-PAGE ( -- )
+\ Pages of 40 entries; 1 with no record.
+: IB-PAGES ( -- n )
+  IB-R @ 0= IF 1 EXIT THEN
+  IB-R @ 12 + @  IB-R @ 16 + @ +
+  39 + 40 /  1 MAX ;
+
+: IB-HEAD ( -- )
   VGA-CLS  0 IM-ROW
   IMP-NAME @ DUP 1 + SWAP C@ IM-TXT
-  S" : dialog " IM-TXT  IB-D @ IM-N
-  S" , button " IM-TXT  IB-C @ IM-N
-  3 IM-ROW  S" P: whole program  Esc: back" IM-TXT
-  1 IM-ROW
+  IB-KIND @ IF
+    S" : menu " IM-TXT  IB-D @ IM-N
+    S" , item " IM-TXT  IB-C @ IM-N
+  ELSE
+    S" : dialog " IM-TXT  IB-D @ IM-N
+    S" , button " IM-TXT  IB-C @ IM-N
+  THEN
+  3 IM-ROW
+  IB-PAGES 1 > IF
+    S" Page " IM-TXT  IB-P @ IM-N
+    S"  of " IM-TXT  IB-PAGES IM-N
+    S"   Space: next page  Esc: back" IM-TXT
+  ELSE
+    S" P: whole program  Esc: back" IM-TXT
+  THEN ;
+
+: IB-PAGE ( -- )
+  IB-HEAD  1 IM-ROW
   IB-R @ 0= IF
     S" No record for this button." IM-TXT EXIT
   THEN
-  S" What this button may call (every path of its branch):"
-  IM-TXT
+  IB-KIND @ IF
+    S" What this menu item may call (every path of its case):"
+  ELSE
+    S" What this button may call (every path of its branch):"
+  THEN IM-TXT
   2 IM-ROW  S" Imports: " IM-TXT  IB-R @ 12 + @ IM-N
-  S"   Posted messages: " IM-TXT  IB-R @ 16 + @ IM-N
+  IB-KIND @ IF
+    S"   Posted messages: not measured" IM-TXT
+  ELSE
+    S"   Posted messages: " IM-TXT  IB-R @ 16 + @ IM-N
+  THEN
+  IB-P @ 1 - 40 * IB-LO !
   IB-R @ 20 + 0
   BEGIN OVER C@ WHILE
-    DUP 40 < IF 2DUP IB-ENTRY THEN
+    DUP IB-LO @ - DUP 0< 0= SWAP 40 < AND IF
+      2DUP IB-LO @ - IB-ENTRY
+    THEN
     1 + SWAP IM-NEXT SWAP
   REPEAT 2DROP ;
 
-\ P or p: the whole program's page;
-\ Esc: back. Nothing loaded: returns.
-: IMPORTS-BUTTON ( dialog cid -- )
-  IMP-TABLE @ 0= IF 2DROP EXIT THEN
+\ Space: next page (wrapping); P or p:
+\ the whole program's page; Esc: back.
+: IB-RUN ( dialog cid -- )
   2DUP IMP-BFIND IB-R !  IB-C ! IB-D !
+  1 IB-P !
   BEGIN
     IB-PAGE
-    KEY DUP 80 = OVER 112 = OR IF
+    KEY DUP 32 = IF
+      IB-P @ IB-PAGES MOD 1 + IB-P !
+    THEN
+    DUP 80 = OVER 112 = OR IF
       IMPORTS-SHOW
     THEN
     27 =
   UNTIL ;
+
+\ Nothing loaded: returns.
+: IMPORTS-BUTTON ( dialog cid -- )
+  IMP-TABLE @ 0= IF 2DROP EXIT THEN
+  0 IB-KIND !  IB-RUN ;
+
+\ A menu item's panel (private
+\ TASK_ROS_NOTEPAD_MENUS): the record of
+\ item id of menu, as 513 256.
+: IMPORTS-ITEM ( menu id -- )
+  IMP-TABLE @ 0= IF 2DROP EXIT THEN
+  1 IB-KIND !  IB-RUN ;
 
 PREVIOUS
 FORTH DEFINITIONS

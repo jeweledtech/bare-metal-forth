@@ -4,9 +4,11 @@ TASK_FORTH83_VOCAB). The kernel's UM* and UM/MOD (K1-K5); the block-loaded
 FORTH83 vocabulary's renames (R), high-level words (H), pictured output
 (P), CONVERT (C) and DOES> (O), with DOES>'s five checks: A another CURRENT
 vocabulary, B SEE, E TARGET-X86 loaded alongside (private; skipped in
-public mode, tests/run_mode.py: 37 checks private, 36 public), M a
+public mode, tests/run_mode.py: 46 checks private, 45 public), M a
 MIRROR image across a reboot, and the UEFI and SeaBIOS paths (U30/L30
-in test_uefi_boot.py).
+in test_uefi_boot.py). LV0-LV7 test the kernel's LEAVE against Forth-83,
+and LV8 that LINE-START stays inside the editor buffer (private
+TASK_KERNEL_LEAVE_F83).
 
   python3 tests/test_forth83.py <serial-port>     (cwd: tree root)
 
@@ -37,7 +39,7 @@ VOCAB = os.path.join(ROOT, 'forth', 'dict', 'forth83.fth')
 TARGET_X86 = os.path.join(ROOT, 'forth', 'dict', 'target-x86.fth')
 # The mode (tests/run_mode.py): E1 needs TARGET-X86, a private vocabulary.
 MODE = run_mode.resolve(ROOT, private=('forth/dict/target-x86.fth',), tree=('forth/dict/target-x86.fth',))
-TOTAL = 37 if MODE.private else 36
+TOTAL = 46 if MODE.private else 45
 OUT = os.path.join(ROOT, 'build', 'forth83.d')
 os.makedirs(OUT, exist_ok=True)
 PF = os.path.join(OUT, 'qemu.pid')
@@ -102,7 +104,7 @@ def session(s):
 
 
 def finish():
-    print('\n' + MODE.line(PASS, TOTAL, MODE.not_run(37 - 36)), flush=True)
+    print('\n' + MODE.line(PASS, TOTAL, MODE.not_run(46 - 45)), flush=True)
     sys.exit(0 if FAIL == 0 and PASS == TOTAL else 1)
 
 
@@ -134,6 +136,37 @@ try:
     check('K5 a zero divisor and a quotient past 32 bits: UM/MOD OUT OF RANGE, DEPTH 0',
           'UM/MOD OUT OF RANGE' in r1 and 'UM/MOD OUT OF RANGE' in r2 and d[:1] == ['0'],
           f'{r1.strip()[:40]!r} {r2.strip()[:40]!r} depth {d}')
+
+    # LV: the kernel's LEAVE (private TASK_KERNEL_LEAVE_F83). Forth-83
+    # (docs/references/FORTH83.TXT:2749): LEAVE transfers execution to just
+    # beyond the next LOOP or +LOOP. Each line clears the stack (CLR), then
+    # defines, runs, and prints DEPTH; output compared with spaces collapsed.
+    send(': CLR DEPTH 0 > IF DEPTH 0 DO DROP LOOP THEN ;')
+    for name, defn, want in [
+            ('LV0 guard, LEAVE last before LOOP', ': TL0 5 0 DO I . I 2 = IF LEAVE THEN LOOP ;', '0 1 2 0'),
+            ('LV1 nothing after LEAVE runs', ': TL1 5 0 DO I 2 = IF LEAVE THEN I . LOOP ;', '0 1 0'),
+            ('LV2 stack after LEAVE', ': TL2 3 0 DO 7 LEAVE 8 LOOP ;', '1'),
+            ('LV3 LEAVE inside BEGIN..UNTIL', ': TL3 3 0 DO BEGIN LEAVE 1 UNTIL 9 LOOP ;', '0'),
+            ('LV4 inner LEAVE leaves only the inner loop',
+             ': TL4 2 0 DO 10 0 DO I 1 = IF LEAVE THEN I . LOOP 100 . LOOP ;', '0 100 0 100 0'),
+            ('LV5 LEAVE out of a +LOOP', ': TL5 10 0 DO I 4 = IF LEAVE THEN I . 2 +LOOP ;', '0 2 0'),
+            ('LV6 two LEAVEs in one loop',
+             ': TL6 10 0 DO I 3 = IF LEAVE THEN I 7 = IF LEAVE THEN I . LOOP ;', '0 1 2 0'),
+            ('LV7 outer LEAVE after a closed inner loop',
+             ': TL7 3 0 DO 2 0 DO LOOP I 1 = IF LEAVE THEN I . LOOP ;', '0 0')]:
+        word = defn.split()[1]
+        got = ' '.join(text(f'CLR {defn} {word} DEPTH .').split())
+        check(f'{name}: {want}', got == want, repr(got))
+    # LV8: LINE-START (file-editor-core.fth:166, embedded) asked for a line
+    # past the end must stop at FE-SIZE. FE-BUF holds AB<LF>CD (FE-SIZE 5);
+    # ZZ<LF> is planted past the end, inside the allocation, so a scan that
+    # runs on past FE-SIZE stops at a known byte (offset 8) instead of
+    # wandering. The offset must stay inside the buffer: 5.
+    got = ' '.join(text('CLR ALSO FILE-EDITOR 65 FE-BUF C! 66 FE-BUF 1+ C! 10 FE-BUF 2 + C! '
+                        '67 FE-BUF 3 + C! 68 FE-BUF 4 + C! 90 FE-BUF 5 + C! 90 FE-BUF 6 + C! '
+                        '10 FE-BUF 7 + C! 5 FE-SIZE ! 3 LINE-START . DEPTH . 0 FE-SIZE ! PREVIOUS').split())
+    check('LV8 LINE-START past the end stays inside the buffer: 5 0', got == '5 0', repr(got))
+    send('CLR')
 
     r = body('S" FORTH83" LOAD-VOCAB ALSO FORTH83', 90)
     check('L1 FORTH83 loads: no ?, no not found', '?' not in r and 'not found' not in r, r.strip()[-120:])

@@ -403,3 +403,37 @@ call.
   TASK_URW_USB_GRAPHICS; it belongs to the Phase 2 boot-path-independent
   graphics trigger. tests/test_grub_cfg.py Test 8 pins the stick menu's
   current absence and fails once a USB URWriter entry lands.
+
+## FAT32 and FILE-STREAM block-loaded; pad target and warning (November 2026)
+
+**Decision (Brenden, 2026-11-11):** `fat32.fth` and `file-stream.fth` leave
+`EMBED_VOCABS` and load from blocks, as ATAPI-AHCI and SURVEYOR already do.
+The free pad of the full build is to stay at or above 12,000 B, and the build
+warns below 4,096 B: `KERNEL_PAD_WARN` beside `KERNEL_PAD_FLOOR` in
+`src/kernel/forth.asm`, printed by `tools/pad_report.py` to stderr. FAT32 is
+not to be put back in the embed list to make a caller work.
+
+**Why:** the kernel image is padded to a fixed size and its return stack has
+no slack (`RETURN_STACK_MIN` equals the room left above the pad), so the pad
+cannot grow. On 2026-11-11 it had 4,307 B free and had lost 1,288 B in five
+days. Nothing calls FAT32 or FILE-STREAM at boot, and no embedded vocabulary
+puts either in its search order, so moving them frees 8,176 B (12,483 B
+free) with no boot-time cost. The free build embeds neither and is unchanged
+(23,524 B free).
+
+**Consequences:**
+- Load before use: `S" FAT32" LOAD-VOCAB` or `S" FILE-STREAM" LOAD-VOCAB`.
+  `USING` only finds; it loads nothing.
+- SURVEYOR loads with `LOAD-VOCAB`, which brings FAT32 through its
+  `REQUIRES:` line. A raw `THRU` of SURVEYOR's range now fails at its
+  `ALSO FAT32`. The G6 harness and RUNBOOK-G6 §3a changed to match; iron
+  has not yet run the new sequence. DESK-CARD-G6 D3 types the same
+  `LOAD-VOCAB` line, and loads FILE-STREAM before its `ALSO`.
+- An installed-to-disk boot loses FAT32 and FILE-STREAM: it has no block
+  store (the installer writes the VBR and kernel only), so `LOAD-VOCAB`
+  finds nothing there. No installed-boot flow or card used either; they
+  return with the installed block store. The specific capability lost
+  until then is listing the EFI partition from an installed boot
+  (`FAT32-LS` after `ALSO FAT32`).
+- Detail, measurements and test changes: private
+  `docs/TASK_KERNEL_PAD_HEADROOM.md`.

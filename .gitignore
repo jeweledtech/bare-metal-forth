@@ -66,12 +66,21 @@ forth/dict/iyuv-about-form.fth
 forth/dict/mfc-keyboard-form.fth
 forth/dict/input-keyseq-form.fth
 # ReactOS notepad, from ~/corpus (private TASK_REACTOS_NOTEPAD_FORMS):
-# dlg2form, imports2forth and buttons2forth output, and its demo; private
+# dlg2form, menu2form, imports2forth, buttons2forth and menus2forth output,
+# and its demo and menus (private TASK_ROS_NOTEPAD_MENUS); private
 forth/dict/ros-notepad-goto-form.fth
 forth/dict/ros-notepad-printing-form.fth
 forth/dict/ros-notepad-imports.fth
 forth/dict/ros-notepad-buttons.fth
 forth/dict/ros-notepad.fth
+forth/dict/ros-notepad-menu-form.fth
+forth/dict/ros-notepad-menu-file-form.fth
+forth/dict/ros-notepad-menu-edit-form.fth
+forth/dict/ros-notepad-menu-format-form.fth
+forth/dict/ros-notepad-menu-view-form.fth
+forth/dict/ros-notepad-menu-help-form.fth
+forth/dict/ros-notepad-menus.fth
+forth/dict/ros-notepad-menu.fth
 # imports2forth, a private tool, copied here for tools/translator's
 # test-buttons (private TASK_ROS_NOTEPAD_SLICE_B amendment 2 f)
 tools/imports2forth.py

@@ -496,12 +496,16 @@ def gate_b_3a():
     # The specific invariants, asserted by name so a regression is
     # attributable rather than just "step N differs".
     words = [e for _, e in rn]
-    first = words[0] if words else ''
-    check('BASE: first typed line is DECIMAL-prefixed THRU',
-          first.startswith('DECIMAL ') and first.endswith(' THRU'),
+    # Every THRU, not the first line: since 2026-11-11 (private
+    # TASK_KERNEL_PAD_HEADROOM) the first line is SURVEYOR's
+    # LOAD-VOCAB, which types no block number; the invariant is about
+    # typed block numbers, so it holds for each THRU line.
+    thrus = [w for w in words if w.endswith(' THRU')]
+    check('BASE: every typed THRU line is DECIMAL-prefixed',
+          bool(thrus) and all(w.startswith('DECIMAL ') for w in thrus),
           'confirmed 2026-08-20: AHCI-INIT leaves BASE=16 and boot '
           'base on the GRUB-memdisk path is HEX; a bare range '
-          'misparses into the metacompiler TARGET blocks')
+          f'misparses into the metacompiler TARGET blocks ({thrus})')
     try:
         i_thru = next(i for i, w in enumerate(words)
                       if w.endswith('THRU'))

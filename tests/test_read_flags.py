@@ -222,6 +222,9 @@ try:
 
     # ---- Boot S: BIG.BIN's second batch (LBA 4944) fails; a test sink
     s = boot(BIG_BATCH2, 'read-flags-S')
+    # FILE-STREAM is block-loaded since 2026-11-11 (private
+    # TASK_KERNEL_PAD_HEADROOM): load it before any *-INIT.
+    send(s, 'S" FILE-STREAM" LOAD-VOCAB', budget=120)
     send(s, DRV)
     send(s, 'AHCI-INIT')
     send(s, NTFS)

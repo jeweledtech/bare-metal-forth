@@ -52,8 +52,9 @@ executed -- the interpreter did not ABORT then, Finding 5).  Since
 a4b1727 an undefined word aborts the rest of its line, so that
 underflow no longer happens; ZAP stays as the guard.  An
 unbounded BEGIN..DEPTH 0<> loop never terminates on a negative
-depth, and Forth-83 LEAVE does not transfer control so a
-DO..LEAVE..DROP..LOOP shape drops once on an already-empty stack.
+depth, and this kernel's LEAVE did not transfer control before
+2026-11-12 (Forth-79; Forth-83's does, FORTH83.TXT:2749), so a
+DO..LEAVE..DROP..LOOP shape dropped once on an already-empty stack.
 
 Pre-registered red (2026-09-07, corrected in review before the
 red run, on the tree WITHOUT forth/dict/xhci.fth): checks 4-13
@@ -521,8 +522,10 @@ send(': DEF? WORD FIND NIP ;')
 # refuses an implausible reading (negative OR > 1024) and flags
 # ZBAD; the zap() wrapper aborts the run on refusal -- no score
 # beats a plausible one scored against a rebooted machine.
-# BEGIN/WHILE/REPEAT only: Forth-83 LEAVE does not transfer
-# control, and this kernel's LEAVE semantics are unprobed.
+# BEGIN/WHILE/REPEAT only: written when this kernel's LEAVE was
+# Forth-79 (no transfer of control); Forth-83's transfers,
+# FORTH83.TXT:2749, and the kernel's has since 2026-11-12
+# (test-forth83 LV0-LV8).
 send('VARIABLE ZN')
 send('VARIABLE ZBAD')
 send(': ZAP 0 ZBAD !  DEPTH DUP 0< SWAP 1024 > OR '

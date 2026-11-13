@@ -719,10 +719,16 @@ fatal('MEMDISK-VAR nonzero on memdisk boot', v == -1, raw[-90:])
 #      loads now, SURVEYOR first: install.fth does ALSO
 #      SURVEYOR at load time, and ALSO <undefined> corrupts
 #      the dictionary (the 2026-05 lesson).  Its own deps
-#      (AHCI NTFS FAT32 HARDWARE) are all still embedded.
-#   2. S" INSTALL" LOAD-VOCAB dies ('F ?' / 'FF ?' then wedge)
-#      on this boot path -- the known LOAD-VOCAB bug; THRU of
-#      the catalog range is the documented workaround.
+#      (AHCI NTFS FAT32 HARDWARE): FAT32 and FILE-STREAM were
+#      unembedded 2026-11-11 (private TASK_KERNEL_PAD_HEADROOM),
+#      so SURVEYOR now loads with LOAD-VOCAB, which loads FAT32
+#      from blocks through its REQUIRES; a raw THRU would hit
+#      surveyor.fth's ALSO FAT32 with FAT32 undefined.
+#   2. On 2026-08-06 S" INSTALL" LOAD-VOCAB died ('F ?' / 'FF ?'
+#      then wedge) on this boot path; its cause was never
+#      recorded, and LOAD-VOCAB has been reworked since (dedup,
+#      order restore, roll-back). INSTALL still loads by THRU of
+#      its catalog range, after SURVEYOR's LOAD-VOCAB.
 #   3. DECIMAL must be in effect when the block range is TYPED.
 #      Mechanism CONFIRMED 2026-08-20 (pre-registered experiment,
 #      suspect S1; logs /tmp/thru-exp-*.log): the 2026-08-06
@@ -748,12 +754,17 @@ fatal('MEMDISK-VAR nonzero on memdisk boot', v == -1, raw[-90:])
 #      Root fix (BASE-transparent AHCI-INIT via BASE @ ... BASE !)
 #      is deferred until AFTER iron G6 -- it rebuilds
 #      combined.img and invalidates deployment provenance.
-sa, sb = get_vocab_blocks('SURVEYOR')
-fatal('SURVEYOR catalog range found', sa is not None)
 a, b = get_vocab_blocks('INSTALL')
 fatal('INSTALL catalog range found', a is not None)
 # --8<-- RUNBOOK-3A-BEGIN
-send(f'DECIMAL {sa} {sb} THRU', 25)
+sv = send('S" SURVEYOR" LOAD-VOCAB', 25)
+# surveyor.fth:6 REQUIRES: AHCI NTFS FAT32 HARDWARE; FAT32 is not
+# embedded, so it loads, and its own REQUIRES: AHCI HARDWARE
+# (fat32.fth:6) resolves first: five skip lines, in this order.
+sk = re.findall(r'([A-Z0-9-]+) present, skipped', sv)
+fatal('S" SURVEYOR" LOAD-VOCAB: no ?, FAT32 loaded with it (skip lines AHCI NTFS AHCI HARDWARE HARDWARE)',
+      '?' not in body_of(sv) and sk == ['AHCI', 'NTFS', 'AHCI', 'HARDWARE', 'HARDWARE'],
+      f'{sk} {sv.strip()[-120:]!r}')
 send(f'DECIMAL {a} {b} THRU', 25)
 # The exemption below is measured, not assumed: the 2026-08-20
 # red-first run (HEX injected before a bare THRU) took the suite
