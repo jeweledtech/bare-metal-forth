@@ -2467,8 +2467,10 @@ DEFCODE "CREATE", CREATE, 0
     add dword [VAR_HERE], 4
     NEXT
 
-DEFCODE "FIND", FIND, 0     ; ( c-addr -- c-addr 0 | xt 1 | xt -1 )
-    ; Simplified: just returns xt or 0
+DEFCODE "FIND", FIND, 0     ; ( -- xt | 0 )
+    ; Takes nothing from the stack: searches word_buffer, the last
+    ; name WORD parsed. Typed at the prompt it finds FIND itself;
+    ; use WORD and FIND together inside a colon definition.
     call find_
     push eax
     NEXT
