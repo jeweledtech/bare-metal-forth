@@ -341,6 +341,19 @@ $(COMBINED): $(IMAGE) $(BUILD)/.catalog.stamp
 
 combined: $(COMBINED) $(COMBINED_IDE)
 
+# In-machine test image (TASK_FORTH_TEST_RUNNER): combined.img byte for
+# byte, then a generated banner block, then tests/forth/ source blocks in
+# load order. The --verify pass re-reads the file and fails unless the
+# product part hashes identical to combined.img. Not a test-* target: it
+# builds, it does not test.
+TEST_IMG = $(BUILD)/test.img
+TEST_FTH = $(wildcard tests/forth/runner.fth tests/forth/state-core.fth tests/forth/forth83.fth)
+$(TEST_IMG): $(COMBINED) tools/make-test-image.py tools/write-block.py $(TEST_FTH)
+	@python3 tools/make-test-image.py $(COMBINED) $@ $(TEST_FTH)
+	@python3 tools/make-test-image.py --verify $(COMBINED) $@
+forth-test-image: $(TEST_IMG)
+.PHONY: forth-test-image
+
 # usb-image — compose a complete writable ForthOS disk image (loopback file,
 # not /dev/sdX) plus its .sha256 files and a releases.json fragment, per
 # TASK_FORTHOS_CREATOR.md §1/§3.  Server-side only; the Creator app never
