@@ -23,6 +23,13 @@ T{ Q1 1 -> 1 }T          \ not the last label read
 T{ Q2 1 -> 2 }T
 T{ Q3 1 -> 1 }T
 END-SUITE
+SUITE P10
+T{ P10 ALSO FORTH -> }T PREVIOUS \ search order one deeper
+END-SUITE
+VOCABULARY PV
+SUITE P11
+T{ P11 PV DEFINITIONS -> }T ONLY FORTH DEFINITIONS \ CURRENT
+END-SUITE
 SUITE P7
 T{ P7 NOSUCHWORD -> }T   \ abort: ABORT line, hook back
 END-SUITE

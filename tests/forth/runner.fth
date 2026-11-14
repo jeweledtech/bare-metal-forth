@@ -2,7 +2,8 @@
 \ SUITE name / T{ label code -> expected }T / END-SUITE
 \ One case per block line. Leftovers fail: data and return
 \ stack depth, STATE, HERE, LATEST, dirty block buffers,
-\ keyboard ring. DEFINES / DIRTIES before T{ excuse one case.
+\ keyboard ring, search-order depth and CURRENT. DEFINES /
+\ DIRTIES before T{ excuse one case (not the search order).
 DECIMAL
 \ RP@ ( -- a ) push ebp ; NEXT = 55 AD FF 20, no assembler
 CREATE RP@ HERE @ HERE @ 4 - ! 85 C, 173 C, 255 C, 32 C,
@@ -11,10 +12,13 @@ VARIABLE T-D0  VARIABLE T-D1    VARIABLE T-NE
 VARIABLE T-RP  VARIABLE T-RP2   VARIABLE T-BAD
 VARIABLE T-H   VARIABLE T-L     VARIABLE T-OLDHK
 VARIABLE T-DEF VARIABLE T-DRT
+VARIABLE T-SO  VARIABLE T-CUR
 CREATE T-ACT 16 CELLS ALLOT
 CREATE T-LBL 12 ALLOT  CREATE T-SNM 16 ALLOT
 CREATE T-FLBL 12 ALLOT \ label of the first failing case
 163936 CONSTANT T-BHDR  \ 0x28060: 4 headers x 12 B
+163904 CONSTANT T-SDEP  \ 0x28040 VAR_SEARCH_DEPTH
+163908 CONSTANT T-SCUR  \ 0x28044 VAR_CURRENT
 : T-TYPEZ ( a -- ) BEGIN DUP C@ DUP WHILE EMIT 1+ REPEAT
   DROP DROP ;
 : T-D. ( u -- ) 48 + EMIT ;
@@ -32,7 +36,8 @@ CREATE T-FLBL 12 ALLOT \ label of the first failing case
 : DIRTIES ( -- ) 1 T-DRT ! ;
 : T{ ( "label" -- ) WORD T-LBL 11 CMOVE 0 T-LBL 11 + C!
   1 T# +! T-SKIP @ IF T-EOL EXIT THEN T-LBL T-TYPEZ SPACE
-  DEPTH T-D0 ! RP@ T-RP ! HERE @ T-H ! LATEST @ T-L ! ;
+  DEPTH T-D0 ! RP@ T-RP ! HERE @ T-H ! LATEST @ T-L !
+  T-SDEP @ T-SO ! T-SCUR @ T-CUR ! ;
 : T-DROP ( -- ) BEGIN DEPTH T-D0 @ > WHILE DROP REPEAT ;
 : -> ( i*x -- ) DEPTH T-D0 @ - DUP T-D1 ! DUP 0 > IF
   DUP 16 > IF DROP T-DROP ELSE 0 DO T-ACT I CELLS + !
@@ -53,7 +58,9 @@ CREATE T-FLBL 12 ALLOT \ label of the first failing case
   THEN THEN T-DRT @ 0= IF T-DIRTY DUP IF T-HDR
   ."   BLK DIRTY mask " . CR ELSE DROP THEN THEN
   KB-RING-COUNT @ IF T-HDR ."   KB " KB-RING-COUNT @ . CR
-  THEN ;
+  THEN T-SDEP @ T-SO @ <> IF T-HDR ."   ORDER "
+  T-SDEP @ T-SO @ - . CR THEN T-SCUR @ T-CUR @ <> IF T-HDR
+  ."   CURRENT moved" CR THEN ;
 : }T ( j*x -- ) RP@ T-RP2 ! 0 T-BAD ! T-CMP T-STATE
   0 T-DEF ! 0 T-DRT ! T-BAD @ IF 1 T-SKIP ! THEN ; IMMEDIATE
 : END-SUITE ( -- ) T-OLDHK @ ABORT-HOOK ! CR ." RESULT "
