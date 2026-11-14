@@ -8,7 +8,11 @@ appends. Blocks use the product's own layout (write-block.py: 16 lines of
 
 The first test block is a generated banner. Loaded with `<first> LOAD`,
 it prints TEST-IMAGE and the first 8 hex digits of the product image's
-sha256, then THRUs the test source blocks. A wrong block number shows up
+sha256. The run starts with one top-level THRU over the banner and every
+source block (printed by the build). The banner must not THRU the rest
+itself: a nested LOAD resumes in a buffer the nested THRU has reused
+(found 2026-11-13: STACK UNDERFLOW after the RESULT line). A wrong block
+number shows up
 as a missing or wrong banner, not as silent garbage (the RAM block path
 has no upper bound).
 
@@ -30,6 +34,7 @@ from importlib.machinery import SourceFileLoader
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WB = SourceFileLoader('write_block', os.path.join(ROOT, 'tools', 'write-block.py')).load_module()
 BLOCK = WB.BLOCK_SIZE
+NESTED_LOADS = {'LOAD', 'THRU', 'LOAD-VOCAB', 'RELOAD-VOCAB'}
 
 
 def header_size():
@@ -64,13 +69,28 @@ def build(product_path, out_path, sources):
 
     src_blocks = []
     for path in sources:
-        src_blocks += WB.source_to_blocks(open(path).read())
+        text = open(path).read()
+        # Block format cuts a line at 64 characters with no warning (how
+        # a THEN once became THE): refuse instead of truncating.
+        for n, ln in enumerate(text.splitlines(), 1):
+            if len(ln) > WB.SCREEN_COLS:
+                sys.exit(f'make-test-image: {path}:{n} is {len(ln)} '
+                         f'characters; a block line holds 64')
+            # A load started from block text resumes in a buffer the
+            # nested load may have reused (kernel limitation, FUTURE-TODO
+            # in the private repo). Test source never loads blocks; the
+            # run is one top-level THRU. Comments count too, to keep the
+            # check simple and strict.
+            hit = NESTED_LOADS & {w.upper() for w in ln.split()}
+            if hit:
+                sys.exit(f'make-test-image: {path}:{n} uses '
+                         f'{" ".join(sorted(hit))}; test source must '
+                         f'not load blocks (nested-load limitation)')
+        src_blocks += WB.source_to_blocks(text)
     lines = [
         '\\ TEST-IMAGE banner (tools/make-test-image.py, generated)',
         f': TI-BANNER ." TEST-IMAGE {tag}" CR ; TI-BANNER',
     ]
-    if src_blocks:
-        lines.append(f'DECIMAL {first + 1} {first + len(src_blocks)} THRU')
     for ln in lines:
         if len(ln) > WB.SCREEN_COLS:
             sys.exit(f'make-test-image: banner line over 64: {ln!r}')
@@ -86,7 +106,7 @@ def build(product_path, out_path, sources):
     print(f'test image: {out_path}')
     print(f'  product  {len(product)} B sha256 {sha256(product)}')
     print(f'  banner   TEST-IMAGE {tag}')
-    print(f'  first test block {first}  (type: {first} LOAD)')
+    print(f'  first test block {first}  (type: DECIMAL {first} {first + len(src_blocks)} THRU)')
     print(f'  source blocks {len(src_blocks)} ({first + 1}..{first + len(src_blocks)})'
           if src_blocks else '  source blocks 0')
 
