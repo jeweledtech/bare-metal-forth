@@ -1,23 +1,27 @@
 #!/usr/bin/env python3
-"""FORTH83: Forth-83 Required words the kernel lacked (private
-TASK_FORTH83_VOCAB). The kernel's UM* and UM/MOD (K1-K5); the block-loaded
-FORTH83 vocabulary's renames (R), high-level words (H), pictured output
-(P), CONVERT (C) and DOES> (O), with DOES>'s five checks: A another CURRENT
-vocabulary, B SEE, E TARGET-X86 loaded alongside (private; skipped in
-public mode, tests/run_mode.py: 46 checks private, 45 public), M a
-MIRROR image across a reboot, and the UEFI and SeaBIOS paths (U30/L30
-in test_uefi_boot.py). LV0-LV7 test the kernel's LEAVE against Forth-83,
-and LV8 that LINE-START stays inside the editor buffer (private
-TASK_KERNEL_LEAVE_F83).
+"""FORTH83: the checks that stay on the host (private TASK_FORTH83_VOCAB).
+
+The portable 33 (K1-K4, LV0-LV8, R1, R2, H1, H3-H5, P1-P6, C1-C3, O1-O3,
+A1, A2) moved into the machine: tests/forth/forth83.fth under the same
+labels, run by make test-forth (TASK_FORTH_TEST_RUNNER step 7). D0, L1 and
+Z were dropped as redundant there; E1 left with the metacompiler park
+(owner ruling B, 2026-11-13). What stays here needs the host:
+  K5      UM/MOD's OUT OF RANGE abort (the runner stops at an abort)
+  H2      SPACES (its result is printed text only)
+  R3      TIB at the prompt (inside a block load TIB is the block)
+  B1, B2  SEE (printed text), and the see1 red below
+  M1-M4   a MIRROR image across a reboot
+The same 9 run in public and private mode.
 
   python3 tests/test_forth83.py <serial-port>     (cwd: tree root)
 
-Blocks come from a copy of the image attached as an IDE disk; D0 is a
-positive control that it is attached (CATALOG-FIND UI-PARSER against the
-range tools/catalog_layout.py reads from build/blocks.img), and on failure
-the run stops with `no block disk`. No -snapshot: boot B reads the MIRROR
-image boot A wrote, so both boots run on copies in build/forth83.d. MIRROR
-is loaded first in both boots, so LOOKINGGLASS overwrites it with itself.
+Blocks come from a copy of the image attached as an IDE disk. Before any
+check the run confirms it is attached (CATALOG-FIND UI-PARSER against the
+range tools/catalog_layout.py reads from build/blocks.img) and that
+FORTH83 loads; either failing stops the run. No -snapshot: boot B reads the
+MIRROR image boot A wrote, so both boots run on copies in build/forth83.d.
+MIRROR is loaded first in both boots, so LOOKINGGLASS overwrites it with
+itself.
 
 Also carries see1_RED_decompile_prints_cell_addresses (private
 TASK_SEE_CELLS; docs/evidence/x64-open-register-2026-09-20.md): SEE prints
@@ -36,10 +40,10 @@ import serial as ser
 PORT = int(sys.argv[1])
 COMBINED = os.path.join(ROOT, 'build', 'combined.img')
 VOCAB = os.path.join(ROOT, 'forth', 'dict', 'forth83.fth')
-TARGET_X86 = os.path.join(ROOT, 'forth', 'dict', 'target-x86.fth')
-# The mode (tests/run_mode.py): E1 needs TARGET-X86, a private vocabulary.
-MODE = run_mode.resolve(ROOT, private=('forth/dict/target-x86.fth',), tree=('forth/dict/target-x86.fth',))
-TOTAL = 46 if MODE.private else 45
+# The mode (tests/run_mode.py) only names the line: the 9 checks are the
+# same in both modes.
+MODE = run_mode.resolve(ROOT)
+TOTAL = 9
 OUT = os.path.join(ROOT, 'build', 'forth83.d')
 os.makedirs(OUT, exist_ok=True)
 PF = os.path.join(OUT, 'qemu.pid')
@@ -104,7 +108,7 @@ def session(s):
 
 
 def finish():
-    print('\n' + MODE.line(PASS, TOTAL, MODE.not_run(46 - 45)), flush=True)
+    print('\n' + MODE.line(PASS, TOTAL, 'the same 9 checks'), flush=True)
     sys.exit(0 if FAIL == 0 and PASS == TOTAL else 1)
 
 
@@ -116,120 +120,38 @@ try:
     v = nums('ALSO CATALOG-RESOLVER S" UI-PARSER" CATALOG-FIND .S PREVIOUS')
     got = [x.strip('<>') for x in v if x.strip('<>')]     # .S: <first last -1 >
     ok = len(UIP) == 2 and got[:3] == UIP + ['-1']
-    check('D0 block disk attached: CATALOG-FIND UI-PARSER gives its range from build/blocks.img',
-          ok, f'guest {got}, image {UIP}')
+    print(f'  block disk: CATALOG-FIND UI-PARSER guest {got}, image {UIP}', flush=True)
     if not ok:
-        print('  no block disk: stopping before any check that loads from blocks', flush=True)
+        print('  FAIL: no block disk: stopping before any check that loads from blocks', flush=True)
         finish()
 
     # MIRROR first, so boot B's MIRROR lies where boot A's did
     r = body('S" MIRROR" LOAD-VOCAB', 90)
     print(f'    (MIRROR load: {r.strip()[-80:]!r})', flush=True)
 
-    # K: the kernel's UM* and UM/MOD
-    check('K1 -1 -1 UM* . . gives -2 1', nums('-1 -1 UM* . .')[:2] == ['-2', '1'])
-    check('K2 65536 65536 UM* . . gives 1 0', nums('65536 65536 UM* . .')[:2] == ['1', '0'])
-    check('K3 -2 1 -1 UM/MOD . . gives 2 0', nums('-2 1 -1 UM/MOD . .')[:2] == ['2', '0'])
-    check('K4 7 0 2 UM/MOD . . gives 3 1', nums('7 0 2 UM/MOD . .')[:2] == ['3', '1'])
+    # K5: UM/MOD's abort (K1-K4 run in the machine)
     r1, r2 = body('1 0 0 UM/MOD'), body('0 5 5 UM/MOD')
     d = nums('DEPTH .')
     check('K5 a zero divisor and a quotient past 32 bits: UM/MOD OUT OF RANGE, DEPTH 0',
           'UM/MOD OUT OF RANGE' in r1 and 'UM/MOD OUT OF RANGE' in r2 and d[:1] == ['0'],
           f'{r1.strip()[:40]!r} {r2.strip()[:40]!r} depth {d}')
 
-    # LV: the kernel's LEAVE (private TASK_KERNEL_LEAVE_F83). Forth-83
-    # (docs/references/FORTH83.TXT:2749): LEAVE transfers execution to just
-    # beyond the next LOOP or +LOOP. Each line clears the stack (CLR), then
-    # defines, runs, and prints DEPTH; output compared with spaces collapsed.
-    send(': CLR DEPTH 0 > IF DEPTH 0 DO DROP LOOP THEN ;')
-    for name, defn, want in [
-            ('LV0 guard, LEAVE last before LOOP', ': TL0 5 0 DO I . I 2 = IF LEAVE THEN LOOP ;', '0 1 2 0'),
-            ('LV1 nothing after LEAVE runs', ': TL1 5 0 DO I 2 = IF LEAVE THEN I . LOOP ;', '0 1 0'),
-            ('LV2 stack after LEAVE', ': TL2 3 0 DO 7 LEAVE 8 LOOP ;', '1'),
-            ('LV3 LEAVE inside BEGIN..UNTIL', ': TL3 3 0 DO BEGIN LEAVE 1 UNTIL 9 LOOP ;', '0'),
-            ('LV4 inner LEAVE leaves only the inner loop',
-             ': TL4 2 0 DO 10 0 DO I 1 = IF LEAVE THEN I . LOOP 100 . LOOP ;', '0 100 0 100 0'),
-            ('LV5 LEAVE out of a +LOOP', ': TL5 10 0 DO I 4 = IF LEAVE THEN I . 2 +LOOP ;', '0 2 0'),
-            ('LV6 two LEAVEs in one loop',
-             ': TL6 10 0 DO I 3 = IF LEAVE THEN I 7 = IF LEAVE THEN I . LOOP ;', '0 1 2 0'),
-            ('LV7 outer LEAVE after a closed inner loop',
-             ': TL7 3 0 DO 2 0 DO LOOP I 1 = IF LEAVE THEN I . LOOP ;', '0 0')]:
-        word = defn.split()[1]
-        got = ' '.join(text(f'CLR {defn} {word} DEPTH .').split())
-        check(f'{name}: {want}', got == want, repr(got))
-    # LV8: LINE-START (file-editor-core.fth:166, embedded) asked for a line
-    # past the end must stop at FE-SIZE. FE-BUF holds AB<LF>CD (FE-SIZE 5);
-    # ZZ<LF> is planted past the end, inside the allocation, so a scan that
-    # runs on past FE-SIZE stops at a known byte (offset 8) instead of
-    # wandering. The offset must stay inside the buffer: 5.
-    got = ' '.join(text('CLR ALSO FILE-EDITOR 65 FE-BUF C! 66 FE-BUF 1+ C! 10 FE-BUF 2 + C! '
-                        '67 FE-BUF 3 + C! 68 FE-BUF 4 + C! 90 FE-BUF 5 + C! 90 FE-BUF 6 + C! '
-                        '10 FE-BUF 7 + C! 5 FE-SIZE ! 3 LINE-START . DEPTH . 0 FE-SIZE ! PREVIOUS').split())
-    check('LV8 LINE-START past the end stays inside the buffer: 5 0', got == '5 0', repr(got))
-    send('CLR')
-
     r = body('S" FORTH83" LOAD-VOCAB ALSO FORTH83', 90)
-    check('L1 FORTH83 loads: no ?, no not found', '?' not in r and 'not found' not in r, r.strip()[-120:])
+    if '?' in r or 'not found' in r:
+        print(f'  FAIL: FORTH83 did not load: {r.strip()[-120:]!r}; stopping', flush=True)
+        finish()
 
-    # R: renames
-    check('R1 0 NOT . 5 NOT . gives -1 -6', nums('0 NOT . 5 NOT .')[:2] == ['-1', '-6'])
-    check('R2 >IN is ADDR-TOIN', nums('>IN ADDR-TOIN = .')[:1] == ['-1'])
+    # R3: TIB at the prompt
     check('R3 TIB is ADDR-TIB @ at the prompt, 164096', nums('TIB ADDR-TIB @ = . TIB .')[:2] == ['-1', '164096'])
 
-    # H: strings and the stack
-    send('CREATE CS 3 C, 65 C, 66 C, 67 C,')
-    check('H1 COUNT: ABC, and addr+1 3', text('CS COUNT TYPE') == 'ABC'
-          and nums('CS COUNT SWAP CS - . .')[:2] == ['1', '3'])
+    # H2: SPACES, read from the printed text
     a, b = text('91 EMIT 3 SPACES 93 EMIT'), text('91 EMIT 0 SPACES -2 SPACES 93 EMIT')
     check('H2 SPACES: 3 gives [   ], 0 and -2 give []', a == '[   ]' and b == '[]', f'{a!r} {b!r}')
-    check('H3 ROLL: 3 ROLL, 0 ROLL, 2 ROLL',
-          nums('1 2 3 4 3 ROLL . . . .')[:4] == ['1', '4', '3', '2']
-          and nums('1 2 0 ROLL . .')[:2] == ['2', '1']
-          and nums('1 2 3 2 ROLL . . .')[:3] == ['1', '3', '2'])
-    send('CREATE TS 65 C, 32 C, 32 C,')
-    check('H4 -TRAILING: A__ to 1, __ to 0, empty to 0',
-          nums('TS 3 -TRAILING . TS - .')[:2] == ['1', '0']
-          and nums('TS 1+ 2 -TRAILING . DROP')[:1] == ['0']
-          and nums('TS 0 -TRAILING . DROP')[:1] == ['0'])
-    check('H5 PAD is HERE@ + 100 and moves with it',
-          nums('PAD HERE@ - .')[:1] == ['100'] and nums('PAD 8 ALLOT PAD SWAP - .')[:1] == ['8'])
 
-    # P: pictured output
-    for name, cmd, want in [
-            ('P1 -123 with SIGN', '-123 DUP ABS 0 <# #S ROT SIGN #> TYPE', '-123'),
-            ('P2 0 gives one digit', '0 0 <# #S #> TYPE', '0'),
-            ('P3 HEX FF', 'HEX FF 0 <# #S #> TYPE DECIMAL', 'FF'),
-            ('P4 2^64 - 1', '-1 -1 <# #S #> TYPE', '18446744073709551615'),
-            ('P5 HOLD between digits', '1234 0 <# # # 46 HOLD #S #> TYPE', '12.34')]:
-        got = text(cmd)
-        check(f'{name}: {want}', got == want, repr(got))
-    check('P6 64 binary digits', nums('2 BASE ! -1 -1 <# #S #> NIP DECIMAL .')[:1] == ['64'])
-    send('DECIMAL')
-
-    # C: CONVERT
-    check('C1 CONVERT x123: 123 0, stops at the space',
-          nums('0 0 S" x123 " DROP CONVERT C@ . . .')[:3] == ['32', '0', '123'])
-    check('C2 CONVERT 2^64 - 1', nums('0 0 S" x18446744073709551615 " DROP CONVERT DROP . .')[:2] == ['-1', '-1'])
-    check('C3 CONVERT HEX FF', nums('HEX 0 0 S" xFF " DROP CONVERT DROP DECIMAL . .')[:2] == ['0', '255'])
-    send('DECIMAL')
-
-    # O: DOES>
+    # A DOES> parent and child for SEE (B1, B2) and MIRROR (M3, M4)
     send(': MYCONST CREATE , DOES> @ ;')
     send('42 MYCONST X42')
-    check('O1 42 MYCONST X42  X42 . gives 42', nums('X42 .')[:1] == ['42'])
-    send('5 MYCONST X5')
-    check('O2 two children of one parent: X42 X5 + gives 47', nums('X42 X5 + .')[:1] == ['47'])
-    send(': ARRAY CREATE CELLS ALLOT DOES> SWAP CELLS + ;')
-    send('3 ARRAY AR  7 0 AR !  9 2 AR !')
-    check('O3 ARRAY: 0 AR @ 2 AR @ + gives 16', nums('0 AR @ 2 AR @ + .')[:1] == ['16'])
-
-    # A: a child made while another vocabulary is CURRENT
-    a1 = nums('VOCABULARY DV ALSO DV DEFINITIONS 11 MYCONST X11  X11 . X42 .')
-    check('A1 a child in DV: X11 11, X42 still 42', a1[:2] == ['11', '42'], f'{a1}')
-    a2 = body('ONLY FORTH DEFINITIONS ALSO FORTH83 X11')
-    check('A2 X11 lives in DV: not found with FORTH and FORTH83 only', a1[:2] == ['11', '42'] and 'X11 ?' in a2,
-          a2.strip()[:60])
-    send('ONLY FORTH DEFINITIONS ALSO FORTH83 DECIMAL')
+    send('DECIMAL')
 
     # B: SEE on a child and on its parent
     b1 = body('SEE X42')
@@ -257,21 +179,10 @@ try:
         check(f'{SEE_RED}: SEE SW printed neither the addresses {addrs} nor the words {words}', False,
               out.strip()[:80])
 
-    # E: TARGET-X86 alongside (private)
-    if not MODE.private:
-        print('  SKIPPED (public mode): E1 TARGET-X86 alongside: TARGET-X86 is private', flush=True)
-    else:
-        r = body('S" TARGET-X86" LOAD-VOCAB', 120)
-        e = nums('ALSO META-COMPILER ALSO TARGET-X86 ALSO FORTH83 : MC3 CREATE , DOES> @ ; 3 MC3 X3  X3 .')
-        check('E1 with META-COMPILER and TARGET-X86 in the order, a DOES> child answers 3',
-              e[:1] == ['3'] and '?' not in r, f'{e} load {r.strip()[-60:]!r}')
-        send('ONLY FORTH DEFINITIONS ALSO FORTH83 DECIMAL')
-
     # M (boot A half): an image with MYCONST and X42 in it
     send("ALSO MIRROR ' (BLK-WRITE-ATA) BLK-WRITER!")
     r = body('DECIMAL 216 MIRROR', 300)
     check('M1 216 MIRROR saved', 'MIRROR saved to block 216' in r, r.strip()[-80:])
-    check('Z DEPTH 0 at the end of boot A', nums('DEPTH .')[:1] == ['0'])
     s.close()
     qemu_pid.kill_pidfile(PF)
 

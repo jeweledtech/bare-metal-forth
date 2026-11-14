@@ -1435,10 +1435,10 @@ test-double-cell: $(COMBINED)
 	echo "Running double-cell word gates..."; \
 	timeout --foreground $(T_DOUBLE_CELL) python3 tests/test_double_cell.py $$(($(TEST_PORT_BASE)+116))
 
-# test-forth83: the kernel's UM* and UM/MOD, and the block-loaded FORTH83
-# vocabulary (Forth-83 Required words the kernel lacked, and DOES>), with
-# DOES>'s checks: another CURRENT, SEE, TARGET-X86 alongside, a MIRROR image
-# across a reboot (private TASK_FORTH83_VOCAB). Carries see1_RED (XFAIL).
+# test-forth83: the FORTH83 checks that need the host (private
+# TASK_FORTH83_VOCAB): UM/MOD's abort, SPACES and SEE output, TIB at the
+# prompt, a MIRROR image across a reboot. The other 33 run in the machine
+# (test-forth, tests/forth/forth83.fth). Carries see1_RED (XFAIL).
 T_FORTH83 ?= 240
 test-forth83: $(COMBINED)
 	@PIDF=$(BUILD)/forth83.d/qemu.pid; $(QEMU_KILL); \
