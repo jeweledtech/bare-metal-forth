@@ -18,6 +18,11 @@ END-SUITE
 SUITE P6
 T{ P6 1 1 + -> 3 }T      \ wrong result
 END-SUITE
+SUITE P9                 \ FAIL names the first failure,
+T{ Q1 1 -> 1 }T          \ not the last label read
+T{ Q2 1 -> 2 }T
+T{ Q3 1 -> 1 }T
+END-SUITE
 SUITE P7
 T{ P7 NOSUCHWORD -> }T   \ abort: ABORT line, hook back
 END-SUITE
