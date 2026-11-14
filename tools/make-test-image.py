@@ -6,7 +6,7 @@ test blocks. The product part is never rewritten: the tool copies it and
 appends. Blocks use the product's own layout (write-block.py: 16 lines of
 64 characters per 1024-byte block).
 
-The first test block is a generated banner. Loaded with `<first> LOAD`,
+The first test block is a generated banner. When the run reaches it,
 it prints TEST-IMAGE and the first 8 hex digits of the product image's
 sha256. The run starts with one top-level THRU over the banner and every
 source block (printed by the build). The banner must not THRU the rest
