@@ -96,6 +96,12 @@ if [ "$grub_platform" = "pc" ]; then
         linux16 /memdisk raw
         initrd16 /forth.img
     }
+    # The in-machine test image (TASK_FORTH_TEST_RUNNER): forth.img's
+    # bytes plus test blocks, by the same memdisk path. Never the default.
+    menuentry "ForthOS — test image (in-machine tests)" {
+        linux16 /memdisk raw
+        initrd16 /forth-test.img
+    }
     menuentry "Reboot" {
         reboot
     }

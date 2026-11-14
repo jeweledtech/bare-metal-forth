@@ -261,5 +261,19 @@ check('stick menu has no URWriter entry and no vbe '
       bool(_body) and not any('URWriter' in l or 'vbe' in l.split()
                               for l in _body))
 
+print('Test 9: USB stick menu carries the test image, never as the default')
+# TASK_FORTH_TEST_RUNNER step 9: BIOS entry 1 boots /forth-test.img by the
+# same memdisk path as entry 0 (the HP's stick boots with BOOT-MODE 1,
+# owner 2026-11-14); default=0 keeps the product first.
+_pc = _body[:_body.index('else')] if 'else' in _body else []
+_ents = [i for i, l in enumerate(_pc) if l.strip().startswith('menuentry')]
+_e1 = [l.strip() for l in _pc[_ents[1]:_ents[2]]] if len(_ents) >= 3 else []
+check('stick BIOS entry 1 is the test image: memdisk raw, /forth-test.img',
+      'linux16 /memdisk raw' in _e1 and 'initrd16 /forth-test.img' in _e1,
+      f'{_e1}')
+check('stick default=0 and forth-test.img in no other entry',
+      'set default=0' in [l.strip() for l in _body]
+      and sum('forth-test.img' in l for l in _body) == 1)
+
 print(f'\nPassed: {PASS}/{PASS + FAIL}')
 sys.exit(1 if FAIL else 0)
