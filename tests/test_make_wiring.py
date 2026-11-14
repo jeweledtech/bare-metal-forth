@@ -63,6 +63,15 @@ EXEMPT = {
         'needs the throwaway -DDICT_BACKSTOP=0 image (make backstop0);'
         ' one-shot liveness proof with its own evidence total, pinned'
         ' out of the sweep by the suite docstring',
+    'test-arm64-boot':
+        'parked: owner ruling B 2026-11-13 (ARM64 as a platform'
+        ' ForthOS runs on); files stay, not run or maintained',
+    'test-meta-b6b':
+        'parked: owner ruling B 2026-11-13 (metacompiler);'
+        ' files stay, not run or maintained',
+    'test-window-focus':
+        'parked: owner ruling 2026-11-13 (window-system extras'
+        ' only where translated programs need them); files stay',
 }
 # GRANDFATHERED: outside `test:` when this gate landed (2026-08-30);
 # deliberateness UNVERIFIED, review owed.  A deferred claim, not a
