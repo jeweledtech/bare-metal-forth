@@ -72,6 +72,9 @@ EXEMPT = {
     'test-window-focus':
         'parked: owner ruling 2026-11-13 (window-system extras'
         ' only where translated programs need them); files stay',
+    'test-timed':
+        'times the suite: runs every test: target with timestamps;'
+        ' wiring it into test: would recurse',
 }
 # GRANDFATHERED: outside `test:` when this gate landed (2026-08-30);
 # deliberateness UNVERIFIED, review owed.  A deferred claim, not a

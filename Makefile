@@ -1732,6 +1732,24 @@ test-urw-canvas: $(call FULL_ONLY,$(COMBINED))
 test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-block-read-error test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-log-send test-lic-observe test-dlg2form test-rtl8168-cksum test-stack-floor test-vga-wrap test-reload-vocab test-load-vocab test-resolve-deps test-vbr test-grub-cfg test-capture-boot-path test-pxe-label test-nasm-pin test-net-receive-replace test-vbe-boot test-vbe-nostub test-urw-canvas test-uefi-boot test-fat32-read test-port-stop test-uefi-netboot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-mirror test-interp-abort test-pad-move test-hal test-hal-net test-hal-match test-hal-match-hp test-network test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline test-pipeline-e2e test-net-flush-lf test-console-band test-free-boot test-search-order test-abort-routes test-vocab-dedup test-phys-refuse test-window-forms test-read-flags test-double-cell test-forth83 test-public-clone test-sync-copies test-check-sync check-sync
 	@echo "All tests passed!"
 
+# test-timed: run every target on the test: line in order, one make per
+# target, and write build/test-timing.tsv (seconds, exit, target) so the
+# full-run cap (ARCHITECTURE-FIVE-STEPS R6) is set from measurement.
+# Reads the list from the test: line itself; keeps going past failures
+# like make -k, and exits 1 if any target failed.
+# make -n test-timed still runs the loop (its line holds $(MAKE)), with
+# every target dry-run: it writes a table of zeros, nothing else.
+test-timed:
+	@mkdir -p $(BUILD); OUT=$(BUILD)/test-timing.tsv; : > $$OUT; RC=0; \
+	T0=$$(date +%s); \
+	for t in $$(sed -n 's/^test: //p' Makefile); do \
+		S=$$(date +%s); $(MAKE) --no-print-directory $$t; E=$$?; \
+		[ $$E -eq 0 ] || RC=1; \
+		printf '%s\t%s\t%s\n' $$(( $$(date +%s) - S )) $$E $$t >> $$OUT; \
+	done; \
+	printf '%s\t%s\t%s\n' $$(( $$(date +%s) - T0 )) $$RC TOTAL >> $$OUT; \
+	echo "Timing: $$OUT"; sort -rn $$OUT | head -15; exit $$RC
+
 # Create ISO (requires xorriso)
 iso: $(ACTIVE_IMAGE)
 	mkdir -p $(BUILD)/iso
