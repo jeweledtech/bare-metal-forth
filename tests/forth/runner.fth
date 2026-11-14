@@ -26,7 +26,7 @@ CREATE T-FLBL 12 ALLOT \ label of the first failing case
 : T-ABORTED ( -- ) T-OLDHK @ ABORT-HOOK ! CR ." RESULT "
   T-SNM T-TYPEZ ."  ABORT case " T-LBL T-TYPEZ CR ;
 : SUITE ( "name" -- ) WORD T-SNM 15 CMOVE 0 T-SNM 15 + C!
-  0 T# ! 0 T-FAIL ! 0 T-SKIP ! 0 T-DEF ! 0 T-DRT !
+  0 T# ! 0 T-FAIL ! 0 T-SKIP ! 0 T-DEF ! 0 T-DRT ! 0 T-LBL C!
   ABORT-HOOK @ T-OLDHK ! ['] T-ABORTED ABORT-HOOK ! ;
 : DEFINES ( -- ) 1 T-DEF ! ;
 : DIRTIES ( -- ) 1 T-DRT ! ;
