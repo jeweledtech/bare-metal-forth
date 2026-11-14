@@ -95,10 +95,10 @@ SCRIPT = os.path.join(ROOT, 'tools', 'make-uefi-usb.sh')
 OVMF_CODE = '/usr/share/OVMF/OVMF_CODE_4M.fd'
 OVMF_VARS = '/usr/share/OVMF/OVMF_VARS_4M.fd'
 MEMDISK = '/usr/lib/syslinux/memdisk'
-BANNER = 'Bare-Metal Forth v0.1 - Ship Builders System'   # forth.asm:7562
+BANNER = 'Bare-Metal Forth v0.1 - Ship Builders System'   # forth.asm msg_welcome (H0 checks it)
 WAIT = 60
 DISK_MIB = 64
-EXPECTED = 2 + 2 * (16 + 5)
+EXPECTED = 1 + 2 + 2 * (16 + 5)          # H0 (banner cites, 2026-11-13), H1-H2, two legs
 SENTINEL = 77                            # decimal; a free cluster (H1)
 
 HELLO = b'hello world\n'                 # 12 bytes
@@ -134,6 +134,12 @@ def check(label, cond, detail=''):
         failures.append(label)
         print(f'[FAIL] {label} {detail}', flush=True)
 
+
+# ---- H0: BANNER is the kernel's own welcome string, host side ----
+_asm = open(os.path.join(ROOT, 'src', 'kernel', 'forth.asm')).read()
+_mw = re.search(r"^msg_welcome:\s+db\s+'([^']*)'", _asm, re.M)
+check('H0 BANNER equals forth.asm msg_welcome', bool(_mw) and _mw.group(1) == BANNER,
+      f'(read {_mw.group(1)!r})' if _mw else '(no msg_welcome in forth.asm)')
 
 for f in (OVMF_CODE, OVMF_VARS, MEMDISK, IMG, SCRIPT):
     if not os.path.exists(f):

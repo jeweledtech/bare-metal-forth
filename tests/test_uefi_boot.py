@@ -127,7 +127,7 @@ SHADOW = '%X' % int(re.search(r'^FB_SHADOW\s+equ\s+(0x[0-9A-Fa-f]+)', _asm, re.M
 OVMF_CODE = '/usr/share/OVMF/OVMF_CODE_4M.fd'
 OVMF_VARS = '/usr/share/OVMF/OVMF_VARS_4M.fd'
 MEMDISK = '/usr/lib/syslinux/memdisk'
-BANNER = 'Bare-Metal Forth v0.1 - Ship Builders System'   # forth.asm:5755
+BANNER = 'Bare-Metal Forth v0.1 - Ship Builders System'   # forth.asm msg_welcome (H0 checks it)
 WAIT = 60
 DISK_MIB = 64
 
@@ -339,11 +339,12 @@ def cursor_cells(ppm, mem):
 failures = []
 passed = 0
 # The total, pinned from the check() sites and their calls (private
-# TASK_TEST_COUNT_LINES): host H1-H4 4; OVMF top level B2-B5, I1, F1,
+# TASK_TEST_COUNT_LINES): host H0 1 (private TASK_KERNEL_PAD_HEADROOM,
+# banner cites, 2026-11-13), H1-H4 4; OVMF top level B2-B5, I1, F1,
 # C1-C4 10; common() 18 per leg (1-4, 9, 30, discovery 5, span 2,
 # screens 5), OVMF only fwmem 2 and S1/S2 2: U 22, L 18; L0 1.
 # A check that did not run counts as not passed.
-EXPECTED = 4 + 10 + 22 + 1 + 18
+EXPECTED = 1 + 4 + 10 + 22 + 1 + 18
 
 
 def check(label, cond, detail=''):
@@ -354,6 +355,11 @@ def check(label, cond, detail=''):
     else:
         failures.append(label)
 
+
+# ---- H0: BANNER is the kernel's own welcome string, host side ----
+_mw = re.search(r"^msg_welcome:\s+db\s+'([^']*)'", _asm, re.M)
+check('H0 BANNER equals forth.asm msg_welcome', bool(_mw) and _mw.group(1) == BANNER,
+      f'(read {_mw.group(1)!r})' if _mw else '(no msg_welcome in forth.asm)')
 
 # ---- H1, H2: the multiboot2 header, host side ----
 r = subprocess.run(['grub-file', '--is-x86-multiboot2', IMG])
