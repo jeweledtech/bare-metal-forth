@@ -16,6 +16,12 @@ number shows up
 as a missing or wrong banner, not as silent garbage (the RAM block path
 has no upper bound).
 
+A suite that needs a block-loaded vocabulary says so with a line
+`\\ PRELOAD: NAME`. Test text may not load it (see NESTED_LOADS), so the
+build puts `S" NAME" LOAD-VOCAB` in front of the start line, which is
+typed at the prompt, not read from a block. The start line is printed
+and written to OUT.start; the launcher and the card carry exactly that.
+
 Usage:
   make-test-image.py PRODUCT OUT [SOURCE.fth ...]   build, print first block
   make-test-image.py --verify PRODUCT OUT           re-read OUT from disk;
@@ -35,6 +41,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WB = SourceFileLoader('write_block', os.path.join(ROOT, 'tools', 'write-block.py')).load_module()
 BLOCK = WB.BLOCK_SIZE
 NESTED_LOADS = {'LOAD', 'THRU', 'LOAD-VOCAB', 'RELOAD-VOCAB'}
+PRELOAD = re.compile(r'^\\ PRELOAD: ([A-Z0-9-]+)\s*$')
 
 
 def header_size():
@@ -68,6 +75,7 @@ def build(product_path, out_path, sources):
     tag = sha256(product)[:8]
 
     src_blocks = []
+    preloads = []
     for path in sources:
         text = open(path).read()
         # Block format cuts a line at 64 characters with no warning (how
@@ -81,6 +89,12 @@ def build(product_path, out_path, sources):
             # in the private repo). Test source never loads blocks; the
             # run is one top-level THRU. Comments count too, to keep the
             # check simple and strict.
+            m = PRELOAD.match(ln)
+            if m and m.group(1) not in preloads:
+                preloads.append(m.group(1))
+            elif ln.startswith('\\ PRELOAD:') and not m:
+                sys.exit(f'make-test-image: {path}:{n} PRELOAD wants one '
+                         f'uppercase vocabulary name')
             hit = NESTED_LOADS & {w.upper() for w in ln.split()}
             if hit:
                 sys.exit(f'make-test-image: {path}:{n} uses '
@@ -103,10 +117,16 @@ def build(product_path, out_path, sources):
         for b in src_blocks:
             f.write(b)
     os.replace(tmp, out_path)
+    last = first + len(src_blocks)
+    start = ' '.join([f'S" {v}" LOAD-VOCAB' for v in preloads]
+                     + [f'DECIMAL {first} {last} THRU'])
+    with open(out_path + '.start', 'w') as f:
+        f.write(start + '\n')
     print(f'test image: {out_path}')
     print(f'  product  {len(product)} B sha256 {sha256(product)}')
     print(f'  banner   TEST-IMAGE {tag}')
-    print(f'  first test block {first}  (type: DECIMAL {first} {first + len(src_blocks)} THRU)')
+    print(f'  first test block {first}')
+    print(f'  start line: {start}')
     print(f'  source blocks {len(src_blocks)} ({first + 1}..{first + len(src_blocks)})'
           if src_blocks else '  source blocks 0')
 

@@ -1447,6 +1447,17 @@ test-forth83: $(COMBINED)
 	PRIVATE_REPO='$(PRIVATE_REPO)' PRIVATE_REPO_ORIGIN='$(origin PRIVATE_REPO)' \
 	timeout --foreground $(T_FORTH83) python3 tests/test_forth83.py $$(($(TEST_PORT_BASE)+117))
 
+# test-forth: the in-machine runner (TASK_FORTH_TEST_RUNNER). Boots a copy
+# of build/test.img, types the start line the build wrote beside it, waits
+# for every suite in tests/forth/expected.txt (or a FAIL/ABORT, or the
+# timeout), kills its QEMU by PID and compares the RESULT lines.
+T_FORTH ?= 180
+test-forth: $(TEST_IMG)
+	@PIDF=$(BUILD)/forth.d/qemu.pid; $(QEMU_KILL); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-forth --base $(TEST_PORT_BASE); \
+	echo "Running in-machine Forth suites..."; \
+	timeout --foreground $(T_FORTH) python3 tests/forth_launch.py $(TEST_IMG) $(COMBINED) tests/forth/expected.txt $$(($(TEST_PORT_BASE)+135)) 150
+
 test-translator:
 	@$(RUN_MODE) test-translator --tree tools/translator/Makefile; $(RUN_MODE_END); \
 	echo "Running UBT translator test suite..."; \
@@ -1742,7 +1753,7 @@ test-urw-canvas: $(call FULL_ONLY,$(COMBINED))
 #     its output as evidence, and it never gates a build.  If it must ever
 #     gate something, the gate goes on a deterministic artefact derived from
 #     it and pinned -- the treatment the Ghidra oracle already has.
-test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-block-read-error test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-log-send test-lic-observe test-dlg2form test-rtl8168-cksum test-stack-floor test-vga-wrap test-reload-vocab test-load-vocab test-resolve-deps test-vbr test-grub-cfg test-capture-boot-path test-pxe-label test-nasm-pin test-net-receive-replace test-vbe-boot test-vbe-nostub test-urw-canvas test-uefi-boot test-fat32-read test-port-stop test-uefi-netboot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-mirror test-interp-abort test-pad-move test-hal test-hal-net test-hal-match test-hal-match-hp test-network test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline test-pipeline-e2e test-net-flush-lf test-console-band test-free-boot test-search-order test-abort-routes test-vocab-dedup test-phys-refuse test-window-forms test-read-flags test-double-cell test-forth83 test-public-clone test-sync-copies test-check-sync check-sync
+test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-block-read-error test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-log-send test-lic-observe test-dlg2form test-rtl8168-cksum test-stack-floor test-vga-wrap test-reload-vocab test-load-vocab test-resolve-deps test-vbr test-grub-cfg test-capture-boot-path test-pxe-label test-nasm-pin test-net-receive-replace test-vbe-boot test-vbe-nostub test-urw-canvas test-uefi-boot test-fat32-read test-port-stop test-uefi-netboot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-mirror test-interp-abort test-pad-move test-hal test-hal-net test-hal-match test-hal-match-hp test-network test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline test-pipeline-e2e test-net-flush-lf test-console-band test-free-boot test-search-order test-abort-routes test-vocab-dedup test-phys-refuse test-window-forms test-read-flags test-double-cell test-forth83 test-forth test-public-clone test-sync-copies test-check-sync check-sync
 	@echo "All tests passed!"
 
 # test-timed: run every target on the test: line in order, one make per

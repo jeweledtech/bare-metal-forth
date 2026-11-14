@@ -5,8 +5,8 @@ TASK_PUBLIC_CLONE_SUITE).
 A clone of this repo's committed HEAD in a mktemp directory, with no
 private repo beside it (public mode at the Makefile default), host only:
 no QEMU is started.
-  P1 (82) make -n <t> never stops at "No rule to make target", for every
-          target on test: (the pinned 82 and the clone's test: line).
+  P1 (83) make -n <t> never stops at "No rule to make target", for every
+          target on test: (the pinned 83 and the clone's test: line).
   P2 (29) each skip-whole target runs its run-mode guard first, ends with
           its exact SKIPPED line, exits 0 and builds no build/combined.img.
   P3 (1)  the free tier builds the usual names from the free set:
@@ -32,19 +32,19 @@ import sys
 import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-TOTAL = 118
+TOTAL = 119
 
-# The 31 that run in a public clone: 30 on the free kernel, and the host-only
+# The 32 that run in a public clone: 31 on the free kernel, and the host-only
 # test-sync-copies (private TASK_SYNC_COPIES). (Measured, M1/M2;
 # test-block-read-error added by private TASK_KERNEL_BLOCK_READ_ERROR;
 # test-vbe-boot and test-vbe-nostub by private TASK_UNICORN_WRITER, measured
-# in a public clone 2026-11-02).
+# in a public clone 2026-11-02; test-forth by TASK_FORTH_TEST_RUNNER step 6).
 RUN = '''test-xhci test-pci-bar test-block-reload test-blk-evict test-block-read-error test-stack-floor
 test-vga-wrap test-reload-vocab test-load-vocab test-vbr test-pxe-label test-uefi2-gdt
 test-carrier-write-safe test-memdisk test-mirror test-hal test-hal-match test-network
 test-vocabs test-integration test-file-stream test-net-flush-lf test-console-band
 test-search-order test-vocab-dedup test-window-forms test-double-cell
-test-forth83 test-vbe-boot test-vbe-nostub test-sync-copies'''.split()
+test-forth83 test-forth test-vbe-boot test-vbe-nostub test-sync-copies'''.split()
 # The 29 that skip whole, and the reason each names.
 PRIVATE_TEST = '''test-log-harness test-log-harness-nic test-log-restore test-log-validation
 test-log-send test-lic-observe test-dlg2form test-rtl8168-cksum test-hal-match-hp test-pipeline-e2e
@@ -66,7 +66,7 @@ test-make-wiring test-port-inventory test-kill-traps test-pipeline
 test-free-boot test-public-clone test-nasm-pin test-net-receive-replace
 test-capture-boot-path'''.split()
 ALL = RUN + list(SKIP) + SELF_SKIP + OTHER
-assert (len(RUN), len(SKIP), len(SELF_SKIP), len(OTHER), len(set(ALL))) == (31, 29, 2, 20, 82)
+assert (len(RUN), len(SKIP), len(SELF_SKIP), len(OTHER), len(set(ALL))) == (32, 29, 2, 20, 83)
 
 PASS = FAIL = 0
 

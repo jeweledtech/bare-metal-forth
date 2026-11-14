@@ -1,6 +1,6 @@
 \ forth83.fth - 33 of test_forth83.py's checks, same labels
-\ FORTH83 is loaded at the prompt before the run (L1 is the
-\ precondition: without it ALSO FORTH83 aborts the suite).
+\ PRELOAD: FORTH83
+\ (L1 is the precondition: without it ALSO FORTH83 aborts.)
 \ Python printed with . . (top first); here values stay on the
 \ stack, so expected values read bottom first.
 DECIMAL
