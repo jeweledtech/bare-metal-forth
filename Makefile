@@ -1780,8 +1780,9 @@ test-timed:
 # build (ARCHITECTURE-FIVE-STEPS R6). SNAP_TARGETS= runs a subset, marked
 # SUBSET in the result. CLONES clones run side by side,
 # each its share of the test: line one target at a time. Writes only
-# build/test-snapshot.txt here; fails on any skipped target.
-CLONES ?= 1
+# build/test-snapshot.txt here; fails on any skipped target. Default 8
+# clones, R6 cap 10 minutes (owner 2026-11-15; 490 s twice at 8).
+CLONES ?= 8
 test-snapshot:
 	@python3 tools/test_snapshot.py --private-repo $(PRIVATE_REPO) --clones $(CLONES) \
 		$(if $(SNAP_PUB),--public $(SNAP_PUB)) $(if $(SNAP_PRIV),--private $(SNAP_PRIV)) \
