@@ -41,6 +41,8 @@ forth/dict/rtl8168.fth
 forth/dict/file-stream.fth
 # PE headers and resource directory reader (private TASK_READ_AND_REBUILD_FORMS slice 2 step 4)
 forth/dict/pe-read.fth
+# Dialog and menu decoders, form text in the machine (private TASK_READ_AND_REBUILD_FORMS slice 2 step 5)
+forth/dict/res-form.fth
 
 # Tier 3: Full Hardware Pack (additional)
 forth/dict/atapi-ahci.fth
