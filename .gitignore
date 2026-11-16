@@ -39,6 +39,8 @@ forth/dict/auto-detect.fth
 # Tier 2: Network Pack
 forth/dict/rtl8168.fth
 forth/dict/file-stream.fth
+# PE headers and resource directory reader (private TASK_READ_AND_REBUILD_FORMS slice 2 step 4)
+forth/dict/pe-read.fth
 
 # Tier 3: Full Hardware Pack (additional)
 forth/dict/atapi-ahci.fth
