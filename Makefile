@@ -1801,6 +1801,17 @@ check: lint
 	$(NASM) -f bin -o /dev/null $(SRC_KERNEL)/forth.asm
 	@echo "Syntax check passed."
 
+# Slice 1 NTFS volume (private TASK_READ_AND_REBUILD_FORMS): small.txt
+# resident, multi.bin in two runs, ReactOS notepad. Built without root
+# (mkntfs + ntfscp on a plain file, no mount); the script reads every file
+# back against files.txt and fails closed. Private: the builder and the
+# expected values live in $(PRIVATE_REPO)/tests/fixtures/ntfs-read/.
+NTFS_READ_DIR = $(PRIVATE_REPO)/tests/fixtures/ntfs-read
+NTFS_READ_IMG = $(BUILD)/ntfs-read.img
+$(NTFS_READ_IMG): $(NTFS_READ_DIR)/make-volume.sh $(NTFS_READ_DIR)/files.txt | $(BUILD)
+	bash $(NTFS_READ_DIR)/make-volume.sh $@ $(CORPUS_ROOT)
+ntfs-read-volume: $(NTFS_READ_IMG)
+
 # NTFS test image (lives outside build/ to survive make clean)
 $(NTFS_TEST): tools/make-ntfs-test-image.sh
 	mkdir -p test-data
