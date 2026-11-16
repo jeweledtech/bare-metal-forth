@@ -1458,6 +1458,19 @@ test-forth: $(TEST_IMG)
 	echo "Running in-machine Forth suites..."; \
 	timeout --foreground $(T_FORTH) python3 tests/forth_launch.py $(TEST_IMG) $(COMBINED) tests/forth/expected.txt $$(($(TEST_PORT_BASE)+135)) 150
 
+# Slice 1 NTFS volume (private TASK_READ_AND_REBUILD_FORMS): resident,
+# two-run, sparse, preallocated and flagged files, and ReactOS notepad.
+# Defined before test-ntfs-read: make expands a prerequisite list as it
+# reads it, so a variable defined later is empty there. Built without root
+# (mkntfs + ntfscp on a plain file, no mount); the script reads every file
+# back against files.txt and fails closed. Private: the builder and the
+# expected values live in $(PRIVATE_REPO)/tests/fixtures/ntfs-read/.
+NTFS_READ_DIR = $(PRIVATE_REPO)/tests/fixtures/ntfs-read
+NTFS_READ_IMG = $(BUILD)/ntfs-read.img
+$(NTFS_READ_IMG): $(NTFS_READ_DIR)/make-volume.sh $(NTFS_READ_DIR)/files.txt | $(BUILD)
+	bash $(NTFS_READ_DIR)/make-volume.sh $@ $(CORPUS_ROOT)
+ntfs-read-volume: $(NTFS_READ_IMG)
+
 # In-machine NTFS reading (private TASK_READ_AND_REBUILD_FORMS slice 1):
 # the private suite $(PRIVATE_REPO)/tests/forth/ntfs-read.fth on its own
 # test image, with build/ntfs-read.img on AHCI. Private: skips whole in a
@@ -1816,17 +1829,6 @@ check: lint
 	$(NASM) -f bin -o /dev/null $(SRC_BOOT)/vbr.asm
 	$(NASM) -f bin -o /dev/null $(SRC_KERNEL)/forth.asm
 	@echo "Syntax check passed."
-
-# Slice 1 NTFS volume (private TASK_READ_AND_REBUILD_FORMS): small.txt
-# resident, multi.bin in two runs, ReactOS notepad. Built without root
-# (mkntfs + ntfscp on a plain file, no mount); the script reads every file
-# back against files.txt and fails closed. Private: the builder and the
-# expected values live in $(PRIVATE_REPO)/tests/fixtures/ntfs-read/.
-NTFS_READ_DIR = $(PRIVATE_REPO)/tests/fixtures/ntfs-read
-NTFS_READ_IMG = $(BUILD)/ntfs-read.img
-$(NTFS_READ_IMG): $(NTFS_READ_DIR)/make-volume.sh $(NTFS_READ_DIR)/files.txt | $(BUILD)
-	bash $(NTFS_READ_DIR)/make-volume.sh $@ $(CORPUS_ROOT)
-ntfs-read-volume: $(NTFS_READ_IMG)
 
 # NTFS test image (lives outside build/ to survive make clean)
 $(NTFS_TEST): tools/make-ntfs-test-image.sh
