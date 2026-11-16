@@ -32,7 +32,7 @@ import sys
 import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-TOTAL = 121
+TOTAL = 123
 
 # The 32 that run in a public clone: 31 on the free kernel, and the host-only
 # test-sync-copies (private TASK_SYNC_COPIES). (Measured, M1/M2;
@@ -45,11 +45,13 @@ test-carrier-write-safe test-memdisk test-mirror test-hal test-hal-match test-ne
 test-vocabs test-integration test-file-stream test-net-flush-lf test-console-band
 test-search-order test-vocab-dedup test-window-forms test-double-cell
 test-forth83 test-forth test-vbe-boot test-vbe-nostub test-sync-copies'''.split()
-# The 30 that skip whole, and the reason each names (test-ntfs-read by
-# private TASK_READ_AND_REBUILD_FORMS slice 1).
+# The 31 that skip whole, and the reason each names (test-ntfs-read by
+# private TASK_READ_AND_REBUILD_FORMS slice 1, test-urw-fonts by private
+# TASK_UNICORN_WRITER fonts step 3).
 PRIVATE_TEST = '''test-log-harness test-log-harness-nic test-log-restore test-log-validation
 test-log-send test-lic-observe test-dlg2form test-rtl8168-cksum test-hal-match-hp test-pipeline-e2e
-test-gui test-translator test-urw-canvas test-ntfs-read'''.split()
+test-gui test-translator test-urw-canvas test-ntfs-read
+test-urw-fonts'''.split()
 NEEDS_VOCABS = '''test-firstboot test-install test-resolve-deps test-uefi-boot test-fat32-read
 test-port-stop test-uefi-netboot test-g6 test-hal-net test-interp-abort test-pad-move
 test-abort-routes test-phys-alloc'''.split()
@@ -67,7 +69,7 @@ test-make-wiring test-port-inventory test-kill-traps test-pipeline
 test-free-boot test-public-clone test-nasm-pin test-net-receive-replace
 test-capture-boot-path'''.split()
 ALL = RUN + list(SKIP) + SELF_SKIP + OTHER
-assert (len(RUN), len(SKIP), len(SELF_SKIP), len(OTHER), len(set(ALL))) == (32, 30, 2, 20, 84)
+assert (len(RUN), len(SKIP), len(SELF_SKIP), len(OTHER), len(set(ALL))) == (32, 31, 2, 20, 85)
 
 PASS = FAIL = 0
 
