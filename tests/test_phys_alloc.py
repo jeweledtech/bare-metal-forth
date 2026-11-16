@@ -50,6 +50,11 @@ green run, from the 3-page carve + the seven boot allocations):
   CL-BUF 103000  FIS-BUF 104000  CT-BUF 105000  SEC-BUF 106000
   TX-DESC 107000  TX-BUF 108000  MFT-BUF 109000 (400 rounds to a
   page); first prompt-side allocation 10A000.
+Re-pinned 2026-11-16: an eighth boot allocation, MFT-CACHE 10A000
+(ntfs.fth, private TASK_READ_AND_REBUILD_FORMS slice 2 step 1: four
+MFT records per read during a scan); the first prompt-side
+allocation is now 10B000 and every prompt-side address below moves
+with it (was 10A000), boot live 8 (was 7).
 
 Red-first (pre-registered 2026-08-31; prediction corrected BEFORE
 the run, per the T4 lesson -- a prediction corrected after seeing
@@ -285,6 +290,10 @@ send('ALSO NTFS')
 v, raw = val('MFT-BUF')
 check('MFT-BUF at pre-registered 0x109000 (400 rounds up)',
       v == 0x109000, f'got {v if v is None else hex(v)}')
+# 2026-11-16: the eighth boot allocation (slice 2 step 1)
+v, raw = val('MFT-CACHE')
+check('MFT-CACHE at pre-registered 0x10A000',
+      v == 0x10A000, f'got {v if v is None else hex(v)}')
 send('ONLY FORTH DEFINITIONS')
 # The allocator words live in the HARDWARE vocabulary; ONLY FORTH
 # dropped it and find_'s FORTH fallback does not reach vocab
@@ -296,8 +305,9 @@ send('ALSO HARDWARE')
 a = audit()
 check('PHYS-AUDIT exists', a['live'] is not None,
       f'no parseable summary: {a["body"]!r}')
-check('boot audit: live 7', a['live'] == 7, f'got {a["live"]}')
-check('boot audit: unattributed 0 (all 7 tagged by owner)',
+# was 7 to 2026-11-16 (MFT-CACHE is the eighth)
+check('boot audit: live 8', a['live'] == 8, f'got {a["live"]}')
+check('boot audit: unattributed 0 (all 8 tagged by owner)',
       a['unat'] == 0, f'got {a["unat"]}')
 # 0x100000 = PHYS-TOP - POOL-ORIGIN (hardware.fth); was 300000 to
 # 2026-10-30, PHYS-TOP 400000 (private TASK_PHYS_CEILING)
@@ -305,44 +315,46 @@ check('boot audit sum closes to 100000', a['total'] == 0x100000
       and not a['mismatch'], f'total={a["total"]}')
 
 print('\n=== Phase 2: release and reuse ===')
+# Prompt-side addresses were 10A000 to 2026-11-16; that page is now
+# MFT-CACHE, and releasing it would free a boot allocation.
 raw = send('HEX 1000 PHYS-ALLOC U. DECIMAL')
-check('fresh alloc at pre-registered 10A000',
-      '10A000' in body_of(raw), f'got: {body_of(raw)!r}')
-raw = send('HEX 10A000 1000 PHYS-RELEASE DECIMAL')
+check('fresh alloc at pre-registered 10B000',
+      '10B000' in body_of(raw), f'got: {body_of(raw)!r}')
+raw = send('HEX 10B000 1000 PHYS-RELEASE DECIMAL')
 check('PHYS-RELEASE exists', '?' not in body_of(raw),
       'no PHYS-RELEASE word -- free path absent')
 raw = send('HEX 1000 PHYS-ALLOC U. DECIMAL')
-check('re-alloc reuses freed extent (10A000 again)',
-      '10A000' in body_of(raw), f'got: {body_of(raw)!r}')
+check('re-alloc reuses freed extent (10B000 again)',
+      '10B000' in body_of(raw), f'got: {body_of(raw)!r}')
 a = audit()
-check('live == 8 (7 boot + 1 held)',
-      a['live'] == 8, f'got {a["live"]}')
+check('live == 9 (8 boot + 1 held)',
+      a['live'] == 9, f'got {a["live"]}')
 
 print('\n=== Phase 3: refusals, each by name ===')
-# size mismatch: the live 10A000 alloc was 1000; claim 2000.
+# size mismatch: the live 10B000 alloc was 1000; claim 2000.
 # Full prefixed string verbatim -- this is the check that GATES
 # the "PHYS: " prefix contract Phase 4 depends on.
-raw = send('HEX 10A000 2000 PHYS-RELEASE DECIMAL')
+raw = send('HEX 10B000 2000 PHYS-RELEASE DECIMAL')
 check('size mismatch refused by name (full prefixed string)',
       'PHYS: size mismatch' in body_of(raw),
       f'got: {body_of(raw)!r}')
 a = audit()
 check('mismatched release left the allocation live',
-      a['live'] == 8, f'got {a["live"]}')
+      a['live'] == 9, f'got {a["live"]}')
 # rounding rule: release with an unrounded size that rounds right
-raw = send('HEX 10A000 FFF PHYS-RELEASE DECIMAL')
+raw = send('HEX 10B000 FFF PHYS-RELEASE DECIMAL')
 check('release with unrounded size (rounding rule)',
       'mismatch' not in body_of(raw)
       and '?' not in body_of(raw), f'got: {body_of(raw)!r}')
 # positive discriminator: the rounding-rule release ACTUALLY
-# released -- occupancy dropped 8 -> 7.  Without this, the check
+# released -- occupancy dropped 9 -> 8 (was 8 -> 7).  Without this, the check
 # above only proves the refusal didn't fire, not that the release
 # happened (a no-op would also print nothing).
 a = audit()
-check('rounding-rule release took effect (live 8 -> 7)',
-      a['live'] == 7, f'got {a["live"]}')
+check('rounding-rule release took effect (live 9 -> 8)',
+      a['live'] == 8, f'got {a["live"]}')
 # double release: same base again -- now inside a freed extent
-raw = send('HEX 10A000 1000 PHYS-RELEASE DECIMAL')
+raw = send('HEX 10B000 1000 PHYS-RELEASE DECIMAL')
 check('double release refused by name',
       'double release' in body_of(raw), f'got: {body_of(raw)!r}')
 # never allocated: in-pool address no one owns
@@ -410,7 +422,7 @@ a = audit()
 check('prompt-side run-time alloc counted unattributed',
       a['unat'] == 1, f'got {a["unat"]}')
 check('boot allocations still attributed (unat exactly 1)',
-      a['unat'] == 1 and a['live'] == 8,
+      a['unat'] == 1 and a['live'] == 9,
       f'live={a["live"]} unat={a["unat"]}')
 
 print('\n=== Phase 6: exhaustion is bare 0, not table-full ===')
