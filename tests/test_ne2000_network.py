@@ -94,7 +94,7 @@ def start_qemu_pair(zero_range=None):
         '-drive', f'file={COMBINED},format=raw,if=floppy',
         '-drive',
         f'file={combined_ide_a},format=raw,if=ide,index=1',
-        '-netdev', f'socket,id=net0,listen=:{NET_PORT}',
+        '-netdev', f'socket,id=net0,listen=127.0.0.1:{NET_PORT}',
         '-device', 'ne2k_pci,netdev=net0',
         '-serial',
         f'tcp:127.0.0.1:{PORT_A},server=on,wait=off',

@@ -7,7 +7,8 @@ agree with a real QEMU in every row of tools/ports_probe_gate.py.
 
 Measured 2026-10-05 (QEMU 8.2.2): one IPv4 bind on 0.0.0.0 with
 SO_REUSEADDR gives that answer for all three forms in use (tcp::P,
-tcp:127.0.0.1:P, socket listen=:P) and all six holders. Note that for tcp::P
+tcp:127.0.0.1:P, socket listen=:P) and all six holders; re-measured
+2026-11-15 with socket listen=127.0.0.1:P added (test-network's form). Note that for tcp::P
 with an IPv4 listener already on the port, QEMU does NOT fail: it binds
 [::] alone and starts, and a 127.0.0.1 connection reaches the other
 listener. So "QEMU started" is not the same as "the tests reach QEMU".

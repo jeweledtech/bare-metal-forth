@@ -10,7 +10,8 @@ an offset from TEST_PORT_BASE, with its listen form and where it comes from.
 - Script-launched QEMUs (`python3 [-flags] tests/X.py`, or
   `python3 $(PRIVATE_REPO)/tests/X.py` for a private-owned script run in
   place): from the script's f-strings (`tcp::{X}`,
-  `tcp:127.0.0.1:{X}`, `listen=:{X}`), with X resolved by Python's ast to
+  `tcp:127.0.0.1:{X}`, `listen=:{X}`, `listen=127.0.0.1:{X}`), with X
+  resolved by Python's ast to
   "the port the recipe passed in, plus a constant", through assignments,
   function parameters and call sites.
 - Loops: test-vocabs / test-gui (`+N+I`, I = position in *_ALL) and
@@ -20,7 +21,9 @@ Fails closed: a listen address it cannot resolve is an error.
 
   port_inventory.py            print the inventory as JSON
   port_inventory.py --check F  exit 1 if it differs from F (drift), if any
-                               serial or monitor uses the tcp::P form, or
+                               serial or monitor uses the tcp::P form, if
+                               a netdev listens on every interface
+                               (listen=:P, NETDEV-ANY), or
                                if a recipe in the table does not run
                                $(PORTS_FREE) --recipe <itself> (UNGUARDED)
 A script that is absent (a private-owned script in a public clone) is
@@ -32,7 +35,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # The Makefile's PRIVATE_REPO default (`?= ../forthos-vocabularies`),
 # relative to ROOT; the environment overrides it as make's ?= does.
 PRIVATE = os.path.normpath(os.path.join(ROOT, os.environ.get('PRIVATE_REPO', '../forthos-vocabularies')))
-FORMS = (('tcp:127.0.0.1:', 'tcp:127.0.0.1:P'), ('tcp::', 'tcp::P'), ('listen=:', 'listen=:P'))
+FORMS = (('tcp:127.0.0.1:', 'tcp:127.0.0.1:P'), ('tcp::', 'tcp::P'), ('listen=:', 'listen=:P'),
+         ('listen=127.0.0.1:', 'listen=127.0.0.1:P'))
 ARGV = 'ARGV'
 
 
@@ -248,13 +252,13 @@ class Script:
                 text = node.value
             else:
                 continue
-            if re.search(r'tcp:(127\.0\.0\.1)?:|listen=:', text):
+            if re.search(r'tcp:(127\.0\.0\.1)?:|listen=(127\.0\.0\.1)?:', text):
                 raise Unresolved(f'{self.path}:{node.lineno}: listen address not in a resolvable '
                                  f'f-string: {text[:50]!r}')
         return out
 
     def _kind(self, node, form):
-        if form == 'listen=:P':
+        if form.startswith('listen='):
             return 'netdev'
         par = self.parent.get(node)
         if isinstance(par, ast.List):
@@ -308,8 +312,9 @@ def inventory():
                     for m in re.finditer(r'-(serial|monitor)\s+tcp:(127\.0\.0\.1)?:([^,\s]+)', ln):
                         form = 'tcp:127.0.0.1:P' if m.group(2) else 'tcp::P'
                         ents.append(entry(mko(m.group(3), n), form, m.group(1), f'Makefile:{n}'))
-                    for m in re.finditer(r'-netdev\s+\S*listen=:([^,\s]+)', ln):
-                        ents.append(entry(mko(m.group(1), n), 'listen=:P', 'netdev', f'Makefile:{n}'))
+                    for m in re.finditer(r'-netdev\s+\S*listen=(127\.0\.0\.1)?:([^,\s]+)', ln):
+                        form = 'listen=127.0.0.1:P' if m.group(1) else 'listen=:P'
+                        ents.append(entry(mko(m.group(2), n), form, 'netdev', f'Makefile:{n}'))
                 # interpreter flags (`python3 -u tests/X.py`) are allowed: a recipe
                 # with them was invisible here, so its listens went unchecked
                 for m in re.finditer(r'python3 (?:-[A-Za-z]+ )*(\$\(PRIVATE_REPO\)/)?tests/(\$\$\w+|\w+)\.py([^;]*)', ln):
@@ -382,6 +387,9 @@ def main():
             for e in ents:
                 if e.get('form') == 'tcp::P' and e.get('kind') in ('serial', 'monitor'):
                     print(f'TCP-ANY: {r}/{f}: {e["kind"]} +{e["offset"]} listens on every interface (tcp::P) at {e["source"]}')
+                    bad += 1
+                if e.get('form') == 'listen=:P':
+                    print(f'NETDEV-ANY: {r}/{f}: netdev +{e["offset"]} listens on every interface (listen=:P) at {e["source"]}')
                     bad += 1
     _, recipes = makefile()
     for r, fx in inv.items():

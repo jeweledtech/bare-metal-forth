@@ -233,7 +233,7 @@
     "form": "tcp:127.0.0.1:P",
     "kind": "serial",
     "offset": 117,
-    "source": "tests/test_forth83.py:79"
+    "source": "tests/test_forth83.py:83"
    }
   ]
  },
@@ -594,7 +594,7 @@
     "source": "tests/test_ne2000_network.py:119"
    },
    {
-    "form": "listen=:P",
+    "form": "listen=127.0.0.1:P",
     "kind": "netdev",
     "offset": 140,
     "source": "tests/test_ne2000_network.py:97"

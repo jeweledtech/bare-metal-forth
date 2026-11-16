@@ -28,6 +28,7 @@ FORMS = {
     'tcp::P':          lambda p: ['-nic', 'none', '-serial', f'tcp::{p},server=on,wait=off'],
     'tcp:127.0.0.1:P': lambda p: ['-nic', 'none', '-monitor', f'tcp:127.0.0.1:{p},server=on,wait=off'],
     'listen=:P':       lambda p: ['-netdev', f'socket,id=n0,listen=:{p}', '-device', 'ne2k_pci,netdev=n0'],
+    'listen=127.0.0.1:P': lambda p: ['-netdev', f'socket,id=n0,listen=127.0.0.1:{p}', '-device', 'ne2k_pci,netdev=n0'],
 }
 
 
@@ -42,6 +43,8 @@ def forms_in_use():
         use.add('tcp:127.0.0.1:P')
     if 'listen=:' in text:
         use.add('listen=:P')
+    if 'listen=127.0.0.1:' in text:
+        use.add('listen=127.0.0.1:P')
     return use
 
 
