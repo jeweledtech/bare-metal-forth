@@ -1491,12 +1491,12 @@ test-ntfs-read: $(call FULL_ONLY,$(TEST_NTFS_IMG) $(NTFS_READ_IMG))
 	echo "Running in-machine NTFS reading suite..."; \
 	timeout --foreground $(T_FORTH) python3 tests/forth_launch.py $(TEST_NTFS_IMG) $(COMBINED) $(PRIVATE_REPO)/tests/forth/ntfs-read-expected.txt $$(($(TEST_PORT_BASE)+136)) 150 --sata $(NTFS_READ_IMG)
 
-# In-machine URW-FONTS (private TASK_UNICORN_WRITER fonts step 3): the
-# private suite $(PRIVATE_REPO)/tests/forth/urw-fonts.fth on its own test
+# In-machine URW-FONTS (private TASK_UNICORN_WRITER fonts): the private
+# suites tests/forth/urw-fonts.fth and urw-canvas.fth on their own test
 # image; its SETUP line puts FONTS-LOAD on the start line. Private: skips
 # whole in a public clone (run_mode), whose free tier pulls in nothing.
 TEST_URW_FONTS_IMG = $(BUILD)/test-urw-fonts.img
-URW_FONTS_FTH = $(PRIVATE_REPO)/tests/forth/urw-fonts.fth
+URW_FONTS_FTH = $(PRIVATE_REPO)/tests/forth/urw-fonts.fth $(PRIVATE_REPO)/tests/forth/urw-canvas.fth
 $(TEST_URW_FONTS_IMG): $(COMBINED) tools/make-test-image.py tools/write-block.py tests/forth/runner.fth $(URW_FONTS_FTH)
 	@python3 tools/make-test-image.py $(COMBINED) $@ tests/forth/runner.fth $(URW_FONTS_FTH)
 	@python3 tools/make-test-image.py --verify $(COMBINED) $@
