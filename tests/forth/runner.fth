@@ -2,8 +2,10 @@
 \ SUITE name / T{ label code -> expected }T / END-SUITE
 \ One case per block line. Leftovers fail: data and return
 \ stack depth, STATE, HERE, LATEST, dirty block buffers,
-\ keyboard ring, search-order depth and CURRENT. DEFINES /
-\ DIRTIES before T{ excuse one case (not the search order).
+\ keyboard ring, search-order depth, CURRENT and BASE.
+\ DEFINES / DIRTIES / BASES before T{ excuse one case (not
+\ the search order). Expected values after -> are read in
+\ the BASE the case started in; it is BASE again after }T.
 DECIMAL
 \ RP@ ( -- a ) push ebp ; NEXT = 55 AD FF 20, no assembler
 CREATE RP@ HERE @ HERE @ 4 - ! 85 C, 173 C, 255 C, 32 C,
@@ -13,6 +15,7 @@ VARIABLE T-RP  VARIABLE T-RP2   VARIABLE T-BAD
 VARIABLE T-H   VARIABLE T-L     VARIABLE T-OLDHK
 VARIABLE T-DEF VARIABLE T-DRT
 VARIABLE T-SO  VARIABLE T-CUR
+VARIABLE T-B0  VARIABLE T-B1  VARIABLE T-BSE
 CREATE T-ACT 16 CELLS ALLOT
 CREATE T-LBL 12 ALLOT  CREATE T-SNM 16 ALLOT
 CREATE T-FLBL 12 ALLOT \ label of the first failing case
@@ -31,15 +34,17 @@ CREATE T-FLBL 12 ALLOT \ label of the first failing case
   T-SNM T-TYPEZ ."  ABORT case " T-LBL T-TYPEZ CR ;
 : SUITE ( "name" -- ) WORD T-SNM 15 CMOVE 0 T-SNM 15 + C!
   0 T# ! 0 T-FAIL ! 0 T-SKIP ! 0 T-DEF ! 0 T-DRT ! 0 T-LBL C!
-  ABORT-HOOK @ T-OLDHK ! ['] T-ABORTED ABORT-HOOK ! ;
+  0 T-BSE ! ABORT-HOOK @ T-OLDHK ! ['] T-ABORTED ABORT-HOOK ! ;
 : DEFINES ( -- ) 1 T-DEF ! ;
 : DIRTIES ( -- ) 1 T-DRT ! ;
+: BASES ( -- ) 1 T-BSE ! ;
 : T{ ( "label" -- ) WORD T-LBL 11 CMOVE 0 T-LBL 11 + C!
   1 T# +! T-SKIP @ IF T-EOL EXIT THEN T-LBL T-TYPEZ SPACE
   DEPTH T-D0 ! RP@ T-RP ! HERE @ T-H ! LATEST @ T-L !
-  T-SDEP @ T-SO ! T-SCUR @ T-CUR ! ;
+  T-SDEP @ T-SO ! T-SCUR @ T-CUR ! BASE @ T-B0 ! ;
 : T-DROP ( -- ) BEGIN DEPTH T-D0 @ > WHILE DROP REPEAT ;
-: -> ( i*x -- ) DEPTH T-D0 @ - DUP T-D1 ! DUP 0 > IF
+: -> ( i*x -- ) BASE @ T-B1 ! T-B0 @ BASE !
+  DEPTH T-D0 @ - DUP T-D1 ! DUP 0 > IF
   DUP 16 > IF DROP T-DROP ELSE 0 DO T-ACT I CELLS + !
   LOOP THEN ELSE DROP THEN ; IMMEDIATE
 : T-HDR ( -- ) T-BAD @ 0= IF CR ." FAIL " T-SNM T-TYPEZ
@@ -60,9 +65,11 @@ CREATE T-FLBL 12 ALLOT \ label of the first failing case
   KB-RING-COUNT @ IF T-HDR ."   KB " KB-RING-COUNT @ . CR
   THEN T-SDEP @ T-SO @ <> IF T-HDR ."   ORDER "
   T-SDEP @ T-SO @ - . CR THEN T-SCUR @ T-CUR @ <> IF T-HDR
-  ."   CURRENT moved" CR THEN ;
+  ."   CURRENT moved" CR THEN T-BSE @ 0= T-B1 @ T-B0 @ <>
+  AND IF T-HDR ."   BASE " T-B1 @ T-N. CR THEN ;
 : }T ( j*x -- ) RP@ T-RP2 ! 0 T-BAD ! T-CMP T-STATE
-  0 T-DEF ! 0 T-DRT ! T-BAD @ IF 1 T-SKIP ! THEN ; IMMEDIATE
+  0 T-DEF ! 0 T-DRT ! 0 T-BSE ! T-BAD @ IF 1 T-SKIP ! THEN
+  ; IMMEDIATE
 : END-SUITE ( -- ) T-OLDHK @ ABORT-HOOK ! CR ." RESULT "
   T-SNM T-TYPEZ T-FAIL @ IF ."  FAIL case " T-FLBL T-TYPEZ
   SPACE T-FAIL @ T-N. ELSE ."  PASS " T# @ T-N. THEN ." /"

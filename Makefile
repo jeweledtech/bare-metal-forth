@@ -1462,6 +1462,35 @@ test-forth: $(TEST_IMG)
 	echo "Running in-machine Forth suites..."; \
 	timeout --foreground $(T_FORTH) python3 tests/forth_launch.py $(TEST_IMG) $(COMBINED) tests/forth/expected.txt $$(($(TEST_PORT_BASE)+135)) 150
 
+# Slice 1 NTFS volume (private TASK_READ_AND_REBUILD_FORMS): resident,
+# two-run, sparse, preallocated and flagged files, and ReactOS notepad.
+# Defined before test-ntfs-read: make expands a prerequisite list as it
+# reads it, so a variable defined later is empty there. Built without root
+# (mkntfs + ntfscp on a plain file, no mount); the script reads every file
+# back against files.txt and fails closed. Private: the builder and the
+# expected values live in $(PRIVATE_REPO)/tests/fixtures/ntfs-read/.
+NTFS_READ_DIR = $(PRIVATE_REPO)/tests/fixtures/ntfs-read
+NTFS_READ_IMG = $(BUILD)/ntfs-read.img
+$(NTFS_READ_IMG): $(NTFS_READ_DIR)/make-volume.sh $(NTFS_READ_DIR)/files.txt | $(BUILD)
+	bash $(NTFS_READ_DIR)/make-volume.sh $@ $(CORPUS_ROOT)
+ntfs-read-volume: $(NTFS_READ_IMG)
+
+# In-machine NTFS reading (private TASK_READ_AND_REBUILD_FORMS slice 1):
+# the private suite $(PRIVATE_REPO)/tests/forth/ntfs-read.fth on its own
+# test image, with build/ntfs-read.img on AHCI. Private: skips whole in a
+# public clone (run_mode), whose free tier pulls in no prerequisite.
+TEST_NTFS_IMG = $(BUILD)/test-ntfs.img
+NTFS_READ_FTH = $(PRIVATE_REPO)/tests/forth/ntfs-read.fth
+$(TEST_NTFS_IMG): $(COMBINED) tools/make-test-image.py tools/write-block.py tests/forth/runner.fth $(NTFS_READ_FTH)
+	@python3 tools/make-test-image.py $(COMBINED) $@ tests/forth/runner.fth $(NTFS_READ_FTH)
+	@python3 tools/make-test-image.py --verify $(COMBINED) $@
+test-ntfs-read: $(call FULL_ONLY,$(TEST_NTFS_IMG) $(NTFS_READ_IMG))
+	@$(RUN_MODE) test-ntfs-read --private tests/forth/ntfs-read.fth; $(RUN_MODE_END); \
+	PIDF=$(BUILD)/test-ntfs.d/qemu.pid; $(QEMU_KILL); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-ntfs-read --base $(TEST_PORT_BASE); \
+	echo "Running in-machine NTFS reading suite..."; \
+	timeout --foreground $(T_FORTH) python3 tests/forth_launch.py $(TEST_NTFS_IMG) $(COMBINED) $(PRIVATE_REPO)/tests/forth/ntfs-read-expected.txt $$(($(TEST_PORT_BASE)+136)) 150 --sata $(NTFS_READ_IMG)
+
 test-translator:
 	@$(RUN_MODE) test-translator --tree tools/translator/Makefile; $(RUN_MODE_END); \
 	echo "Running UBT translator test suite..."; \
@@ -1757,7 +1786,7 @@ test-urw-canvas: $(call FULL_ONLY,$(COMBINED))
 #     its output as evidence, and it never gates a build.  If it must ever
 #     gate something, the gate goes on a deterministic artefact derived from
 #     it and pinned -- the treatment the Ghidra oracle already has.
-test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-block-read-error test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-log-send test-lic-observe test-dlg2form test-rtl8168-cksum test-stack-floor test-vga-wrap test-reload-vocab test-load-vocab test-resolve-deps test-vbr test-grub-cfg test-capture-boot-path test-pxe-label test-nasm-pin test-net-receive-replace test-vbe-boot test-vbe-nostub test-urw-canvas test-uefi-boot test-fat32-read test-port-stop test-uefi-netboot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-mirror test-interp-abort test-pad-move test-hal test-hal-net test-hal-match test-hal-match-hp test-network test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline test-pipeline-e2e test-net-flush-lf test-console-band test-free-boot test-search-order test-abort-routes test-vocab-dedup test-phys-refuse test-window-forms test-read-flags test-double-cell test-forth83 test-forth test-public-clone test-sync-copies test-check-sync check-sync
+test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-block-read-error test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-log-send test-lic-observe test-dlg2form test-rtl8168-cksum test-stack-floor test-vga-wrap test-reload-vocab test-load-vocab test-resolve-deps test-vbr test-grub-cfg test-capture-boot-path test-pxe-label test-nasm-pin test-net-receive-replace test-vbe-boot test-vbe-nostub test-urw-canvas test-uefi-boot test-fat32-read test-port-stop test-uefi-netboot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-mirror test-interp-abort test-pad-move test-hal test-hal-net test-hal-match test-hal-match-hp test-network test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline test-pipeline-e2e test-net-flush-lf test-console-band test-free-boot test-search-order test-abort-routes test-vocab-dedup test-phys-refuse test-window-forms test-read-flags test-double-cell test-forth83 test-forth test-ntfs-read test-public-clone test-sync-copies test-check-sync check-sync
 	@echo "All tests passed!"
 
 # test-timed: run every target on the test: line in order, one make per

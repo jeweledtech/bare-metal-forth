@@ -12,7 +12,11 @@ RESULT FAIL or ABORT line appears, or TIMEOUT. A RESULT line passes when
 it reads `RESULT <NAME> PASS n/n` and EXPECTED holds `<NAME> PASS n`. A
 missing suite, an unlisted suite, a wrong or missing banner each fail.
 
-Usage: forth_launch.py TEST_IMG PRODUCT EXPECTED PORT [TIMEOUT]
+Usage: forth_launch.py TEST_IMG PRODUCT EXPECTED PORT [TIMEOUT] [--sata IMG]
+
+--sata IMG attaches a copy of IMG as a SATA disk on an ich9-ahci
+controller (a private suite that reads a disk, e.g. NTFS). Each test
+image gets its own work folder: forth.d for test.img, <name>.d otherwise.
 """
 import hashlib
 import os
@@ -36,6 +40,10 @@ def stamp(what):
 
 
 def main(argv):
+    sata = None
+    if '--sata' in argv:
+        k = argv.index('--sata')
+        sata, argv = argv[k + 1], argv[:k] + argv[k + 2:]
     if len(argv) not in (4, 5):
         sys.exit(__doc__)
     img, product, expected_path = argv[0], argv[1], argv[2]
@@ -48,13 +56,20 @@ def main(argv):
         if ln.strip():
             name, verdict, n = ln.split()
             want[name] = (verdict, int(n))
-    work = os.path.join(os.path.dirname(os.path.abspath(img)), 'forth.d')
+    stem = os.path.splitext(os.path.basename(img))[0]
+    work = os.path.join(os.path.dirname(os.path.abspath(img)), 'forth.d' if stem == 'test' else stem + '.d')
     os.makedirs(work, exist_ok=True)
     pf = os.path.join(work, 'qemu.pid')
     fl, ide = os.path.join(work, 'floppy.img'), os.path.join(work, 'ide.img')
     qemu_pid.kill_pidfile(pf)
     shutil.copyfile(img, fl)          # run from copies (R6): the
     shutil.copyfile(img, ide)         # built image is never written
+    disk = []
+    if sata:
+        sd = os.path.join(work, 'sata.img')
+        shutil.copyfile(sata, sd)
+        disk = ['-drive', f'file={sd},format=raw,if=none,id=sata0',
+                '-device', 'ich9-ahci,id=ahci0', '-device', 'ide-hd,drive=sata0,bus=ahci0.0']
     print(f'image {img}  banner wanted TEST-IMAGE {tag}', flush=True)
     print(f'start line: {start}', flush=True)
     stamp('start')
@@ -62,7 +77,7 @@ def main(argv):
     q = subprocess.run(['qemu-system-i386', '-drive', f'file={fl},format=raw,if=floppy', '-m', '256',
                         '-drive', f'file={ide},format=raw,if=ide,index=1', '-display', 'none',
                         '-serial', f'tcp:127.0.0.1:{port},server=on,wait=off',
-                        '-daemonize', '-pidfile', pf], capture_output=True)
+                        '-daemonize', '-pidfile', pf] + disk, capture_output=True)
     qemu_pid.check_launch(q, pf, port, 'test-forth')
     seen, banner, why = {}, None, 'timeout'
     try:
