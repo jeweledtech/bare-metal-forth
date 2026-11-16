@@ -172,7 +172,7 @@ PRIVATE_REPO ?= ../forthos-vocabularies
 # exits 0; 1 FAIL (PRIVATE_REPO set and absent, or present without a file).
 RUN_MODE = PRIVATE_REPO='$(PRIVATE_REPO)' PRIVATE_REPO_ORIGIN='$(origin PRIVATE_REPO)' python3 tests/run_mode.py
 RUN_MODE_END = rc=$$?; [ $$rc = 10 ] && exit 0; [ $$rc = 0 ] || exit 1
-PAID_VOCABS = ahci rtl8168 ntfs auto-detect fat32 surveyor file-editor-disk log-harness lic-observe cd-atapi hal-machines atapi-ahci urw-canvas
+PAID_VOCABS = ahci rtl8168 ntfs auto-detect fat32 surveyor file-editor-disk log-harness lic-observe cd-atapi hal-machines atapi-ahci urw-canvas urw-fonts
 
 check-sync:
 	@$(RUN_MODE) check-sync --reason 'no private repo to compare'; $(RUN_MODE_END); \
@@ -289,7 +289,11 @@ blocks: $(BLOCKS)
 # wrong build; the G6 harness compares against the host's
 # build/vbr.bin and would catch it, but at the wrong layer and with
 # far worse attribution.
-$(BUILD)/.catalog.stamp: $(BLOCKS) $(VOCAB_SOURCES) tools/write-catalog.py tools/make_font_blocks.py $(VBR)
+# URF1: the writer's font set (private TASK_UNICORN_WRITER fonts), copied
+# in by tools/sync_copies.py and written by write-catalog as a raw payload
+# after VBR-TEMPLATE; absent in a public-only clone, which builds without it.
+URF1 = $(wildcard forth/fonts/fonts.urf)
+$(BUILD)/.catalog.stamp: $(BLOCKS) $(VOCAB_SOURCES) tools/write-catalog.py tools/make_font_blocks.py $(VBR) $(URF1)
 	@echo "Populating catalog into $(BLOCKS)..."
 	@# Zeroed first, every time: write-catalog writes only the blocks it
 	@# places, so a reused image kept old source in reserved ranges and its
@@ -321,9 +325,9 @@ write-block: $(BLOCKS)
 # blocks: found by CATALOG-FIND, read as data, never interpreted).
 # This is what lets INSTALL arm VBR-TPL with zero pokes, replacing
 # the 512 hand-typed C! lines that blocked the iron session.
-write-catalog: $(BLOCKS) $(VBR)
+write-catalog: $(BLOCKS) $(VBR) $(URF1)
 	python3 tools/write-catalog.py $(BLOCKS) forth/dict/ \
-	        --raw VBR-TEMPLATE=$(VBR)
+	        --raw VBR-TEMPLATE=$(VBR) $(if $(URF1),--raw URF1=$(URF1))
 
 # --- Combined Image ---
 
