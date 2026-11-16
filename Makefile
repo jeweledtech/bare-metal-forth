@@ -1774,6 +1774,19 @@ test-timed:
 	printf '%s\t%s\t%s\n' $$(( $$(date +%s) - T0 )) $$RC TOTAL >> $$OUT; \
 	echo "Timing: $$OUT"; sort -rn $$OUT | head -15; exit $$RC
 
+# test-snapshot: the full run from throwaway clones of both repos at
+# fixed commits (default HEAD; SNAP_PUB= / SNAP_PRIV= name others), in
+# $TMPDIR/forthos-snapshot, so the real trees stay free to edit and
+# build (ARCHITECTURE-FIVE-STEPS R6). SNAP_TARGETS= runs a subset, marked
+# SUBSET in the result. CLONES clones run side by side,
+# each its share of the test: line one target at a time. Writes only
+# build/test-snapshot.txt here; fails on any skipped target.
+CLONES ?= 1
+test-snapshot:
+	@python3 tools/test_snapshot.py --private-repo $(PRIVATE_REPO) --clones $(CLONES) \
+		$(if $(SNAP_PUB),--public $(SNAP_PUB)) $(if $(SNAP_PRIV),--private $(SNAP_PRIV)) \
+		$(if $(SNAP_TARGETS),--targets '$(SNAP_TARGETS)')
+
 # Create ISO (requires xorriso)
 iso: $(ACTIVE_IMAGE)
 	mkdir -p $(BUILD)/iso

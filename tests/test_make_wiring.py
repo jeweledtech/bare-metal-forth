@@ -75,6 +75,9 @@ EXEMPT = {
     'test-timed':
         'times the suite: runs every test: target with timestamps;'
         ' wiring it into test: would recurse',
+    'test-snapshot':
+        'runs every test: target from throwaway clones;'
+        ' wiring it into test: would recurse',
 }
 # GRANDFATHERED: outside `test:` when this gate landed (2026-08-30);
 # deliberateness UNVERIFIED, review owed.  A deferred claim, not a
