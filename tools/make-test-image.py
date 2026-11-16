@@ -22,6 +22,14 @@ build puts `S" NAME" LOAD-VOCAB` in front of the start line, which is
 typed at the prompt, not read from a block. The start line is printed
 and written to OUT.start; the launcher and the card carry exactly that.
 
+A suite whose vocabulary needs one word run before its cases (one that
+reads blocks, which block text may not) says `\\ SETUP: NAME WORD`. The
+build puts `ALSO NAME WORD PREVIOUS` on the start line after the
+LOAD-VOCABs. NAME uses PRELOAD's characters (A-Z, 0-9, -); WORD may be
+any printable characters with no lowercase letters (so FONTS-OK? is a
+word). Refused: either name outside its set, a WORD that loads blocks,
+a second SETUP for one NAME, and a NAME no PRELOAD line names.
+
 Usage:
   make-test-image.py PRODUCT OUT [SOURCE.fth ...]   build, print first block
   make-test-image.py --verify PRODUCT OUT           re-read OUT from disk;
@@ -42,6 +50,8 @@ WB = SourceFileLoader('write_block', os.path.join(ROOT, 'tools', 'write-block.py
 BLOCK = WB.BLOCK_SIZE
 NESTED_LOADS = {'LOAD', 'THRU', 'LOAD-VOCAB', 'RELOAD-VOCAB'}
 PRELOAD = re.compile(r'^\\ PRELOAD: ([A-Z0-9-]+)\s*$')
+VOCAB_NAME = re.compile(r'^[A-Z0-9-]+$')          # PRELOAD's set
+SETUP_WORD = re.compile(r'^[\x21-\x7e]+$')        # printable, no space
 
 
 def header_size():
@@ -76,6 +86,7 @@ def build(product_path, out_path, sources):
 
     src_blocks = []
     preloads = []
+    setups = {}                 # vocabulary -> word, in first-seen order
     for path in sources:
         text = open(path).read()
         # Block format cuts a line at 64 characters with no warning (how
@@ -89,6 +100,29 @@ def build(product_path, out_path, sources):
             # in the private repo). Test source never loads blocks; the
             # run is one top-level THRU. Comments count too, to keep the
             # check simple and strict.
+            # SETUP: a word run once at the prompt, from the start line,
+            # before the suites (it may read blocks, which block text may
+            # not: the buffer holding the text could be reused).
+            if ln.startswith('\\ SETUP:'):
+                toks = ln[len('\\ SETUP:'):].split()
+                where = f'make-test-image: {path}:{n} SETUP'
+                if len(toks) != 2:
+                    sys.exit(f'{where} wants two names, a vocabulary and '
+                             f'a word; got {len(toks)}')
+                v, w = toks
+                if not VOCAB_NAME.match(v):
+                    sys.exit(f'{where} vocabulary name {v!r} rejected: '
+                             f'only A-Z, 0-9 and - (the PRELOAD set)')
+                if not SETUP_WORD.match(w) or w != w.upper():
+                    sys.exit(f'{where} word {w!r} rejected: printable '
+                             f'characters only, no lowercase letters')
+                if w in NESTED_LOADS:
+                    sys.exit(f'{where} word {w} rejected: it loads blocks')
+                if v in setups:
+                    sys.exit(f'{where} for {v} rejected: a second SETUP '
+                             f'for one vocabulary ({setups[v]} came first)')
+                setups[v] = w
+                continue
             m = PRELOAD.match(ln)
             if m and m.group(1) not in preloads:
                 preloads.append(m.group(1))
@@ -101,6 +135,10 @@ def build(product_path, out_path, sources):
                          f'{" ".join(sorted(hit))}; test source must '
                          f'not load blocks (nested-load limitation)')
         src_blocks += WB.source_to_blocks(text)
+    for v in setups:
+        if v not in preloads:
+            sys.exit(f'make-test-image: SETUP names {v}, which no PRELOAD '
+                     f'line loads')
     lines = [
         '\\ TEST-IMAGE banner (tools/make-test-image.py, generated)',
         f': TI-BANNER ." TEST-IMAGE {tag}" CR ; TI-BANNER',
@@ -119,6 +157,7 @@ def build(product_path, out_path, sources):
     os.replace(tmp, out_path)
     last = first + len(src_blocks)
     start = ' '.join([f'S" {v}" LOAD-VOCAB' for v in preloads]
+                     + [f'ALSO {v} {w} PREVIOUS' for v, w in setups.items()]
                      + [f'DECIMAL {first} {last} THRU'])
     with open(out_path + '.start', 'w') as f:
         f.write(start + '\n')

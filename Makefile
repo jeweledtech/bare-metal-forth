@@ -172,7 +172,7 @@ PRIVATE_REPO ?= ../forthos-vocabularies
 # exits 0; 1 FAIL (PRIVATE_REPO set and absent, or present without a file).
 RUN_MODE = PRIVATE_REPO='$(PRIVATE_REPO)' PRIVATE_REPO_ORIGIN='$(origin PRIVATE_REPO)' python3 tests/run_mode.py
 RUN_MODE_END = rc=$$?; [ $$rc = 10 ] && exit 0; [ $$rc = 0 ] || exit 1
-PAID_VOCABS = ahci rtl8168 ntfs auto-detect fat32 surveyor file-editor-disk log-harness lic-observe cd-atapi hal-machines atapi-ahci urw-canvas
+PAID_VOCABS = ahci rtl8168 ntfs auto-detect fat32 surveyor file-editor-disk log-harness lic-observe cd-atapi hal-machines atapi-ahci urw-canvas urw-fonts
 
 check-sync:
 	@$(RUN_MODE) check-sync --reason 'no private repo to compare'; $(RUN_MODE_END); \
@@ -289,7 +289,11 @@ blocks: $(BLOCKS)
 # wrong build; the G6 harness compares against the host's
 # build/vbr.bin and would catch it, but at the wrong layer and with
 # far worse attribution.
-$(BUILD)/.catalog.stamp: $(BLOCKS) $(VOCAB_SOURCES) tools/write-catalog.py tools/make_font_blocks.py $(VBR)
+# URF1: the writer's font set (private TASK_UNICORN_WRITER fonts), copied
+# in by tools/sync_copies.py and written by write-catalog as a raw payload
+# after VBR-TEMPLATE; absent in a public-only clone, which builds without it.
+URF1 = $(wildcard forth/fonts/fonts.urf)
+$(BUILD)/.catalog.stamp: $(BLOCKS) $(VOCAB_SOURCES) tools/write-catalog.py tools/make_font_blocks.py $(VBR) $(URF1)
 	@echo "Populating catalog into $(BLOCKS)..."
 	@# Zeroed first, every time: write-catalog writes only the blocks it
 	@# places, so a reused image kept old source in reserved ranges and its
@@ -321,9 +325,9 @@ write-block: $(BLOCKS)
 # blocks: found by CATALOG-FIND, read as data, never interpreted).
 # This is what lets INSTALL arm VBR-TPL with zero pokes, replacing
 # the 512 hand-typed C! lines that blocked the iron session.
-write-catalog: $(BLOCKS) $(VBR)
+write-catalog: $(BLOCKS) $(VBR) $(URF1)
 	python3 tools/write-catalog.py $(BLOCKS) forth/dict/ \
-	        --raw VBR-TEMPLATE=$(VBR)
+	        --raw VBR-TEMPLATE=$(VBR) $(if $(URF1),--raw URF1=$(URF1))
 
 # --- Combined Image ---
 
@@ -1487,6 +1491,22 @@ test-ntfs-read: $(call FULL_ONLY,$(TEST_NTFS_IMG) $(NTFS_READ_IMG))
 	echo "Running in-machine NTFS reading suite..."; \
 	timeout --foreground $(T_FORTH) python3 tests/forth_launch.py $(TEST_NTFS_IMG) $(COMBINED) $(PRIVATE_REPO)/tests/forth/ntfs-read-expected.txt $$(($(TEST_PORT_BASE)+136)) 150 --sata $(NTFS_READ_IMG)
 
+# In-machine URW-FONTS (private TASK_UNICORN_WRITER fonts): the private
+# suites tests/forth/urw-fonts.fth, urw-canvas.fth, urw-samples.fth, own test
+# image; its SETUP line puts FONTS-LOAD on the start line. Private: skips
+# whole in a public clone (run_mode), whose free tier pulls in nothing.
+TEST_URW_FONTS_IMG = $(BUILD)/test-urw-fonts.img
+URW_FONTS_FTH = $(PRIVATE_REPO)/tests/forth/urw-fonts.fth $(PRIVATE_REPO)/tests/forth/urw-canvas.fth $(PRIVATE_REPO)/tests/forth/urw-samples.fth
+$(TEST_URW_FONTS_IMG): $(COMBINED) tools/make-test-image.py tools/write-block.py tests/forth/runner.fth $(URW_FONTS_FTH)
+	@python3 tools/make-test-image.py $(COMBINED) $@ tests/forth/runner.fth $(URW_FONTS_FTH)
+	@python3 tools/make-test-image.py --verify $(COMBINED) $@
+test-urw-fonts: $(call FULL_ONLY,$(TEST_URW_FONTS_IMG))
+	@$(RUN_MODE) test-urw-fonts --private tests/forth/urw-fonts.fth; $(RUN_MODE_END); \
+	PIDF=$(BUILD)/test-urw-fonts.d/qemu.pid; $(QEMU_KILL); \
+	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-urw-fonts --base $(TEST_PORT_BASE); \
+	echo "Running in-machine URW-FONTS suite..."; \
+	timeout --foreground $(T_FORTH) python3 tests/forth_launch.py $(TEST_URW_FONTS_IMG) $(COMBINED) $(PRIVATE_REPO)/tests/forth/urw-fonts-expected.txt $$(($(TEST_PORT_BASE)+137)) 150
+
 test-translator:
 	@$(RUN_MODE) test-translator --tree tools/translator/Makefile; $(RUN_MODE_END); \
 	echo "Running UBT translator test suite..."; \
@@ -1782,7 +1802,7 @@ test-urw-canvas: $(call FULL_ONLY,$(COMBINED))
 #     its output as evidence, and it never gates a build.  If it must ever
 #     gate something, the gate goes on a deterministic artefact derived from
 #     it and pinned -- the treatment the Ghidra oracle already has.
-test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-block-read-error test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-log-send test-lic-observe test-dlg2form test-rtl8168-cksum test-stack-floor test-vga-wrap test-reload-vocab test-load-vocab test-resolve-deps test-vbr test-grub-cfg test-capture-boot-path test-pxe-label test-nasm-pin test-net-receive-replace test-vbe-boot test-vbe-nostub test-urw-canvas test-uefi-boot test-fat32-read test-port-stop test-uefi-netboot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-mirror test-interp-abort test-pad-move test-hal test-hal-net test-hal-match test-hal-match-hp test-network test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline test-pipeline-e2e test-net-flush-lf test-console-band test-free-boot test-search-order test-abort-routes test-vocab-dedup test-phys-refuse test-window-forms test-read-flags test-double-cell test-forth83 test-forth test-ntfs-read test-public-clone test-sync-copies test-check-sync check-sync
+test: lint check-coverage test-smoke test-loops test-abort test-dict-bounds test-phys-alloc test-pci-typing test-xhci test-pci-bar test-firstboot test-block-reload test-blk-evict test-block-read-error test-squote-laydown test-install test-log-harness test-log-harness-nic test-log-restore test-log-validation test-log-decode-layout test-log-send test-lic-observe test-dlg2form test-rtl8168-cksum test-stack-floor test-vga-wrap test-reload-vocab test-load-vocab test-resolve-deps test-vbr test-grub-cfg test-capture-boot-path test-pxe-label test-nasm-pin test-net-receive-replace test-vbe-boot test-vbe-nostub test-urw-canvas test-uefi-boot test-fat32-read test-port-stop test-uefi-netboot test-uefi2-gdt test-carrier-write-safe test-memdisk test-doc-drift test-make-wiring test-port-inventory test-kill-traps test-g6 test-mirror test-interp-abort test-pad-move test-hal test-hal-net test-hal-match test-hal-match-hp test-network test-vocabs test-gui test-integration test-file-stream test-survey test-translator test-pipeline test-pipeline-e2e test-net-flush-lf test-console-band test-free-boot test-search-order test-abort-routes test-vocab-dedup test-phys-refuse test-window-forms test-read-flags test-double-cell test-forth83 test-forth test-ntfs-read test-urw-fonts test-public-clone test-sync-copies test-check-sync check-sync
 	@echo "All tests passed!"
 
 # test-timed: run every target on the test: line in order, one make per
