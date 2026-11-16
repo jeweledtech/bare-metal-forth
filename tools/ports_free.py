@@ -12,10 +12,18 @@ tcp:127.0.0.1:P, socket listen=:P) and all six holders; re-measured
 with an IPv4 listener already on the port, QEMU does NOT fail: it binds
 [::] alone and starts, and a 127.0.0.1 connection reaches the other
 listener. So "QEMU started" is not the same as "the tests reach QEMU".
+
+UDP (a -netdev dgram's local.port= and remote.port=, 2026-11-15): free
+means a plain UDP bind on 127.0.0.1, without SO_REUSEADDR, succeeds. For
+local.port QEMU binds that address itself; ports_probe_gate.py measures
+the rule against QEMU. remote.port is only an address QEMU sends to; it
+is held free by choice, so no other socket receives the test's frames.
 """
 import errno, socket
 
 RULE = 'IPv4 bind 0.0.0.0, SO_REUSEADDR (measured, Gate P 2026-10-05)'
+UDP_RULE = 'UDP bind 127.0.0.1, no SO_REUSEADDR (measured, Gate P UDP rows 2026-11-15)'
+UDP_FORMS = ('local.port=P', 'remote.port=P')
 
 
 def _binds(fam, host, port, v6only=None):
@@ -34,14 +42,30 @@ def _binds(fam, host, port, v6only=None):
         s.close()
 
 
+def udp_free(port):
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.bind(('127.0.0.1', port))
+        return True
+    except OSError as e:
+        if e.errno == errno.EADDRINUSE:
+            return False
+        raise
+    finally:
+        s.close()
+
+
 def free(port, form='tcp::P'):
+    if form in UDP_FORMS:
+        return udp_free(port)
     return _binds(socket.AF_INET, '0.0.0.0', port)
 
 
-def holder(port):
-    """Who listens on port (best effort, from ss -tlnp; empty if not visible)."""
+def holder(port, udp=False):
+    """Who holds port (best effort, from ss -tlnp or -ulnp; empty if not visible)."""
     import subprocess
-    out = subprocess.run(['ss', '-Htlnp', f'( sport = :{port} )'], capture_output=True, text=True).stdout
+    out = subprocess.run(['ss', '-Hulnp' if udp else '-Htlnp', f'( sport = :{port} )'],
+                         capture_output=True, text=True).stdout
     users = sorted({u for ln in out.splitlines() for u in __import__('re').findall(r'\("([^"]+)",pid=(\d+)', ln)})
     return ', '.join(f'pid {p} {c}' for c, p in users) or 'holder not visible (another user, or TIME_WAIT)'
 
@@ -63,7 +87,7 @@ def main(argv):
         port = base + e['offset']
         if not free(port, e['form']):
             print(f'PORT BUSY: {port} ({recipe}{"/" + fixture if fixture != "-" else ""} {e["kind"]} '
-                  f'+{e["offset"]}) held by {holder(port)}', file=sys.stderr)
+                  f'+{e["offset"]}) held by {holder(port, e["form"] in UDP_FORMS)}', file=sys.stderr)
             busy += 1
     return 1 if busy else 0
 

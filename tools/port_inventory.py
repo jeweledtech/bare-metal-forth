@@ -6,7 +6,8 @@ For every test-* recipe: each TCP port a QEMU it starts will listen on, as
 an offset from TEST_PORT_BASE, with its listen form and where it comes from.
 
 - Recipe-launched QEMUs: from the recipe's -serial / -monitor / -netdev
-  ...listen= text.
+  ...listen= text, and the UDP ports of a -netdev dgram (local.port=,
+  remote.port=; kind dgram, checked free by a UDP probe).
 - Script-launched QEMUs (`python3 [-flags] tests/X.py`, or
   `python3 $(PRIVATE_REPO)/tests/X.py` for a private-owned script run in
   place): from the script's f-strings (`tcp::{X}`,
@@ -36,7 +37,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # relative to ROOT; the environment overrides it as make's ?= does.
 PRIVATE = os.path.normpath(os.path.join(ROOT, os.environ.get('PRIVATE_REPO', '../forthos-vocabularies')))
 FORMS = (('tcp:127.0.0.1:', 'tcp:127.0.0.1:P'), ('tcp::', 'tcp::P'), ('listen=:', 'listen=:P'),
-         ('listen=127.0.0.1:', 'listen=127.0.0.1:P'))
+         ('listen=127.0.0.1:', 'listen=127.0.0.1:P'),
+         ('local.port=', 'local.port=P'), ('remote.port=', 'remote.port=P'))
 ARGV = 'ARGV'
 
 
@@ -252,7 +254,7 @@ class Script:
                 text = node.value
             else:
                 continue
-            if re.search(r'tcp:(127\.0\.0\.1)?:|listen=(127\.0\.0\.1)?:', text):
+            if re.search(r'tcp:(127\.0\.0\.1)?:|listen=(127\.0\.0\.1)?:|(local|remote)\.port=', text):
                 raise Unresolved(f'{self.path}:{node.lineno}: listen address not in a resolvable '
                                  f'f-string: {text[:50]!r}')
         return out
@@ -260,6 +262,8 @@ class Script:
     def _kind(self, node, form):
         if form.startswith('listen='):
             return 'netdev'
+        if form in ('local.port=P', 'remote.port=P'):
+            return 'dgram'
         par = self.parent.get(node)
         if isinstance(par, ast.List):
             i = par.elts.index(node)
@@ -315,6 +319,9 @@ def inventory():
                     for m in re.finditer(r'-netdev\s+\S*listen=(127\.0\.0\.1)?:([^,\s]+)', ln):
                         form = 'listen=127.0.0.1:P' if m.group(1) else 'listen=:P'
                         ents.append(entry(mko(m.group(2), n), form, 'netdev', f'Makefile:{n}'))
+                    for m in re.finditer(r'-netdev\s+dgram,(\S+)', ln):
+                        for d in re.finditer(r'(local|remote)\.port=([^,\s]+)', m.group(1)):
+                            ents.append(entry(mko(d.group(2), n), f'{d.group(1)}.port=P', 'dgram', f'Makefile:{n}'))
                 # interpreter flags (`python3 -u tests/X.py`) are allowed: a recipe
                 # with them was invisible here, so its listens went unchecked
                 for m in re.finditer(r'python3 (?:-[A-Za-z]+ )*(\$\(PRIVATE_REPO\)/)?tests/(\$\$\w+|\w+)\.py([^;]*)', ln):

@@ -12,7 +12,8 @@ tree still uses, QEMU starts but is not reached (a hijack) in any row.
 
 Run from the tree root. Starts one QEMU at a time, pidfile under
 build/ports-gate.d, killed by that pidfile. Port: GATE_PORT (default
-TEST_PORT_BASE + 190).
+TEST_PORT_BASE + 190). UDP rows (2026-11-15) do the same for a -netdev
+dgram's local.port, against UDP holders (port and port + 1).
 """
 import errno, os, signal, socket, subprocess, sys, time
 
@@ -166,6 +167,71 @@ def qemu_listens(form, port):
     return True, ' '.join(bound), reach
 
 
+def udp_hold(host, fam=socket.AF_INET, v6only=None, reuse=False):
+    def h(p):
+        s = socket.socket(fam, socket.SOCK_DGRAM)
+        if reuse:
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        if v6only is not None:
+            s.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, v6only)
+        s.bind((host, p))
+        return [s]
+    return h
+
+
+# UDP holders. "alone" = an IPv4 datagram to 127.0.0.1:P can only reach
+# QEMU's socket (no holder, or a v6-only one); anything else shares or
+# blocks the port, and the probe must say busy.
+UDP_HOLDERS = {
+    'nothing':                  (lambda p: [], True),
+    'udp 127.0.0.1':            (udp_hold('127.0.0.1'), False),
+    'udp 0.0.0.0':              (udp_hold('0.0.0.0'), False),
+    'udp [::] dual-stack':      (udp_hold('::', socket.AF_INET6, 0), False),
+    'udp [::] v6-only':         (udp_hold('::', socket.AF_INET6, 1), True),
+    'udp 127.0.0.1 REUSEADDR':  (udp_hold('127.0.0.1', reuse=True), False),
+}
+
+
+def qemu_dgram(port):
+    """(QEMU started, it owns a UDP socket on :port, error line)"""
+    kill_gate_qemu()
+    nd = (f'dgram,id=n0,local.type=inet,local.host=127.0.0.1,local.port={port},'
+          f'remote.type=inet,remote.host=127.0.0.1,remote.port={port + 1}')
+    r = subprocess.run([QEMU, '-S', '-display', 'none', '-daemonize', '-pidfile', PF,
+                        '-netdev', nd, '-device', 'ne2k_pci,netdev=n0'], capture_output=True, text=True, timeout=30)
+    if r.returncode != 0:
+        return False, False, (r.stderr.strip().splitlines() or ['?'])[-1].split(': ', 1)[-1][:70]
+    q = int(open(PF).read())
+    ss = subprocess.run(['ss', '-Huanp', f'( sport = :{port} )'], capture_output=True, text=True).stdout
+    owns = f'pid={q},' in ss
+    kill_gate_qemu()
+    return True, owns, ''
+
+
+def udp_rows(port):
+    """Gate P, UDP rows (2026-11-15): the -netdev dgram local.port form."""
+    bad, rows = 0, []
+    for hk, (hold, alone) in UDP_HOLDERS.items():
+        held = hold(port)
+        try:
+            probe_free = ports_free.free(port, 'local.port=P')
+            q_ok, owns, err = qemu_dgram(port)
+        finally:
+            for s in held:
+                s.close()
+        clean = q_ok and owns and alone
+        rows.append((hk, q_ok, owns, err, probe_free, probe_free == clean))
+        bad += probe_free != clean
+    yn = lambda v: 'yes' if v else 'no'
+    print(f'UDP probe rule: {ports_free.UDP_RULE}')
+    print('| UDP holder | QEMU starts? | QEMU owns :P? | error | Probe: free? | = QEMU alone on :P? |')
+    print('|---|---|---|---|---|---|')
+    for hk, q_ok, owns, err, pf, ok in rows:
+        print(f'| {hk} | {yn(q_ok)} | {yn(owns)} | {err} | {yn(pf)} | {yn(ok) if ok else "**no**"} |')
+    print(f'udp rows={len(rows)} disagree={bad}')
+    return bad
+
+
 def main():
     measure = '--measure' in sys.argv
     port = base()
@@ -205,6 +271,7 @@ def main():
     print(f'rows={len(rows)} disagree_with_starts={sum(not r[6] for r in rows)} disagree_with_reaches={bad}')
     print(f'forms in use: {sorted(use)}; starts-but-not-reached rows in a form in use: {len(hijack)}'
           + ''.join(f'\n  HIJACK: holder {h}, form {f}' for h, f in hijack))
+    bad += udp_rows(port)
     sys.exit(1 if bad or hijack else 0)
 
 

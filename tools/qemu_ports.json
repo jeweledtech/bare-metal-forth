@@ -350,6 +350,18 @@
     "kind": "serial",
     "offset": 12,
     "source": "tests/test_hal_net.py:97"
+   },
+   {
+    "form": "local.port=P",
+    "kind": "dgram",
+    "offset": 13,
+    "source": "tests/test_hal_net.py:115"
+   },
+   {
+    "form": "remote.port=P",
+    "kind": "dgram",
+    "offset": 14,
+    "source": "tests/test_hal_net.py:115"
    }
   ]
  },
@@ -420,6 +432,18 @@
     "kind": "serial",
     "offset": 46,
     "source": "Makefile:680"
+   },
+   {
+    "form": "local.port=P",
+    "kind": "dgram",
+    "offset": 47,
+    "source": "Makefile:680"
+   },
+   {
+    "form": "remote.port=P",
+    "kind": "dgram",
+    "offset": 48,
+    "source": "Makefile:680"
    }
   ]
  },
@@ -440,6 +464,18 @@
     "kind": "serial",
     "offset": 101,
     "source": "$(PRIVATE_REPO)/tests/test_log_send.py:174"
+   },
+   {
+    "form": "local.port=P",
+    "kind": "dgram",
+    "offset": 102,
+    "source": "$(PRIVATE_REPO)/tests/test_log_send.py:170"
+   },
+   {
+    "form": "remote.port=P",
+    "kind": "dgram",
+    "offset": 103,
+    "source": "$(PRIVATE_REPO)/tests/test_log_send.py:170"
    }
   ]
  },
