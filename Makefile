@@ -1471,7 +1471,16 @@ test-forth: $(TEST_IMG)
 # expected values live in $(PRIVATE_REPO)/tests/fixtures/ntfs-read/.
 NTFS_READ_DIR = $(PRIVATE_REPO)/tests/fixtures/ntfs-read
 NTFS_READ_IMG = $(BUILD)/ntfs-read.img
-$(NTFS_READ_IMG): $(NTFS_READ_DIR)/make-volume.sh $(NTFS_READ_DIR)/files.txt | $(BUILD)
+# Every file make-volume.sh reads or runs, so a change to any of them
+# rebuilds the volume (until 2026-11-16 only the script and files.txt were
+# listed: a changed make-folders.py or folders.txt left a stale volume).
+# The fixture files; forms/ by wildcard (make-forms.py's expected output);
+# the private host tools make-volume.sh and make-forms.py run.
+NTFS_READ_DEPS = $(addprefix $(NTFS_READ_DIR)/,make-volume.sh files.txt \
+	make-folders.py folders.txt resources-notepad.txt resources-input.txt \
+	make-forms.py forms.txt) $(wildcard $(NTFS_READ_DIR)/forms/*) \
+	$(PRIVATE_REPO)/tools/dlg2form.py $(PRIVATE_REPO)/tools/menu2form.py
+$(NTFS_READ_IMG): $(NTFS_READ_DEPS) | $(BUILD)
 	bash $(NTFS_READ_DIR)/make-volume.sh $@ $(CORPUS_ROOT)
 ntfs-read-volume: $(NTFS_READ_IMG)
 
