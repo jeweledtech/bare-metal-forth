@@ -443,7 +443,7 @@ VARIABLE RD-X
   RD-X @ W-W@ + 1 -  W-Y@  VGA-PUTC ;
 
 : RENDER-CARD-BG ( -- )
-  43 ATTR-NORM W-X@ W-Y@ VGA-PUTC
+  CH-PLUS ATTR-NORM W-X@ W-Y@ VGA-PUTC
   W-W@ 2 - DUP 0 > IF
     0 DO
       I W-LLEN@ 4 + < IF
@@ -463,18 +463,18 @@ VARIABLE RD-X
       W-X@ I + 1 +  W-Y@  VGA-PUTC
     LOOP
   ELSE DROP THEN
-  43 ATTR-NORM
+  CH-PLUS ATTR-NORM
   W-X@ W-W@ + 1 -  W-Y@  VGA-PUTC ;
 
 : RENDER-CARD-ED ( -- )
-  43 ATTR-NORM W-X@ W-Y@ VGA-PUTC
+  CH-PLUS ATTR-NORM W-X@ W-Y@ VGA-PUTC
   W-W@ 2 - DUP 0 > IF
     0 DO
       CH-DASH ATTR-NORM
       W-X@ I + 1 +  W-Y@  VGA-PUTC
     LOOP
   ELSE DROP THEN
-  43 ATTR-NORM
+  CH-PLUS ATTR-NORM
   W-X@ W-W@ + 1 -  W-Y@  VGA-PUTC ;
 
 \ List box: + and - on its top and bottom
