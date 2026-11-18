@@ -13,6 +13,10 @@
 \ DialogBox: returns the control ID of the
 \ button that ended it (BUTTON: x y w "l" id,
 \ UI-PARSER's WTO-CID), IDCANCEL on Esc.
+\ MENU-RUN runs a menu form the same way,
+\ but Esc returns MENU-BACK (-1): no
+\ command ID (16 bits) and no submenu
+\ (65536 + k, private RES-FORM) is -1.
 \ Tab moves focus, Enter on a button ends.
 \ A button given a word by CID-WIRE runs
 \ it on Enter instead, and the dialog goes
@@ -47,6 +51,7 @@ ALSO UI-EVENTS
 
 DECIMAL
 2 CONSTANT IDCANCEL
+-1 CONSTANT MENU-BACK
 
 \ ---- Drop-down items -------------------
 \ In a DROPBOX's widget entry: item count,
@@ -253,6 +258,10 @@ HEX
 
 VARIABLE DR-ID
 VARIABLE DR-DONE
+\ What Esc returns (window.fth's DR-KEY
+\ calls get IDCANCEL).
+VARIABLE DR-ESC
+2 DR-ESC !
 
 \ Control ID of the focused widget.
 : DR-CID ( -- id )
@@ -269,7 +278,7 @@ VARIABLE DR-DONE
 
 : DR-KEY ( key -- )
   DUP KEY-ESC = IF
-    DROP IDCANCEL DR-END EXIT THEN
+    DROP DR-ESC @ DR-END EXIT THEN
   DUP KEY-TAB = IF
     DROP FOCUS-NEXT EXIT THEN
   KEY-ENTER = IF
@@ -282,19 +291,27 @@ VARIABLE DR-DONE
     THEN
   THEN ;
 
-: DIALOG-RUN ( -- id )
-  0 DR-ID !  FALSE DR-DONE !
+: DR-START ( esc -- )
+  DR-ESC !  0 DR-ID !  FALSE DR-DONE !
   -1 DL-OPEN !
   0 NEXT-FOCUSABLE
   DUP 0 < IF DROP 0 THEN
-  FOCUS-IDX !
+  FOCUS-IDX ! ;
+
+\ A run inside a wired button's word
+\ gives DR-ESC back when it ends.
+: DR-RUN ( esc -- id )
+  DR-ESC @ >R  DR-START
   BEGIN
     FORM-RENDER  DL-DRAW
     KEY DL-OPEN @ 0< IF DR-KEY
     ELSE DL-KEY THEN
     DR-DONE @
   UNTIL
-  PAGE  DR-ID @ ;
+  PAGE  DR-ID @  R> DR-ESC ! ;
+
+: DIALOG-RUN ( -- id ) IDCANCEL DR-RUN ;
+: MENU-RUN ( -- id ) MENU-BACK DR-RUN ;
 
 PREVIOUS PREVIOUS PREVIOUS
 FORTH DEFINITIONS
