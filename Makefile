@@ -1478,7 +1478,7 @@ NTFS_READ_IMG = $(BUILD)/ntfs-read.img
 # the private host tools make-volume.sh and make-forms.py run.
 NTFS_READ_DEPS = $(addprefix $(NTFS_READ_DIR)/,make-volume.sh files.txt \
 	make-folders.py folders.txt split-index.py resources-notepad.txt resources-input.txt \
-	make-forms.py forms.txt) $(wildcard $(NTFS_READ_DIR)/forms/*) \
+	make-forms.py forms.txt forms-mui.txt) $(wildcard $(NTFS_READ_DIR)/forms/*) \
 	$(PRIVATE_REPO)/tools/dlg2form.py $(PRIVATE_REPO)/tools/menu2form.py
 $(NTFS_READ_IMG): $(NTFS_READ_DEPS) | $(BUILD)
 	bash $(NTFS_READ_DIR)/make-volume.sh $@ $(CORPUS_ROOT)
