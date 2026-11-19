@@ -41,6 +41,19 @@
 \ Space and Backspace move; Enter chooses;
 \ Esc closes.
 \
+\ Checkboxes and radio buttons (private
+\ TASK_READ_AND_REBUILD_FORMS step 9 part
+\ 4): CHECK: x y "text" id draws [ ] or [x]
+\ and RADIO: x y "text" id g ( ) or (*),
+\ the text 4 columns in. Both take focus;
+\ Space toggles a checkbox, or picks a
+\ radio and clears the rest of group g; the
+\ dialog goes on. CHECKED? ( id -- flag )
+\ reads one, as IsDlgButtonChecked. They
+\ need DIALOG loaded: UI-CORE draws them
+\ and UI-EVENTS asks if they take focus by
+\ looking up DL-PAINT and DL-FOCUS? here.
+\
 \ Usage:
 \   S" DIALOG" LOAD-VOCAB  ALSO DIALOG
 \   ( a form loaded with FORM-LOAD )
@@ -64,6 +77,18 @@ DECIMAL
 129 CONSTANT KEY-DOWN
 130 CONSTANT KEY-LEFT
 131 CONSTANT KEY-RIGHT
+
+\ ---- Checkbox and radio types --------
+\ Past UI-CORE's types. In their widget
+\ entry: checked (0 or 1), radio group.
+10 CONSTANT WT-CHECK
+11 CONSTANT WT-RADIO
+28 CONSTANT DCW-ON
+29 CONSTANT DCW-GRP
+40 CONSTANT CH-LPAR
+41 CONSTANT CH-RPAR
+42 CONSTANT CH-STAR
+120 CONSTANT CH-X
 
 \ ---- Drop-down items -------------------
 \ In a DROPBOX's widget entry: item count,
@@ -152,13 +177,33 @@ VARIABLE DA-A
   DA-W @ DLW-N + DUP C@ 1 + SWAP C!
   1 DL-ITEMS +! ;
 
+\ CHECK: x y "text" id, RADIO: x y "text"
+\ id g, either with a trailing DISABLED: a
+\ label's entry, retyped, 4 cells + text.
+VARIABLE DC-T
+: DC-BUILD ( type -- )
+  DC-T !
+  P-INT P-INT P-QUOTED ADD-LABEL
+  WT-COUNT @ PL-N @ > 0= IF EXIT THEN
+  DC-T @ W-TYPE!  W-LLEN@ 4 + W-W!
+  P-INT W-ADDR @ WTO-CID + !
+  0 W-ADDR @ DCW-ON + C!
+  DC-T @ WT-RADIO = IF P-INT ELSE 0 THEN
+  W-ADDR @ DCW-GRP + C!
+  S" DISABLED" P-MATCH IF
+    WT-COUNT @ 1 - CLR-ENABLED THEN
+  DL-BUILT ;
+
 \ Called by PROCESS-LINE after every line,
 \ with the line's parse state.
 : DL-HOOK ( -- )
   WT-COUNT @ PL-N @ > IF DL-BUILT
   ELSE
     S" ITEM:" P-MATCH IF P-QUOTED DL-ADD
-    ELSE -1 DL-AT ! THEN
+    ELSE -1 DL-AT !
+      S" CHECK:" P-MATCH IF WT-CHECK DC-BUILD THEN
+      S" RADIO:" P-MATCH IF WT-RADIO DC-BUILD THEN
+    THEN
   THEN
   WT-COUNT @ DL-WTC !  POOL-POS @ DL-POS ! ;
 
@@ -250,6 +295,59 @@ VARIABLE DD-R
     DROP DL-NEXT DL-SCROLL EXIT THEN
   IC-BS = IF DL-PREV DL-SCROLL THEN ;
 
+\ ---- Checkbox and radio: draw, focus --
+\ UI-CORE's RENDER-WIDGET calls DL-PAINT for
+\ a type it does not know, W-ADDR and
+\ RW-IDX set; UI-EVENTS' FOCUSABLE? calls
+\ DL-FOCUS?. [x] or (*), then a space, then
+\ the text.
+: DP-PUT ( ch off attr -- )
+  SWAP W-X@ + W-Y@ VGA-PUTC ;
+: DL-PAINT ( type -- )
+  DUP WT-CHECK = IF DROP CH-LBRACK CH-RBRACK CH-X
+  ELSE WT-RADIO = IF CH-LPAR CH-RPAR CH-STAR
+  ELSE EXIT THEN THEN
+  W-ADDR @ DCW-ON + C@ 0= IF DROP CH-SPACE THEN
+  1 RW-ATTR DP-PUT  2 RW-ATTR DP-PUT
+  0 RW-ATTR DP-PUT  CH-SPACE 3 RW-DIM DP-PUT
+  W-LOFF@ W-LLEN@ POOL-STR
+  W-X@ 4 + W-Y@ RW-ATTR DRAW-AT ;
+: DL-FOCUS? ( type -- flag )
+  DUP WT-CHECK = SWAP WT-RADIO = OR ;
+
+\ Space on the focused one: a checkbox
+\ flips; a radio is set and every other
+\ radio of its group cleared.
+: DC-ON ( wa -- a ) DCW-ON + ;
+VARIABLE DS-G
+: DC-SPACE ( -- )
+  FOCUS-IDX @ WT-COUNT @ < 0= IF EXIT THEN
+  FOCUS-IDX @ DL-WA
+  DUP WTO-TYPE + C@ WT-CHECK = IF
+    DC-ON DUP C@ 0= 1 AND SWAP C! EXIT THEN
+  DUP WTO-TYPE + C@ WT-RADIO = 0= IF
+    DROP EXIT THEN
+  DUP DCW-GRP + C@ DS-G !
+  WT-COUNT @ 0 DO
+    I DL-WA DUP WTO-TYPE + C@ WT-RADIO =
+    OVER DCW-GRP + C@ DS-G @ = AND IF
+      0 OVER DC-ON C! THEN DROP
+  LOOP
+  1 SWAP DC-ON C! ;
+
+\ The first checkbox or radio with control
+\ ID id: checked? FALSE if there is none.
+: CHECKED? ( id -- flag )
+  WT-COUNT @ DUP 0 > IF
+    0 DO
+      I DL-WA DUP WTO-TYPE + C@ DL-FOCUS? IF
+        DUP WTO-CID + @ 2 PICK = IF
+          DC-ON C@ 0<> NIP UNLOOP EXIT
+        THEN
+      THEN DROP
+    LOOP
+  ELSE DROP THEN DROP FALSE ;
+
 \ ---- Control ID to action -------------
 \ Every button with control ID cid gets
 \ xt; n is how many. xt 0 unwires.
@@ -320,6 +418,7 @@ VARIABLE DV-B
 : DR-KEY ( key -- )
   DUP KEY-ESC = IF
     DROP DR-ESC @ DR-END EXIT THEN
+  DUP CH-SPACE = IF DROP DC-SPACE EXIT THEN
   DUP KEY-UP = IF DROP 0 -1 DV-MOVE EXIT THEN
   DUP KEY-DOWN = IF DROP 0 1 DV-MOVE EXIT THEN
   DUP KEY-LEFT = IF
