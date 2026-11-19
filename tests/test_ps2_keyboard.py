@@ -23,35 +23,14 @@ PROJECT_DIR = os.path.dirname(os.path.dirname(
 
 
 def get_vocab_blocks(vocab_name):
-    """Get vocab start and end block from catalog."""
-    try:
-        result = subprocess.run(
-            [sys.executable, '-c', f"""
-import sys, os
-sys.path.insert(0, os.path.join('{PROJECT_DIR}', 'tools'))
-from importlib.machinery import SourceFileLoader
-wc = SourceFileLoader('wc', os.path.join(
-    '{PROJECT_DIR}', 'tools', 'write-catalog.py'
-)).load_module()
-vocabs = wc.scan_vocabs(os.path.join(
-    '{PROJECT_DIR}', 'forth', 'dict'))
-_nc = (len(vocabs) + wc.CATALOG_DATA_LINES - 1) // wc.CATALOG_DATA_LINES
-nb = 1 + _nc
-for v in vocabs:
-    nb = wc.place_vocab(nb, v['blocks_needed'])
-    if v['name'] == '{vocab_name}':
-        print(f"{{nb}} {{nb + v['blocks_needed'] - 1}}")
-        break
-    nb += v['blocks_needed']
-"""],
-            capture_output=True, text=True, timeout=10
-        )
-        if result.stdout.strip():
-            parts = result.stdout.strip().split()
-            return int(parts[0]), int(parts[1])
-    except Exception:
-        pass
-    return None, None
+    """(first, last) of a catalog entry, read from the built image
+    (tools/catalog_layout.py read_catalog_detail, the catalog the
+    machine reads); (None, None) if the image has no such entry."""
+    sys.path.append(os.path.join(PROJECT_DIR, 'tools'))
+    import catalog_layout
+    e = catalog_layout.read_catalog_detail(
+        os.path.join(PROJECT_DIR, 'build', 'blocks.img')).get(vocab_name)
+    return (e[0], e[1]) if e else (None, None)
 
 
 KB_START, KB_END = get_vocab_blocks('PS2-KEYBOARD')

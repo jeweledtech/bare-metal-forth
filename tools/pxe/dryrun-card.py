@@ -33,20 +33,16 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 
 
 def blocks(name):
-    r = subprocess.run([sys.executable, '-c', f"""
-import os, importlib.util
-spec = importlib.util.spec_from_file_location('wc', os.path.join('{ROOT}','tools','write-catalog.py'))
-wc = importlib.util.module_from_spec(spec); spec.loader.exec_module(wc)
-vocabs = wc.scan_vocabs(os.path.join('{ROOT}','forth','dict'))
-_nc = (len(vocabs) + wc.CATALOG_DATA_LINES - 1) // wc.CATALOG_DATA_LINES
-nb = 1 + _nc
-for v in vocabs:
-    nb = wc.place_vocab(nb, v['blocks_needed'])
-    if v['name'] == '{name}':
-        print(nb, nb + v['blocks_needed'] - 1); break
-    nb += v['blocks_needed']
-"""], capture_output=True, text=True).stdout.split()
-    return int(r[0]), int(r[1])
+    """(first, last) of a catalog entry, read from the built image
+    (tools/catalog_layout.py read_catalog_detail, the catalog the
+    machine reads); exit if the image has no such entry."""
+    sys.path.append(os.path.join(ROOT, 'tools'))
+    import catalog_layout
+    e = catalog_layout.read_catalog_detail(
+        os.path.join(ROOT, 'build', 'blocks.img')).get(name)
+    if not e:
+        sys.exit(f'{name}: not in the catalog of build/blocks.img')
+    return e[0], e[1]
 
 
 s = socket.socket()

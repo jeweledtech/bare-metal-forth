@@ -98,27 +98,14 @@ PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def get_vocab_blocks(vocab_name):
-    """Host-side catalog placement, the scan write-catalog uses
-    (test_pci_bar.py's resolver, unchanged)."""
-    result = subprocess.run([sys.executable, '-c', f"""
-import os
-import importlib.util
-spec = importlib.util.spec_from_file_location('wc', os.path.join(
-    '{PROJECT_DIR}', 'tools', 'write-catalog.py'))
-wc = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(wc)
-vocabs = wc.scan_vocabs(os.path.join('{PROJECT_DIR}', 'forth', 'dict'))
-_nc = (len(vocabs) + wc.CATALOG_DATA_LINES - 1) // wc.CATALOG_DATA_LINES
-nb = 1 + _nc
-for v in vocabs:
-    nb = wc.place_vocab(nb, v['blocks_needed'])
-    if v['name'] == '{vocab_name}':
-        print(f"{{nb}} {{nb + v['blocks_needed'] - 1}}")
-        break
-    nb += v['blocks_needed']
-"""], capture_output=True, text=True, timeout=10)
-    parts = result.stdout.split()
-    return (int(parts[0]), int(parts[1])) if len(parts) == 2 else (None, None)
+    """(first, last) of a catalog entry, read from the built image
+    (tools/catalog_layout.py read_catalog_detail, the catalog the
+    machine reads); (None, None) if the image has no such entry."""
+    sys.path.append(os.path.join(PROJECT_DIR, 'tools'))
+    import catalog_layout
+    e = catalog_layout.read_catalog_detail(
+        os.path.join(PROJECT_DIR, 'build', 'blocks.img')).get(vocab_name)
+    return (e[0], e[1]) if e else (None, None)
 
 
 try:

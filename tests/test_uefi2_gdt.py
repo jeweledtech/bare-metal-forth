@@ -51,18 +51,14 @@ for f in (FLOPPY, COMBINED):
 
 
 def pci_bar_blocks():
-    import importlib.util
-    spec = importlib.util.spec_from_file_location('wc', os.path.join(ROOT, 'tools', 'write-catalog.py'))
-    wc = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(wc)
-    vocabs = wc.scan_vocabs(os.path.join(ROOT, 'forth', 'dict'))
-    nb = 1 + (len(vocabs) + wc.CATALOG_DATA_LINES - 1) // wc.CATALOG_DATA_LINES
-    for v in vocabs:
-        nb = wc.place_vocab(nb, v['blocks_needed'])
-        if v['name'] == 'PCI-BAR':
-            return nb, nb + v['blocks_needed'] - 1
-        nb += v['blocks_needed']
-    return None, None
+    """(first, last) of a catalog entry, read from the built image
+    (tools/catalog_layout.py read_catalog_detail, the catalog the
+    machine reads); (None, None) if the image has no such entry."""
+    sys.path.append(os.path.join(ROOT, 'tools'))
+    import catalog_layout
+    e = catalog_layout.read_catalog_detail(
+        os.path.join(ROOT, 'build', 'blocks.img')).get('PCI-BAR')
+    return (e[0], e[1]) if e else (None, None)
 
 
 work = tempfile.mkdtemp(prefix='uefi2-')
