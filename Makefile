@@ -351,7 +351,7 @@ combined: $(COMBINED) $(COMBINED_IDE)
 # product part hashes identical to combined.img. Not a test-* target: it
 # builds, it does not test.
 TEST_IMG = $(BUILD)/test.img
-TEST_FTH = $(wildcard tests/forth/runner.fth tests/forth/state-core.fth tests/forth/forth83.fth)
+TEST_FTH = $(wildcard tests/forth/runner.fth tests/forth/state-core.fth tests/forth/forth83.fth tests/forth/ui-clip.fth)
 $(TEST_IMG): $(COMBINED) tools/make-test-image.py tools/write-block.py $(TEST_FTH)
 	@python3 tools/make-test-image.py $(COMBINED) $@ $(TEST_FTH)
 	@python3 tools/make-test-image.py --verify $(COMBINED) $@
@@ -1477,8 +1477,8 @@ NTFS_READ_IMG = $(BUILD)/ntfs-read.img
 # The fixture files; forms/ by wildcard (make-forms.py's expected output);
 # the private host tools make-volume.sh and make-forms.py run.
 NTFS_READ_DEPS = $(addprefix $(NTFS_READ_DIR)/,make-volume.sh files.txt \
-	make-folders.py folders.txt resources-notepad.txt resources-input.txt \
-	make-forms.py forms.txt) $(wildcard $(NTFS_READ_DIR)/forms/*) \
+	make-folders.py folders.txt split-index.py resources-notepad.txt resources-input.txt \
+	make-forms.py forms.txt forms-mui.txt) $(wildcard $(NTFS_READ_DIR)/forms/*) \
 	$(PRIVATE_REPO)/tools/dlg2form.py $(PRIVATE_REPO)/tools/menu2form.py
 $(NTFS_READ_IMG): $(NTFS_READ_DEPS) | $(BUILD)
 	bash $(NTFS_READ_DIR)/make-volume.sh $@ $(CORPUS_ROOT)

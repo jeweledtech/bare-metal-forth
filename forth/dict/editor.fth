@@ -341,6 +341,7 @@ VARIABLE YY-FLAG
         THEN EXIT
     THEN
     DUP 20 < IF DROP EXIT THEN
+    DUP F0 AND 80 = IF DROP EXIT THEN  \ 80-8F: arrows etc.
     ED-INS-CHAR
 ;
 

@@ -142,16 +142,29 @@ HEX
 : VGA-AT ( col row -- vga-addr )
   VGA-COLS * + 2 * VGA-BASE + ;
 
+\ A cell off the 80x25 screen is not drawn
+\ (a wider or taller form is clipped, not
+\ wrapped into the next row).
+: VPC-IN? ( n max -- f )
+  OVER 0< IF 2DROP 0 EXIT THEN < ;
 VARIABLE VPC-TMP
-: VGA-PUTC ( ch attr col row -- )
+: VGA-CELL ( ch attr col row -- )
+  OVER VGA-COLS VPC-IN? OVER VGA-ROWS VPC-IN?
+  AND 0= IF 2DROP 2DROP EXIT THEN
   VGA-AT VPC-TMP !
   VPC-TMP @ 1+ C!
   VPC-TMP @ C! ;
+\ The view: a form's cell (col, row) is drawn
+\ at (col - VIEW-X, row - VIEW-Y), then
+\ clipped. 0 0 but while DIALOG scrolls.
+VARIABLE VIEW-X  VARIABLE VIEW-Y
+: VGA-PUTC ( ch attr col row -- )
+  VIEW-Y @ - SWAP VIEW-X @ - SWAP VGA-CELL ;
 
 : VGA-CLS ( -- )
   VGA-ROWS 0 DO
     VGA-COLS 0 DO
-      CH-SPACE ATTR-NORM I J VGA-PUTC
+      CH-SPACE ATTR-NORM I J VGA-CELL
     LOOP
   LOOP ;
 
@@ -443,7 +456,7 @@ VARIABLE RD-X
   RD-X @ W-W@ + 1 -  W-Y@  VGA-PUTC ;
 
 : RENDER-CARD-BG ( -- )
-  43 ATTR-NORM W-X@ W-Y@ VGA-PUTC
+  CH-PLUS ATTR-NORM W-X@ W-Y@ VGA-PUTC
   W-W@ 2 - DUP 0 > IF
     0 DO
       I W-LLEN@ 4 + < IF
@@ -463,18 +476,18 @@ VARIABLE RD-X
       W-X@ I + 1 +  W-Y@  VGA-PUTC
     LOOP
   ELSE DROP THEN
-  43 ATTR-NORM
+  CH-PLUS ATTR-NORM
   W-X@ W-W@ + 1 -  W-Y@  VGA-PUTC ;
 
 : RENDER-CARD-ED ( -- )
-  43 ATTR-NORM W-X@ W-Y@ VGA-PUTC
+  CH-PLUS ATTR-NORM W-X@ W-Y@ VGA-PUTC
   W-W@ 2 - DUP 0 > IF
     0 DO
       CH-DASH ATTR-NORM
       W-X@ I + 1 +  W-Y@  VGA-PUTC
     LOOP
   ELSE DROP THEN
-  43 ATTR-NORM
+  CH-PLUS ATTR-NORM
   W-X@ W-W@ + 1 -  W-Y@  VGA-PUTC ;
 
 \ List box: + and - on its top and bottom

@@ -13,6 +13,15 @@
 \ DialogBox: returns the control ID of the
 \ button that ended it (BUTTON: x y w "l" id,
 \ UI-PARSER's WTO-CID), IDCANCEL on Esc.
+\ MENU-RUN runs a menu form the same way,
+\ but Esc returns MENU-BACK (-1): no
+\ command ID (16 bits) and no submenu
+\ (65536 + k, private RES-FORM) is -1.
+\ A form wider or taller than 80x25 scrolls:
+\ Up and Down move the view a row, Left and
+\ Right 8 columns (the kernel's codes 128-
+\ 131), kept within the form; a run starts
+\ at 0 0 and gives the caller's view back.
 \ Tab moves focus, Enter on a button ends.
 \ A button given a word by CID-WIRE runs
 \ it on Enter instead, and the dialog goes
@@ -47,6 +56,14 @@ ALSO UI-EVENTS
 
 DECIMAL
 2 CONSTANT IDCANCEL
+-1 CONSTANT MENU-BACK
+\ The kernel's navigation block (128-143):
+\ the arrows; 132-137 are kept for Home,
+\ End, Page Up, Page Down, Insert, Delete.
+128 CONSTANT KEY-UP
+129 CONSTANT KEY-DOWN
+130 CONSTANT KEY-LEFT
+131 CONSTANT KEY-RIGHT
 
 \ ---- Drop-down items -------------------
 \ In a DROPBOX's widget entry: item count,
@@ -155,9 +172,11 @@ VARIABLE DA-A
 : DL-OWA ( -- wa ) DL-OPEN @ DL-WA ;
 : DL-N ( -- n ) DL-OWA DLW-N + C@ ;
 : DL-W@ ( off -- n ) DL-OWA + C@ ;
-\ Rows shown: the items, cut at row 24.
+\ Rows shown: the items, cut at the
+\ screen's last row under the view.
 : DL-VIS ( -- n )
-  DL-N 24 WTO-Y DL-W@ - MIN 0 MAX ;
+  DL-N 24 VIEW-Y @ + WTO-Y DL-W@ - MIN
+  0 MAX ;
 
 : DL-SCROLL ( -- )
   DL-OWA DLW-TOP +
@@ -253,6 +272,10 @@ HEX
 
 VARIABLE DR-ID
 VARIABLE DR-DONE
+\ What Esc returns (window.fth's DR-KEY
+\ calls get IDCANCEL).
+VARIABLE DR-ESC
+2 DR-ESC !
 
 \ Control ID of the focused widget.
 : DR-CID ( -- id )
@@ -262,6 +285,33 @@ VARIABLE DR-DONE
 : DR-END ( id -- )
   DR-ID !  TRUE DR-DONE ! ;
 
+\ The form's right and bottom edges: x +
+\ the larger of w and the text + 2; y + 1,
+\ a LIST's y + h.
+VARIABLE DV-R
+VARIABLE DV-B
+: DV-EXT ( -- )
+  0 DV-R !  0 DV-B !
+  WT-COUNT @ DUP 0 > IF
+    0 DO
+      I DL-WA W-ADDR !
+      W-X@ W-W@ W-LLEN@ 2 + MAX +
+      DV-R @ MAX DV-R !
+      W-Y@ W-TYPE@ WT-LIST = IF W-H@
+      ELSE 1 THEN +
+      DV-B @ MAX DV-B !
+    LOOP
+  ELSE DROP THEN ;
+
+\ The view moved by dx dy, kept within
+\ 0..R-80 and 0..B-25.
+: DV-MOVE ( dx dy -- )
+  DV-EXT
+  VIEW-Y @ + DV-B @ VGA-ROWS - MIN 0 MAX
+  VIEW-Y !
+  VIEW-X @ + DV-R @ VGA-COLS - MIN 0 MAX
+  VIEW-X ! ;
+
 \ The focused widget's word (CID-WIRE).
 : DR-XT ( -- xt )
   FOCUS-IDX @ WT-ESIZE * WT-BASE +
@@ -269,7 +319,13 @@ VARIABLE DR-DONE
 
 : DR-KEY ( key -- )
   DUP KEY-ESC = IF
-    DROP IDCANCEL DR-END EXIT THEN
+    DROP DR-ESC @ DR-END EXIT THEN
+  DUP KEY-UP = IF DROP 0 -1 DV-MOVE EXIT THEN
+  DUP KEY-DOWN = IF DROP 0 1 DV-MOVE EXIT THEN
+  DUP KEY-LEFT = IF
+    DROP -8 0 DV-MOVE EXIT THEN
+  DUP KEY-RIGHT = IF
+    DROP 8 0 DV-MOVE EXIT THEN
   DUP KEY-TAB = IF
     DROP FOCUS-NEXT EXIT THEN
   KEY-ENTER = IF
@@ -282,19 +338,31 @@ VARIABLE DR-DONE
     THEN
   THEN ;
 
-: DIALOG-RUN ( -- id )
-  0 DR-ID !  FALSE DR-DONE !
+: DR-START ( esc -- )
+  DR-ESC !  0 DR-ID !  FALSE DR-DONE !
+  0 VIEW-X !  0 VIEW-Y !
   -1 DL-OPEN !
   0 NEXT-FOCUSABLE
   DUP 0 < IF DROP 0 THEN
-  FOCUS-IDX !
+  FOCUS-IDX ! ;
+
+\ A run inside a wired button's word
+\ gives DR-ESC and the view back when it
+\ ends.
+: DR-RUN ( esc -- id )
+  DR-ESC @ >R  VIEW-X @ >R  VIEW-Y @ >R
+  DR-START
   BEGIN
     FORM-RENDER  DL-DRAW
     KEY DL-OPEN @ 0< IF DR-KEY
     ELSE DL-KEY THEN
     DR-DONE @
   UNTIL
-  PAGE  DR-ID @ ;
+  R> VIEW-Y !  R> VIEW-X !
+  PAGE  DR-ID @  R> DR-ESC ! ;
+
+: DIALOG-RUN ( -- id ) IDCANCEL DR-RUN ;
+: MENU-RUN ( -- id ) MENU-BACK DR-RUN ;
 
 PREVIOUS PREVIOUS PREVIOUS
 FORTH DEFINITIONS

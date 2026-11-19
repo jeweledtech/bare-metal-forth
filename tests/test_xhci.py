@@ -337,39 +337,14 @@ PROJECT_DIR = os.path.dirname(os.path.dirname(
 
 
 def get_vocab_blocks(vocab_name):
-    """Host-side catalog placement, same scan write-catalog uses
-    (test_driver_vocabs precedent; exec_module not the removed
-    load_module -- Python 3.12)."""
-    try:
-        result = subprocess.run(
-            [sys.executable, '-c', f"""
-import os
-import importlib.util
-spec = importlib.util.spec_from_file_location('wc', os.path.join(
-    '{PROJECT_DIR}', 'tools', 'write-catalog.py'))
-wc = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(wc)
-vocabs = wc.scan_vocabs(os.path.join(
-    '{PROJECT_DIR}', 'forth', 'dict'))
-_nc = (len(vocabs) + wc.CATALOG_DATA_LINES - 1) // wc.CATALOG_DATA_LINES
-nb = 1 + _nc
-for v in vocabs:
-    nb = wc.place_vocab(nb, v['blocks_needed'])
-    if v['name'] == '{vocab_name}':
-        print(f"{{nb}} {{nb + v['blocks_needed'] - 1}}")
-        break
-    nb += v['blocks_needed']
-"""],
-            capture_output=True, text=True, timeout=10
-        )
-        if result.returncode != 0:
-            print(f'  resolver stderr: {result.stderr.strip()[:200]}')
-        if result.stdout.strip():
-            parts = result.stdout.strip().split()
-            return int(parts[0]), int(parts[1])
-    except Exception as e:
-        print(f'  resolver exception: {e!r}')
-    return None, None
+    """(first, last) of a catalog entry, read from the built image
+    (tools/catalog_layout.py read_catalog_detail, the catalog the
+    machine reads); (None, None) if the image has no such entry."""
+    sys.path.append(os.path.join(PROJECT_DIR, 'tools'))
+    import catalog_layout
+    e = catalog_layout.read_catalog_detail(
+        os.path.join(PROJECT_DIR, 'build', 'blocks.img')).get(vocab_name)
+    return (e[0], e[1]) if e else (None, None)
 
 
 import serial as _ser  # tests/serial.py; script-dir sys.path shadows pyserial
