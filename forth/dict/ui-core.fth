@@ -142,8 +142,15 @@ HEX
 : VGA-AT ( col row -- vga-addr )
   VGA-COLS * + 2 * VGA-BASE + ;
 
+\ A cell off the 80x25 screen is not drawn
+\ (a wider or taller form is clipped, not
+\ wrapped into the next row).
+: VPC-IN? ( n max -- f )
+  OVER 0< IF 2DROP 0 EXIT THEN < ;
 VARIABLE VPC-TMP
 : VGA-PUTC ( ch attr col row -- )
+  OVER VGA-COLS VPC-IN? OVER VGA-ROWS VPC-IN?
+  AND 0= IF 2DROP 2DROP EXIT THEN
   VGA-AT VPC-TMP !
   VPC-TMP @ 1+ C!
   VPC-TMP @ C! ;
