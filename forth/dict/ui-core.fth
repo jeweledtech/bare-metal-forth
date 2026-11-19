@@ -148,17 +148,23 @@ HEX
 : VPC-IN? ( n max -- f )
   OVER 0< IF 2DROP 0 EXIT THEN < ;
 VARIABLE VPC-TMP
-: VGA-PUTC ( ch attr col row -- )
+: VGA-CELL ( ch attr col row -- )
   OVER VGA-COLS VPC-IN? OVER VGA-ROWS VPC-IN?
   AND 0= IF 2DROP 2DROP EXIT THEN
   VGA-AT VPC-TMP !
   VPC-TMP @ 1+ C!
   VPC-TMP @ C! ;
+\ The view: a form's cell (col, row) is drawn
+\ at (col - VIEW-X, row - VIEW-Y), then
+\ clipped. 0 0 but while DIALOG scrolls.
+VARIABLE VIEW-X  VARIABLE VIEW-Y
+: VGA-PUTC ( ch attr col row -- )
+  VIEW-Y @ - SWAP VIEW-X @ - SWAP VGA-CELL ;
 
 : VGA-CLS ( -- )
   VGA-ROWS 0 DO
     VGA-COLS 0 DO
-      CH-SPACE ATTR-NORM I J VGA-PUTC
+      CH-SPACE ATTR-NORM I J VGA-CELL
     LOOP
   LOOP ;
 

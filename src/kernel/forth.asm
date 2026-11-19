@@ -6958,6 +6958,10 @@ read_line:
     je .backspace
     cmp al, 127             ; DEL (Backspace via serial terminal)
     je .backspace
+    mov ah, al              ; 0x80-0x8F: the navigation keys
+    and ah, 0xF0            ; (arrows), never text at the prompt
+    cmp ah, 0x80
+    je .loop
 
     cmp ecx, TIB_SIZE - 1
     jge .loop               ; Buffer full
@@ -7705,7 +7709,10 @@ scancode_to_ascii:
     db 'qwertyuiop[]', 13, 0, 'as'       ; 0x10-0x1F
     db 'dfghjkl;', 39, '`', 0, '\zxcv'   ; 0x20-0x2F
     db 'bnm,./', 0, '*', 0, ' '          ; 0x30-0x3F
-    times 64 db 0                         ; 0x40-0x7F
+    times 14 db 0                         ; 0x3A-0x47
+    db 0x80, 0, 0, 0x82, 0, 0x83, 0, 0    ; 0x48 Up, 0x4B Left, 0x4D Right
+    db 0x81                               ; 0x50 Down
+    times 47 db 0                         ; 0x51-0x7F
 
 ; Shifted scancode to ASCII table (US layout)
 scancode_to_ascii_shift:
@@ -7713,7 +7720,10 @@ scancode_to_ascii_shift:
     db 'QWERTYUIOP{}', 13, 0, 'AS'       ; 0x10-0x1F
     db 'DFGHJKL:', 34, '~', 0, '|ZXCV'   ; 0x20-0x2F
     db 'BNM<>?', 0, '*', 0, ' '          ; 0x30-0x3F
-    times 64 db 0                         ; 0x40-0x7F
+    times 14 db 0                         ; 0x3A-0x47
+    db 0x80, 0, 0, 0x82, 0, 0x83, 0, 0    ; 0x48 Up, 0x4B Left, 0x4D Right
+    db 0x81                               ; 0x50 Down
+    times 47 db 0                         ; 0x51-0x7F
 
 ; ============================================================================
 ; ISR Data
