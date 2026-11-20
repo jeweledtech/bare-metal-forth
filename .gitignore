@@ -45,6 +45,8 @@ forth/dict/pe-read.fth
 forth/dict/res-form.fth
 # Path lookup on NTFS (private TASK_READ_AND_REBUILD_FORMS slice 2 step 6)
 forth/dict/ntfs-path.fth
+# A program's forms shown in turn, demo 1 (private TASK_READ_AND_REBUILD_FORMS step 8)
+forth/dict/form-show.fth
 
 # Tier 3: Full Hardware Pack (additional)
 forth/dict/atapi-ahci.fth

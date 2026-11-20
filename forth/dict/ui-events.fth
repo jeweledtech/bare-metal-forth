@@ -49,11 +49,20 @@ VARIABLE FOCUS-IDX
   ELSE DROP THEN ;
 
 \ ---- Focus management ------------------
-\ Focusable types: BUTTON, INPUT, DROPBOX.
+\ Focusable types: BUTTON, INPUT, DROPBOX,
+\ and a type past WT-MENU-BUTTON that
+\ DIALOG's DL-FOCUS? ( type -- flag ) names,
+\ looked up by name (CHECK:, RADIO:).
+ALSO CATALOG-RESOLVER
 : FOCUSABLE? ( type -- flag )
   DUP WT-BUTTON = IF DROP TRUE EXIT THEN
   DUP WT-INPUT = IF DROP TRUE EXIT THEN
-  WT-DROPBOX = IF TRUE ELSE FALSE THEN ;
+  DUP WT-DROPBOX = IF DROP TRUE EXIT THEN
+  DUP WT-MENU-BUTTON > 0= IF
+    DROP FALSE EXIT THEN
+  S" DL-FOCUS?" S" DIALOG" VOC-WORD
+  ?DUP IF EXECUTE ELSE DROP FALSE THEN ;
+PREVIOUS
 
 : NEXT-FOCUSABLE ( start -- idx | -1 )
   BEGIN

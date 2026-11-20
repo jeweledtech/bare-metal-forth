@@ -518,6 +518,7 @@ VARIABLE RLB-Y
     CH-PLUS CH-DASH W-Y@ W-H@ + 1 - RLB-ROW
   THEN ;
 
+ALSO CATALOG-RESOLVER
 : RENDER-WIDGET ( idx -- )
   DUP RW-IDX !
   WT-ESIZE * WT-BASE + W-ADDR !
@@ -540,7 +541,13 @@ VARIABLE RLB-Y
     DROP RENDER-CARD-BG EXIT THEN
   DUP WT-CARD-END = IF
     DROP RENDER-CARD-ED EXIT THEN
-  DROP ;
+  \ Any other type: DIALOG's DL-PAINT ( type
+  \ -- ), looked up by name as UI-PARSER's
+  \ DL-HOOK, so a freed DIALOG leaves no
+  \ stale vector (CHECK:, RADIO:).
+  S" DL-PAINT" S" DIALOG" VOC-WORD
+  ?DUP IF EXECUTE ELSE DROP THEN ;
+PREVIOUS
 
 \ ---- Event ring buffer -----------------
 
