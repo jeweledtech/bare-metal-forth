@@ -4823,6 +4823,11 @@ DEFVAR "KB-RING-TAIL", KB_RING_TAIL, kb_ring_tail
 ; KB-RING-COUNT - ( -- addr ) Address of ring buffer count
 DEFVAR "KB-RING-COUNT", KB_RING_COUNT, kb_ring_count
 
+; KEY-MODS - ( -- addr ) byte latched by each key KEY returns:
+; 1 = Shift, 2 = Ctrl (PS2-KEYBOARD's KB-MODS bits); 0 for a
+; byte over serial. Ctrl+Left is 130 with 2 set.
+DEFVAR "KEY-MODS", KEY_MODS_VAR, key_mods
+
 ; MOUSE-PKT-BUF - ( -- addr ) Address of 3-byte mouse packet buffer
 DEFCONST "MOUSE-PKT-BUF", MOUSE_PKT_BUF_CONST, mouse_pkt_buf
 
@@ -6306,9 +6311,8 @@ read_key_raw:
     ; Check serial port first (for QEMU testing)
     call serial_getchar
     jc .try_kbd             ; CF set = no serial data
-    ; Got serial character in AL
-    cmp al, 3               ; Ctrl+C via serial?
-    je .ctrl_c
+    ; Got serial character in AL (Ctrl+C arrives as 3 already)
+    mov byte [key_mods], 0  ; no Shift or Ctrl over serial
     pop ebx
     ret
 
@@ -6336,13 +6340,27 @@ read_key_raw:
 
 .got_scancode:
 
+    ; E0 prefix: kept for the next byte only. A gray key decodes
+    ; as its number-pad twin; E0 only marks a fake Shift.
+    cmp al, 0xE0
+    jne .not_e0
+    mov byte [kb_e0], 1
+    jmp .wait
+.not_e0:
+    xor bl, bl
+    xchg bl, [kb_e0]        ; BL = 1 when this byte follows E0
+
     ; Track Ctrl key state (scancode 0x1D = press, 0x9D = release)
     cmp al, 0x1D
     je .ctrl_press
     cmp al, 0x9D
     je .ctrl_release
 
-    ; Track Shift key state
+    ; Track Shift key state. After E0, 2A/AA/36/B6 is the fake
+    ; Shift around a gray key with Num Lock on: ignored (2A and
+    ; 36 give 0 in the tables, AA and B6 are releases).
+    test bl, bl
+    jnz .not_shift
     cmp al, 0x2A            ; Left Shift press
     je .shift_press
     cmp al, 0x36            ; Right Shift press
@@ -6351,6 +6369,7 @@ read_key_raw:
     je .shift_release
     cmp al, 0xB6            ; Right Shift release
     je .shift_release
+.not_shift:
 
     ; Caps Lock toggle (press only; release 0xBA falls through to >= 0x80)
     cmp al, 0x3A
@@ -6401,6 +6420,11 @@ read_key_raw:
     test al, al
     jz .wait
 
+.latch_mods:                ; KEY-MODS: 2 = Ctrl, 1 = Shift
+    mov bl, [ctrl_held]
+    add bl, bl
+    or bl, [shift_held]
+    mov [key_mods], bl
     pop ebx
     ret
 
@@ -6426,8 +6450,7 @@ read_key_raw:
 
 .ctrl_c:
     mov al, 3               ; ETX (Ctrl+C character); read_line sets break_flag
-    pop ebx
-    ret
+    jmp .latch_mods
 
 ; ============================================================================
 ; Interpreter support routines
@@ -7666,6 +7689,8 @@ shift_held:     db 0                ; 1 = Shift key currently pressed
 caps_lock:      db 0                ; 1 = Caps Lock active
 serial_present: db 1                ; 0 = no COM1 hardware (set by init_serial probe)
 break_flag:     db 0                ; 1 = Ctrl+C detected, pending break
+key_mods:       db 0                ; KEY-MODS: 2 = Ctrl, 1 = Shift
+kb_e0:          db 0                ; 1 = the last scancode was E0
                 align 4
 save_esp:       dd 0                ; Snapshot: data stack pointer
 save_ebp:       dd 0                ; Snapshot: return stack pointer
@@ -7709,10 +7734,12 @@ scancode_to_ascii:
     db 'qwertyuiop[]', 13, 0, 'as'       ; 0x10-0x1F
     db 'dfghjkl;', 39, '`', 0, '\zxcv'   ; 0x20-0x2F
     db 'bnm,./', 0, '*', 0, ' '          ; 0x30-0x3F
-    times 14 db 0                         ; 0x3A-0x47
-    db 0x80, 0, 0, 0x82, 0, 0x83, 0, 0    ; 0x48 Up, 0x4B Left, 0x4D Right
-    db 0x81                               ; 0x50 Down
-    times 47 db 0                         ; 0x51-0x7F
+    times 13 db 0                         ; 0x3A-0x46
+    db 0x84                               ; 0x47 Home
+    db 0x80, 0x86, 0, 0x82                ; 0x48 Up, 0x49 PgUp, 0x4B Left
+    db 0, 0x83, 0, 0x85                   ; 0x4D Right, 0x4F End
+    db 0x81, 0x87, 0x88, 0x89             ; 0x50 Down, PgDn, Ins, Del
+    times 44 db 0                         ; 0x54-0x7F
 
 ; Shifted scancode to ASCII table (US layout)
 scancode_to_ascii_shift:
@@ -7720,10 +7747,12 @@ scancode_to_ascii_shift:
     db 'QWERTYUIOP{}', 13, 0, 'AS'       ; 0x10-0x1F
     db 'DFGHJKL:', 34, '~', 0, '|ZXCV'   ; 0x20-0x2F
     db 'BNM<>?', 0, '*', 0, ' '          ; 0x30-0x3F
-    times 14 db 0                         ; 0x3A-0x47
-    db 0x80, 0, 0, 0x82, 0, 0x83, 0, 0    ; 0x48 Up, 0x4B Left, 0x4D Right
-    db 0x81                               ; 0x50 Down
-    times 47 db 0                         ; 0x51-0x7F
+    times 13 db 0                         ; 0x3A-0x46
+    db 0x84                               ; 0x47 Home
+    db 0x80, 0x86, 0, 0x82                ; 0x48 Up, 0x49 PgUp, 0x4B Left
+    db 0, 0x83, 0, 0x85                   ; 0x4D Right, 0x4F End
+    db 0x81, 0x87, 0x88, 0x89             ; 0x50 Down, PgDn, Ins, Del
+    times 44 db 0                         ; 0x54-0x7F
 
 ; ============================================================================
 ; ISR Data
