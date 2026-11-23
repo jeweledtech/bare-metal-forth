@@ -36,6 +36,16 @@ any printable characters with no lowercase letters (so FONTS-OK? is a
 word). Refused: either name outside its set, a WORD that loads blocks,
 a second SETUP for one NAME, and a NAME no PRELOAD line names.
 
+A suite that reads a file in the machine says `\\ PAYLOAD: NAME WORD FILE`
+(FILE relative to the test source's own folder). The build writes the
+file's bytes, as they are, into raw blocks after the source blocks (each
+file from a fresh block, the last padded with zeros), and puts
+`ALSO NAME DECIMAL blk len WORD PREVIOUS` in the SETUP group of the start
+line, in the order the lines appear: WORD ( blk len -- ) copies them
+where the suite reads them. THRU never covers these blocks. NAME and WORD
+are checked as SETUP's are; FILE must exist. With no PAYLOAD line the
+image and the start line are exactly as they were.
+
 Usage:
   make-test-image.py PRODUCT OUT [SOURCE.fth ...]   build, print first block
   make-test-image.py --verify PRODUCT OUT           re-read OUT from disk;
@@ -121,6 +131,7 @@ def build(product_path, out_path, sources):
     src_blocks = []
     preloads = []
     setups = {}                 # vocabulary -> word, in first-seen order
+    payloads = []               # (vocabulary, word, file), in order
     for path in sources:
         text = open(path).read()
         # Block format cuts a line at 64 characters with no warning (how
@@ -157,6 +168,26 @@ def build(product_path, out_path, sources):
                              f'for one vocabulary ({setups[v]} came first)')
                 setups[v] = w
                 continue
+            if ln.startswith('\\ PAYLOAD:'):
+                toks = ln[len('\\ PAYLOAD:'):].split()
+                where = f'make-test-image: {path}:{n} PAYLOAD'
+                if len(toks) != 3:
+                    sys.exit(f'{where} wants a vocabulary, a word and a '
+                             f'file; got {len(toks)}')
+                v, w, fn = toks
+                if not VOCAB_NAME.match(v):
+                    sys.exit(f'{where} vocabulary name {v!r} rejected: '
+                             f'only A-Z, 0-9 and - (the PRELOAD set)')
+                if not SETUP_WORD.match(w) or w != w.upper():
+                    sys.exit(f'{where} word {w!r} rejected: printable '
+                             f'characters only, no lowercase letters')
+                if w in NESTED_LOADS:
+                    sys.exit(f'{where} word {w} rejected: it loads blocks')
+                fp = os.path.join(os.path.dirname(os.path.abspath(path)), fn)
+                if not os.path.isfile(fp):
+                    sys.exit(f'{where} file {fn} not found ({fp})')
+                payloads.append((v, w, fp))
+                continue
             m = PRELOAD.match(ln)
             if m and m.group(1) not in preloads:
                 preloads.append(m.group(1))
@@ -173,6 +204,17 @@ def build(product_path, out_path, sources):
         if v not in preloads:
             sys.exit(f'make-test-image: SETUP names {v}, which no PRELOAD '
                      f'line loads')
+    pay_blocks, pay_pieces = [], []
+    blk = first + 1 + len(src_blocks)
+    for v, w, fp in payloads:
+        if v not in preloads:
+            sys.exit(f'make-test-image: PAYLOAD names {v}, which no '
+                     f'PRELOAD line loads')
+        data = open(fp, 'rb').read()
+        nb = (len(data) + BLOCK - 1) // BLOCK
+        pay_blocks.append(data + bytes(nb * BLOCK - len(data)))
+        pay_pieces.append(f'ALSO {v} DECIMAL {blk} {len(data)} {w} PREVIOUS')
+        blk += nb
     lines = [
         '\\ TEST-IMAGE banner (tools/make-test-image.py, generated)',
         f': TI-BANNER ." TEST-IMAGE {tag}" CR ; TI-BANNER',
@@ -184,7 +226,8 @@ def build(product_path, out_path, sources):
 
     limit = line_limit()
     starts = start_lines([f'S" {v}" LOAD-VOCAB' for v in preloads],
-                         [f'ALSO {v} {w} PREVIOUS' for v, w in setups.items()],
+                         [f'ALSO {v} {w} PREVIOUS' for v, w in setups.items()]
+                         + pay_pieces,
                          f'DECIMAL {first} {first + len(src_blocks)} THRU', limit)
     for ln in starts:
         if len(ln) > limit:
@@ -197,6 +240,8 @@ def build(product_path, out_path, sources):
         f.write(product)
         f.write(banner)
         for b in src_blocks:
+            f.write(b)
+        for b in pay_blocks:
             f.write(b)
     os.replace(tmp, out_path)
     last = first + len(src_blocks)
@@ -215,6 +260,8 @@ def build(product_path, out_path, sources):
             print(f'  start line: {ln}')
     print(f'  source blocks {len(src_blocks)} ({first + 1}..{first + len(src_blocks)})'
           if src_blocks else '  source blocks 0')
+    for (v, w, fp), piece in zip(payloads, pay_pieces):
+        print(f'  payload {os.path.basename(fp)}: {piece}')
 
 
 def verify(product_path, out_path):
