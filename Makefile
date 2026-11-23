@@ -172,7 +172,7 @@ PRIVATE_REPO ?= ../forthos-vocabularies
 # exits 0; 1 FAIL (PRIVATE_REPO set and absent, or present without a file).
 RUN_MODE = PRIVATE_REPO='$(PRIVATE_REPO)' PRIVATE_REPO_ORIGIN='$(origin PRIVATE_REPO)' python3 tests/run_mode.py
 RUN_MODE_END = rc=$$?; [ $$rc = 10 ] && exit 0; [ $$rc = 0 ] || exit 1
-PAID_VOCABS = ahci rtl8168 ntfs auto-detect fat32 surveyor file-editor-disk log-harness lic-observe cd-atapi hal-machines atapi-ahci urw-canvas urw-fonts urw-doc urw-layout urw-edit
+PAID_VOCABS = ahci rtl8168 ntfs auto-detect fat32 surveyor file-editor-disk log-harness lic-observe cd-atapi hal-machines atapi-ahci urw-canvas urw-fonts urw-doc urw-layout urw-edit urw-file urw-txt
 
 check-sync:
 	@$(RUN_MODE) check-sync --reason 'no private repo to compare'; $(RUN_MODE_END); \
@@ -1503,12 +1503,13 @@ test-ntfs-read: $(call FULL_ONLY,$(TEST_NTFS_IMG) $(NTFS_READ_IMG))
 # In-machine URW-FONTS (private TASK_UNICORN_WRITER fonts): the private
 # suites tests/forth/urw-fonts.fth, urw-canvas.fth, urw-samples.fth,
 # urw-doc.fth (Phase 3's document model), urw-layout.fth (Phase 4's
-# typesetter) and urw-edit.fth (Phase 5's editor), own test image; its
+# typesetter), urw-edit.fth (Phase 5's editor), urw-file.fth and
+# urw-txt.fth (Phase 6's files), own test image; its
 # SETUP line
 # puts FONTS-LOAD on the start line. Private: skips whole in a public clone
 # (run_mode), whose free tier pulls in nothing.
 TEST_URW_FONTS_IMG = $(BUILD)/test-urw-fonts.img
-URW_FONTS_FTH = $(PRIVATE_REPO)/tests/forth/urw-fonts.fth $(PRIVATE_REPO)/tests/forth/urw-canvas.fth $(PRIVATE_REPO)/tests/forth/urw-samples.fth $(PRIVATE_REPO)/tests/forth/urw-doc.fth $(PRIVATE_REPO)/tests/forth/urw-layout.fth $(PRIVATE_REPO)/tests/forth/urw-edit.fth
+URW_FONTS_FTH = $(PRIVATE_REPO)/tests/forth/urw-fonts.fth $(PRIVATE_REPO)/tests/forth/urw-canvas.fth $(PRIVATE_REPO)/tests/forth/urw-samples.fth $(PRIVATE_REPO)/tests/forth/urw-doc.fth $(PRIVATE_REPO)/tests/forth/urw-layout.fth $(PRIVATE_REPO)/tests/forth/urw-edit.fth $(PRIVATE_REPO)/tests/forth/urw-file.fth $(PRIVATE_REPO)/tests/forth/urw-txt.fth
 $(TEST_URW_FONTS_IMG): $(COMBINED) tools/make-test-image.py tools/write-block.py tests/forth/runner.fth $(URW_FONTS_FTH)
 	@python3 tools/make-test-image.py $(COMBINED) $@ tests/forth/runner.fth $(URW_FONTS_FTH)
 	@python3 tools/make-test-image.py --verify $(COMBINED) $@
