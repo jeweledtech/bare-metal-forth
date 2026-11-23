@@ -46,6 +46,9 @@ where the suite reads them. THRU never covers these blocks. NAME and WORD
 are checked as SETUP's are; FILE must exist. With no PAYLOAD line the
 image and the start line are exactly as they were.
 
+A test source holding any byte over 0x7F is refused, naming the file
+and line: write-block.py would write each such byte as ?, silently.
+
 Usage:
   make-test-image.py PRODUCT OUT [SOURCE.fth ...]   build, print first block
   make-test-image.py --verify PRODUCT OUT           re-read OUT from disk;
@@ -133,7 +136,18 @@ def build(product_path, out_path, sources):
     setups = {}                 # vocabulary -> word, in first-seen order
     payloads = []               # (vocabulary, word, file), in order
     for path in sources:
-        text = open(path).read()
+        raw = open(path, 'rb').read()
+        # write-block.py writes any byte over 0x7F as ?, silently (an
+        # RTF escape once written as the character itself became ? in a
+        # case's input): refuse instead.
+        for n, bl in enumerate(raw.splitlines(), 1):
+            bad = [i for i, c in enumerate(bl) if c > 0x7F]
+            if bad:
+                sys.exit(f'make-test-image: {path}:{n} holds a byte over '
+                         f'0x7F (0x{bl[bad[0]]:02X} at column {bad[0] + 1}); '
+                         f'a block line is ASCII; nothing built')
+        # As open(path).read() gave it: newlines made universal.
+        text = raw.decode('ascii').replace('\r\n', '\n').replace('\r', '\n')
         # Block format cuts a line at 64 characters with no warning (how
         # a THEN once became THE): refuse instead of truncating.
         for n, ln in enumerate(text.splitlines(), 1):
