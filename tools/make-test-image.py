@@ -21,6 +21,12 @@ A suite that needs a block-loaded vocabulary says so with a line
 build puts `S" NAME" LOAD-VOCAB` in front of the start line, which is
 typed at the prompt, not read from a block. The start line is printed
 and written to OUT.start; the launcher and the card carry exactly that.
+A typed line holds at most TIB_SIZE - 1 characters (src/kernel/forth.asm;
+255): a longer one is cut where the kernel stops reading. When the start
+line fits it is one line, as it always was. When it does not, OUT.start
+holds several lines, typed in order, each after the guest's `ok`: the
+LOAD-VOCABs (as many to a line as fit), then the SETUPs, then the THRU.
+Any one line still over the limit is refused, and nothing is built.
 
 A suite whose vocabulary needs one word run before its cases (one that
 reads blocks, which block text may not) says `\\ SETUP: NAME WORD`. The
@@ -52,6 +58,34 @@ NESTED_LOADS = {'LOAD', 'THRU', 'LOAD-VOCAB', 'RELOAD-VOCAB'}
 PRELOAD = re.compile(r'^\\ PRELOAD: ([A-Z0-9-]+)\s*$')
 VOCAB_NAME = re.compile(r'^[A-Z0-9-]+$')          # PRELOAD's set
 SETUP_WORD = re.compile(r'^[\x21-\x7e]+$')        # printable, no space
+
+
+def line_limit():
+    """The longest line the prompt reads: TIB_SIZE - 1, from the kernel."""
+    src = open(os.path.join(ROOT, 'src', 'kernel', 'forth.asm')).read()
+    m = re.search(r'^TIB_SIZE\s+equ\s+(\d+)', src, re.M)
+    if not m:
+        sys.exit('make-test-image: TIB_SIZE not found in forth.asm')
+    return int(m.group(1)) - 1
+
+
+def start_lines(loads, setups, thru, limit):
+    """The typed lines: one if it fits, else loads, setups, thru."""
+    one = ' '.join(loads + setups + [thru])
+    if len(one) <= limit:
+        return [one]
+    lines = []
+    for group in (loads, setups, [thru]):
+        cur = ''
+        for piece in group:
+            if cur and len(cur) + 1 + len(piece) > limit:
+                lines.append(cur)
+                cur = piece
+            else:
+                cur = f'{cur} {piece}' if cur else piece
+        if cur:
+            lines.append(cur)
+    return lines
 
 
 def header_size():
@@ -148,6 +182,16 @@ def build(product_path, out_path, sources):
             sys.exit(f'make-test-image: banner line over 64: {ln!r}')
     banner = WB.source_to_block('\n'.join(lines))
 
+    limit = line_limit()
+    starts = start_lines([f'S" {v}" LOAD-VOCAB' for v in preloads],
+                         [f'ALSO {v} {w} PREVIOUS' for v, w in setups.items()],
+                         f'DECIMAL {first} {first + len(src_blocks)} THRU', limit)
+    for ln in starts:
+        if len(ln) > limit:
+            sys.exit(f'make-test-image: a typed line is {len(ln)} characters, '
+                     f'over the prompt\'s {limit} (TIB_SIZE - 1); nothing '
+                     f'built: {ln[:60]}...')
+
     tmp = out_path + '.tmp'
     with open(tmp, 'wb') as f:
         f.write(product)
@@ -156,16 +200,19 @@ def build(product_path, out_path, sources):
             f.write(b)
     os.replace(tmp, out_path)
     last = first + len(src_blocks)
-    start = ' '.join([f'S" {v}" LOAD-VOCAB' for v in preloads]
-                     + [f'ALSO {v} {w} PREVIOUS' for v, w in setups.items()]
-                     + [f'DECIMAL {first} {last} THRU'])
     with open(out_path + '.start', 'w') as f:
-        f.write(start + '\n')
+        f.write('\n'.join(starts) + '\n')
     print(f'test image: {out_path}')
     print(f'  product  {len(product)} B sha256 {sha256(product)}')
     print(f'  banner   TEST-IMAGE {tag}')
     print(f'  first test block {first}')
-    print(f'  start line: {start}')
+    if len(starts) == 1:
+        print(f'  start line: {starts[0]}')
+    else:
+        print(f'  start lines: {len(starts)}, each typed after ok '
+              f'(one is over {limit} characters)')
+        for ln in starts:
+            print(f'  start line: {ln}')
     print(f'  source blocks {len(src_blocks)} ({first + 1}..{first + len(src_blocks)})'
           if src_blocks else '  source blocks 0')
 

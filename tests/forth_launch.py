@@ -3,7 +3,7 @@
 (TASK_FORTH_TEST_RUNNER step 6, `make test-forth`).
 
 The checking happens inside the machine (tests/forth/). This script only
-boots a copy of the test image, checks the banner, types the start line
+boots a copy of the test image, checks the banner, types the start line(s)
 the build wrote to TEST_IMG.start, waits, kills its own QEMU by PID, and
 compares RESULT lines with EXPECTED. It knows nothing about the tests.
 
@@ -49,7 +49,7 @@ def main(argv):
     img, product, expected_path = argv[0], argv[1], argv[2]
     port = int(sys.argv[4])    # from sys.argv: port_inventory traces it
     timeout = float(argv[4]) if len(argv) == 5 else 120.0
-    start = open(img + '.start').read().strip()
+    starts = [ln for ln in open(img + '.start').read().splitlines() if ln.strip()]
     tag = hashlib.sha256(open(product, 'rb').read()).hexdigest()[:8]
     want = {}
     for ln in open(expected_path).read().splitlines():
@@ -71,7 +71,8 @@ def main(argv):
         disk = ['-drive', f'file={sd},format=raw,if=none,id=sata0',
                 '-device', 'ich9-ahci,id=ahci0', '-device', 'ide-hd,drive=sata0,bus=ahci0.0']
     print(f'image {img}  banner wanted TEST-IMAGE {tag}', flush=True)
-    print(f'start line: {start}', flush=True)
+    for ln in starts:
+        print(f'start line: {ln}', flush=True)
     stamp('start')
     t0 = time.time()
     q = subprocess.run(['qemu-system-i386', '-drive', f'file={fl},format=raw,if=floppy', '-m', '256',
@@ -82,9 +83,24 @@ def main(argv):
     seen, banner, why = {}, None, 'timeout'
     try:
         s = ser.connect_and_sync(port, budget=60)
-        s.sendall(start.encode('ascii') + b'\r')
-        buf, deadline = '', t0 + timeout
-        while time.time() < deadline:
+        deadline = t0 + timeout
+        # More than one start line (make-test-image.py: the one line
+        # would be over the prompt's 255): each but the last waits for
+        # the guest's ok before the next is typed.
+        for k, ln in enumerate(starts[:-1]):
+            was = s.gettimeout()
+            reply, how = ser.send_until_prompt(s, ln, budget=max(1.0, deadline - time.time()))
+            s.settimeout(was)
+            for x in reply.split('\n'):
+                if x.strip('\r '):
+                    print(f'  | {x.strip(chr(13) + " ")}', flush=True)
+            if how != 'prompt':
+                why = f'start line {k + 1} of {len(starts)}: no ok ({how})'
+                break
+        else:
+            s.sendall(starts[-1].encode('ascii') + b'\r')
+        buf = ''
+        while why == 'timeout' and time.time() < deadline:
             try:
                 d = s.recv(4096)
             except socket.timeout:
