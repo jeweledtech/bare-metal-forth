@@ -172,7 +172,7 @@ PRIVATE_REPO ?= ../forthos-vocabularies
 # exits 0; 1 FAIL (PRIVATE_REPO set and absent, or present without a file).
 RUN_MODE = PRIVATE_REPO='$(PRIVATE_REPO)' PRIVATE_REPO_ORIGIN='$(origin PRIVATE_REPO)' python3 tests/run_mode.py
 RUN_MODE_END = rc=$$?; [ $$rc = 10 ] && exit 0; [ $$rc = 0 ] || exit 1
-PAID_VOCABS = ahci rtl8168 ntfs auto-detect fat32 surveyor file-editor-disk log-harness lic-observe cd-atapi hal-machines atapi-ahci urw-canvas urw-fonts urw-doc urw-layout urw-edit urw-file urw-txt urw-rtf
+PAID_VOCABS = ahci rtl8168 ntfs auto-detect fat32 surveyor file-editor-disk log-harness lic-observe cd-atapi hal-machines atapi-ahci urw-canvas urw-fonts urw-doc urw-layout urw-edit urw-file urw-txt urw-rtf urw-net urw-ntfs
 
 check-sync:
 	@$(RUN_MODE) check-sync --reason 'no private repo to compare'; $(RUN_MODE_END); \
@@ -1504,21 +1504,30 @@ test-ntfs-read: $(call FULL_ONLY,$(TEST_NTFS_IMG) $(NTFS_READ_IMG))
 # suites tests/forth/urw-fonts.fth, urw-canvas.fth, urw-samples.fth,
 # urw-doc.fth (Phase 3's document model), urw-layout.fth (Phase 4's
 # typesetter), urw-edit.fth (Phase 5's editor), urw-file.fth,
-# urw-txt.fth and urw-rtf.fth (Phase 6's files), own test image; its
-# SETUP line
+# urw-txt.fth and urw-rtf.fth (Phase 6's files), urw-net.fth and
+# urw-ntfs.fth (Phase 6 stage D: the network sink, through a capture seam,
+# and the NTFS source), own test image; its SETUP line
 # puts FONTS-LOAD on the start line. Private: skips whole in a public clone
 # (run_mode), whose free tier pulls in nothing.
+# URW-NTFS reads build/urw-files.img on AHCI: built from committed private
+# files only, no corpus, by $(PRIVATE_REPO)/tests/fixtures/urw-files/
+# make-volume.sh (host tools: dd, python3, gdisk's sgdisk, ntfs-3g's
+# mkntfs, ntfscp, ntfscat and ntfsinfo, and libntfs-3g.so.89).
+URW_FILES_DIR = $(PRIVATE_REPO)/tests/fixtures/urw-files
+URW_FILES_IMG = $(BUILD)/urw-files.img
+$(URW_FILES_IMG): $(URW_FILES_DIR)/make-volume.sh $(PRIVATE_REPO)/tests/rtf/demo.rtf $(PRIVATE_REPO)/tests/rtf/word/letter.rtf | $(BUILD)
+	bash $(URW_FILES_DIR)/make-volume.sh $@
 TEST_URW_FONTS_IMG = $(BUILD)/test-urw-fonts.img
-URW_FONTS_FTH = $(PRIVATE_REPO)/tests/forth/urw-fonts.fth $(PRIVATE_REPO)/tests/forth/urw-canvas.fth $(PRIVATE_REPO)/tests/forth/urw-samples.fth $(PRIVATE_REPO)/tests/forth/urw-doc.fth $(PRIVATE_REPO)/tests/forth/urw-layout.fth $(PRIVATE_REPO)/tests/forth/urw-edit.fth $(PRIVATE_REPO)/tests/forth/urw-file.fth $(PRIVATE_REPO)/tests/forth/urw-txt.fth $(PRIVATE_REPO)/tests/forth/urw-rtf.fth
+URW_FONTS_FTH = $(PRIVATE_REPO)/tests/forth/urw-fonts.fth $(PRIVATE_REPO)/tests/forth/urw-canvas.fth $(PRIVATE_REPO)/tests/forth/urw-samples.fth $(PRIVATE_REPO)/tests/forth/urw-doc.fth $(PRIVATE_REPO)/tests/forth/urw-layout.fth $(PRIVATE_REPO)/tests/forth/urw-edit.fth $(PRIVATE_REPO)/tests/forth/urw-file.fth $(PRIVATE_REPO)/tests/forth/urw-txt.fth $(PRIVATE_REPO)/tests/forth/urw-rtf.fth $(PRIVATE_REPO)/tests/forth/urw-net.fth $(PRIVATE_REPO)/tests/forth/urw-ntfs.fth
 $(TEST_URW_FONTS_IMG): $(COMBINED) tools/make-test-image.py tools/write-block.py tests/forth/runner.fth $(URW_FONTS_FTH)
 	@python3 tools/make-test-image.py $(COMBINED) $@ tests/forth/runner.fth $(URW_FONTS_FTH)
 	@python3 tools/make-test-image.py --verify $(COMBINED) $@
-test-urw-fonts: $(call FULL_ONLY,$(TEST_URW_FONTS_IMG))
+test-urw-fonts: $(call FULL_ONLY,$(TEST_URW_FONTS_IMG) $(URW_FILES_IMG))
 	@$(RUN_MODE) test-urw-fonts --private tests/forth/urw-fonts.fth; $(RUN_MODE_END); \
 	PIDF=$(BUILD)/test-urw-fonts.d/qemu.pid; $(QEMU_KILL); \
 	trap '$(QEMU_KILL)' EXIT INT TERM HUP PIPE; set -e; $(PORTS_FREE) --recipe test-urw-fonts --base $(TEST_PORT_BASE); \
 	echo "Running in-machine URW-FONTS suite..."; \
-	timeout --foreground $(T_FORTH) python3 tests/forth_launch.py $(TEST_URW_FONTS_IMG) $(COMBINED) $(PRIVATE_REPO)/tests/forth/urw-fonts-expected.txt $$(($(TEST_PORT_BASE)+137)) 150
+	timeout --foreground $(T_FORTH) python3 tests/forth_launch.py $(TEST_URW_FONTS_IMG) $(COMBINED) $(PRIVATE_REPO)/tests/forth/urw-fonts-expected.txt $$(($(TEST_PORT_BASE)+137)) 150 --sata $(URW_FILES_IMG)
 
 test-translator:
 	@$(RUN_MODE) test-translator --tree tools/translator/Makefile; $(RUN_MODE_END); \
