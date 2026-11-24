@@ -157,9 +157,12 @@ CREATE KB-SHIFT-MAP
         KB-MODS @ 1 OR KB-MODS !
         DROP EXIT
     THEN
+    \ A release also clears the kernel's (KEY-HELD),
+    \ so one taken here is not lost to KEY.
     DUP 0AA = OVER 0B6 = OR IF
         KB-MODS @ 1 INVERT AND
-        KB-MODS ! DROP EXIT
+        KB-MODS ! 0 KEY-HELD 1+ C!
+        DROP EXIT
     THEN
     DUP 1D = IF
         KB-MODS @ 2 OR KB-MODS !
@@ -167,7 +170,8 @@ CREATE KB-SHIFT-MAP
     THEN
     DUP 9D = IF
         KB-MODS @ 2 INVERT AND
-        KB-MODS ! DROP EXIT
+        KB-MODS ! 0 KEY-HELD C!
+        DROP EXIT
     THEN
     DUP 38 = IF
         KB-MODS @ 4 OR KB-MODS !

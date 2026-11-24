@@ -4827,6 +4827,12 @@ DEFVAR "KB-RING-COUNT", KB_RING_COUNT, kb_ring_count
 ; 1 = Shift, 2 = Ctrl (PS2-KEYBOARD's KB-MODS bits); 0 for a
 ; byte over serial. Ctrl+Left is 130 with 2 set.
 DEFVAR "KEY-MODS", KEY_MODS_VAR, key_mods
+; KEY-HELD - ( -- addr ) the kernel's held modifiers: +0 Ctrl,
+; +1 Shift, 1 = down. read_key_raw sets and clears them; PS2-
+; KEYBOARD's KB-UPDATE-MODS clears them on a release it takes
+; (a RAW-SCAN program), so a release is never lost to the
+; kernel (private FUTURE-TODO entry 10).
+DEFVAR "KEY-HELD", KEY_HELD_VAR, ctrl_held
 
 ; MOUSE-PKT-BUF - ( -- addr ) Address of 3-byte mouse packet buffer
 DEFCONST "MOUSE-PKT-BUF", MOUSE_PKT_BUF_CONST, mouse_pkt_buf
@@ -6370,6 +6376,14 @@ read_key_raw:
     cmp al, 0xB6            ; Right Shift release
     je .shift_release
 .not_shift:
+    ; E0 37 is Print Screen (its E0 2A was ignored above): no
+    ; key. A plain 37 is the number pad's * (private FUTURE-TODO
+    ; entry 11).
+    test bl, bl
+    jz .not_prtsc
+    cmp al, 0x37
+    je .wait
+.not_prtsc:
 
     ; Caps Lock toggle (press only; release 0xBA falls through to >= 0x80)
     cmp al, 0x3A
