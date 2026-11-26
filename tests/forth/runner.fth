@@ -6,6 +6,12 @@
 \ DEFINES / DIRTIES / BASES before T{ excuse one case (not
 \ the search order). Expected values after -> are read in
 \ the BASE the case started in; it is BASE again after }T.
+\ END-SUITE reclaims what the suite defined: HERE, LATEST and
+\ FORTH's LATEST go back to where SUITE found them. It first
+\ checks CURRENT is FORTH and no search-order entry is at or
+\ above SUITE's HERE; if not, the suite fails (case RECLAIM)
+\ and nothing is reclaimed. A word a later file uses goes
+\ above its file's SUITE line.
 DECIMAL
 \ RP@ ( -- a ) push ebp ; NEXT = 55 AD FF 20, no assembler
 CREATE RP@ HERE @ HERE @ 4 - ! 85 C, 173 C, 255 C, 32 C,
@@ -22,6 +28,9 @@ CREATE T-FLBL 12 ALLOT \ label of the first failing case
 163936 CONSTANT T-BHDR  \ 0x28060: 4 headers x 12 B
 163904 CONSTANT T-SDEP  \ 0x28040 VAR_SEARCH_DEPTH
 163908 CONSTANT T-SCUR  \ 0x28044 VAR_CURRENT
+163912 CONSTANT T-SFL   \ 0x28048 VAR_FORTH_LATEST
+163872 CONSTANT T-SORD  \ 0x28020 VAR_SEARCH_ORDER
+VARIABLE T-MH  VARIABLE T-ML  VARIABLE T-MF
 : T-TYPEZ ( a -- ) BEGIN DUP C@ DUP WHILE EMIT 1+ REPEAT
   DROP DROP ;
 : T-D. ( u -- ) 48 + EMIT ;
@@ -34,7 +43,8 @@ CREATE T-FLBL 12 ALLOT \ label of the first failing case
   T-SNM T-TYPEZ ."  ABORT case " T-LBL T-TYPEZ CR ;
 : SUITE ( "name" -- ) WORD T-SNM 15 CMOVE 0 T-SNM 15 + C!
   0 T# ! 0 T-FAIL ! 0 T-SKIP ! 0 T-DEF ! 0 T-DRT ! 0 T-LBL C!
-  0 T-BSE ! ABORT-HOOK @ T-OLDHK ! ['] T-ABORTED ABORT-HOOK ! ;
+  0 T-BSE ! ABORT-HOOK @ T-OLDHK ! ['] T-ABORTED ABORT-HOOK !
+  HERE @ T-MH !  LATEST @ T-ML !  T-SFL @ T-MF ! ;
 : DEFINES ( -- ) 1 T-DEF ! ;
 : DIRTIES ( -- ) 1 T-DRT ! ;
 : BASES ( -- ) 1 T-BSE ! ;
@@ -70,7 +80,17 @@ CREATE T-FLBL 12 ALLOT \ label of the first failing case
 : }T ( j*x -- ) RP@ T-RP2 ! 0 T-BAD ! T-CMP T-STATE
   0 T-DEF ! 0 T-DRT ! 0 T-BSE ! T-BAD @ IF 1 T-SKIP ! THEN
   ; IMMEDIATE
-: END-SUITE ( -- ) T-OLDHK @ ABORT-HOOK ! CR ." RESULT "
+\ T-KEEP? true: CURRENT is not FORTH, or an order entry is
+\ at or above the mark; reclaiming would leave it dangling.
+: T-KEEP? ( -- f ) T-SCUR @ T-SFL <>  T-SDEP @ 0 DO
+  T-SORD I CELLS + @ T-MH @ < 0= OR LOOP ;
+: T-RECLAIM ( -- ) T-KEEP? IF CR ." FAIL " T-SNM T-TYPEZ
+  ."  case RECLAIM: CURRENT or order above SUITE" CR
+  T-FAIL @ 0= IF T# @ 1+ T-FAIL ! S" RECLAIM" T-FLBL SWAP
+  CMOVE 0 T-FLBL 7 + C! THEN EXIT THEN
+  T-MH @ HERE !  T-ML @ LATEST !  T-MF @ T-SFL ! ;
+: END-SUITE ( -- ) T-OLDHK @ ABORT-HOOK ! T-RECLAIM
+  CR ." RESULT "
   T-SNM T-TYPEZ T-FAIL @ IF ."  FAIL case " T-FLBL T-TYPEZ
   SPACE T-FAIL @ T-N. ELSE ."  PASS " T# @ T-N. THEN ." /"
   T# @ T-N. CR ;
