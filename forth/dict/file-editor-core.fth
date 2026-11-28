@@ -71,7 +71,11 @@ PREVIOUS
 \ Buffers and state
 \ ============================================
 
-CREATE FE-BUF MAX-FILE ALLOT
+\ FE-BUF: MAX-FILE bytes at 0x210000, reserved for it in
+\ docs/ARCHITECTURE.md's memory map, outside the dictionary
+\ (owner 2026-11-27). Not cleared at boot: every open fills or
+\ sizes it first. MIRROR does not save it (mirror.fth).
+210000 CONSTANT FE-BUF
 VARIABLE FE-SIZE
 VARIABLE FE-CX
 VARIABLE FE-CY

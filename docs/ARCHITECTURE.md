@@ -53,6 +53,11 @@ Address Range           Size        Purpose
                                     goes in 0x80000-0x9FFFF (BIOS EBDA and PXE stacks below 0xA0000)
 0x30000 - 0x7FFFF       320 KB      Dictionary space
 0xB8000 - 0xB8F9F       4000 B      VGA text buffer (80 x 25 x 2 bytes)
+0x210000 - 0x21FFFF    64 KB       FE-BUF, NOTEPAD's and FILE-EDIT's file buffer (MAX-FILE
+                                    0x10000), file-editor-core.fth; moved out of the dictionary
+                                    2026-11-27 (owner). Not cleared at boot; MIRROR does not save
+                                    it (a dictionary snapshot: LOOKINGGLASS restores FE-SIZE
+                                    without the text). Checked by tests/forth/mem-map.fth
 0x400000 - 0x7FFFFF    4 MB max    UEFI boots: the boot module (block image) moved to MB2_MOVE_TO,
                                     its size from 0x400000 (0x3FC200 at 3968 blocks). Cap: OVMF's
                                     map has no room past 0x800000, so the whole image stays <= 4 MB

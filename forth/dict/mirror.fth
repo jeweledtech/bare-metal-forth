@@ -12,6 +12,13 @@
 \ (dictionary, variables, stacks) through
 \ the block-write vector. LOOKINGGLASS
 \ restores it through the persistent reader.
+\ The image is the dictionary and those
+\ cells only: regions outside it are not
+\ saved. Not NOTEPAD's text in FE-BUF
+\ (0x210000), not the writer's document
+\ (0x2D80000); a restore brings back
+\ FE-SIZE without the text (owner
+\ 2026-11-27; private FUTURE-TODO 17).
 \
 \ Patterned after the VROOM mobile OS swap
 \ technique (mentor design, Brenden Brown).
