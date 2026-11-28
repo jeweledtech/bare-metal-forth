@@ -1515,7 +1515,7 @@ test-ntfs-read: $(call FULL_ONLY,$(TEST_NTFS_IMG) $(NTFS_READ_IMG))
 # mkntfs, ntfscp, ntfscat and ntfsinfo, and libntfs-3g.so.89).
 URW_FILES_DIR = $(PRIVATE_REPO)/tests/fixtures/urw-files
 URW_FILES_IMG = $(BUILD)/urw-files.img
-$(URW_FILES_IMG): $(URW_FILES_DIR)/make-volume.sh $(PRIVATE_REPO)/tests/rtf/demo.rtf $(PRIVATE_REPO)/tests/rtf/word/letter.rtf | $(BUILD)
+$(URW_FILES_IMG): $(URW_FILES_DIR)/make-volume.sh $(PRIVATE_REPO)/tests/rtf/demo.rtf $(PRIVATE_REPO)/tests/rtf/ref/letter.rtf | $(BUILD)
 	bash $(URW_FILES_DIR)/make-volume.sh $@
 TEST_URW_FONTS_IMG = $(BUILD)/test-urw-fonts.img
 URW_FONTS_FTH = $(PRIVATE_REPO)/tests/forth/urw-fonts.fth $(PRIVATE_REPO)/tests/forth/urw-canvas.fth $(PRIVATE_REPO)/tests/forth/urw-samples.fth $(PRIVATE_REPO)/tests/forth/urw-doc.fth $(PRIVATE_REPO)/tests/forth/urw-layout.fth $(PRIVATE_REPO)/tests/forth/urw-edit.fth $(PRIVATE_REPO)/tests/forth/urw-file.fth $(PRIVATE_REPO)/tests/forth/urw-txt.fth $(PRIVATE_REPO)/tests/forth/urw-rtf.fth $(PRIVATE_REPO)/tests/forth/urw-net.fth $(PRIVATE_REPO)/tests/forth/urw-ntfs.fth $(PRIVATE_REPO)/tests/forth/urw-find.fth
